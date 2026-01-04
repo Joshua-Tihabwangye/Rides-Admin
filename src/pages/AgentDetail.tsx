@@ -10,8 +10,16 @@ import ChatIcon from '@mui/icons-material/Chat'
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
 import StatusBadge from '../components/StatusBadge'
 
-// Dummy data map
-const AGENT_DATA = {
+// Dummy data map with explicit typing
+interface Agent {
+    name: string;
+    email: string;
+    team: string;
+    role: string;
+    status: string;
+}
+
+const AGENT_DATA: Record<number, Agent> = {
     1: { name: "Alice Support", email: "alice.support@evzone.com", team: "Support", role: "Support Agent", status: "Active" },
     2: { name: "Brian Onboard", email: "brian.onboard@evzone.com", team: "Onboarding", role: "Onboarding Agent", status: "Active" },
     3: { name: "Carol Dispatch", email: "carol.dispatch@evzone.com", team: "Dispatch", role: "Dispatch Agent", status: "Away" },
@@ -19,9 +27,12 @@ const AGENT_DATA = {
 }
 
 export default function AgentDetail() {
-    const { id } = useParams()
+    const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
-    const agent = AGENT_DATA[id] || AGENT_DATA[1]
+
+    // safe parsing of ID
+    const agentId = id ? parseInt(id, 10) : 1
+    const agent = AGENT_DATA[agentId] || AGENT_DATA[1] // Fallback to 1 if not found
 
     const handleCommunication = (method: string) => {
         console.log(`Initiating ${method} with agent ${agent.name}`)
