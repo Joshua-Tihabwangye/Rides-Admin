@@ -1,12 +1,15 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs, Chip } from '@mui/material'
+import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs, Chip, IconButton } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EmailIcon from '@mui/icons-material/Email'
 import PhoneIcon from '@mui/icons-material/Phone'
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
+import UploadFileIcon from '@mui/icons-material/UploadFile'
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import StatusBadge from '../components/StatusBadge'
 import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel'
+import { getDriver, upsertDriver, DriverRecord, PrimaryStatus, ActivityStatus } from '../lib/peopleStore'
 
 interface TabPanelProps {
     children?: React.ReactNode
@@ -37,10 +40,51 @@ export default function DriverDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
     const [tabValue, setTabValue] = useState(0)
-    const [status, setStatus] = useState<string>('under_review')
+    const [driver, setDriver] = useState<DriverRecord | undefined>(undefined)
+    const [licenseFile, setLicenseFile] = useState<File | null>(null)
+    const [insuranceFile, setInsuranceFile] = useState<File | null>(null)
+
+    const numericId = id ? parseInt(id, 10) : NaN
+
+    useEffect(() => {
+        if (!Number.isNaN(numericId)) {
+            const found = getDriver(numericId)
+            setDriver(found)
+        }
+    }, [numericId])
 
     const handleStatusUpdate = (newStatus: ReviewStatus) => {
-        setStatus(newStatus)
+        if (!driver) return
+
+        const mapped: PrimaryStatus =
+            newStatus === 'approved'
+                ? 'approved'
+                : newStatus === 'rejected'
+                    ? 'suspended'
+                    : 'under_review' // Default to under_review or keep mapping simple
+
+        const updated = { ...driver, primaryStatus: mapped }
+        setDriver(updated)
+        upsertDriver(updated)
+    }
+
+    const toggleActivity = () => {
+        if (!driver) return
+        const next: ActivityStatus = driver.activityStatus === 'active' ? 'inactive' : 'active'
+        const updated = { ...driver, activityStatus: next }
+        setDriver(updated)
+        upsertDriver(updated)
+    }
+
+    const handleFileUpload = (type: 'license' | 'insurance') => (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files && event.target.files[0]) {
+            if (type === 'license') setLicenseFile(event.target.files[0])
+            else setInsuranceFile(event.target.files[0])
+        }
+    }
+
+    if (!driver) {
+        return <Box p={3}>Driver not found</Box>
     }
 
     return (
@@ -63,12 +107,15 @@ export default function DriverDetail() {
                             <Avatar
                                 sx={{ width: 100, height: 100, mx: 'auto', mb: 2, bgcolor: 'secondary.main', fontSize: 32 }}
                             >
-                                D{id?.slice(0, 2)}
+                                <DirectionsCarIcon fontSize="large" />
                             </Avatar>
                             <Typography variant="h6" fontWeight={700} gutterBottom>
-                                Driver #{id}
+                                {driver.name}
                             </Typography>
-                            <StatusBadge status={status} sx={{ mb: 3 }} />
+                            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
+                                <StatusBadge status={driver.primaryStatus} />
+                                <StatusBadge status={driver.activityStatus === 'active' ? 'active' : 'inactive'} />
+                            </Box>
 
                             <Box sx={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
@@ -77,11 +124,11 @@ export default function DriverDetail() {
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <EmailIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">driver.{id}@evzone.app</Typography>
+                                    <Typography variant="body2">driver.{driver.id}@evzone.app</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <PhoneIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">+250 788 999 000</Typography>
+                                    <Typography variant="body2">{driver.phone}</Typography>
                                 </Box>
                             </Box>
 
@@ -89,15 +136,15 @@ export default function DriverDetail() {
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                 <Typography variant="body2" color="text.secondary">Vehicle</Typography>
-                                <Typography variant="body2" fontWeight={600}>Toyota RAV4 EV</Typography>
+                                <Typography variant="body2" fontWeight={600}>{driver.vehicle.split('.')[0] || 'Unknown'}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                 <Typography variant="body2" color="text.secondary">Plate</Typography>
-                                <Typography variant="body2" fontWeight={600}>RAB 123 D</Typography>
+                                <Typography variant="body2" fontWeight={600}>{driver.vehicle.split('·')[1]?.trim() || 'N/A'}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography variant="body2" color="text.secondary">Service</Typography>
-                                <Chip label="Rides" size="small" sx={{ height: 20, fontSize: 10 }} />
+                                <Typography variant="body2" color="text.secondary">Total Trips</Typography>
+                                <Typography variant="body2" fontWeight={600}>{driver.trips}</Typography>
                             </Box>
                         </CardContent>
                     </Card>
@@ -106,7 +153,18 @@ export default function DriverDetail() {
                 {/* Right Column: Review & Content */}
                 <Grid item xs={12} md={8}>
 
-                    <ReviewActionPanel status={status} onUpdateStatus={handleStatusUpdate} />
+                    <ReviewActionPanel status={driver.primaryStatus} onUpdateStatus={handleStatusUpdate} />
+
+                    <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={toggleActivity}
+                            sx={{ textTransform: 'none', borderRadius: 999 }}
+                        >
+                            Set as {driver.activityStatus === 'active' ? 'In-active' : 'Active'}
+                        </Button>
+                    </Box>
 
                     <Card sx={{ minHeight: 400 }}>
                         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -120,22 +178,65 @@ export default function DriverDetail() {
                         <CardContent>
                             <CustomTabPanel value={tabValue} index={0}>
                                 <Typography variant="subtitle2" gutterBottom>Driver License</Typography>
-                                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, mb: 2, border: '1px dashed grey' }}>
-                                    Preview of License.pdf
+                                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, mb: 2, border: '1px dashed grey', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="body2">{licenseFile ? licenseFile.name : 'No file chosen'}</Typography>
+                                    <Button component="label" variant="text" startIcon={<UploadFileIcon />}>
+                                        Upload
+                                        <input type="file" hidden onChange={handleFileUpload('license')} />
+                                    </Button>
                                 </Box>
 
                                 <Typography variant="subtitle2" gutterBottom>Insurance</Typography>
-                                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1px dashed grey' }}>
-                                    Preview of Insurance.pdf
+                                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1px dashed grey', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="body2">{insuranceFile ? insuranceFile.name : 'No file chosen'}</Typography>
+                                    <Button component="label" variant="text" startIcon={<UploadFileIcon />}>
+                                        Upload
+                                        <input type="file" hidden onChange={handleFileUpload('insurance')} />
+                                    </Button>
                                 </Box>
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={1}>
-                                <Typography color="text.secondary">Vehicle details and photos would appear here.</Typography>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <Typography variant="h6">{driver.vehicle}</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Vehicle status is compliant. Last inspection was 2 weeks ago.
+                                    </Typography>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Make/Model</Typography>
+                                            <Typography variant="body2">Toyota RAV4 EV</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Year</Typography>
+                                            <Typography variant="body2">2023</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Color</Typography>
+                                            <Typography variant="body2">Silver</Typography>
+                                        </Grid>
+                                        <Grid item xs={6}>
+                                            <Typography variant="caption" color="text.secondary">Capacity</Typography>
+                                            <Typography variant="body2">4 Passengers</Typography>
+                                        </Grid>
+                                    </Grid>
+                                </Box>
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={2}>
-                                <Typography color="text.secondary">No trips completed yet.</Typography>
+                                {[1, 2, 3].map((i) => (
+                                    <Box key={i} sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                            <Typography variant="subtitle2">Trip #{3000 + i}</Typography>
+                                            <StatusBadge status="completed" label="Completed" />
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontSize: 13 }}>
+                                            <DirectionsCarIcon fontSize="small" />
+                                            Standard Ride • $15.00 • 5.2 km
+                                        </Box>
+                                    </Box>
+                                ))}
+                                {driver.trips === 0 && <Typography color="text.secondary">No trips completed yet.</Typography>}
                             </CustomTabPanel>
                         </CardContent>
                     </Card>

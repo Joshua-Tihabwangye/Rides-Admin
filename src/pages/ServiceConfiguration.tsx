@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from "react";
 import {
   Box,
@@ -12,33 +11,14 @@ import {
   MenuItem,
   FormControlLabel,
   Switch,
+  Snackbar,
+  Alert
 } from "@mui/material";
 
 // F1 – Service Configuration (Light/Dark, EVzone themed)
 // Route suggestion: /admin/services
 // Defines what services exist in which countries/cities (Ride, Delivery,
 // Rental, School shuttle, Tours, EMS, etc.)
-//
-// Manual test cases:
-// 1) Initial render
-//    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Core product config · Services".
-//    - Title "Service Configuration" with descriptive subtitle.
-//    - Country select shows at least Uganda and Kenya.
-//    - City chips for the selected country are visible (e.g. Kampala, Entebbe).
-//    - For the active city, a list of service toggles is shown.
-// 2) Theme toggle
-//    - Toggle Light/Dark using the header button; layout and state remain
-//      stable while colours change.
-// 3) Country & city selection
-//    - Change country in the select; city chips update accordingly.
-//    - Click different city chips; the services list updates to that city.
-// 4) Service toggles
-//    - Toggle Ride/Delivery/Rental/etc. switches; expect local state to update
-//      and a console log showing the new state for that city.
-// 5) Save configuration (demo)
-//    - Click "Save configuration"; expect a console log with the full
-//      in-memory serviceConfig object.
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -85,21 +65,13 @@ const INITIAL_SERVICE_CONFIG = {
 };
 
 function AdminServicesLayout({ children }) {
-  const [mode, setMode] = useState("light");
-  const isDark = mode === "dark";
-
-  const toggleMode = () => {
-    setMode((prev) => (prev === "light" ? "dark" : "light"));
-  };
+  // Theme toggle removed as requested
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-        }`}
+      className="min-h-screen flex flex-col bg-slate-50 text-slate-900"
       sx={{
-        background: isDark
-          ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
-          : `radial-gradient(circle at top left, ${EV_COLORS.primary}12, #ffffff), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}08, #f9fafb)`,
+        background: `radial-gradient(circle at top left, ${EV_COLORS.primary}12, #ffffff), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}08, #f9fafb)`,
       }}
     >
       {/* Header */}
@@ -107,15 +79,13 @@ function AdminServicesLayout({ children }) {
         <Box>
           <Typography
             variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
-              }`}
+            className="tracking-[0.25em] uppercase text-[11px] text-slate-500"
           >
             EVZONE ADMIN
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
-              }`}
+            className="text-[11px] text-slate-600"
           >
             Core product config · Services
           </Typography>
@@ -131,23 +101,6 @@ function AdminServicesLayout({ children }) {
               fontSize: 10,
             }}
           />
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={toggleMode}
-            sx={{
-              textTransform: "none",
-              borderRadius: 2,
-              borderColor: isDark ? "#1f2937" : "#e5e7eb",
-              color: isDark ? "#e5e7eb" : "#374151",
-              px: 1.8,
-              py: 0.4,
-              fontSize: 11,
-              minWidth: "auto",
-            }}
-          >
-            {isDark ? "Dark" : "Light"}
-          </Button>
         </Box>
       </Box>
 
@@ -156,15 +109,13 @@ function AdminServicesLayout({ children }) {
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
-              }`}
+            className="font-semibold tracking-tight text-slate-900"
           >
             Service Configuration
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
-              }`}
+            className="text-[11px] text-slate-600"
           >
             Enable and disable services per country and city. This drives what
             appears in the Rider and Driver apps.
@@ -185,6 +136,8 @@ export default function ServiceConfigurationPage() {
   const [country, setCountry] = useState(countries[0] || "Uganda");
   const cities = Object.keys(serviceConfig[country] || {});
   const [city, setCity] = useState(cities[0] || "Kampala");
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleCountryChange = (event) => {
     const nextCountry = event.target.value;
@@ -208,13 +161,18 @@ export default function ServiceConfigurationPage() {
       cityConfig[serviceKey] = checked;
       countryConfig[city] = cityConfig;
       next[country] = countryConfig;
-      console.log("Updated services for", country, city, cityConfig);
       return next;
     });
   };
 
   const handleSave = () => {
-    console.log("Saving service configuration:", serviceConfig);
+    setSaving(true);
+    // Simulate API call
+    setTimeout(() => {
+      setSaving(false);
+      setShowSuccess(true);
+      console.log("Saved service configuration:", serviceConfig);
+    }, 600);
   };
 
   const currentConfig = serviceConfig[country]?.[city] || {};
@@ -330,6 +288,7 @@ export default function ServiceConfigurationPage() {
             <Button
               variant="contained"
               size="small"
+              disabled={saving}
               sx={{
                 textTransform: "none",
                 borderRadius: 2,
@@ -339,11 +298,17 @@ export default function ServiceConfigurationPage() {
               }}
               onClick={handleSave}
             >
-              Save configuration
+              {saving ? 'Saving...' : 'Save configuration'}
             </Button>
           </Box>
         </CardContent>
       </Card>
+
+      <Snackbar open={showSuccess} autoHideDuration={3000} onClose={() => setShowSuccess(false)}>
+        <Alert severity="success" sx={{ width: '100%' }}>
+          Configuration saved successfully
+        </Alert>
+      </Snackbar>
     </AdminServicesLayout>
   );
 }

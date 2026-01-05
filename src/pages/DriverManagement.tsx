@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -15,60 +15,32 @@ import {
   Paper,
   InputAdornment,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
 import SearchIcon from "@mui/icons-material/Search";
-
-const SAMPLE_DRIVERS = [
-  {
-    id: 201,
-    name: "Michael Driver",
-    phone: "+256 701 111 111",
-    city: "Kampala",
-    vehicle: "EV Car · UAX 123X",
-    trips: 420,
-    status: "Active",
-  },
-  {
-    id: 202,
-    name: "Sarah K.",
-    phone: "+234 801 222 2222",
-    city: "Lagos",
-    vehicle: "EV Bike · L-321",
-    trips: 215,
-    status: "Active",
-  },
-  {
-    id: 203,
-    name: "Peter L.",
-    phone: "+254 702 333 333",
-    city: "Nairobi",
-    vehicle: "EV Car · KAX 456L",
-    trips: 35,
-    status: "Under Review",
-  },
-];
-
-
-import { useSearchParams } from "react-router-dom"; // Add import
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import { getDrivers, DriverRecord } from "../lib/peopleStore";
 
 export default function DriverManagement() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("All");
+  const [drivers, setDrivers] = useState<DriverRecord[]>([]);
 
-  // React to query tab
-  React.useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "review") setActiveTab("Under Review");
-    else if (tab) setActiveTab(tab);
-  }, [searchParams]);
+  useEffect(() => {
+    setDrivers(getDrivers());
+  }, [location.key]);
 
-  const filteredDrivers = SAMPLE_DRIVERS.filter((driver) => {
-    const matchesSearch = driver.name.toLowerCase().includes(search.toLowerCase()) ||
+  const filteredDrivers = drivers.filter((driver) => {
+    const matchesSearch =
+      driver.name.toLowerCase().includes(search.toLowerCase()) ||
       driver.phone.includes(search);
-    const matchesTab = activeTab === "All" || driver.status === activeTab;
+    const matchesTab =
+      activeTab === "All" ||
+      (activeTab === "Active" && driver.activityStatus === "active") ||
+      (activeTab === "Under Review" && driver.primaryStatus === "under_review") ||
+      (activeTab === "Suspended" && driver.primaryStatus === "suspended");
     return matchesSearch && matchesTab;
   });
 
@@ -131,6 +103,7 @@ export default function DriverManagement() {
                 <TableCell>Vehicle</TableCell>
                 <TableCell align="right">Trips</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Activity</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -141,13 +114,21 @@ export default function DriverManagement() {
                   onClick={() => handleRowClick(driver.id)}
                   sx={{ cursor: "pointer" }}
                 >
-                  <TableCell sx={{ fontWeight: 600 }}>{driver.name}</TableCell>
+                  <TableCell sx={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 1 }}>
+                    <DirectionsCarIcon fontSize="small" color="primary" />
+                    {driver.name}
+                  </TableCell>
                   <TableCell>{driver.phone}</TableCell>
                   <TableCell>{driver.city}</TableCell>
                   <TableCell>{driver.vehicle}</TableCell>
                   <TableCell align="right">{driver.trips}</TableCell>
                   <TableCell>
-                    <StatusBadge status={driver.status} />
+                    <StatusBadge status={driver.primaryStatus} />
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge
+                      status={driver.activityStatus === "active" ? "active" : "inactive"}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

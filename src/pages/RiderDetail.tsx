@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -8,6 +8,8 @@ import LocationOnIcon from '@mui/icons-material/LocationOn'
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import StatusBadge from '../components/StatusBadge'
 import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel'
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler'
+import { getRider, upsertRider, PrimaryStatus, ActivityStatus } from '../lib/peopleStore'
 
 interface TabPanelProps {
     children?: React.ReactNode
@@ -38,11 +40,45 @@ export default function RiderDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
     const [tabValue, setTabValue] = useState(0)
-    const [status, setStatus] = useState<string>('pending')
+    const [primaryStatus, setPrimaryStatus] = useState<PrimaryStatus>('under_review')
+    const [activityStatus, setActivityStatus] = useState<ActivityStatus>('inactive')
+    const numericId = id ? parseInt(id, 10) : NaN
+
+    useEffect(() => {
+        if (!Number.isNaN(numericId)) {
+            const rider = getRider(numericId)
+            if (rider) {
+                setPrimaryStatus(rider.primaryStatus)
+                setActivityStatus(rider.activityStatus)
+            }
+        }
+    }, [numericId])
 
     const handleStatusUpdate = (newStatus: ReviewStatus) => {
-        setStatus(newStatus)
-        // Here you would trigger an API call to update the rider's status
+        const mapped: PrimaryStatus =
+            newStatus === 'approved'
+                ? 'approved'
+                : newStatus === 'rejected'
+                    ? 'suspended'
+                    : 'under_review'
+        setPrimaryStatus(mapped)
+        if (!Number.isNaN(numericId)) {
+            const existing = getRider(numericId)
+            if (existing) {
+                upsertRider({ ...existing, primaryStatus: mapped })
+            }
+        }
+    }
+
+    const toggleActivity = () => {
+        const next: ActivityStatus = activityStatus === 'active' ? 'inactive' : 'active'
+        setActivityStatus(next)
+        if (!Number.isNaN(numericId)) {
+            const existing = getRider(numericId)
+            if (existing) {
+                upsertRider({ ...existing, activityStatus: next })
+            }
+        }
     }
 
     return (
@@ -65,12 +101,15 @@ export default function RiderDetail() {
                             <Avatar
                                 sx={{ width: 100, height: 100, mx: 'auto', mb: 2, bgcolor: 'primary.main', fontSize: 32 }}
                             >
-                                R{id?.slice(0, 2)}
+                                <TwoWheelerIcon />
                             </Avatar>
                             <Typography variant="h6" fontWeight={700} gutterBottom>
                                 Rider #{id}
                             </Typography>
-                            <StatusBadge status={status} sx={{ mb: 3 }} />
+                            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
+                                <StatusBadge status={primaryStatus} />
+                                <StatusBadge status={activityStatus === 'active' ? 'active' : 'inactive'} />
+                            </Box>
 
                             <Box sx={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
@@ -108,7 +147,18 @@ export default function RiderDetail() {
                 {/* Right Column: Details & Actions */}
                 <Grid item xs={12} md={8}>
 
-                    <ReviewActionPanel status={status} onUpdateStatus={handleStatusUpdate} />
+                    <ReviewActionPanel status={primaryStatus} onUpdateStatus={handleStatusUpdate} />
+
+                    <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={toggleActivity}
+                            sx={{ textTransform: 'none', borderRadius: 999 }}
+                        >
+                            Set as {activityStatus === 'active' ? 'In-active' : 'Active'}
+                        </Button>
+                    </Box>
 
                     <Card sx={{ minHeight: 400 }}>
                         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

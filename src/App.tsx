@@ -12,6 +12,7 @@ import AdminProfileRegions from './pages/AdminProfileRegions'
 import AdminGlobalSearch from './pages/AdminGlobalSearch'
 import RiderManagement from './pages/RiderManagement'
 import RiderDetail from './pages/RiderDetail'
+import RiderCreate from './pages/RiderCreate'
 import DriverManagement from './pages/DriverManagement'
 import DriverDetail from './pages/DriverDetail'
 import SafetyOverview from './pages/SafetyOverview'
@@ -35,6 +36,7 @@ import VerticalPolicies from './pages/VerticalPolicies'
 import AgentManagement from './pages/AgentManagement'
 import AgentDetail from './pages/AgentDetail'
 import AdminUsersManagement from './pages/AdminUsersManagement'
+import AdminUserDetail from './pages/AdminUserDetail'
 import RolesPermissions from './pages/RolesPermissions'
 import GlobalTrainingManager from './pages/GlobalTrainingManager'
 import LocalizationLanguageContent from './pages/LocalizationLanguageContent'
@@ -74,6 +76,7 @@ export default function App() {
 
           {/* People */}
           <Route path="riders" element={<RiderManagement />} />
+          <Route path="riders/new" element={<RiderCreate />} />
           <Route path="riders/:id" element={<RiderDetail />} />
           <Route path="drivers" element={<DriverManagement />} />
           <Route path="drivers/:id" element={<DriverDetail />} />
@@ -109,6 +112,7 @@ export default function App() {
           <Route path="agents" element={<AgentManagement />} />
           <Route path="agents/:id" element={<AgentDetail />} />
           <Route path="admin-users" element={<AdminUsersManagement />} />
+          <Route path="admin-users/:id" element={<AdminUserDetail />} />
           <Route path="roles" element={<RolesPermissions />} />
 
           {/* Training & system */}

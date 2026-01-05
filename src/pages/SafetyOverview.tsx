@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -16,6 +16,9 @@ import {
   TableCell,
   TableContainer,
   Paper,
+  Select,
+  MenuItem,
+  FormControl,
 } from "@mui/material";
 import {
   BarChart,
@@ -29,21 +32,21 @@ import {
 } from "recharts";
 import PeriodSelector, { PeriodOption } from '../components/PeriodSelector';
 
-const INCIDENT_KPIS = [
-  { label: "Total incidents", value: 18, note: "+3 vs yesterday" },
+const BASE_INCIDENT_KPIS = [
+  { label: "Total incidents", value: 18, note: "+3 vs previous period" },
   { label: "Critical incidents", value: 1, note: "All handled" },
   { label: "SOS activations", value: 2, note: "0 unresolved" },
   { label: "Users under review", value: 7, note: "4 riders · 3 drivers" },
 ];
 
-const INCIDENT_CITIES = [
+const BASE_INCIDENT_CITIES = [
   { city: "Kampala", region: "East Africa", incidents: 7 },
   { city: "Lagos", region: "West Africa", incidents: 5 },
   { city: "Nairobi", region: "East Africa", incidents: 3 },
   { city: "Accra", region: "West Africa", incidents: 3 },
 ];
 
-const USERS_UNDER_REVIEW = [
+const BASE_USERS_UNDER_REVIEW = [
   {
     id: 1,
     name: "John Okello",
@@ -73,8 +76,34 @@ export default function SafetyOverviewDashboardPage() {
 
   const handlePeriodChange = (newPeriod: PeriodOption) => {
     setPeriod(newPeriod);
-    console.log('Safety period changed:', newPeriod);
   };
+
+  const periodMultiplier: Record<PeriodOption, number> = {
+    today: 0.25,
+    '7days': 0.6,
+    '30days': 1,
+    thisMonth: 1.1,
+    custom: 0.8,
+  };
+
+  const INCIDENT_KPIS = useMemo(() => {
+    const m = periodMultiplier[period] ?? 1;
+    return BASE_INCIDENT_KPIS.map((kpi) => {
+      if (kpi.label === "Total incidents") {
+        return { ...kpi, value: Math.max(1, Math.round(18 * m)) };
+      }
+      if (kpi.label === "Critical incidents") {
+        return { ...kpi, value: Math.max(0, Math.round(1 * m)) };
+      }
+      if (kpi.label === "SOS activations") {
+        return { ...kpi, value: Math.max(0, Math.round(2 * m)) };
+      }
+      if (kpi.label === "Users under review") {
+        return { ...kpi, value: Math.max(0, Math.round(7 * m)) };
+      }
+      return kpi;
+    });
+  }, [period]);
 
   const handleUserClick = (user) => {
     // Navigate to rider or driver management based on type
@@ -93,12 +122,26 @@ export default function SafetyOverviewDashboardPage() {
     navigate(`/admin/risk?city=${city}`);
   }
 
-  const incidentData = [
-    { type: "Accident", count: 8, color: "#ef4444" },
-    { type: "Harassment", count: 4, color: "#f97316" },
-    { type: "Lost Item", count: 3, color: "#3b82f6" },
-    { type: "Dispute", count: 3, color: "#a855f7" },
-  ];
+  const incidentData = useMemo(() => {
+    const m = periodMultiplier[period] ?? 1;
+    return [
+      { type: "Accident", count: Math.max(0, Math.round(8 * m)), color: "#ef4444" },
+      { type: "Harassment", count: Math.max(0, Math.round(4 * m)), color: "#f97316" },
+      { type: "Lost Item", count: Math.max(0, Math.round(3 * m)), color: "#3b82f6" },
+      { type: "Dispute", count: Math.max(0, Math.round(3 * m)), color: "#a855f7" },
+    ];
+  }, [period]);
+
+  const INCIDENT_CITIES = useMemo(
+    () =>
+      BASE_INCIDENT_CITIES.map((city) => {
+        const m = periodMultiplier[period] ?? 1;
+        return { ...city, incidents: Math.max(0, Math.round(city.incidents * m)) };
+      }),
+    [period],
+  );
+
+  const USERS_UNDER_REVIEW = useMemo(() => BASE_USERS_UNDER_REVIEW, []);
 
   return (
     <Box>
@@ -119,7 +162,19 @@ export default function SafetyOverviewDashboardPage() {
             Incidents, SOS activity and users under review across all regions.
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {/* Categories in dropdowns as requested */}
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Select
+              value="All Regions"
+              displayEmpty
+              sx={{ fontSize: 12, borderRadius: 2, bgcolor: 'background.paper', height: 40 }}
+            >
+              <MenuItem value="All Regions">All Regions</MenuItem>
+              <MenuItem value="East Africa">East Africa</MenuItem>
+              <MenuItem value="West Africa">West Africa</MenuItem>
+            </Select>
+          </FormControl>
           <PeriodSelector value={period} onChange={handlePeriodChange} />
         </Box>
       </Box>
@@ -130,10 +185,18 @@ export default function SafetyOverviewDashboardPage() {
           <Card
             key={kpi.label}
             elevation={2}
+            onClick={() => navigate('/admin/risk')}
             sx={{
               borderRadius: 2,
               border: "1px solid rgba(148,163,184,0.3)",
-              bgcolor: "background.paper"
+              bgcolor: "background.paper",
+              cursor: 'pointer',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: 4,
+                borderColor: 'primary.main',
+              }
             }}
           >
             <CardContent className="p-3 flex flex-col gap-1">
@@ -145,7 +208,7 @@ export default function SafetyOverviewDashboardPage() {
               </Typography>
               <Typography
                 variant="h6"
-                className="font-semibold text-lg" // Replaced text-slate-900 with global color
+                className="font-semibold text-lg"
                 color="text.primary"
               >
                 {kpi.value}

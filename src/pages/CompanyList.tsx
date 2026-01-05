@@ -55,10 +55,21 @@ const SAMPLE_COMPANIES = [
 export default function CompanyList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("All");
 
   const handleRowClick = (id: number) => {
     navigate(`/admin/companies/${id}`);
   };
+
+  const filteredCompanies = SAMPLE_COMPANIES.filter((company) => {
+    const matchesSearch = company.name.toLowerCase().includes(search.toLowerCase());
+    const matchesTab =
+      activeTab === "All" ||
+      (activeTab === "Active" && company.status === "Active") ||
+      (activeTab === "Pending" && company.status === "Pending") ||
+      (activeTab === "Suspended" && company.status === "Suspended");
+    return matchesSearch && matchesTab;
+  });
 
   return (
     <Box>
@@ -93,9 +104,10 @@ export default function CompanyList() {
               <Chip
                 key={status}
                 label={status}
-                onClick={() => { }}
+                onClick={() => setActiveTab(status)}
+                color={activeTab === status ? "primary" : "default"}
                 sx={{ borderRadius: 2, height: 32 }}
-                variant="outlined"
+                variant={activeTab === status ? "filled" : "outlined"}
               />
             ))}
           </Box>
@@ -118,7 +130,7 @@ export default function CompanyList() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {SAMPLE_COMPANIES.map((company) => (
+              {filteredCompanies.map((company) => (
                 <TableRow
                   key={company.id}
                   hover
@@ -136,6 +148,13 @@ export default function CompanyList() {
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredCompanies.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                    No companies found.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>

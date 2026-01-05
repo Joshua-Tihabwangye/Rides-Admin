@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Box,
   AppBar,
@@ -67,24 +67,59 @@ export default function AdminHomeDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState("today");
 
-  const [kpis] = useState([
-    { label: "Trips today", value: "1,248", trend: "+12% vs yesterday" },
-    { label: "Active drivers now", value: "342", trend: "82% utilisation" },
-    { label: "Active companies", value: "57", trend: "+4 new this week" },
-    { label: "Gross bookings", value: "$18,420", trend: "+9% vs last week" },
-  ]);
+  const periodMultiplier: Record<string, number> = {
+    today: 0.25,
+    "7days": 0.6,
+    "30days": 1,
+    thisMonth: 1.1,
+    custom: 0.8,
+  };
 
-  const [tripTrends] = useState([
-    { hour: "6AM", trips: 45, bookings: 1200 },
-    { hour: "8AM", trips: 156, bookings: 3800 },
-    { hour: "10AM", trips: 198, bookings: 4500 },
-    { hour: "12PM", trips: 220, bookings: 5200 },
-    { hour: "2PM", trips: 178, bookings: 4100 },
-    { hour: "4PM", trips: 234, bookings: 5600 },
-    { hour: "6PM", trips: 267, bookings: 6300 },
-    { hour: "8PM", trips: 145, bookings: 3400 },
-    { hour: "10PM", trips: 78, bookings: 1800 },
-  ]);
+  const kpis = useMemo(() => {
+    const m = periodMultiplier[period] ?? 1;
+    return [
+      {
+        label: "Trips",
+        value: (1248 * m).toLocaleString(undefined, { maximumFractionDigits: 0 }),
+        trend: m >= 1 ? "+12% vs previous period" : "Softer vs previous period",
+      },
+      {
+        label: "Active drivers",
+        value: Math.round(342 * m).toLocaleString(),
+        trend: `${Math.round(82 * m)}% utilisation`,
+      },
+      {
+        label: "Active companies",
+        value: Math.round(57 * m).toString(),
+        trend: m >= 1 ? "+4 new this period" : "Stable vs previous period",
+      },
+      {
+        label: "Gross bookings",
+        value: `$${Math.round(18420 * m).toLocaleString()}`,
+        trend: m >= 1 ? "+9% vs previous period" : "Flat vs previous period",
+      },
+    ];
+  }, [period]);
+
+  const tripTrends = useMemo(() => {
+    const m = periodMultiplier[period] ?? 1;
+    const base = [
+      { hour: "6AM", trips: 45, bookings: 1200 },
+      { hour: "8AM", trips: 156, bookings: 3800 },
+      { hour: "10AM", trips: 198, bookings: 4500 },
+      { hour: "12PM", trips: 220, bookings: 5200 },
+      { hour: "2PM", trips: 178, bookings: 4100 },
+      { hour: "4PM", trips: 234, bookings: 5600 },
+      { hour: "6PM", trips: 267, bookings: 6300 },
+      { hour: "8PM", trips: 145, bookings: 3400 },
+      { hour: "10PM", trips: 78, bookings: 1800 },
+    ];
+    return base.map((row) => ({
+      ...row,
+      trips: Math.round(row.trips * m),
+      bookings: Math.round(row.bookings * m),
+    }));
+  }, [period]);
 
   const [alerts] = useState([
     { text: "6 company approvals pending", path: "/admin/approvals" },
@@ -124,16 +159,7 @@ export default function AdminHomeDashboardPage() {
             Daily overview of Rides & Logistics performance across all regions.
           </Typography>
         </Box>
-        <Chip
-          size="small"
-          label="Today"
-          sx={{
-            bgcolor: "background.paper", // Default or specific color
-            border: "1px solid",
-            borderColor: "divider",
-            fontSize: 10,
-          }}
-        />
+        <PeriodSelector value={period} onChange={(newPeriod) => setPeriod(newPeriod)} />
       </Box>
 
       {/* KPI cards with reduced corner radius */}
@@ -144,25 +170,24 @@ export default function AdminHomeDashboardPage() {
             elevation={2}
             sx={{
               borderRadius: 2,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: 4,
+                borderColor: EV_COLORS.primary,
+              },
               border: index === 0
                 ? `1px solid ${EV_COLORS.primary}44`
                 : index === 1
                   ? `1px solid ${EV_COLORS.secondary}44`
                   : "1px solid rgba(148,163,184,0.45)",
-              // Use sx prop for dynamic background if needed, or stick to simple colors
-              // background: ... (keeping complex gradients as they are specific to this dashboard's look)
               background:
                 index === 0
                   ? "linear-gradient(145deg, #ecfdf5, #f0fdf4)"
                   : index === 1
                     ? "linear-gradient(145deg, #fff7ed, #fffbeb)"
                     : "linear-gradient(145deg, #ffffff, #f9fafb)",
-              // Ensure dark mode compatibility if possible, or leave as is if these are specific "light" colors
-              // Ideally these gradients should adapt to dark mode too.
-              // For now, I will keep them as requested, but I should probably check if isDark is available or just let theme handle it?
-              // The original code used fixed colors. I will assume these are fine for now or add comments.
-              // Actually, let's try to make them theme-aware using 'bgcolor'.
-              // But gradients are hard to map. I'll leave them for now to preserve the specific look.
             }}
           >
             <CardContent className="p-4 flex flex-col gap-2">
@@ -201,6 +226,10 @@ export default function AdminHomeDashboardPage() {
             border: "1px solid rgba(148,163,184,0.45)",
             background: "linear-gradient(145deg, #0b1120, #020617)",
             color: "#e5e7eb",
+            transition: 'box-shadow 0.2s',
+            '&:hover': {
+              boxShadow: 4,
+            }
           }}
         >
           <CardContent className="p-4 h-full flex flex-col gap-2">
@@ -209,7 +238,7 @@ export default function AdminHomeDashboardPage() {
                 variant="subtitle2"
                 className="font-semibold text-slate-50"
               >
-                Trip Trends Today
+                Trip Trends
               </Typography>
               <Box className="flex items-center gap-1">
                 <PeriodSelector

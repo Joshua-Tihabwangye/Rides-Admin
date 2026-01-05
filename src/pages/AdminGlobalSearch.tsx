@@ -5,9 +5,6 @@ import {
   Card,
   CardContent,
   Typography,
-  TextField,
-  InputAdornment,
-  Button,
   Chip,
   Divider,
 } from "@mui/material";
@@ -28,63 +25,10 @@ import { useNavigate } from "react-router-dom";
 
 export default function AdminGlobalSearchPage() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const [recentQueries, setRecentQueries] = useState([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-
-  // Mock data for search suggestions
-  const mockDatabase = [
-    "Rider: John Okello (0700000000)",
-    "Rider: Jane Doe (0711111111)",
-    "Driver: Michael Driver (KV 1234)",
-    "Driver: Sarah K (KV 5678)",
-    "Company: GreenMove Fleet",
-    "Company: Sunrise Logistics",
-    "Trip: #TR-12345",
-    "Trip: #TR-67890",
-    "Incident: #INC-54321"
-  ];
-
-  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setQuery(val);
-
-    if (!val) {
-      setSuggestions([]);
-      return;
-    }
-
-    // Logic: if digit is typed, show words with that digit?
-    // User asked: "if i type in a digit it should bring/ disply the words that have that digit"
-    // Also generally search suggestions.
-
-    const matches = mockDatabase.filter(item =>
-      item.toLowerCase().includes(val.toLowerCase())
-    );
-    setSuggestions(matches.slice(0, 5));
-  };
 
   const calculateMatches = (category: string) => {
-    // Mock match counts based on query
-    if (!query) return 0;
-    return category === 'Riders' ? 23 : category === 'Drivers' ? 8 : 4;
-  }
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    const trimmed = query.trim();
-    if (!trimmed) return;
-    console.log("Global search submit (B1 page):", trimmed);
-    setRecentQueries((prev) => {
-      const next = [trimmed, ...prev.filter((q) => q !== trimmed)];
-      return next.slice(0, 5);
-    });
-    setSuggestions([]); // Clear suggestions on submit
-  };
-
-  const handleChipClick = (q) => {
-    setQuery(q);
-    setSuggestions([]);
+    // Simple static match counts since this page now only acts as a navigation hub.
+    return category === "Riders" ? 23 : category === "Drivers" ? 8 : 4;
   };
 
   return (
@@ -109,91 +53,7 @@ export default function AdminGlobalSearchPage() {
         </Box>
       </Box>
 
-      {/* Search bar */}
-      <Box className="max-w-2xl w-full mx-auto mb-4 relative">
-        <Box component="form" onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search by name, phone, email, trip ID, plate, incident ID…"
-            value={query}
-            onChange={handleQueryChange}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <Button
-                    type="submit"
-                    size="small"
-                    variant="contained"
-                    sx={{
-                      textTransform: "none",
-                      borderRadius: 2,
-                      fontSize: 11,
-                      px: 1.8,
-                      bgcolor: EV_COLORS.primary,
-                      "&:hover": { bgcolor: "#0fb589" },
-                    }}
-                  >
-                    Search
-                  </Button>
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              "& .MuiInputBase-input::placeholder": {
-                fontSize: 12,
-              },
-            }}
-          />
-        </Box>
-
-        {/* Suggestion Dropdown */}
-        {suggestions.length > 0 && (
-          <Box sx={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            bgcolor: 'background.paper',
-            boxShadow: 3,
-            zIndex: 10,
-            borderRadius: 1,
-            mt: 0.5,
-            overflow: 'hidden',
-            border: '1px solid',
-            borderColor: 'divider'
-          }}>
-            {suggestions.map((s, i) => (
-              <Box key={i}
-                onClick={() => { setQuery(s); setSuggestions([]); }}
-                sx={{
-                  px: 2, py: 1,
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: 'action.hover' }
-                }}
-              >
-                {s}
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {recentQueries.length > 0 && (
-          <Box className="mt-2 flex flex-wrap gap-1 items-center text-[11px] text-slate-500">
-            <span>Recent searches:</span>
-            {recentQueries.map((q) => (
-              <Chip
-                key={q}
-                size="small"
-                label={q}
-                onClick={() => handleChipClick(q)}
-                sx={{ fontSize: 10, height: 22 }}
-              />
-            ))}
-          </Box>
-        )}
-      </Box>
+      {/* No standalone search field here – use the cards below to jump into the relevant modules */}
 
       {/* Results sections with reduced corner radius */}
       <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">

@@ -1,5 +1,5 @@
-// @ts-nocheck
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -16,7 +16,6 @@ import {
   TableCell,
   TableContainer,
   Paper,
-  Drawer,
   InputAdornment
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
@@ -32,75 +31,9 @@ const EV_COLORS = {
   secondary: "#f77f00",
 };
 
-// Simple RoleMatrix component reused here and in D3 (conceptually shared).
-// For demo, roles and resources are static; in production this would be
-// driven by RBAC configuration from the backend.
+// RoleMatrix and AdminDetailDrawer moved to AdminUserDetail page.
+// This page now only lists users.
 
-const RESOURCES = [
-  "Riders",
-  "Drivers",
-  "Companies",
-  "Agents",
-  "Payouts",
-  "Roles & RBAC",
-  "System flags",
-];
-
-const PERMISSIONS = ["View", "Edit", "Suspend/Block", "Configure"];
-
-function RoleMatrix({ roleName }) {
-  return (
-    <Card
-      elevation={0}
-      sx={{
-        borderRadius: 2,
-        border: "1px solid rgba(148,163,184,0.3)",
-        bgcolor: "background.paper",
-      }}
-    >
-      <CardContent className="p-3 flex flex-col gap-2">
-        <Typography
-          variant="subtitle2"
-          className="font-semibold mb-1"
-          color="text.primary"
-        >
-          Role matrix – {roleName}
-        </Typography>
-        <Box className="overflow-x-auto">
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Resource</TableCell>
-                {PERMISSIONS.map((perm) => (
-                  <TableCell key={perm} align="center">
-                    {perm}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {RESOURCES.map((res) => (
-                <TableRow key={res}>
-                  <TableCell>{res}</TableCell>
-                  {PERMISSIONS.map((perm) => (
-                    <TableCell key={perm} align="center">
-                      {/* Simple static example: Super Admin gets all, others may not. */}
-                      <Chip
-                        size="small"
-                        label={roleName === "Super Admin" ? "✓" : "-"}
-                        sx={{ fontSize: 10, height: 20 }}
-                      />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-}
 
 const SAMPLE_ADMINS = [
   {
@@ -135,115 +68,9 @@ const SAMPLE_ADMINS = [
   },
 ];
 
-function AdminDetailDrawer({ open, onClose, admin }) {
-  if (!admin) return null;
-
-  return (
-    <Drawer
-      anchor="right"
-      open={open}
-      onClose={onClose}
-      PaperProps={{
-        sx: {
-          width: { xs: "100%", sm: 420, md: 480 },
-          bgcolor: "background.paper",
-        },
-      }}
-    >
-      <Box className="h-full flex flex-col">
-        <Box className="px-4 py-3 border-b border-divider flex items-center justify-between">
-          <Box>
-            <Typography variant="subtitle2" className="font-semibold">
-              {admin.name}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-            >
-              {admin.roles} · {admin.regions}
-            </Typography>
-          </Box>
-          <Button
-            variant="text"
-            size="small"
-            sx={{ textTransform: "none", color: "text.secondary", fontSize: 11 }}
-            onClick={onClose}
-          >
-            Close
-          </Button>
-        </Box>
-
-        <Box className="px-4 py-3 flex flex-col gap-3 flex-1 overflow-y-auto">
-          <Card
-            elevation={0}
-            sx={{
-              borderRadius: 2,
-              border: "1px solid rgba(148,163,184,0.3)",
-              bgcolor: "background.default",
-            }}
-          >
-            <CardContent className="p-3 flex flex-col gap-1">
-              <Typography variant="caption" color="text.secondary">
-                Contact & security
-              </Typography>
-              <Typography variant="body2" className="text-[12px]">
-                Email: {admin.email}
-              </Typography>
-              <Typography variant="body2" className="text-[12px]">
-                Last login: {admin.lastLogin}
-              </Typography>
-              <Typography variant="body2" className="text-[12px]">
-                2FA: {admin.twoFA}
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <RoleMatrix roleName={admin.roles} />
-        </Box>
-
-        <Box className="px-4 py-3 border-t border-divider flex flex-col gap-2">
-          <Button
-            variant="contained"
-            size="small"
-            sx={{
-              textTransform: "none",
-              borderRadius: 999,
-              fontSize: 12,
-              bgcolor: EV_COLORS.primary,
-              "&:hover": { bgcolor: "#0fb589" },
-            }}
-            onClick={() => {
-              console.log("Edit roles for admin:", admin.name);
-            }}
-          >
-            Edit roles & regions
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            sx={{
-              textTransform: "none",
-              borderRadius: 999,
-              fontSize: 12,
-              borderColor: "#f97316",
-              color: "#f97316",
-            }}
-            onClick={() => {
-              console.log("Suspend admin (pending workflow):", admin.name);
-            }}
-          >
-            Suspend admin
-          </Button>
-        </Box>
-      </Box>
-    </Drawer>
-  );
-}
-
 export default function AdminUsersManagementPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [selectedAdmin, setSelectedAdmin] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeRole, setActiveRole] = useState("All");
 
   const handleSearchSubmit = (event) => {
@@ -251,8 +78,7 @@ export default function AdminUsersManagementPage() {
   };
 
   const handleRowClick = (admin) => {
-    setSelectedAdmin(admin);
-    setDrawerOpen(true);
+    navigate(`/admin/admin-users/${admin.id}`);
   };
 
   const filteredAdmins = SAMPLE_ADMINS.filter((admin) => {
@@ -367,7 +193,7 @@ export default function AdminUsersManagementPage() {
                     sx={{ cursor: "pointer" }}
                     onClick={() => handleRowClick(admin)}
                   >
-                    <TableCell fontWeight={600}>{admin.name}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{admin.name}</TableCell>
                     <TableCell>{admin.email}</TableCell>
                     <TableCell>
                       <Chip label={admin.roles} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
@@ -385,12 +211,6 @@ export default function AdminUsersManagementPage() {
           </TableContainer>
         </CardContent>
       </Card>
-
-      <AdminDetailDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        admin={selectedAdmin}
-      />
     </Box>
   );
 }

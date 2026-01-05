@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Box,
   Card,
@@ -36,50 +36,82 @@ export default function OperationsDashboardPage() {
 
   const handlePeriodChange = (newPeriod: PeriodOption, range?: any) => {
     setPeriod(newPeriod);
-    console.log('Ops period changed:', newPeriod, range);
   };
 
-  const kpis = [
-    {
-      label: "Trips (rides + deliveries)",
-      value: "1,742",
-      subtitle: "+9% vs yesterday",
-    },
-    {
-      label: "Completion rate",
-      value: "96.8%",
-      subtitle: "Target ≥ 95%",
-    },
-    {
-      label: "Avg wait time",
-      value: "5.2 min",
-      subtitle: "Peak: 7.4 min",
-    },
-    {
-      label: "Online drivers",
-      value: "412",
-      subtitle: "EV utilisation 88%",
-    },
-  ];
+  const periodLabel =
+    period === 'today'
+      ? 'today'
+      : period === '7days'
+        ? 'last 7 days'
+        : period === '30days'
+          ? 'last 30 days'
+          : period === 'thisMonth'
+            ? 'this month'
+            : 'custom range';
 
-  const demandSupplyData = [
-    { time: '6AM', demand: 45, supply: 60 },
-    { time: '8AM', demand: 156, supply: 140 },
-    { time: '10AM', demand: 198, supply: 180 },
-    { time: '12PM', demand: 220, supply: 200 },
-    { time: '2PM', demand: 178, supply: 190 },
-    { time: '4PM', demand: 234, supply: 210 },
-    { time: '6PM', demand: 267, supply: 240 },
-    { time: '8PM', demand: 145, supply: 160 },
-    { time: '10PM', demand: 78, supply: 100 },
-  ];
+  const periodMultiplier: Record<PeriodOption, number> = {
+    today: 0.15,
+    '7days': 0.5,
+    '30days': 1,
+    thisMonth: 1.2,
+    custom: 0.8,
+  };
 
-  const serviceMixData = [
-    { region: 'Kampala', rides: 840, deliveries: 420 },
-    { region: 'Nairobi', rides: 650, deliveries: 380 },
-    { region: 'Lagos', rides: 920, deliveries: 510 },
-    { region: 'Accra', rides: 480, deliveries: 220 },
-  ];
+  const kpis = useMemo(() => {
+    const m = periodMultiplier[period] ?? 1;
+    return [
+      {
+        label: 'Trips (rides + deliveries)',
+        value: (1742 * m).toLocaleString(undefined, { maximumFractionDigits: 0 }),
+        subtitle: m >= 1 ? '+9% vs previous period' : 'Softer vs previous period',
+      },
+      {
+        label: 'Completion rate',
+        value: `${(96.8 - (1 - m) * 2).toFixed(1)}%`,
+        subtitle: 'Target ≥ 95%',
+      },
+      {
+        label: 'Avg wait time',
+        value: `${(5.2 + (1 - m) * 1.8).toFixed(1)} min`,
+        subtitle: 'Peak across central city',
+      },
+      {
+        label: 'Online drivers',
+        value: Math.round(412 * m).toLocaleString(),
+        subtitle: `${Math.round(88 * m)}% utilisation`,
+      },
+    ];
+  }, [period]);
+
+  const demandSupplyData = useMemo(() => {
+    const m = periodMultiplier[period] ?? 1;
+    const base = [
+      { time: '6AM', demand: 45, supply: 60 },
+      { time: '8AM', demand: 156, supply: 140 },
+      { time: '10AM', demand: 198, supply: 180 },
+      { time: '12PM', demand: 220, supply: 200 },
+      { time: '2PM', demand: 178, supply: 190 },
+      { time: '4PM', demand: 234, supply: 210 },
+      { time: '6PM', demand: 267, supply: 240 },
+      { time: '8PM', demand: 145, supply: 160 },
+      { time: '10PM', demand: 78, supply: 100 },
+    ];
+    return base.map((row) => ({
+      ...row,
+      demand: Math.round(row.demand * m),
+      supply: Math.round(row.supply * m),
+    }));
+  }, [period]);
+
+  const serviceMixData = useMemo(() => {
+    const m = periodMultiplier[period] ?? 1;
+    return [
+      { region: 'Kampala', rides: Math.round(840 * m), deliveries: Math.round(420 * m) },
+      { region: 'Nairobi', rides: Math.round(650 * m), deliveries: Math.round(380 * m) },
+      { region: 'Lagos', rides: Math.round(920 * m), deliveries: Math.round(510 * m) },
+      { region: 'Accra', rides: Math.round(480 * m), deliveries: Math.round(220 * m) },
+    ];
+  }, [period]);
 
   return (
     <Box>
@@ -104,7 +136,7 @@ export default function OperationsDashboardPage() {
       </Box>
 
       {/* KPI row */}
-      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
         {kpis.map((kpi) => (
           <Card
             key={kpi.label}
@@ -138,7 +170,7 @@ export default function OperationsDashboardPage() {
         ))}
       </Box>
 
-      <Box className="flex flex-col lg:flex-row gap-4">
+      <Box className="flex flex-col lg:flex-row gap-4 mb-10">
         {/* Demand vs supply chart */}
         <Card
           elevation={1}
@@ -155,7 +187,7 @@ export default function OperationsDashboardPage() {
                 variant="subtitle2"
                 className="font-semibold text-slate-50"
               >
-                Demand vs Supply (Real-time)
+                Demand vs Supply ({periodLabel})
               </Typography>
               <Chip
                 size="small"

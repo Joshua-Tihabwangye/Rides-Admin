@@ -10,7 +10,6 @@ import {
   Divider,
   Select,
   MenuItem,
-  TextField,
   Table,
   TableHead,
   TableBody,
@@ -32,6 +31,7 @@ import {
 } from "recharts";
 import DownloadIcon from "@mui/icons-material/Download";
 import PeriodSelector from "../components/PeriodSelector";
+import ExportButton from "../components/ExportButton";
 import dayjs from "dayjs";
 
 // B3 – Detailed Analytics & Reports
@@ -66,14 +66,17 @@ export default function DetailedAnalyticsPage() {
   const [filters, setFilters] = useState({
     region: "All",
     service: "All",
-    exportFormat: "Table",
   });
+  const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
 
-  // Mock data update effect
+  // Mock data update effect – in a real app this would fetch from the backend.
   React.useEffect(() => {
-    console.log(`[Analytics] Updating data for Report: ${selectedReportId}, Period: ${period}, Region: ${filters.region}`);
-    // In production: fetchReport(selectedReportId, { period, ...filters })
-  }, [selectedReportId, period, filters]);
+    // This side-effect exists to document how filters drive data.
+    // eslint-disable-next-line no-console
+    console.log(
+      `[Analytics] Updating data for Report: ${selectedReportId}, Period: ${period}, Region: ${filters.region}, Service: ${filters.service}`,
+    );
+  }, [selectedReportId, period, filters.region, filters.service]);
 
   const selectedReport =
     REPORTS.find((r) => r.id === selectedReportId) || REPORTS[0];
@@ -86,12 +89,83 @@ export default function DetailedAnalyticsPage() {
     setFilters({ ...filters, [field]: event.target.value });
   };
 
-  const sampleChartData = [
-    { name: "Kampala", rides: 1120, completion: 97 },
-    { name: "Lagos", rides: 860, completion: 94 },
-    { name: "Nairobi", rides: 680, completion: 96 },
-    { name: "Accra", rides: 420, completion: 92 },
-  ];
+  const baseChartData = {
+    All: [
+      { name: "Kampala", rides: 1120, completion: 97 },
+      { name: "Lagos", rides: 860, completion: 94 },
+      { name: "Nairobi", rides: 680, completion: 96 },
+      { name: "Accra", rides: 420, completion: 92 },
+    ],
+    Kampala: [
+      { name: "Kampala Central", rides: 640, completion: 98 },
+      { name: "Kampala North", rides: 480, completion: 96 },
+    ],
+    Nairobi: [
+      { name: "Nairobi", rides: 680, completion: 96 },
+    ],
+    Lagos: [
+      { name: "Lagos Mainland", rides: 520, completion: 93 },
+      { name: "Lagos Island", rides: 340, completion: 95 },
+    ],
+  } as const;
+
+  const periodMultiplier: Record<string, number> = {
+    today: 0.2,
+    "7days": 0.6,
+    "30days": 1,
+    thisMonth: 1.1,
+    custom: 0.8,
+  };
+
+  const chartData = (baseChartData[filters.region] || baseChartData.All).map(
+    (row) => {
+      const mult = periodMultiplier[period] ?? 1;
+      const serviceFactor =
+        filters.service === "Rides"
+          ? 1
+          : filters.service === "Delivery"
+            ? 0.4
+            : filters.service === "Logistics"
+              ? 0.2
+              : 1;
+
+      return {
+        ...row,
+        rides: Math.round(row.rides * mult * serviceFactor),
+      };
+    },
+  );
+
+  const tableRows = chartData.map((row, index) => ({
+    id: index + 1,
+    region: row.name,
+    trips: row.rides,
+    completionRate: `${row.completion}%`,
+    cancellations: Math.round(row.rides * 0.04),
+  }));
+
+  const handleExportCsv = () => {
+    if (!tableRows.length) return;
+
+    const header = ["#", "Region", "Trips", "Completion rate", "Cancellations"];
+    const csvLines = [
+      header.join(","),
+      ...tableRows.map((row) =>
+        [row.id, row.region, row.trips, row.completionRate, row.cancellations].join(","),
+      ),
+    ];
+
+    const blob = new Blob([csvLines.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `evzone-report-${selectedReportId}-${period}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <Box>
@@ -139,17 +213,14 @@ export default function DetailedAnalyticsPage() {
               <MenuItem value="Logistics">Logistics</MenuItem>
             </Select>
           </FormControl>
-          <PeriodSelector
-            value={period}
-            onChange={(p) => setPeriod(p)}
+          <PeriodSelector value={period} onChange={(p) => setPeriod(p)} />
+          <ExportButton
+            onDownload={handleExportCsv}
+            onViewChart={() => setViewMode("chart")}
+            onViewRawData={() => setViewMode("table")}
+            variant="contained"
+            label="Actions"
           />
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            sx={{ borderRadius: 2, height: 40, textTransform: 'none', bgcolor: 'background.paper' }}
-          >
-            Export
-          </Button>
         </Box>
       </Box>
 
@@ -224,10 +295,7 @@ export default function DetailedAnalyticsPage() {
                 >
                   {selectedReport.name}
                 </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                >
+                <Typography variant="caption" color="text.secondary">
                   {selectedReport.description}
                 </Typography>
               </Box>
@@ -236,12 +304,10 @@ export default function DetailedAnalyticsPage() {
             <Divider className="!my-1" />
 
             <Box className="flex items-center justify-between mt-1">
-              <Typography
-                variant="caption"
-                className="text-[11px]"
-                color="text.secondary"
-              >
-                Displaying data for Period: <b>{period}</b>, Region: <b>{filters.region}</b>.
+              <Typography variant="caption" className="text-[11px]" color="text.secondary">
+                Displaying data for Period: <b>{period}</b>, Region: <b>{filters.region}</b>,
+                Service: <b>{filters.service}</b>. Switch between chart and raw data view, or
+                export as CSV.
               </Typography>
             </Box>
 
@@ -256,23 +322,60 @@ export default function DetailedAnalyticsPage() {
               }}
             >
               <CardContent className="p-3">
-                <Box sx={{ width: '100%', height: 250 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={sampleChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                      <XAxis dataKey="name" fontSize={11} stroke="#94a3b8" />
-                      <YAxis fontSize={11} stroke="#94a3b8" />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
-                        labelStyle={{ color: "#e5e7eb" }}
-                        itemStyle={{ color: "#03cd8c" }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="rides" fill="#03cd8c" name="Trips" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="completion" fill="#f77f00" name="Completion Rate %" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Box>
+                {viewMode === "chart" ? (
+                  <Box sx={{ width: "100%", height: 250 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis dataKey="name" fontSize={11} stroke="#94a3b8" />
+                        <YAxis fontSize={11} stroke="#94a3b8" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#0f172a",
+                            border: "1px solid #334155",
+                            borderRadius: 8,
+                            fontSize: 11,
+                          }}
+                          labelStyle={{ color: "#e5e7eb" }}
+                          itemStyle={{ color: "#03cd8c" }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="rides" fill="#03cd8c" name="Trips" radius={[4, 4, 0, 0]} />
+                        <Bar
+                          dataKey="completion"
+                          fill="#f77f00"
+                          name="Completion Rate %"
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                ) : (
+                  <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 260 }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>#</TableCell>
+                          <TableCell>Region</TableCell>
+                          <TableCell align="right">Trips</TableCell>
+                          <TableCell align="right">Completion rate</TableCell>
+                          <TableCell align="right">Cancellations</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {tableRows.map((row) => (
+                          <TableRow key={row.id} hover>
+                            <TableCell>{row.id}</TableCell>
+                            <TableCell>{row.region}</TableCell>
+                            <TableCell align="right">{row.trips}</TableCell>
+                            <TableCell align="right">{row.completionRate}</TableCell>
+                            <TableCell align="right">{row.cancellations}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
               </CardContent>
             </Card>
           </CardContent>

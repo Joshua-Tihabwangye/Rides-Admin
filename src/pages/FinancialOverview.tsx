@@ -39,41 +39,39 @@ export default function FinancialOverviewPage() {
   const [customRange, setCustomRange] = useState([null, null]);
 
   // Mock data update simulation
-  React.useEffect(() => {
-    console.log("Finance data updated for period:", period, customRange);
-  }, [period, customRange]);
+  // Simple multiplier based on period to simulate data changing
+  const multiplier = period === 'today' ? 0.2 : period === 'week' ? 1 : period === 'month' ? 4 : 12;
 
   const handleExport = () => {
     console.log("Export finance summary for range:", period);
   };
 
-  const handleRegionClick = (region) => {
-    // Navigate to reports filtered by region
+  const handleRegionClick = (region: string) => {
     navigate(`/admin/reports?region=${encodeURIComponent(region)}&tab=financials`);
   };
 
   const kpis = [
     {
       label: "Gross bookings",
-      value: "$128,420",
+      value: `$${(128420 * multiplier).toLocaleString()}`,
       subtitle: "+12% vs last period",
     },
     {
       label: "EVzone net revenue",
-      value: "$24,680",
+      value: `$${(24680 * multiplier).toLocaleString()}`,
       subtitle: "Net after fees & incentives",
     },
     {
       label: "Payouts (scheduled)",
-      value: "$79,320",
+      value: `$${(79320 * multiplier).toLocaleString()}`,
       subtitle: "Next 7 days",
     },
   ];
 
   const serviceRevenueData = [
-    { name: "Rides", value: 82000, color: "#03cd8c" },
-    { name: "Deliveries", value: 32000, color: "#f77f00" },
-    { name: "Rental", value: 14420, color: "#3b82f6" },
+    { name: "Rides", value: 82000 * multiplier, color: "#03cd8c" },
+    { name: "Deliveries", value: 32000 * multiplier, color: "#f77f00" },
+    { name: "Rental", value: 14420 * multiplier, color: "#3b82f6" },
   ];
 
   return (

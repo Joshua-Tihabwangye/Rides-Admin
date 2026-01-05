@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -166,11 +166,10 @@ const SAMPLE_RISK_CASES = [
 
 export default function RiskFraudCenterPage() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
-
-  const handleFilterChipClick = (group, value) => {
-    console.log(`Risk filter ${group}:`, value);
-  };
+  const [typeFilter, setTypeFilter] = useState<string>("All");
+  const [severityFilter, setSeverityFilter] = useState<string>("All");
+  const [ageFilter, setAgeFilter] = useState<string>("All");
+  const [regionFilter, setRegionFilter] = useState<string>("All");
 
   const handleCaseClick = (riskCase) => {
     navigate(`/admin/risk/${riskCase.id}`);
@@ -187,10 +186,28 @@ export default function RiskFraudCenterPage() {
     alert(`Action "${action}" logged for ${riskCase.id}`);
   };
 
-  const handleSearchSubmit = (event) => {
-    event.preventDefault();
-    console.log("Risk search submitted:", search.trim());
-  };
+  const filteredCases = useMemo(() => {
+    return SAMPLE_RISK_CASES.filter((c) => {
+      const matchesType =
+        typeFilter === "All" ||
+        (typeFilter === "Account" && c.type.toLowerCase().includes("account")) ||
+        (typeFilter === "Payment" && c.type.toLowerCase().includes("payment")) ||
+        (typeFilter === "Device" && c.type.toLowerCase().includes("device"));
+
+      const matchesSeverity =
+        severityFilter === "All" || c.severity.toLowerCase() === severityFilter.toLowerCase();
+
+      const matchesAge =
+        ageFilter === "All" ||
+        (ageFilter === "<1h" && c.age === "1h") ||
+        (ageFilter === "Today" && c.age === "Today") ||
+        (ageFilter === ">24h" && c.age === ">24h");
+
+      const matchesRegion = regionFilter === "All" || c.region === regionFilter;
+
+      return matchesType && matchesSeverity && matchesAge && matchesRegion;
+    });
+  }, [typeFilter, severityFilter, ageFilter, regionFilter]);
 
   return (
     <AdminRiskLayout>
@@ -204,76 +221,85 @@ export default function RiskFraudCenterPage() {
         }}
       >
         <CardContent className="p-3 flex flex-col gap-3">
-          <Box className="flex flex-col lg:flex-row lg:items-center gap-3">
-            <Box
-              component="form"
-              onSubmit={handleSearchSubmit}
-              className="flex-1"
-            >
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Search risk alerts by ID, name, phone…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                sx={{
-                  "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
-                  "& .MuiInputBase-input::placeholder": { fontSize: 12 },
-                }}
-              />
-            </Box>
-          </Box>
+          <Typography
+            variant="caption"
+            className="text-[11px]"
+            color="text.secondary"
+          >
+            Filter suspicious activity by type, severity, age and region. Data is simulated on
+            the frontend only.
+          </Typography>
 
           <Divider className="!my-1" />
 
           <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
-            <Box className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500">Type:</span>
-              {["All", "Account", "Payment", "Device"].map((v) => (
-                <Chip
-                  key={v}
-                  size="small"
-                  label={v}
-                  onClick={() => handleFilterChipClick("type", v)}
-                  sx={{ fontSize: 10, height: 22 }}
-                />
-              ))}
+            <Box className="flex flex-col gap-1">
+              <span className="text-slate-500">Type</span>
+              <TextField
+                select
+                size="small"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                SelectProps={{ native: true }}
+                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+              >
+                {["All", "Account", "Payment", "Device"].map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </TextField>
             </Box>
-            <Box className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500">Severity:</span>
-              {["All", "Low", "Medium", "High"].map((v) => (
-                <Chip
-                  key={v}
-                  size="small"
-                  label={v}
-                  onClick={() => handleFilterChipClick("severity", v)}
-                  sx={{ fontSize: 10, height: 22 }}
-                />
-              ))}
+            <Box className="flex flex-col gap-1">
+              <span className="text-slate-500">Severity</span>
+              <TextField
+                select
+                size="small"
+                value={severityFilter}
+                onChange={(e) => setSeverityFilter(e.target.value)}
+                SelectProps={{ native: true }}
+                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+              >
+                {["All", "Low", "Medium", "High"].map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </TextField>
             </Box>
-            <Box className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500">Age:</span>
-              {["All", "<1h", "Today", ">24h"].map((v) => (
-                <Chip
-                  key={v}
-                  size="small"
-                  label={v}
-                  onClick={() => handleFilterChipClick("age", v)}
-                  sx={{ fontSize: 10, height: 22 }}
-                />
-              ))}
+            <Box className="flex flex-col gap-1">
+              <span className="text-slate-500">Age</span>
+              <TextField
+                select
+                size="small"
+                value={ageFilter}
+                onChange={(e) => setAgeFilter(e.target.value)}
+                SelectProps={{ native: true }}
+                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+              >
+                {["All", "<1h", "Today", ">24h"].map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </TextField>
             </Box>
-            <Box className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500">Region:</span>
-              {["All", "East Africa", "West Africa"].map((v) => (
-                <Chip
-                  key={v}
-                  size="small"
-                  label={v}
-                  onClick={() => handleFilterChipClick("region", v)}
-                  sx={{ fontSize: 10, height: 22 }}
-                />
-              ))}
+            <Box className="flex flex-col gap-1">
+              <span className="text-slate-500">Region</span>
+              <TextField
+                select
+                size="small"
+                value={regionFilter}
+                onChange={(e) => setRegionFilter(e.target.value)}
+                SelectProps={{ native: true }}
+                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+              >
+                {["All", "East Africa", "West Africa"].map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </TextField>
             </Box>
           </Box>
         </CardContent>
@@ -281,7 +307,7 @@ export default function RiskFraudCenterPage() {
 
       {/* Risk cases list */}
       <Box className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {SAMPLE_RISK_CASES.map((riskCase) => (
+        {filteredCases.map((riskCase) => (
           <Card
             key={riskCase.id}
             elevation={1}
@@ -289,6 +315,12 @@ export default function RiskFraudCenterPage() {
               borderRadius: 8,
               border: "1px solid rgba(148,163,184,0.6)",
               background: "linear-gradient(145deg, #fef2f2, #fef9c3)",
+              transition: "transform 0.15s ease, box-shadow 0.15s ease",
+              cursor: "pointer",
+              "&:hover": {
+                transform: "translateY(-3px)",
+                boxShadow: 4,
+              },
             }}
           >
             <CardContent

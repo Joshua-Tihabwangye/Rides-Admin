@@ -68,7 +68,6 @@ const NAV: NavSection[] = [
     items: [
       { label: 'Companies', to: '/admin/companies' },
       { label: 'Financial overview', to: '/admin/finance' },
-      { label: 'Company payouts', to: '/admin/finance/companies' },
       { label: 'Taxes & invoices', to: '/admin/finance/tax-invoices' },
     ],
   },
