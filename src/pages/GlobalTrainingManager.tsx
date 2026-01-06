@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -64,9 +65,8 @@ function AdminTrainingLayout({ children }) {
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+        }`}
       sx={{
         background: isDark
           ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
@@ -78,17 +78,15 @@ function AdminTrainingLayout({ children }) {
         <Box>
           <Typography
             variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
+            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
+              }`}
           >
             EVZONE ADMIN
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Training · Global manager
           </Typography>
@@ -129,17 +127,15 @@ function AdminTrainingLayout({ children }) {
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${
-              isDark ? "text-slate-50" : "text-slate-900"
-            }`}
+            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
+              }`}
           >
             Global Training Manager
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Create and manage training modules for Drivers, Agents and
             Companies across regions.
@@ -182,6 +178,7 @@ const INITIAL_MODULES = [
 ];
 
 export default function GlobalTrainingManagerPage() {
+  const navigate = useNavigate();
   const [modules, setModules] = useState(INITIAL_MODULES);
   const [selectedId, setSelectedId] = useState(INITIAL_MODULES[0]?.id || null);
   const [editing, setEditing] = useState(() => ({ ...INITIAL_MODULES[0] }));
@@ -442,7 +439,18 @@ export default function GlobalTrainingManagerPage() {
               />
             </Box>
 
-            <Box className="flex items-center justify-end gap-2 mt-2">
+            <Box className="flex items-center justify-between mt-4 border-t pt-4">
+              <Button
+                variant="text"
+                size="small"
+                sx={{ textTransform: 'none', color: 'text.secondary' }}
+                onClick={() => {
+                  if (!editing.title) return;
+                  navigate(`/admin/training/preview?title=${encodeURIComponent(editing.title)}&desc=${encodeURIComponent(editing.description)}`)
+                }}
+              >
+                Preview as User
+              </Button>
               <Button
                 variant="contained"
                 size="small"

@@ -27,15 +27,44 @@ import PersonIcon from '@mui/icons-material/Person'
 import SettingsIcon from '@mui/icons-material/Settings'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import DashboardIcon from '@mui/icons-material/Dashboard'
+import SettingsApplicationsIcon from '@mui/icons-material/SettingsApplications'
+import AssessmentIcon from '@mui/icons-material/Assessment'
+import SearchIcon from '@mui/icons-material/Search'
+import PeopleIcon from '@mui/icons-material/People'
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety'
+import GppBadIcon from '@mui/icons-material/GppBad'
+import SupportAgentIcon from '@mui/icons-material/SupportAgent'
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount'
+import SecurityIcon from '@mui/icons-material/Security'
+import BusinessIcon from '@mui/icons-material/Business'
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
+import ReceiptIcon from '@mui/icons-material/Receipt'
+import CategoryIcon from '@mui/icons-material/Category'
+import MapIcon from '@mui/icons-material/Map'
+import PriceChangeIcon from '@mui/icons-material/PriceChange'
+import LocalOfferIcon from '@mui/icons-material/LocalOffer'
+import PolicyIcon from '@mui/icons-material/Policy'
+import FactCheckIcon from '@mui/icons-material/FactCheck'
+import SchoolIcon from '@mui/icons-material/School'
+import TranslateIcon from '@mui/icons-material/Translate'
+import FlagIcon from '@mui/icons-material/Flag'
+import IntegrationInstructionsIcon from '@mui/icons-material/IntegrationInstructions'
+import DnsIcon from '@mui/icons-material/Dns'
+import HistoryIcon from '@mui/icons-material/History'
+import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, signOut } from '../auth/auth'
 
-const drawerWidth = 280
+const drawerWidth = 220
 const drawerWidthMini = 88
 
 
-type NavItem = { label: string; to: string }
+type NavItem = { label: string; to: string; icon: React.ReactNode }
 type NavSection = { id: string; label: string; items: NavItem[] }
 
 const NAV: NavSection[] = [
@@ -43,62 +72,60 @@ const NAV: NavSection[] = [
     id: 'overview',
     label: 'Overview & Ops',
     items: [
-      { label: 'Home', to: '/admin/home' },
-      { label: 'Operations', to: '/admin/ops' },
-      { label: 'Reports', to: '/admin/reports' },
-      { label: 'Global Search', to: '/admin/search' },
+      { label: 'Home', to: '/admin/home', icon: <DashboardIcon /> },
+      { label: 'Operations', to: '/admin/ops', icon: <SettingsApplicationsIcon /> },
+      { label: 'Reports', to: '/admin/reports', icon: <AssessmentIcon /> },
+      { label: 'Global Search', to: '/admin/search', icon: <SearchIcon /> },
     ],
   },
   {
     id: 'people',
     label: 'People',
     items: [
-      { label: 'Riders', to: '/admin/riders' },
-      { label: 'Drivers', to: '/admin/drivers' },
-      { label: 'Safety overview', to: '/admin/safety' },
-      { label: 'Risk & fraud', to: '/admin/risk' },
-      { label: 'Agents', to: '/admin/agents' },
-      { label: 'Admin users', to: '/admin/admin-users' },
-      { label: 'Roles & permissions', to: '/admin/roles' },
+      { label: 'Riders', to: '/admin/riders', icon: <PeopleIcon /> },
+      { label: 'Drivers', to: '/admin/drivers', icon: <DirectionsCarIcon /> },
+      { label: 'Safety overview', to: '/admin/safety', icon: <HealthAndSafetyIcon /> },
+      { label: 'Risk & fraud', to: '/admin/risk', icon: <GppBadIcon /> },
+      { label: 'Agents', to: '/admin/agents', icon: <SupportAgentIcon /> },
+      { label: 'Admin users', to: '/admin/admin-users', icon: <SupervisorAccountIcon /> },
+      { label: 'Roles & permissions', to: '/admin/roles', icon: <SecurityIcon /> },
     ],
   },
   {
     id: 'companies',
     label: 'Companies & Finance',
     items: [
-      { label: 'Companies', to: '/admin/companies' },
-      { label: 'Financial overview', to: '/admin/finance' },
-      { label: 'Taxes & invoices', to: '/admin/finance/tax-invoices' },
+      { label: 'Companies', to: '/admin/companies', icon: <BusinessIcon /> },
+      { label: 'Financial overview', to: '/admin/finance', icon: <AccountBalanceIcon /> },
+      { label: 'Taxes & invoices', to: '/admin/finance/tax-invoices', icon: <ReceiptIcon /> },
     ],
   },
   {
     id: 'product',
     label: 'Product config',
     items: [
-      { label: 'Services', to: '/admin/services' },
-      { label: 'Zones & geofences', to: '/admin/zones' },
-      { label: 'Pricing rules', to: '/admin/pricing' },
-      { label: 'Promotions', to: '/admin/promos' },
-      { label: 'Vertical policies', to: '/admin/vertical-policies' },
-      { label: 'Approvals', to: '/admin/approvals' },
+      { label: 'Services', to: '/admin/services', icon: <CategoryIcon /> },
+      { label: 'Pricing rules', to: '/admin/pricing', icon: <PriceChangeIcon /> },
+      { label: 'Promotions', to: '/admin/promos', icon: <LocalOfferIcon /> },
+      { label: 'Vertical policies', to: '/admin/vertical-policies', icon: <PolicyIcon /> },
+      { label: 'Approvals', to: '/admin/approvals', icon: <FactCheckIcon /> },
     ],
   },
   {
     id: 'system',
     label: 'System',
     items: [
-      { label: 'Training', to: '/admin/training' },
-      { label: 'Localization', to: '/admin/localization' },
-      { label: 'Feature flags', to: '/admin/system/flags' },
-      { label: 'Integrations', to: '/admin/system/integrations' },
-      { label: 'System overview', to: '/admin/system/overview' },
-      { label: 'Audit log', to: '/admin/system/audit-log' },
+      { label: 'Training', to: '/admin/training', icon: <SchoolIcon /> },
+      { label: 'Feature flags', to: '/admin/system/flags', icon: <FlagIcon /> },
+      { label: 'Integrations', to: '/admin/system/integrations', icon: <IntegrationInstructionsIcon /> },
+      { label: 'System overview', to: '/admin/system/overview', icon: <DnsIcon /> },
+      { label: 'Audit log', to: '/admin/system/audit-log', icon: <HistoryIcon /> },
     ],
   },
   {
     id: 'account',
     label: 'Account',
-    items: [{ label: 'My profile', to: '/admin/profile' }],
+    items: [{ label: 'My profile', to: '/admin/profile', icon: <AccountCircleIcon /> }],
   },
 ]
 
@@ -156,48 +183,47 @@ export default function AdminShell() {
           but simpler to just hide/simplify when collapsed. */}
       {/* We only show this big block if open or mobile */}
       {(mobileOpen || desktopOpen) && (
-        <Box sx={{ px: 2, py: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
-            sx={{
-              width: 28,
-              height: 28,
-              borderRadius: 999,
-              bgcolor: EV_COLORS.primary,
-              boxShadow: '0 0 0 4px rgba(3,205,140,0.18)',
-            }}
-          />
-          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-            <Typography
-              variant="caption"
+        <Box sx={{ px: 2, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
               sx={{
-                fontWeight: 800,
-                letterSpacing: '0.15em',
-                lineHeight: 1,
-                mb: 0.5,
-                textTransform: 'uppercase',
+                width: 28,
+                height: 28,
+                borderRadius: 999,
+                bgcolor: EV_COLORS.primary,
+                boxShadow: '0 0 0 4px rgba(3,205,140,0.18)',
               }}
-            >
-              EVZONE
-            </Typography>
-            <Typography variant="caption" sx={{ fontSize: 10, opacity: 0.6, lineHeight: 1 }}>
-              ADMIN PORTAL
-            </Typography>
+            />
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 800,
+                  letterSpacing: '0.15em',
+                  lineHeight: 1,
+                  mb: 0.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                EVZONE
+              </Typography>
+              <Typography variant="caption" sx={{ fontSize: 10, opacity: 0.6, lineHeight: 1 }}>
+                ADMIN PORTAL
+              </Typography>
+            </Box>
           </Box>
+          <IconButton onClick={handleDesktopToggle} size="small" sx={{ display: { xs: 'none', md: 'flex' } }}>
+            <ChevronLeftIcon fontSize="small" />
+          </IconButton>
         </Box>
       )}
 
-      {/* When collapsed, maybe just show the dot? */}
+      {/* When collapsed, show expand button */}
       {(!mobileOpen && !desktopOpen) && (
         <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
-          <Box
-            sx={{
-              width: 28,
-              height: 28,
-              borderRadius: 999,
-              bgcolor: EV_COLORS.primary,
-              boxShadow: '0 0 0 4px rgba(3,205,140,0.18)',
-            }}
-          />
+          <IconButton onClick={handleDesktopToggle} size="small">
+            <ChevronRightIcon />
+          </IconButton>
         </Box>
       )}
 
@@ -237,6 +263,7 @@ export default function AdminShell() {
                   key={item.to}
                   to={item.to}
                   label={item.label}
+                  icon={item.icon}
                   minimized={!mobileOpen && !desktopOpen}
                 />
               ))}
@@ -532,7 +559,7 @@ export default function AdminShell() {
   )
 }
 
-function NavItem({ to, label, minimized }: { to: string; label: string; minimized: boolean }) {
+function NavItem({ to, label, icon, minimized }: { to: string; label: string; icon: React.ReactNode; minimized: boolean }) {
   const location = useLocation()
   const isActive = location.pathname === to || location.pathname.startsWith(to + '/')
 
@@ -554,7 +581,7 @@ function NavItem({ to, label, minimized }: { to: string; label: string; minimize
           ? {
             content: '""',
             position: 'absolute',
-            left: minimized ? '50%' : 8,
+            left: minimized ? '50%' : 4,
             top: minimized ? 'auto' : 8,
             bottom: minimized ? 4 : 8,
             height: minimized ? 4 : 'auto',
@@ -569,6 +596,15 @@ function NavItem({ to, label, minimized }: { to: string; label: string; minimize
         },
       }}
     >
+      <ListItemIcon sx={{
+        minWidth: 0,
+        mr: minimized ? 0 : 2,
+        justifyContent: 'center',
+        color: isActive ? EV_COLORS.primary : 'inherit'
+      }}>
+        {/* Clone element to force size if needed, but default is usually fine. */}
+        {React.cloneElement(icon as React.ReactElement, { fontSize: 'small' })}
+      </ListItemIcon>
       <ListItemText
         primary={label}
         primaryTypographyProps={{ fontSize: 13, fontWeight: isActive ? 700 : 500 }}

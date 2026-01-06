@@ -154,7 +154,7 @@ export default function ZonesGeofencesPage() {
         <Card
           elevation={1}
           sx={{
-            flex: 2,
+            flex: 1,
             borderRadius: 2,
             border: "1px solid rgba(148,163,184,0.5)",
             background: "linear-gradient(145deg, #0b1120, #020617)",
@@ -201,7 +201,7 @@ export default function ZonesGeofencesPage() {
         <Card
           elevation={1}
           sx={{
-            flex: 1,
+            flex: 2,
             borderRadius: 2,
             border: "1px solid rgba(148,163,184,0.5)",
             // Use standard background from theme or keep slight gradient but ensure it respects dark mode?

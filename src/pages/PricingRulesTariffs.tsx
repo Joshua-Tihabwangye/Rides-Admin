@@ -18,6 +18,17 @@ import {
   TableContainer,
   Paper,
 } from "@mui/material";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { useNavigate } from "react-router-dom";
+import PeriodSelector from "../components/PeriodSelector";
+import dayjs from "dayjs";
 
 // F2 – Zone & Geofence Management (Light/Dark, EVzone themed)
 // Route suggestion: /admin/zones
@@ -89,16 +100,22 @@ const INITIAL_ZONES = {
 
 
 export default function PricingRulesPage() {
+  const navigate = useNavigate();
   const [zones] = useState(INITIAL_ZONES);
   const countries = Object.keys(zones);
   const [country, setCountry] = useState(countries[0] || "Uganda");
+  const [period, setPeriod] = useState("thisMonth");
+  const [customRange, setCustomRange] = useState([null, null]);
+
+  // Dynamic data multiplier
+  const multiplier = period === 'today' ? 0.3 : period === '7days' ? 1 : period === 'thisMonth' ? 4 : 12;
 
   const handleCountryChange = (event) => {
     setCountry(event.target.value);
   };
 
   const handleAddZone = () => {
-    console.log("Add zone clicked for country:", country);
+    navigate('/admin/pricing/new-zone');
   };
 
   const handleZoneClick = (zone) => {
@@ -106,19 +123,24 @@ export default function PricingRulesPage() {
   };
 
   const handleViewPricing = (zone) => {
-    console.log("View pricing for zone:", {
-      country,
-      city: zone.city,
-      zoneId: zone.id,
-      suggestion: `/admin/pricing?country=${country}&city=${encodeURIComponent(
-        zone.city
-      )}`,
-    });
+    navigate(`/admin/pricing/detail/${zone.id}`);
   };
 
   const handleViewMap = (zone) => {
-    console.log("Focus map on zone polygon:", zone.id);
+    navigate(`/admin/pricing/map/${zone.id}`);
   };
+
+  const dashboardMetrics = [
+    { label: "Active Zones", value: `${24}`, sub: "Across 2 countries" },
+    { label: "Total Revenue", value: `$${(245000 * multiplier).toLocaleString()}`, sub: "From all active tariffs" },
+    { label: "Avg. Trip Cost", value: `$${(12 * multiplier).toLocaleString()}`, sub: "+5% vs last period" },
+  ];
+
+  const pricingDistribution = [
+    { name: "Standard", value: Math.round(65 * multiplier), color: "#03cd8c" },
+    { name: "Surge > 1.5x", value: Math.round(20 * multiplier), color: "#f77f00" },
+    { name: "Promo / Discount", value: Math.round(15 * multiplier), color: "#3b82f6" },
+  ];
 
   const countryZones = zones[country] || [];
 
@@ -132,22 +154,60 @@ export default function PricingRulesPage() {
             className="font-semibold tracking-tight"
             color="text.primary"
           >
-            Zone & Geofence Management
+            Pricing & Zones
           </Typography>
           <Typography
             variant="caption"
             color="text.secondary"
           >
-            Maintain named service zones and geofences per city.
+            Manage pricing tariffs, service zones, and geofences.
           </Typography>
         </Box>
+        <PeriodSelector
+          value={period}
+          onChange={(newPeriod) => setPeriod(newPeriod)}
+        />
       </Box>
+
+      {/* Dashboard Metrics */}
+      <Box className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        {dashboardMetrics.map((m) => (
+          <Card key={m.label} elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
+            <CardContent className="p-3">
+              <Typography variant="caption" className="text-slate-500 uppercase">{m.label}</Typography>
+              <Typography variant="h6" className="font-semibold">{m.value}</Typography>
+              <Typography variant="caption" className="text-slate-400">{m.sub}</Typography>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+
+      {/* Pricing Analysis Chart */}
+      <Card elevation={1} sx={{ mb: 4, borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
+        <CardContent className="p-4 h-[250px] flex items-center">
+          <Box className="flex-1 h-full">
+            <Typography variant="subtitle2" className="mb-2 font-semibold">Pricing Rule Distribution</Typography>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={pricingDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value">
+                  {pricingDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend verticalAlign="middle" align="right" layout="vertical" />
+              </PieChart>
+            </ResponsiveContainer>
+          </Box>
+        </CardContent>
+      </Card>
+
       <Box className="flex flex-col lg:flex-row gap-4">
         {/* Left – Map placeholder */}
         <Card
           elevation={1}
           sx={{
-            flex: 2,
+            flex: 1,
             borderRadius: 2,
             border: "1px solid rgba(148,163,184,0.5)",
             background: "linear-gradient(145deg, #0b1120, #020617)",
@@ -194,7 +254,7 @@ export default function PricingRulesPage() {
         <Card
           elevation={1}
           sx={{
-            flex: 1,
+            flex: 2,
             borderRadius: 2,
             border: "1px solid rgba(148,163,184,0.5)",
             // Default theme background

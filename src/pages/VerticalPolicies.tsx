@@ -11,6 +11,8 @@ import {
   FormControlLabel,
   Switch,
   TextField,
+  Snackbar,
+  Alert
 } from "@mui/material";
 
 // F5 – Vertical Service Policies (Light/Dark, EVzone themed)
@@ -51,9 +53,8 @@ function AdminVerticalPoliciesLayout({ children }) {
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+        }`}
       sx={{
         background: isDark
           ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
@@ -65,17 +66,15 @@ function AdminVerticalPoliciesLayout({ children }) {
         <Box>
           <Typography
             variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
+            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
+              }`}
           >
             EVZONE ADMIN
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Vertical service policies
           </Typography>
@@ -116,17 +115,15 @@ function AdminVerticalPoliciesLayout({ children }) {
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${
-              isDark ? "text-slate-50" : "text-slate-900"
-            }`}
+            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
+              }`}
           >
             Vertical Service Policies
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Additional rules applied on top of core service configuration for
             Rental, School, EMS and Tours.
@@ -142,6 +139,7 @@ function AdminVerticalPoliciesLayout({ children }) {
 }
 
 export default function VerticalPoliciesPage() {
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [policies, setPolicies] = useState({
     rental: {
       allowNonEvException: false,
@@ -187,6 +185,7 @@ export default function VerticalPoliciesPage() {
 
   const handleSave = () => {
     console.log("Saving vertical policies:", policies);
+    setSnackbarOpen(true);
   };
 
   const { rental, school, ems, tours } = policies;
@@ -465,7 +464,17 @@ export default function VerticalPoliciesPage() {
           Save policies
         </Button>
       </Box>
-    </AdminVerticalPoliciesLayout>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%' }}>
+          Policies saved successfully!
+        </Alert>
+      </Snackbar>
+    </AdminVerticalPoliciesLayout >
   );
 }
 

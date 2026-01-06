@@ -62,7 +62,7 @@ const REPORTS = [
 
 export default function DetailedAnalyticsPage() {
   const [selectedReportId, setSelectedReportId] = useState(REPORTS[0].id);
-  const [period, setPeriod] = useState("30days");
+  const [period, setPeriod] = useState("thisMonth");
   const [filters, setFilters] = useState({
     region: "All",
     service: "All",

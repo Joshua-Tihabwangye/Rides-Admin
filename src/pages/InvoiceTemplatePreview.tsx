@@ -31,8 +31,10 @@ import {
 // 3) Editing fields
 //    - Changing header/footer text updates the preview instantly.
 // 4) Save
-//    - Clicking "Save template" logs a payload and an AuditLog-style entry in
-//      the console.
+//    - Clicking "Save template" saves to local list and downloads a JSON file.
+import IconButton from '@mui/material/IconButton';
+import DeleteIcon from '@mui/icons-material/Delete';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -49,9 +51,8 @@ function AdminInvoiceTemplateLayout({ children }) {
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+        }`}
       sx={{
         background: isDark
           ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
@@ -63,17 +64,15 @@ function AdminInvoiceTemplateLayout({ children }) {
         <Box>
           <Typography
             variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
+            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
+              }`}
           >
             EVZONE ADMIN
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Finance · Invoice template
           </Typography>
@@ -114,17 +113,15 @@ function AdminInvoiceTemplateLayout({ children }) {
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${
-              isDark ? "text-slate-50" : "text-slate-900"
-            }`}
+            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
+              }`}
           >
             Invoice Template Preview
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Adjust header, footer and basic layout. Detailed styling happens in
             your design system.
@@ -156,14 +153,40 @@ export default function InvoiceTemplatePreviewPage() {
     setTemplate((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
+  const [drafts, setDrafts] = useState([]);
+
   const handleSave = () => {
-    console.log("Saving invoice template:", template);
-    console.log("AuditLog:", {
-      event: "INVOICE_TEMPLATE_UPDATED",
-      payload: template,
-      at: new Date().toISOString(),
-      actor: "Admin (simulated)",
-    });
+    // Save to drafts
+    const newDraft = {
+      id: Date.now(),
+      name: `Template Draft ${drafts.length + 1}`,
+      date: new Date().toLocaleDateString(),
+      data: { ...template }
+    };
+    setDrafts(prev => [newDraft, ...prev]);
+
+    // Download file
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(template, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `invoice_template_${newDraft.id}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const deleteDraft = (id) => {
+    setDrafts(prev => prev.filter(d => d.id !== id));
+  };
+
+  const downloadDraft = (draft) => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(draft.data, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `invoice_template_${draft.id}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   };
 
   return (
