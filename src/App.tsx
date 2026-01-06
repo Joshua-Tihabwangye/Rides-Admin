@@ -44,6 +44,7 @@ import GlobalTrainingManager from './pages/GlobalTrainingManager'
 import TrainingModulePreview from './pages/TrainingModulePreview'
 // import LocalizationLanguageContent from './pages/LocalizationLanguageContent' // Removed
 import FeatureFlagsExperiments from './pages/FeatureFlagsExperiments'
+import ExperimentResults from './pages/ExperimentResults'
 import ApprovalsHistory from './pages/ApprovalsHistory'
 import Integrations from './pages/Integrations'
 import AuditLog from './pages/AuditLog'
@@ -127,6 +128,7 @@ export default function App() {
           <Route path="training/preview" element={<TrainingModulePreview />} />
           {/* <Route path="localization" element={<LocalizationLanguageContent />} /> Removed */}
           <Route path="system/flags" element={<FeatureFlagsExperiments />} />
+          <Route path="system/flags/:id/results" element={<ExperimentResults />} />
           <Route path="system/integrations" element={<Integrations />} />
           <Route path="system/audit-log" element={<AuditLog />} />
           <Route path="system/overview" element={<SystemOverview />} />

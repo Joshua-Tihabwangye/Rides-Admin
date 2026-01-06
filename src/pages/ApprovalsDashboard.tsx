@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -17,6 +17,11 @@ import {
   Snackbar,
   Alert
 } from "@mui/material";
+import PeriodSelector from "../components/PeriodSelector";
+import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
+
+dayjs.extend(isBetween);
 
 // E1 – Approvals Dashboard (Light/Dark, EVzone themed)
 // Route suggestion: /admin/approvals
@@ -145,6 +150,7 @@ const SAMPLE_APPROVALS_INITIAL = [
     entity: "GreenMove Fleet",
     severity: "Medium",
     age: "2h",
+    timestamp: dayjs().subtract(2, 'hour').toISOString(),
     region: "East Africa",
     summary: "New fleet partner onboarding – contract and KYB ready for review.",
   },
@@ -154,6 +160,7 @@ const SAMPLE_APPROVALS_INITIAL = [
     entity: "CityRide Tours – UBA 123T",
     severity: "High",
     age: "30m",
+    timestamp: dayjs().subtract(30, 'minute').toISOString(),
     region: "East Africa",
     summary:
       "Request to approve ICE bus for tours module (non-EV exception).",
@@ -164,6 +171,7 @@ const SAMPLE_APPROVALS_INITIAL = [
     entity: "Michael Driver",
     severity: "High",
     age: "4h",
+    timestamp: dayjs().subtract(4, 'hour').toISOString(),
     region: "West Africa",
     summary:
       "Driver flagged by risk rules (high cancellations + fare disputes).",
@@ -174,6 +182,7 @@ const SAMPLE_APPROVALS_INITIAL = [
     entity: "Sunrise Logistics",
     severity: "Low",
     age: "1d",
+    timestamp: dayjs().subtract(1, 'day').toISOString(),
     region: "West Africa",
     summary:
       "Manual commission override request for promotion campaign.",
@@ -184,6 +193,8 @@ export default function ApprovalsDashboardPage() {
   const navigate = useNavigate();
   const [approvals, setApprovals] = useState(SAMPLE_APPROVALS_INITIAL);
   const [filters, setFilters] = useState({ type: 'All', severity: 'All', region: 'All' });
+  const [period, setPeriod] = useState("today");
+  const [customRange, setCustomRange] = useState([null, null]);
   const [snackbar, setSnackbar] = useState({ open: false, msg: '' });
 
   const handleFilterChange = (field) => (e) => {
@@ -198,12 +209,41 @@ export default function ApprovalsDashboardPage() {
     // Remove from list
     setApprovals(prev => prev.filter(a => a.id !== approval.id));
 
+    // Persist to History using localStorage
+    const historyItem = {
+      ...approval,
+      action,
+      date: dayjs().format("YYYY-MM-DD HH:mm"),
+      actor: "Admin User", // Simulated
+    };
+
+    const existingHistory = JSON.parse(localStorage.getItem('approval_history') || '[]');
+    localStorage.setItem('approval_history', JSON.stringify([historyItem, ...existingHistory]));
+
     // Log
     console.log('Action:', action, 'on', approval.id);
     setSnackbar({ open: true, msg: `Case ${approval.id} ${action === 'Approve' ? 'Approved' : 'Rejected'}` });
   };
 
   const filteredApprovals = approvals.filter(a => {
+    // 1. Period Filter
+    const itemDate = dayjs(a.timestamp);
+    let inPeriod = true;
+    const now = dayjs();
+
+    if (period === 'today') {
+      inPeriod = itemDate.isSame(now, 'day');
+    } else if (period === 'week' || period === '7days') {
+      inPeriod = itemDate.isAfter(now.subtract(7, 'day'));
+    } else if (period === 'thisMonth') {
+      inPeriod = itemDate.isSame(now, 'month');
+    } else if (period === 'custom' && customRange[0] && customRange[1]) {
+      inPeriod = itemDate.isBetween(customRange[0], customRange[1], 'day', '[]');
+    }
+
+    if (!inPeriod) return false;
+
+    // 2. Attribute Filters
     if (filters.type !== 'All' && a.type !== filters.type) return false;
     if (filters.severity !== 'All' && a.severity !== filters.severity) return false;
     if (filters.region !== 'All' && a.region !== filters.region) return false;
@@ -264,6 +304,15 @@ export default function ApprovalsDashboardPage() {
                 View History
               </Button>
             </Box>
+          </Box>
+          <Box className="flex justify-end">
+            <PeriodSelector
+              period={period}
+              onChange={setPeriod}
+              customStart={customRange[0]}
+              customEnd={customRange[1]}
+              setCustomRange={(range) => setCustomRange([range.start, range.end])}
+            />
           </Box>
 
         </CardContent>

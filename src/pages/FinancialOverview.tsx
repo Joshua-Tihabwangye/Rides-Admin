@@ -40,7 +40,12 @@ export default function FinancialOverviewPage() {
 
   // Mock data update simulation
   // Simple multiplier based on period to simulate data changing
-  const multiplier = period === 'today' ? 0.2 : period === 'week' ? 1 : period === 'month' ? 4 : 12;
+  let multiplier = 1;
+  if (period === 'today') multiplier = 0.2;
+  else if (period === 'week' || period === '7days') multiplier = 1;
+  else if (period === 'month' || period === 'thisMonth') multiplier = 4;
+  else if (period === 'thisYear') multiplier = 48;
+  else if (period === 'custom') multiplier = 2.5;
 
   const handleExport = () => {
     const csvContent = [
@@ -116,9 +121,12 @@ export default function FinancialOverviewPage() {
         <Box className="flex items-center gap-2">
           <PeriodSelector
             period={period}
-            setPeriod={setPeriod}
-            customRange={customRange}
-            setCustomRange={setCustomRange}
+            onChange={(newPeriod, range) => {
+              setPeriod(newPeriod);
+              if (range) setCustomRange([range.start, range.end]);
+            }}
+            customStart={customRange[0]}
+            customEnd={customRange[1]}
           />
           <Button
             variant="outlined"

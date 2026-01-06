@@ -19,8 +19,11 @@ import {
   Toolbar,
   Typography,
   useMediaQuery,
+  Breadcrumbs,
+  Link as MuiLink,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import MenuIcon from '@mui/icons-material/Menu'
 import LogoutIcon from '@mui/icons-material/Logout'
 import PersonIcon from '@mui/icons-material/Person'
@@ -167,14 +170,33 @@ export default function AdminShell() {
     setSearch('')
   }
 
-  const breadcrumb = location.pathname
-    .replace(/^\//, '')
+  const breadcrumbs = location.pathname
     .split('/')
     .filter(Boolean)
-    .slice(1) // remove 'admin'
-    .join(' / ')
-    .replace(/-/g, ' ')
-    .replace(/%20/g, ' ')
+    .slice(1); // remove 'admin'
+
+  const breadcrumbElements = breadcrumbs.map((value, index) => {
+    const to = `/admin/${breadcrumbs.slice(0, index + 1).join('/')}`;
+    const isLast = index === breadcrumbs.length - 1;
+    const label = value.charAt(0).toUpperCase() + value.slice(1).replace(/-/g, ' ');
+
+    return isLast ? (
+      <Typography key={to} color="text.primary" sx={{ fontSize: 13, fontWeight: 600 }}>
+        {label}
+      </Typography>
+    ) : (
+      <MuiLink
+        component={NavLink}
+        key={to}
+        to={to}
+        underline="hover"
+        color="inherit"
+        sx={{ fontSize: 13 }}
+      >
+        {label}
+      </MuiLink>
+    );
+  });
 
   const drawerContent = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: "hidden" }}>
@@ -406,8 +428,20 @@ export default function AdminShell() {
               </IconButton>
 
               <Typography variant="h6" noWrap component="div" sx={{ fontSize: 16, fontWeight: 600, ml: { md: 2 } }}>
-                {breadcrumb ? breadcrumb.split(' / ').pop() : 'Dashboard'}
+                Dashboard
               </Typography>
+
+              <Box sx={{ display: { xs: 'none', md: 'flex' }, ml: 2 }}>
+                <Breadcrumbs
+                  separator={<NavigateNextIcon fontSize="small" />}
+                  aria-label="breadcrumb"
+                >
+                  <MuiLink component={NavLink} to="/admin/home" underline="hover" color="inherit" sx={{ fontSize: 13 }}>
+                    Home
+                  </MuiLink>
+                  {breadcrumbElements}
+                </Breadcrumbs>
+              </Box>
             </Box>
 
             {/* Center: Search Bar */}
@@ -536,21 +570,47 @@ export default function AdminShell() {
           </Box>
 
           {/* Footer */}
-          <Box component="footer" sx={{ mt: 4, py: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              © 2024 EV-ZONE. All rights reserved.
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 3 }}>
-              {['Privacy Policy', 'Terms of Service', 'Help Center'].map((text) => (
-                <Typography
-                  key={text}
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ cursor: 'pointer', '&:hover': { color: EV_COLORS.primary } }}
-                >
-                  {text}
-                </Typography>
+          <Box component="footer" sx={{ mt: 4, py: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Box className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {NAV.map(section => (
+                <Box key={section.id}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, fontSize: 12, color: 'text.secondary' }}>
+                    {section.label}
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {section.items.map(item => (
+                      <MuiLink
+                        key={item.to}
+                        component={NavLink}
+                        to={item.to}
+                        color="text.secondary"
+                        underline="hover"
+                        sx={{ fontSize: 11 }}
+                      >
+                        {item.label}
+                      </MuiLink>
+                    ))}
+                  </Box>
+                </Box>
               ))}
+            </Box>
+            <Divider sx={{ mb: 2, opacity: 0.5 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                © 2024 EV-ZONE. All rights reserved.
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 3 }}>
+                {['Privacy Policy', 'Terms of Service', 'Help Center'].map((text) => (
+                  <Typography
+                    key={text}
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ cursor: 'pointer', '&:hover': { color: EV_COLORS.primary } }}
+                  >
+                    {text}
+                  </Typography>
+                ))}
+              </Box>
             </Box>
           </Box>
         </Box>
