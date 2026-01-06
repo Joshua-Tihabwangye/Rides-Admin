@@ -18,13 +18,19 @@ import {
 import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-const HISTORY_DATA = [
-    { id: "APP-001", entity: "GreenMove Fleet", action: "Approved", date: "2024-01-15 10:30", actor: "Admin User", type: "Company" },
-    { id: "APP-004", entity: "Sunrise Logistics", action: "Rejected", date: "2024-01-14 14:20", actor: "Admin User", type: "Policy" },
-];
+// Removed static HISTORY_DATA
+// using localStorage 'approval_history'
 
 export default function ApprovalsHistory() {
     const navigate = useNavigate();
+    const [history, setHistory] = React.useState([]);
+
+    React.useEffect(() => {
+        const stored = localStorage.getItem('approval_history');
+        if (stored) {
+            setHistory(JSON.parse(stored));
+        }
+    }, []);
 
     return (
         <Box className="p-6">
@@ -57,7 +63,14 @@ export default function ApprovalsHistory() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {HISTORY_DATA.map((row) => (
+                                {history.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} align="center" className="text-slate-500 py-8">
+                                            No approval history found.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                                {history.map((row) => (
                                     <TableRow key={row.id}>
                                         <TableCell className="font-mono text-xs">{row.id}</TableCell>
                                         <TableCell className="font-medium">{row.entity}</TableCell>

@@ -18,7 +18,10 @@ import {
   TextField,
   Select,
   MenuItem,
+  Snackbar,
+  Alert
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 // K1 – Feature Flags & Experiments (Light/Dark, EVzone themed)
 // Route suggestion: /admin/system/flags
@@ -57,9 +60,8 @@ function AdminFlagsLayout({ children }) {
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+        }`}
       sx={{
         background: isDark
           ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
@@ -71,17 +73,15 @@ function AdminFlagsLayout({ children }) {
         <Box>
           <Typography
             variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
+            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
+              }`}
           >
             EVZONE ADMIN
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             System · Feature flags
           </Typography>
@@ -122,17 +122,15 @@ function AdminFlagsLayout({ children }) {
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${
-              isDark ? "text-slate-50" : "text-slate-900"
-            }`}
+            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
+              }`}
           >
             Feature Flags & Experiments
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Toggle features and run experiments per module, region and user
             segment.
@@ -178,9 +176,13 @@ const INITIAL_FLAGS = [
 ];
 
 export default function FeatureFlagsExperimentsPage() {
+  const navigate = useNavigate();
   const [flags, setFlags] = useState(INITIAL_FLAGS);
   const [selectedId, setSelectedId] = useState(INITIAL_FLAGS[0]?.id || null);
   const [editing, setEditing] = useState({ ...INITIAL_FLAGS[0] });
+
+  // Feedback state
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   const selectedFlag = flags.find((f) => f.id === selectedId) || flags[0] || null;
 
@@ -235,17 +237,16 @@ export default function FeatureFlagsExperimentsPage() {
       console.log("AuditLog:", {
         event: "FLAG_UPDATED",
         flagId: editing.id,
-        key: editing.key,
-        at: new Date().toISOString(),
-        actor: "Admin (simulated)",
       });
     }
+
+    // Trigger feedback
+    setSnackbarOpen(true);
   };
 
   return (
     <AdminFlagsLayout>
       <Box className="flex flex-col lg:flex-row gap-4">
-        {/* Left – flags list */}
         <Card
           elevation={1}
           sx={{
@@ -410,6 +411,20 @@ export default function FeatureFlagsExperimentsPage() {
             </Box>
 
             <Box className="flex items-center justify-end gap-2 mt-2">
+              {editing.type === "Experiment" && editing.status !== "Off" && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    textTransform: "none",
+                    borderRadius: 999,
+                    fontSize: 12,
+                  }}
+                  onClick={() => navigate(`/admin/system/flags/${editing.id}/results`)}
+                >
+                  View Link
+                </Button>
+              )}
               <Button
                 variant="contained"
                 size="small"
@@ -427,8 +442,19 @@ export default function FeatureFlagsExperimentsPage() {
             </Box>
           </CardContent>
         </Card>
-      </Box>
-    </AdminFlagsLayout>
+      </Box >
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: "100%" }}>
+          Feature flag saved successfully
+        </Alert>
+      </Snackbar>
+    </AdminFlagsLayout >
   );
 }
 

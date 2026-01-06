@@ -8,6 +8,8 @@ import {
   Chip,
   Button,
   Divider,
+  Snackbar,
+  Alert
 } from "@mui/material";
 
 // K2 – Integrations (Light/Dark, EVzone themed)
@@ -45,9 +47,8 @@ function AdminIntegrationsLayout({ children }) {
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+        }`}
       sx={{
         background: isDark
           ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
@@ -59,17 +60,15 @@ function AdminIntegrationsLayout({ children }) {
         <Box>
           <Typography
             variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
+            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
+              }`}
           >
             EVZONE ADMIN
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             System · Integrations
           </Typography>
@@ -110,17 +109,15 @@ function AdminIntegrationsLayout({ children }) {
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${
-              isDark ? "text-slate-50" : "text-slate-900"
-            }`}
+            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
+              }`}
           >
             Integrations
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Monitor status of external providers (payments, SMS, maps,
             analytics) and trigger reconnects when needed.
@@ -135,7 +132,7 @@ function AdminIntegrationsLayout({ children }) {
   );
 }
 
-const INTEGRATIONS = [
+const INITIAL_INTEGRATIONS = [
   {
     id: "payments",
     name: "Payments gateway",
@@ -171,12 +168,37 @@ const INTEGRATIONS = [
 ];
 
 export default function IntegrationsPage() {
+  const [integrations, setIntegrations] = useState(INITIAL_INTEGRATIONS);
+  const [feedback, setFeedback] = useState({ open: false, message: "", severity: "info" });
+
   const handleViewDetails = (integration) => {
     console.log("View integration details:", integration.id);
   };
 
   const handleAction = (integration, action) => {
     console.log(`Integration action ${action} on`, integration.id);
+
+    // Simulate action effect
+    if (action === "reconnect" || action === "refresh") {
+      setIntegrations(prev => prev.map(item => {
+        if (item.id === integration.id) {
+          return {
+            ...item,
+            status: "Connected",
+            lastError: "None",
+            lastSync: new Date().toLocaleString()
+          };
+        }
+        return item;
+      }));
+
+      setFeedback({
+        open: true,
+        message: `Successfully ${action}ed ${integration.name}. Status is now Connected.`,
+        severity: "success"
+      });
+    }
+
     console.log("AuditLog:", {
       event: "INTEGRATION_ACTION",
       integrationId: integration.id,
@@ -189,8 +211,24 @@ export default function IntegrationsPage() {
 
   return (
     <AdminIntegrationsLayout>
+      {/* Feedback Snackbar */}
+      <Snackbar
+        open={feedback.open}
+        autoHideDuration={4000}
+        onClose={() => setFeedback({ ...feedback, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setFeedback({ ...feedback, open: false })}
+          severity={feedback.severity}
+          sx={{ width: "100%" }}
+        >
+          {feedback.message}
+        </Alert>
+      </Snackbar>
+
       <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {INTEGRATIONS.map((integration) => (
+        {integrations.map((integration) => (
           <StatusCard
             key={integration.id}
             integration={integration}
@@ -208,8 +246,8 @@ function StatusCard({ integration, onViewDetails, onAction }) {
     integration.status === "Connected"
       ? "#22c55e"
       : integration.status === "Degraded"
-      ? "#f97316"
-      : "#ef4444";
+        ? "#f97316"
+        : "#ef4444";
 
   return (
     <Card
