@@ -29,8 +29,10 @@ import DetailedAnalytics from './pages/DetailedAnalytics'
 import ApprovalsDashboard from './pages/ApprovalsDashboard'
 import ApprovalDetail from './pages/ApprovalDetail'
 import ServiceConfiguration from './pages/ServiceConfiguration'
-import ZonesGeofences from './pages/ZonesGeofences'
 import PricingRulesTariffs from './pages/PricingRulesTariffs'
+import ZoneCreate from './pages/ZoneCreate'
+import ZoneMapView from './pages/ZoneMapView'
+import ZonePricingDetail from './pages/ZonePricingDetail'
 import PromotionsIncentives from './pages/PromotionsIncentives'
 import VerticalPolicies from './pages/VerticalPolicies'
 import AgentManagement from './pages/AgentManagement'
@@ -39,8 +41,10 @@ import AdminUsersManagement from './pages/AdminUsersManagement'
 import AdminUserDetail from './pages/AdminUserDetail'
 import RolesPermissions from './pages/RolesPermissions'
 import GlobalTrainingManager from './pages/GlobalTrainingManager'
-import LocalizationLanguageContent from './pages/LocalizationLanguageContent'
+import TrainingModulePreview from './pages/TrainingModulePreview'
+// import LocalizationLanguageContent from './pages/LocalizationLanguageContent' // Removed
 import FeatureFlagsExperiments from './pages/FeatureFlagsExperiments'
+import ApprovalsHistory from './pages/ApprovalsHistory'
 import Integrations from './pages/Integrations'
 import AuditLog from './pages/AuditLog'
 import SystemOverview from './pages/SystemOverview'
@@ -99,12 +103,15 @@ export default function App() {
 
           {/* Approvals */}
           <Route path="approvals" element={<ApprovalsDashboard />} />
+          <Route path="approvals/history" element={<ApprovalsHistory />} />
           <Route path="approvals/:approvalId" element={<ApprovalDetail />} />
 
           {/* Product config */}
           <Route path="services" element={<ServiceConfiguration />} />
-          <Route path="zones" element={<ZonesGeofences />} />
           <Route path="pricing" element={<PricingRulesTariffs />} />
+          <Route path="pricing/new-zone" element={<ZoneCreate />} />
+          <Route path="pricing/map/:id" element={<ZoneMapView />} />
+          <Route path="pricing/detail/:id" element={<ZonePricingDetail />} />
           <Route path="promos" element={<PromotionsIncentives />} />
           <Route path="vertical-policies" element={<VerticalPolicies />} />
 
@@ -117,7 +124,8 @@ export default function App() {
 
           {/* Training & system */}
           <Route path="training" element={<GlobalTrainingManager />} />
-          <Route path="localization" element={<LocalizationLanguageContent />} />
+          <Route path="training/preview" element={<TrainingModulePreview />} />
+          {/* <Route path="localization" element={<LocalizationLanguageContent />} /> Removed */}
           <Route path="system/flags" element={<FeatureFlagsExperiments />} />
           <Route path="system/integrations" element={<Integrations />} />
           <Route path="system/audit-log" element={<AuditLog />} />

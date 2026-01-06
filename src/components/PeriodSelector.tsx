@@ -14,7 +14,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import dayjs, { Dayjs } from 'dayjs'
 
-export type PeriodOption = 'today' | '7days' | '30days' | 'thisMonth' | 'custom'
+export type PeriodOption = 'today' | '7days' | 'thisMonth' | 'custom'
 
 interface PeriodSelectorProps {
   value: PeriodOption
@@ -26,7 +26,6 @@ interface PeriodSelectorProps {
 const PERIOD_LABELS: Record<PeriodOption, string> = {
   today: 'Today',
   '7days': 'Last 7 days',
-  '30days': 'Last 30 days',
   thisMonth: 'This month',
   custom: 'Custom range',
 }

@@ -11,6 +11,8 @@ import {
   Divider,
   Switch,
   FormControlLabel,
+  Snackbar,
+  Alert
 } from "@mui/material";
 
 // C2 – Company Onboarding / Detail (Light/Dark, EVzone themed)
@@ -69,14 +71,14 @@ function CompanyHeader({ company }) {
                 company.status === "Active"
                   ? "#ecfdf5"
                   : company.status === "Pending"
-                  ? "#fefce8"
-                  : "#fee2e2",
+                    ? "#fefce8"
+                    : "#fee2e2",
               borderColor:
                 company.status === "Active"
                   ? "#bbf7d0"
                   : company.status === "Pending"
-                  ? "#facc15"
-                  : "#fecaca",
+                    ? "#facc15"
+                    : "#fecaca",
               borderWidth: 1,
               borderStyle: "solid",
             }}
@@ -107,9 +109,8 @@ function AdminCompanyLayout({ children }) {
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+        }`}
       sx={{
         background: isDark
           ? "radial-gradient(circle at top left, rgba(3,205,140,0.18), #020617)"
@@ -121,22 +122,39 @@ function AdminCompanyLayout({ children }) {
         <Box>
           <Typography
             variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
+            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
+              }`}
           >
             EVZONE ADMIN
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Companies · Detail
           </Typography>
         </Box>
         <Box className="flex items-center gap-2">
+          <Button
+            variant="contained"
+            size="small"
+            sx={{
+              textTransform: "none",
+              bgcolor: EV_COLORS.primary,
+              fontSize: 11,
+              '&:hover': { bgcolor: '#0fb589' }
+            }}
+            onClick={() => {
+              // Trigger save from parent if needed, or children can handle it. 
+              // For this layout, we might need to pass a save handler or expose it.
+              // Simply triggering a mock save for now as requested.
+              const shellSave = new CustomEvent('company-save-trigger');
+              window.dispatchEvent(shellSave);
+            }}
+          >
+            Save Changes
+          </Button>
           <Button
             variant="text"
             size="small"
@@ -176,17 +194,15 @@ function AdminCompanyLayout({ children }) {
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${
-              isDark ? "text-slate-50" : "text-slate-900"
-            }`}
+            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
+              }`}
           >
             Company Onboarding & Detail
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Review company profile, contract terms, compliance and operational
             metrics.
@@ -229,8 +245,29 @@ export default function CompanyDetailPage() {
     setVerticals((prev) => ({ ...prev, [field]: event.target.checked }));
   };
 
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+
+  React.useEffect(() => {
+    const handleSaveTrigger = () => {
+      // Mock save delay
+      setTimeout(() => setSnackbarOpen(true), 500);
+    };
+    window.addEventListener('company-save-trigger', handleSaveTrigger);
+    return () => window.removeEventListener('company-save-trigger', handleSaveTrigger);
+  }, []);
+
   return (
     <AdminCompanyLayout>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%' }}>
+          Changes saved successfully!
+        </Alert>
+      </Snackbar>
       <CompanyHeader company={company} />
 
       <Box className="flex flex-col lg:flex-row gap-4">

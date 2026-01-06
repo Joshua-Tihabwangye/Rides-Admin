@@ -10,6 +10,12 @@ import {
   Chip,
   Button,
   Divider,
+  FormControl,
+  Select,
+  MenuItem,
+  InputLabel,
+  Snackbar,
+  Alert
 } from "@mui/material";
 
 // E1 – Approvals Dashboard (Light/Dark, EVzone themed)
@@ -132,7 +138,7 @@ function AdminApprovalsLayout({ children }) {
   );
 }
 
-const SAMPLE_APPROVALS = [
+const SAMPLE_APPROVALS_INITIAL = [
   {
     id: "APP-001",
     type: "Company onboarding",
@@ -176,10 +182,12 @@ const SAMPLE_APPROVALS = [
 
 export default function ApprovalsDashboardPage() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const [approvals, setApprovals] = useState(SAMPLE_APPROVALS_INITIAL);
+  const [filters, setFilters] = useState({ type: 'All', severity: 'All', region: 'All' });
+  const [snackbar, setSnackbar] = useState({ open: false, msg: '' });
 
-  const handleFilterChipClick = (group, value) => {
-    console.log(`Filter ${group}:`, value);
+  const handleFilterChange = (field) => (e) => {
+    setFilters(prev => ({ ...prev, [field]: e.target.value }));
   };
 
   const handleCaseClick = (approval) => {
@@ -187,16 +195,20 @@ export default function ApprovalsDashboardPage() {
   };
 
   const handleActionClick = (approval, action) => {
-    console.log('AuditLog:', {
-      event: `Approval ${action}`,
-      at: new Date().toISOString(),
-      actor: 'Current Admin',
-      approvalId: approval.id,
-      entity: approval.entity,
-      action,
-    });
-    alert(`${action} action logged for ${approval.entity}`);
+    // Remove from list
+    setApprovals(prev => prev.filter(a => a.id !== approval.id));
+
+    // Log
+    console.log('Action:', action, 'on', approval.id);
+    setSnackbar({ open: true, msg: `Case ${approval.id} ${action === 'Approve' ? 'Approved' : 'Rejected'}` });
   };
+
+  const filteredApprovals = approvals.filter(a => {
+    if (filters.type !== 'All' && a.type !== filters.type) return false;
+    if (filters.severity !== 'All' && a.severity !== filters.severity) return false;
+    if (filters.region !== 'All' && a.region !== filters.region) return false;
+    return true;
+  });
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -214,84 +226,53 @@ export default function ApprovalsDashboardPage() {
         }}
       >
         <CardContent className="p-3 flex flex-col gap-3">
-          <Box className="flex flex-col lg:flex-row lg:items-center gap-3">
-            <Box
-              component="form"
-              onSubmit={handleSearchSubmit}
-              className="flex-1"
-            >
-              <TextField
-                fullWidth
+          <Box className="flex flex-col md:flex-row gap-3 items-center">
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel id="type-select">Type</InputLabel>
+              <Select labelId="type-select" label="Type" value={filters.type} onChange={handleFilterChange('type')}>
+                <MenuItem value="All">All Types</MenuItem>
+                <MenuItem value="Company onboarding">Company</MenuItem>
+                <MenuItem value="Vehicle exception">Vehicle</MenuItem>
+                <MenuItem value="Driver escalation">Driver</MenuItem>
+                <MenuItem value="Policy exception">Policy</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel id="severity-select">Severity</InputLabel>
+              <Select labelId="severity-select" label="Severity" value={filters.severity} onChange={handleFilterChange('severity')}>
+                <MenuItem value="All">All Severities</MenuItem>
+                <MenuItem value="Low">Low</MenuItem>
+                <MenuItem value="Medium">Medium</MenuItem>
+                <MenuItem value="High">High</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel id="region-select">Region</InputLabel>
+              <Select labelId="region-select" label="Region" value={filters.region} onChange={handleFilterChange('region')}>
+                <MenuItem value="All">All Regions</MenuItem>
+                <MenuItem value="East Africa">East Africa</MenuItem>
+                <MenuItem value="West Africa">West Africa</MenuItem>
+              </Select>
+            </FormControl>
+            <Box className="ml-auto">
+              <Button
+                variant="text"
                 size="small"
-                placeholder="Search approvals by ID, company, driver…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                sx={{
-                  "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
-                  "& .MuiInputBase-input::placeholder": { fontSize: 12 },
-                }}
-              />
+                onClick={() => navigate('/admin/approvals/history')}
+                sx={{ textTransform: 'none' }}
+              >
+                View History
+              </Button>
             </Box>
           </Box>
 
-          <Divider className="!my-1" />
-
-          <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
-            <Box className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500">Type:</span>
-              {["All", "Company", "Vehicle", "Driver", "Policy"].map((v) => (
-                <Chip
-                  key={v}
-                  size="small"
-                  label={v}
-                  onClick={() => handleFilterChipClick("type", v)}
-                  sx={{ fontSize: 10, height: 22 }}
-                />
-              ))}
-            </Box>
-            <Box className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500">Severity:</span>
-              {["All", "Low", "Medium", "High"].map((v) => (
-                <Chip
-                  key={v}
-                  size="small"
-                  label={v}
-                  onClick={() => handleFilterChipClick("severity", v)}
-                  sx={{ fontSize: 10, height: 22 }}
-                />
-              ))}
-            </Box>
-            <Box className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500">Age:</span>
-              {["All", "<1h", "Today", ">24h"].map((v) => (
-                <Chip
-                  key={v}
-                  size="small"
-                  label={v}
-                  onClick={() => handleFilterChipClick("age", v)}
-                  sx={{ fontSize: 10, height: 22 }}
-                />
-              ))}
-            </Box>
-            <Box className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500">Region:</span>
-              {["All", "East Africa", "West Africa"].map((v) => (
-                <Chip
-                  key={v}
-                  size="small"
-                  label={v}
-                  onClick={() => handleFilterChipClick("region", v)}
-                  sx={{ fontSize: 10, height: 22 }}
-                />
-              ))}
-            </Box>
-          </Box>
         </CardContent>
       </Card>
 
       {/* Approvals list */}
       <Box className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {SAMPLE_APPROVALS.map((approval) => (
+        {filteredApprovals.length === 0 && <Typography className="p-4 text-slate-500 italic">No approvals found matching filters.</Typography>}
+        {filteredApprovals.map((approval) => (
           <Card
             key={approval.id}
             elevation={1}
@@ -402,6 +383,16 @@ export default function ApprovalsDashboardPage() {
           </Card>
         ))}
       </Box>
-    </AdminApprovalsLayout>
+
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success">{snackbar.msg}</Alert>
+      </Snackbar>
+    </AdminApprovalsLayout >
   );
 }

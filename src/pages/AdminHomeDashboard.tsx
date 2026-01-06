@@ -341,7 +341,6 @@ export default function AdminHomeDashboardPage() {
           elevation={2}
           sx={{
             flex: 1,
-            flex: 1,
             borderRadius: 2,
             border: "1px solid rgba(148,163,184,0.45)",
             // background: "linear-gradient(145deg, #eff6ff, #eef2ff)",
@@ -374,7 +373,6 @@ export default function AdminHomeDashboardPage() {
         <Card
           elevation={2}
           sx={{
-            flex: 1,
             flex: 1,
             borderRadius: 2,
             border: "1px solid rgba(148,163,184,0.45)",

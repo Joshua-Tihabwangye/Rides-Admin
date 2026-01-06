@@ -43,7 +43,27 @@ export default function FinancialOverviewPage() {
   const multiplier = period === 'today' ? 0.2 : period === 'week' ? 1 : period === 'month' ? 4 : 12;
 
   const handleExport = () => {
-    console.log("Export finance summary for range:", period);
+    const csvContent = [
+      ['Metric', 'Value', 'Subtitle'],
+      ...kpis.map(k => [k.label, k.value.replace(/,/g, ''), k.subtitle]),
+      [],
+      ['Service', 'Revenue'],
+      ...serviceRevenueData.map(s => [s.name, s.value]),
+      [],
+      ['Region', 'Gross', 'Net'],
+      ['East Africa', 74000 * multiplier, 14200 * multiplier],
+      ['West Africa', 54420 * multiplier, 10480 * multiplier]
+    ].map(e => e.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `financial_report_${period}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleRegionClick = (region: string) => {
@@ -233,8 +253,8 @@ export default function FinancialOverviewPage() {
                     onClick={() => handleRegionClick('East Africa')}
                   >
                     <TableCell>East Africa</TableCell>
-                    <TableCell align="right">$74,000</TableCell>
-                    <TableCell align="right">$14,200</TableCell>
+                    <TableCell align="right">${(74000 * multiplier).toLocaleString()}</TableCell>
+                    <TableCell align="right">${(14200 * multiplier).toLocaleString()}</TableCell>
                   </TableRow>
                   <TableRow
                     hover
@@ -242,8 +262,8 @@ export default function FinancialOverviewPage() {
                     onClick={() => handleRegionClick('West Africa')}
                   >
                     <TableCell>West Africa</TableCell>
-                    <TableCell align="right">$54,420</TableCell>
-                    <TableCell align="right">$10,480</TableCell>
+                    <TableCell align="right">${(54420 * multiplier).toLocaleString()}</TableCell>
+                    <TableCell align="right">${(10480 * multiplier).toLocaleString()}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

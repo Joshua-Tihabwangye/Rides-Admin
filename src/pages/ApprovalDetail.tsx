@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -9,6 +10,8 @@ import {
   Button,
   Divider,
   TextField,
+  Snackbar,
+  Alert
 } from "@mui/material";
 
 // E2 – Approval Detail (Light/Dark, EVzone themed)
@@ -63,9 +66,8 @@ function AdminApprovalDetailLayout({ children }) {
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+        }`}
       sx={{
         background: isDark
           ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
@@ -77,17 +79,15 @@ function AdminApprovalDetailLayout({ children }) {
         <Box>
           <Typography
             variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
+            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
+              }`}
           >
             EVZONE ADMIN
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Approvals · Detail
           </Typography>
@@ -132,17 +132,15 @@ function AdminApprovalDetailLayout({ children }) {
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${
-              isDark ? "text-slate-50" : "text-slate-900"
-            }`}
+            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
+              }`}
           >
             Approval Detail
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
+              }`}
           >
             Review the case context and make a confident decision.
           </Typography>
@@ -157,11 +155,22 @@ function AdminApprovalDetailLayout({ children }) {
 }
 
 export default function ApprovalDetailPage() {
+  const navigate = useNavigate();
   const [notes, setNotes] = useState("");
+  const [snackbar, setSnackbar] = useState({ open: false, msg: "" });
   const approval = SAMPLE_CASE;
 
   const handleDecision = (action) => {
-    console.log(`Decision: ${action} on`, approval.id, "Notes:", notes.trim());
+    console.log(`Decision: ${action}`);
+    // Show feedback then navigate
+    setSnackbar({ open: true, msg: `Decision Recorded: ${action}` });
+    setTimeout(() => {
+      navigate('/admin/approvals');
+    }, 1000);
+  };
+
+  const handleSaveNote = () => {
+    setSnackbar({ open: true, msg: "Note saved internally." });
   };
 
   return (
@@ -207,8 +216,8 @@ export default function ApprovalDetailPage() {
                   approval.severity === "High"
                     ? "#fee2e2"
                     : approval.severity === "Medium"
-                    ? "#fef3c7"
-                    : "#e0f2fe",
+                      ? "#fef3c7"
+                      : "#e0f2fe",
               }}
             />
             <Chip
@@ -296,6 +305,14 @@ export default function ApprovalDetailPage() {
                   "& .MuiInputBase-input": { fontSize: 12 },
                 }}
               />
+              <Button
+                size="small"
+                variant="text"
+                sx={{ mt: 1, textTransform: 'none', fontSize: 11 }}
+                onClick={handleSaveNote}
+              >
+                Save Note
+              </Button>
             </Box>
           </CardContent>
         </Card>
@@ -372,6 +389,14 @@ export default function ApprovalDetailPage() {
           </CardContent>
         </Card>
       </Box>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={2000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success">{snackbar.msg}</Alert>
+      </Snackbar>
     </AdminApprovalDetailLayout>
   );
 }

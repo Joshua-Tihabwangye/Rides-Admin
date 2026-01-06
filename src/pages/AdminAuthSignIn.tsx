@@ -140,6 +140,20 @@ export default function AuthSignIn() {
             <strong>EVzone Admin</strong>
           </div>
           <div style={{ fontSize: 12, color: EV.grayText }}>Secure Console</div>
+          <select style={styles.langSelect} defaultValue="en">
+            <option value="zh">Chinese</option>
+            <option value="fr">French</option>
+            <option value="de">German</option>
+            <option value="en">English</option>
+            <option value="sw">Swahili</option>
+            <option value="es">Spanish</option>
+            <option value="it">Italian</option>
+            <option value="pt">Portuguese</option>
+            <option value="ko">Korean</option>
+            <option value="ja">Japanese</option>
+            <option value="ru">Russian</option>
+            <option value="hi">Hindu</option>
+          </select>
         </div>
 
         <div style={styles.cardMaxWidth}>
@@ -575,4 +589,14 @@ const styles = {
   },
   errText: { color: "#b91c1c", fontSize: 12 },
   noteText: { color: "#0ea5e9", fontSize: 12 },
+  langSelect: {
+    marginLeft: 16,
+    padding: "4px 8px",
+    borderRadius: 6,
+    border: "1px solid #e2e8f0",
+    fontSize: 11,
+    color: "#475569",
+    outline: "none",
+    cursor: "pointer"
+  }
 };
