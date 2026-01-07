@@ -42,86 +42,21 @@ const EV_COLORS = {
 };
 
 function AdminInvoiceTemplateLayout({ children }) {
-  const [mode, setMode] = useState("light");
-  const isDark = mode === "dark";
-
-  const toggleMode = () => {
-    setMode((prev) => (prev === "light" ? "dark" : "light"));
-  };
-
   return (
-    <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-        }`}
-      sx={{
-        background: isDark
-          ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
-          : `radial-gradient(circle at top left, ${EV_COLORS.primary}12, #ffffff), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}08, #f9fafb)`,
-      }}
-    >
-      {/* Header */}
-      <Box className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <Box>
-          <Typography
-            variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
-              }`}
-          >
-            EVZONE ADMIN
-          </Typography>
-          <Typography
-            variant="caption"
-            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
-              }`}
-          >
-            Finance · Invoice template
-          </Typography>
-        </Box>
-        <Box className="flex items-center gap-2">
-          <Chip
-            size="small"
-            label="Template"
-            sx={{
-              bgcolor: "#eef2ff",
-              borderColor: "#c7d2fe",
-              color: "#1e3a8a",
-              fontSize: 10,
-            }}
-          />
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={toggleMode}
-            sx={{
-              textTransform: "none",
-              borderRadius: 999,
-              borderColor: isDark ? "#1f2937" : "#e5e7eb",
-              color: isDark ? "#e5e7eb" : "#374151",
-              px: 1.8,
-              py: 0.4,
-              fontSize: 11,
-              minWidth: "auto",
-            }}
-          >
-            {isDark ? "Dark" : "Light"}
-          </Button>
-        </Box>
-      </Box>
-
+    <Box>
       {/* Title */}
-      <Box className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between gap-2">
+      <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
-              }`}
+            className="font-semibold tracking-tight"
+            color="text.primary"
           >
             Invoice Template Preview
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
-              }`}
+            color="text.secondary"
           >
             Adjust header, footer and basic layout. Detailed styling happens in
             your design system.
@@ -129,7 +64,7 @@ function AdminInvoiceTemplateLayout({ children }) {
         </Box>
       </Box>
 
-      <Box className="flex-1 flex flex-col px-4 sm:px-6 pb-6 gap-3">
+      <Box className="flex-1 flex flex-col gap-3">
         {children}
       </Box>
     </Box>
@@ -156,23 +91,15 @@ export default function InvoiceTemplatePreviewPage() {
   const [drafts, setDrafts] = useState([]);
 
   const handleSave = () => {
-    // Save to drafts
+    // Save to drafts (not download)
     const newDraft = {
       id: Date.now(),
-      name: `Template Draft ${drafts.length + 1}`,
+      name: `Invoice Template ${new Date().toLocaleDateString()}`,
       date: new Date().toLocaleDateString(),
+      timestamp: new Date().toISOString(),
       data: { ...template }
     };
     setDrafts(prev => [newDraft, ...prev]);
-
-    // Download file
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(template, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `invoice_template_${newDraft.id}.json`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
   };
 
   const deleteDraft = (id) => {
@@ -366,6 +293,61 @@ export default function InvoiceTemplatePreviewPage() {
           </CardContent>
         </Card>
       </Box>
+
+      {/* Saved Templates */}
+      {drafts.length > 0 && (
+        <Card
+          elevation={1}
+          sx={{
+            borderRadius: 8,
+            border: "1px solid rgba(148,163,184,0.5)",
+            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+          }}
+        >
+          <CardContent className="p-4 flex flex-col gap-3">
+            <Typography
+              variant="subtitle2"
+              className="font-semibold text-slate-900"
+            >
+              Saved Templates
+            </Typography>
+            <Divider className="!my-1" />
+            <Box className="flex flex-col gap-2">
+              {drafts.map((draft) => (
+                <Box
+                  key={draft.id}
+                  className="flex items-center justify-between p-2 border border-slate-200 rounded-md"
+                >
+                  <Box>
+                    <Typography variant="body2" className="font-medium">
+                      {draft.name}
+                    </Typography>
+                    <Typography variant="caption" className="text-slate-500">
+                      Saved on {draft.date}
+                    </Typography>
+                  </Box>
+                  <Box className="flex gap-1">
+                    <IconButton
+                      size="small"
+                      onClick={() => downloadDraft(draft)}
+                      sx={{ color: EV_COLORS.primary }}
+                    >
+                      <FileDownloadIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => deleteDraft(draft.id)}
+                      sx={{ color: "error.main" }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
     </AdminInvoiceTemplateLayout>
   );
 }

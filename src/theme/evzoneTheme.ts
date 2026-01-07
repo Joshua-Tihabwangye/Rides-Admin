@@ -22,8 +22,8 @@ export function makeEvzoneTheme(mode: ColorMode) {
         paper: isDark ? '#0b1220' : '#ffffff',
       },
       text: {
-        primary: isDark ? '#e5e7eb' : '#0f172a',
-        secondary: isDark ? '#94a3b8' : '#475569',
+        primary: isDark ? '#f1f5f9' : '#0f172a',
+        secondary: isDark ? '#cbd5e1' : '#475569',
       },
       divider: isDark ? 'rgba(148,163,184,0.18)' : 'rgba(15,23,42,0.10)',
     },
@@ -47,9 +47,26 @@ export function makeEvzoneTheme(mode: ColorMode) {
               ? '1px solid rgba(148,163,184,0.18)'
               : 'none',
             backgroundColor: isDark ? '#0b1220' : '#ffffff',
+            color: isDark ? '#f1f5f9' : '#0f172a',
             boxShadow: isDark
               ? '0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3)'
               : '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025), 0 0 0 1px rgba(0,0,0,0.03)',
+          },
+        },
+      },
+      MuiTable: {
+        styleOverrides: {
+          root: {
+            '& .MuiTableCell-root': {
+              color: isDark ? '#f1f5f9' : '#0f172a',
+            },
+          },
+        },
+      },
+      MuiTypography: {
+        styleOverrides: {
+          root: {
+            color: isDark ? '#f1f5f9' : undefined,
           },
         },
       },

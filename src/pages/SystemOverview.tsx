@@ -135,86 +135,151 @@ export default function SystemOverviewPage() {
         />
       </Box>
 
+      {/* System Health KPIs */}
+      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+          <CardContent className="p-3">
+            <Typography variant="caption" className="text-[11px] uppercase text-slate-500">System Status</Typography>
+            <Typography variant="h6" className="font-semibold text-lg" color="text.primary">Operational</Typography>
+            <Typography variant="caption" className="text-[11px] text-emerald-600">All systems normal</Typography>
+          </CardContent>
+        </Card>
+        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+          <CardContent className="p-3">
+            <Typography variant="caption" className="text-[11px] uppercase text-slate-500">Active Integrations</Typography>
+            <Typography variant="h6" className="font-semibold text-lg" color="text.primary">2/3</Typography>
+            <Typography variant="caption" className="text-[11px] text-amber-600">1 degraded</Typography>
+          </CardContent>
+        </Card>
+        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+          <CardContent className="p-3">
+            <Typography variant="caption" className="text-[11px] uppercase text-slate-500">Feature Flags</Typography>
+            <Typography variant="h6" className="font-semibold text-lg" color="text.primary">3</Typography>
+            <Typography variant="caption" className="text-[11px] text-slate-600">2 active, 1 experiment</Typography>
+          </CardContent>
+        </Card>
+        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+          <CardContent className="p-3">
+            <Typography variant="caption" className="text-[11px] uppercase text-slate-500">Uptime (30d)</Typography>
+            <Typography variant="h6" className="font-semibold text-lg" color="text.primary">99.8%</Typography>
+            <Typography variant="caption" className="text-[11px] text-emerald-600">+0.2% vs last month</Typography>
+          </CardContent>
+        </Card>
+      </Box>
+
       <Box className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Integrations status */}
         <Card
-          elevation={1}
+          elevation={2}
           sx={{
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            // background: "linear-gradient(145deg, #ffffff, #f9fafb)",
+            border: "1px solid rgba(148,163,184,0.3)",
             bgcolor: "background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-              color="text.primary"
-            >
-              Integrations status
-            </Typography>
+            <Box className="flex items-center justify-between">
+              <Typography
+                variant="subtitle2"
+                className="font-semibold"
+                color="text.primary"
+              >
+                Integrations Status
+              </Typography>
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => handleQuickLink("integrations")}
+                sx={{ textTransform: "none", fontSize: 11 }}
+              >
+                Manage
+              </Button>
+            </Box>
             <Divider className="!my-1" />
-            <Box className="flex flex-col gap-2 text-[12px]">
-              {SYSTEM_INTEGRATIONS.map((integration) => (
-                <Box
-                  key={integration.id}
-                  className="flex items-start justify-between gap-2"
-                >
-                  <Box>
-                    <div className="font-medium">{integration.name}</div>
-                    <div className="text-[11px] text-slate-500">
-                      Provider: {integration.provider}
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      Last error: {integration.lastError}
-                    </div>
-                  </Box>
-                  <Button
-                    variant="text"
-                    size="small"
-                    sx={{
-                      textTransform: "none",
-                      fontSize: 11,
-                      minWidth: "auto",
-                      padding: 0,
-                      color: "#4b5563",
-                    }}
-                    onClick={() => handleIntegrationClick(integration.id)}
+            <Box className="flex flex-col gap-3">
+              {SYSTEM_INTEGRATIONS.map((integration) => {
+                const statusColor = integration.status === "Connected" ? "#03cd8c" : integration.status === "Degraded" ? "#f77f00" : "#ef4444";
+                return (
+                  <Box
+                    key={integration.id}
+                    className="flex items-start justify-between gap-2 p-2 rounded-md border border-divider"
                   >
-                    View
-                  </Button>
-                </Box>
-              ))}
+                    <Box sx={{ flex: 1 }}>
+                      <Box className="flex items-center gap-2 mb-1">
+                        <Typography variant="body2" className="font-semibold" color="text.primary">
+                          {integration.name}
+                        </Typography>
+                        <Chip
+                          label={integration.status}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: 9,
+                            bgcolor: statusColor + '20',
+                            color: statusColor,
+                            fontWeight: 600,
+                          }}
+                        />
+                      </Box>
+                      <Typography variant="caption" className="text-[11px]" color="text.secondary">
+                        Provider: {integration.provider}
+                      </Typography>
+                      {integration.lastError !== "None" && (
+                        <Typography variant="caption" className="text-[10px] text-amber-600 block mt-1">
+                          {integration.lastError}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })}
             </Box>
           </CardContent>
         </Card>
 
         {/* Recent critical actions */}
         <Card
-          elevation={1}
+          elevation={2}
           sx={{
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            // background: "linear-gradient(145deg, #fef2f2, #ffffff)",
+            border: "1px solid rgba(148,163,184,0.3)",
             bgcolor: "background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-              color="text.primary"
-            >
-              Recent critical admin actions
-            </Typography>
+            <Box className="flex items-center justify-between">
+              <Typography
+                variant="subtitle2"
+                className="font-semibold"
+                color="text.primary"
+              >
+                Recent Critical Actions
+              </Typography>
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => handleQuickLink("audit")}
+                sx={{ textTransform: "none", fontSize: 11 }}
+              >
+                View All
+              </Button>
+            </Box>
             <Divider className="!my-1" />
-            <Box className="flex flex-col gap-2 text-[12px]">
+            <Box className="flex flex-col gap-3">
               {CRITICAL_ACTIONS.map((evt) => (
-                <Box key={evt.id} className="flex flex-col">
-                  <span className="text-[11px] text-slate-500">{evt.at}</span>
-                  <span className="font-medium">{evt.actor}</span>
-                  <span>{evt.detail}</span>
+                <Box 
+                  key={evt.id} 
+                  className="p-2 rounded-md border border-divider hover:bg-action-hover transition-colors"
+                >
+                  <Typography variant="caption" className="text-[10px] uppercase" color="text.secondary">
+                    {evt.at}
+                  </Typography>
+                  <Typography variant="body2" className="font-semibold mt-0.5" color="text.primary">
+                    {evt.actor}
+                  </Typography>
+                  <Typography variant="body2" className="text-[12px] mt-1" color="text.primary">
+                    {evt.detail}
+                  </Typography>
                 </Box>
               ))}
             </Box>
@@ -223,11 +288,10 @@ export default function SystemOverviewPage() {
 
         {/* Quick links */}
         <Card
-          elevation={1}
+          elevation={2}
           sx={{
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            // background: "linear-gradient(145deg, #eef2ff, #ffffff)",
+            border: "1px solid rgba(148,163,184,0.3)",
             bgcolor: "background.paper"
           }}
         >
@@ -237,33 +301,37 @@ export default function SystemOverviewPage() {
               className="font-semibold"
               color="text.primary"
             >
-              Quick links
+              Quick Actions
             </Typography>
             <Divider className="!my-1" />
-            <Box className="flex flex-col gap-2">
+            <Box className="grid grid-cols-2 gap-2">
               <Button
-                variant="outlined"
+                variant="contained"
                 size="small"
                 sx={{
                   textTransform: "none",
                   borderRadius: 2,
-                  fontSize: 12,
+                  fontSize: 11,
+                  bgcolor: EV_COLORS.primary,
+                  '&:hover': { bgcolor: '#0fb589' },
                 }}
                 onClick={() => handleQuickLink("integrations")}
               >
-                Go to Integrations
+                Integrations
               </Button>
               <Button
-                variant="outlined"
+                variant="contained"
                 size="small"
                 sx={{
                   textTransform: "none",
                   borderRadius: 2,
-                  fontSize: 12,
+                  fontSize: 11,
+                  bgcolor: EV_COLORS.secondary,
+                  '&:hover': { bgcolor: '#d97706' },
                 }}
                 onClick={() => handleQuickLink("flags")}
               >
-                Go to Feature Flags
+                Feature Flags
               </Button>
               <Button
                 variant="outlined"
@@ -271,11 +339,11 @@ export default function SystemOverviewPage() {
                 sx={{
                   textTransform: "none",
                   borderRadius: 2,
-                  fontSize: 12,
+                  fontSize: 11,
                 }}
                 onClick={() => handleQuickLink("audit")}
               >
-                Go to Audit Log
+                Audit Log
               </Button>
               <Button
                 variant="outlined"
@@ -283,11 +351,11 @@ export default function SystemOverviewPage() {
                 sx={{
                   textTransform: "none",
                   borderRadius: 2,
-                  fontSize: 12,
+                  fontSize: 11,
                 }}
                 onClick={() => handleQuickLink("risk")}
               >
-                Go to Risk & Fraud Center
+                Risk Center
               </Button>
             </Box>
           </CardContent>

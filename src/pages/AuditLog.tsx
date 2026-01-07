@@ -46,98 +46,28 @@ const EV_COLORS = {
 };
 
 function AdminAuditLayout({ children }) {
-  const [mode, setMode] = useState("light");
-  const isDark = mode === "dark";
-
-  const toggleMode = () => {
-    setMode((prev) => (prev === "light" ? "dark" : "light"));
-  };
-
   return (
-    <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-      }`}
-      sx={{
-        background: isDark
-          ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
-          : `radial-gradient(circle at top left, ${EV_COLORS.primary}12, #ffffff), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}08, #f9fafb)`,
-      }}
-    >
-      {/* Header */}
-      <Box className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <Box>
-          <Typography
-            variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-500"
-            }`}
-          >
-            EVZONE ADMIN
-          </Typography>
-          <Typography
-            variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
-          >
-            System · Audit log
-          </Typography>
-        </Box>
-        <Box className="flex items-center gap-2">
-          <Chip
-            size="small"
-            label="Audit log"
-            sx={{
-              bgcolor: "#fee2e2",
-              borderColor: "#fecaca",
-              color: "#7f1d1d",
-              fontSize: 10,
-            }}
-          />
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={toggleMode}
-            sx={{
-              textTransform: "none",
-              borderRadius: 999,
-              borderColor: isDark ? "#1f2937" : "#e5e7eb",
-              color: isDark ? "#e5e7eb" : "#374151",
-              px: 1.8,
-              py: 0.4,
-              fontSize: 11,
-              minWidth: "auto",
-            }}
-          >
-            {isDark ? "Dark" : "Light"}
-          </Button>
-        </Box>
-      </Box>
-
+    <Box>
       {/* Title */}
-      <Box className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between gap-2">
+      <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${
-              isDark ? "text-slate-50" : "text-slate-900"
-            }`}
+            className="font-semibold tracking-tight"
+            color="text.primary"
           >
             Audit Log
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
-            }`}
+            color="text.secondary"
           >
             Track all critical admin actions: who changed what, and when.
           </Typography>
         </Box>
       </Box>
 
-      <Box className="flex-1 flex flex-col px-4 sm:px-6 pb-6 gap-3">
+      <Box className="flex-1 flex flex-col gap-3">
         {children}
       </Box>
     </Box>
@@ -204,7 +134,7 @@ export default function AuditLogPage() {
         event: evt.event as string,
         detail: JSON.stringify(evt, null, 0),
       }))
-    : SAMPLE_EVENTS;
+    : [];
   const handleFilterChange = (field) => (event) => {
     const value = event.target.value;
     const next = { ...filters, [field]: value };
@@ -272,7 +202,11 @@ export default function AuditLogPage() {
               sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }}
               onClick={() => {
                 clearAuditEvents();
-                console.log("Audit log cleared");
+                // Clear sample events from localStorage
+                localStorage.removeItem('audit_events');
+                // Clear approval history if needed
+                localStorage.removeItem('approval_history');
+                // Force reload to show empty state
                 window.location.reload();
               }}
             >
@@ -305,20 +239,28 @@ export default function AuditLogPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredEvents.map((evt) => (
-                  <TableRow
-                    key={evt.id}
-                    hover
-                    sx={{ cursor: "pointer" }}
-                    onClick={() => handleRowClick(evt)}
-                  >
-                    <TableCell>{evt.at}</TableCell>
-                    <TableCell>{evt.actor}</TableCell>
-                    <TableCell>{evt.module}</TableCell>
-                    <TableCell>{evt.event}</TableCell>
-                    <TableCell>{evt.detail}</TableCell>
+                {filteredEvents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                      No audit events found.
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredEvents.map((evt) => (
+                    <TableRow
+                      key={evt.id}
+                      hover
+                      sx={{ cursor: "pointer" }}
+                      onClick={() => handleRowClick(evt)}
+                    >
+                      <TableCell>{evt.at}</TableCell>
+                      <TableCell>{evt.actor}</TableCell>
+                      <TableCell>{evt.module}</TableCell>
+                      <TableCell>{evt.event}</TableCell>
+                      <TableCell>{evt.detail}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>

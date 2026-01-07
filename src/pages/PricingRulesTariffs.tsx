@@ -119,7 +119,7 @@ export default function PricingRulesPage() {
   };
 
   const handleZoneClick = (zone) => {
-    console.log("Open zone editor for:", zone);
+    navigate(`/admin/pricing/zones`);
   };
 
   const handleViewPricing = (zone) => {
@@ -136,11 +136,11 @@ export default function PricingRulesPage() {
     { label: "Avg. Trip Cost", value: `$${(12 * multiplier).toLocaleString()}`, sub: "+5% vs last period" },
   ];
 
-  const pricingDistribution = [
+  const pricingDistribution = React.useMemo(() => [
     { name: "Standard", value: Math.round(65 * multiplier), color: "#03cd8c" },
     { name: "Surge > 1.5x", value: Math.round(20 * multiplier), color: "#f77f00" },
     { name: "Promo / Discount", value: Math.round(15 * multiplier), color: "#3b82f6" },
-  ];
+  ], [multiplier]);
 
   const countryZones = zones[country] || [];
 

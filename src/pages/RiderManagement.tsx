@@ -44,7 +44,9 @@ export default function RiderManagement() {
       (activeTab === "Approved" && rider.primaryStatus === "approved") ||
       (activeTab === "Under review" && rider.primaryStatus === "under_review") ||
       (activeTab === "Suspended" && rider.primaryStatus === "suspended");
-    return matchesSearch && matchesTab;
+    // Only show bike riders
+    const matchesVehicle = rider.vehicleType === "Bike";
+    return matchesSearch && matchesTab && matchesVehicle;
   });
 
   const handleRowClick = (id: number) => {
@@ -129,10 +131,11 @@ export default function RiderManagement() {
                 <TableCell>Name</TableCell>
                 <TableCell>Contact</TableCell>
                 <TableCell>City</TableCell>
+                <TableCell>Vehicle</TableCell>
                 <TableCell align="right">Trips</TableCell>
                 <TableCell align="right">Lifetime Spend</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Risk</TableCell>
+                <TableCell>Activity</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -149,6 +152,7 @@ export default function RiderManagement() {
                   </TableCell>
                   <TableCell>{rider.phone}</TableCell>
                   <TableCell>{rider.city}</TableCell>
+                  <TableCell>{rider.vehicle}</TableCell>
                   <TableCell align="right">{rider.trips}</TableCell>
                   <TableCell align="right">{rider.spend}</TableCell>
                   <TableCell>
@@ -157,15 +161,6 @@ export default function RiderManagement() {
                   <TableCell>
                     <StatusBadge
                       status={rider.activityStatus === "active" ? "active" : "inactive"}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={rider.risk}
-                      size="small"
-                      color={rider.risk === 'High' ? 'error' : 'default'}
-                      variant="outlined"
-                      sx={{ height: 24, fontSize: 11 }}
                     />
                   </TableCell>
                 </TableRow>

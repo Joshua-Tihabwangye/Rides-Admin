@@ -56,86 +56,21 @@ const EV_COLORS = {
 };
 
 function AdminTrainingLayout({ children }) {
-  const [mode, setMode] = useState("light");
-  const isDark = mode === "dark";
-
-  const toggleMode = () => {
-    setMode((prev) => (prev === "light" ? "dark" : "light"));
-  };
-
   return (
-    <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-        }`}
-      sx={{
-        background: isDark
-          ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
-          : `radial-gradient(circle at top left, ${EV_COLORS.primary}12, #ffffff), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}08, #f9fafb)`,
-      }}
-    >
-      {/* Header */}
-      <Box className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <Box>
-          <Typography
-            variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
-              }`}
-          >
-            EVZONE ADMIN
-          </Typography>
-          <Typography
-            variant="caption"
-            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
-              }`}
-          >
-            Training · Global manager
-          </Typography>
-        </Box>
-        <Box className="flex items-center gap-2">
-          <Chip
-            size="small"
-            label="Training"
-            sx={{
-              bgcolor: "#ecfdf5",
-              borderColor: "#bbf7d0",
-              color: "#14532d",
-              fontSize: 10,
-            }}
-          />
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={toggleMode}
-            sx={{
-              textTransform: "none",
-              borderRadius: 999,
-              borderColor: isDark ? "#1f2937" : "#e5e7eb",
-              color: isDark ? "#e5e7eb" : "#374151",
-              px: 1.8,
-              py: 0.4,
-              fontSize: 11,
-              minWidth: "auto",
-            }}
-          >
-            {isDark ? "Dark" : "Light"}
-          </Button>
-        </Box>
-      </Box>
-
+    <Box>
       {/* Title */}
-      <Box className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between gap-2">
+      <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
-              }`}
+            className="font-semibold tracking-tight"
+            color="text.primary"
           >
             Global Training Manager
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
-              }`}
+            color="text.secondary"
           >
             Create and manage training modules for Drivers, Agents and
             Companies across regions.
@@ -143,7 +78,7 @@ function AdminTrainingLayout({ children }) {
         </Box>
       </Box>
 
-      <Box className="flex-1 flex flex-col px-4 sm:px-6 pb-6 gap-3">
+      <Box className="flex-1 flex flex-col gap-3" sx={{ maxWidth: { lg: '100%' }, width: '100%' }}>
         {children}
       </Box>
     </Box>
@@ -254,7 +189,7 @@ export default function GlobalTrainingManagerPage() {
 
   return (
     <AdminTrainingLayout>
-      <Box className="flex flex-col lg:flex-row gap-4">
+      <Box className="flex flex-col lg:flex-row gap-4" sx={{ width: '100%', maxWidth: '100%' }}>
         {/* Left – module list */}
         <Card
           elevation={1}
@@ -324,6 +259,41 @@ export default function GlobalTrainingManagerPage() {
               Training modules appear in Driver/Agent/Company apps based on
               their audience and status.
             </Typography>
+            
+            {/* Upload Resources Section */}
+            <Divider className="!my-2" />
+            <Box className="flex flex-col gap-2">
+              <Typography variant="caption" className="text-[11px] font-semibold text-slate-700">
+                Upload Resources
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                component="label"
+                sx={{
+                  textTransform: "none",
+                  borderRadius: 2,
+                  fontSize: 11,
+                }}
+              >
+                Upload Video/Resource
+                <input
+                  type="file"
+                  hidden
+                  accept="video/*,.pdf,.mp4,.mov"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      console.log("File selected:", file.name);
+                      // In production, upload to server
+                    }
+                  }}
+                />
+              </Button>
+              <Typography variant="caption" className="text-[10px] text-slate-400">
+                Supported: MP4, MOV, PDF (max 100MB)
+              </Typography>
+            </Box>
           </CardContent>
         </Card>
 
@@ -441,15 +411,22 @@ export default function GlobalTrainingManagerPage() {
 
             <Box className="flex items-center justify-between mt-4 border-t pt-4">
               <Button
-                variant="text"
+                variant="contained"
                 size="small"
-                sx={{ textTransform: 'none', color: 'text.secondary' }}
+                sx={{ 
+                  textTransform: 'none', 
+                  bgcolor: EV_COLORS.secondary,
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: '#d97706',
+                  }
+                }}
                 onClick={() => {
                   if (!editing.title) return;
                   navigate(`/admin/training/preview?title=${encodeURIComponent(editing.title)}&desc=${encodeURIComponent(editing.description)}`)
                 }}
               >
-                Preview as User
+                View as User
               </Button>
               <Button
                 variant="contained"

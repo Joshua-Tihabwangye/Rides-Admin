@@ -79,8 +79,21 @@ export default function RiskCaseDetailPage() {
     const entry = `Action: ${action} on ${riskCase.id}${notes.trim() ? ` – note: ${notes.trim()}` : ""
       }`;
     setNoteList((prev) => [entry, ...prev]);
-    // Simulate action effect
-    alert(`Action "${action}" processed successfully.`);
+    
+    // Process the action without console logs or alerts
+    if (action === "Monitor") {
+      // Monitor action - just track
+      setNoteList((prev) => [`Monitoring started for ${riskCase.actorName}`, ...prev]);
+    } else if (action === "Limit features") {
+      // Limit features - restrict certain capabilities
+      setNoteList((prev) => [`Features limited for ${riskCase.actorName}`, ...prev]);
+    } else if (action === "Escalate") {
+      // Escalate - move to higher priority
+      setNoteList((prev) => [`Case escalated for ${riskCase.actorName}`, ...prev]);
+    }
+    
+    // Clear notes after action
+    setNotes("");
   };
 
   const handleCommunication = (method: "Call" | "Chat") => {

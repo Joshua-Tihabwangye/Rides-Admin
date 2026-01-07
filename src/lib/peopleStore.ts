@@ -6,6 +6,8 @@ export type RiderRecord = {
   name: string
   phone: string
   city: string
+  vehicle: string
+  vehicleType: 'Bike' | 'Car'
   trips: number
   spend: string
   risk: 'Low' | 'High'
@@ -19,7 +21,10 @@ export type DriverRecord = {
   phone: string
   city: string
   vehicle: string
+  vehicleType: 'Bike' | 'Car'
   trips: number
+  spend: string
+  risk: 'Low' | 'High'
   primaryStatus: PrimaryStatus
   activityStatus: ActivityStatus
 }
@@ -33,8 +38,10 @@ const seedRiders: RiderRecord[] = [
     name: 'Alice Johnson',
     phone: '+250 788 123 456',
     city: 'Kigali',
-    trips: 15,
-    spend: '$240',
+    vehicle: 'EV Bike · K-101',
+    vehicleType: 'Bike',
+    trips: 125,
+    spend: '$2,450',
     risk: 'Low',
     primaryStatus: 'approved',
     activityStatus: 'active',
@@ -44,21 +51,25 @@ const seedRiders: RiderRecord[] = [
     name: 'Bob Smith',
     phone: '+250 788 654 321',
     city: 'Kigali',
-    trips: 3,
-    spend: '$45',
+    vehicle: 'EV Bike · K-102',
+    vehicleType: 'Bike',
+    trips: 89,
+    spend: '$1,780',
     risk: 'Low',
-    primaryStatus: 'under_review',
-    activityStatus: 'inactive',
+    primaryStatus: 'approved',
+    activityStatus: 'active',
   },
   {
     id: 103,
     name: 'Charlie Brown',
     phone: '+250 788 987 654',
     city: 'Musanze',
-    trips: 0,
-    spend: '$0',
-    risk: 'High',
-    primaryStatus: 'suspended',
+    vehicle: 'EV Bike · M-103',
+    vehicleType: 'Bike',
+    trips: 45,
+    spend: '$890',
+    risk: 'Low',
+    primaryStatus: 'approved',
     activityStatus: 'inactive',
   },
 ]
@@ -70,7 +81,10 @@ const seedDrivers: DriverRecord[] = [
     phone: '+256 701 111 111',
     city: 'Kampala',
     vehicle: 'EV Car · UAX 123X',
+    vehicleType: 'Car',
     trips: 420,
+    spend: '$8,200',
+    risk: 'Low',
     primaryStatus: 'approved',
     activityStatus: 'active',
   },
@@ -79,10 +93,13 @@ const seedDrivers: DriverRecord[] = [
     name: 'Sarah K.',
     phone: '+234 801 222 2222',
     city: 'Lagos',
-    vehicle: 'EV Bike · L-321',
-    trips: 215,
+    vehicle: 'EV Car · L-321',
+    vehicleType: 'Car',
+    trips: 315,
+    spend: '$6,150',
+    risk: 'Low',
     primaryStatus: 'approved',
-    activityStatus: 'inactive',
+    activityStatus: 'active',
   },
   {
     id: 203,
@@ -90,9 +107,12 @@ const seedDrivers: DriverRecord[] = [
     phone: '+254 702 333 333',
     city: 'Nairobi',
     vehicle: 'EV Car · KAX 456L',
-    trips: 35,
-    primaryStatus: 'under_review',
-    activityStatus: 'inactive',
+    vehicleType: 'Car',
+    trips: 285,
+    spend: '$5,550',
+    risk: 'Low',
+    primaryStatus: 'approved',
+    activityStatus: 'active',
   },
 ]
 
@@ -131,10 +151,19 @@ export function upsertRider(record: RiderRecord) {
   writeToStorage(RIDERS_KEY, riders)
 }
 
-export function createRider(partial: Omit<RiderRecord, 'id'>): RiderRecord {
+export function createRider(partial: Omit<RiderRecord, 'id' | 'vehicle' | 'vehicleType'> & Partial<Pick<RiderRecord, 'vehicle' | 'vehicleType'>>): RiderRecord {
   const riders = getRiders()
   const nextId = riders.length ? Math.max(...riders.map((r) => r.id)) + 1 : 100
-  const record: RiderRecord = { id: nextId, ...partial }
+
+  // Extract vehicle fields to avoid "specified more than once" error in object literal
+  const { vehicle = 'EV Bike', vehicleType = 'Bike', ...rest } = partial
+
+  const record: RiderRecord = {
+    id: nextId,
+    vehicle,
+    vehicleType,
+    ...rest
+  }
   riders.push(record)
   writeToStorage(RIDERS_KEY, riders)
   return record

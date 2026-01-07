@@ -44,58 +44,21 @@ const SAMPLE_REGIONS = [
 ];
 
 function AdminFinanceTaxLayout({ children }) {
-  // Theme options removed for consistency with other cleanups, or preserved if user didn't ask to remove here.
-  // User only asked to remove on Services page. I'll keep it simple/static here for now to avoid complexity.
-
   return (
-    <Box
-      className="min-h-screen flex flex-col bg-slate-50 text-slate-900"
-      sx={{
-        background: `radial-gradient(circle at top left, ${EV_COLORS.primary}12, #ffffff), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}08, #f9fafb)`,
-      }}
-    >
-      {/* Header */}
-      <Box className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <Box>
-          <Typography
-            variant="subtitle2"
-            className="tracking-[0.25em] uppercase text-[11px] text-slate-500"
-          >
-            EVZONE ADMIN
-          </Typography>
-          <Typography
-            variant="caption"
-            className="text-[11px] text-slate-600"
-          >
-            Finance · Taxes & Invoicing
-          </Typography>
-        </Box>
-        <Box className="flex items-center gap-2">
-          <Chip
-            size="small"
-            label="Taxes & Invoices"
-            sx={{
-              bgcolor: "#fefce8",
-              borderColor: "#facc15",
-              color: "#92400e",
-              fontSize: 10,
-            }}
-          />
-        </Box>
-      </Box>
-
+    <Box>
       {/* Title */}
-      <Box className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between gap-2">
+      <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
           <Typography
             variant="h6"
-            className="font-semibold tracking-tight text-slate-900"
+            className="font-semibold tracking-tight"
+            color="text.primary"
           >
             Taxes & Invoicing
           </Typography>
           <Typography
             variant="caption"
-            className="text-[11px] text-slate-600"
+            color="text.secondary"
           >
             Configure tax rules and invoice templates per region. All changes
             should be written to the audit log.
@@ -103,7 +66,7 @@ function AdminFinanceTaxLayout({ children }) {
         </Box>
       </Box>
 
-      <Box className="flex-1 flex flex-col px-4 sm:px-6 pb-6 gap-3">
+      <Box className="flex-1 flex flex-col gap-3">
         {children}
       </Box>
     </Box>
