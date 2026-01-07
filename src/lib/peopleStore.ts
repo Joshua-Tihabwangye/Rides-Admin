@@ -151,14 +151,18 @@ export function upsertRider(record: RiderRecord) {
   writeToStorage(RIDERS_KEY, riders)
 }
 
-export function createRider(partial: Omit<RiderRecord, 'id'>): RiderRecord {
+export function createRider(partial: Omit<RiderRecord, 'id' | 'vehicle' | 'vehicleType'> & Partial<Pick<RiderRecord, 'vehicle' | 'vehicleType'>>): RiderRecord {
   const riders = getRiders()
   const nextId = riders.length ? Math.max(...riders.map((r) => r.id)) + 1 : 100
-  const record: RiderRecord = { 
-    id: nextId, 
-    vehicle: partial.vehicle || 'EV Bike',
-    vehicleType: partial.vehicleType || 'Bike',
-    ...partial 
+
+  // Extract vehicle fields to avoid "specified more than once" error in object literal
+  const { vehicle = 'EV Bike', vehicleType = 'Bike', ...rest } = partial
+
+  const record: RiderRecord = {
+    id: nextId,
+    vehicle,
+    vehicleType,
+    ...rest
   }
   riders.push(record)
   writeToStorage(RIDERS_KEY, riders)
