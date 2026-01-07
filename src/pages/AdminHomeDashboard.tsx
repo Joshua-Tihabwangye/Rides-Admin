@@ -17,7 +17,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Badge,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
+import NotificationsIcon from "@mui/icons-material/Notifications";
 import {
   LineChart,
   Line,
@@ -66,6 +70,7 @@ import PeriodSelector from "../components/PeriodSelector";
 export default function AdminHomeDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState("today");
+  const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" | "Delivery" | "Both">("Both");
 
   const periodMultiplier: Record<string, number> = {
     today: 0.25,
@@ -82,50 +87,72 @@ export default function AdminHomeDashboardPage() {
         label: "Trips",
         value: (1248 * m).toLocaleString(undefined, { maximumFractionDigits: 0 }),
         trend: m >= 1 ? "+12% vs previous period" : "Softer vs previous period",
+        onClick: () => navigate("/admin/ops"),
+        subtitle: "Selected period",
       },
       {
         label: "Active drivers",
         value: Math.round(342 * m).toLocaleString(),
         trend: `${Math.round(82 * m)}% utilisation`,
+        onClick: () => navigate("/admin/drivers"),
+        subtitle: "Online now",
       },
       {
         label: "Active companies",
         value: Math.round(57 * m).toString(),
         trend: m >= 1 ? "+4 new this period" : "Stable vs previous period",
+        onClick: () => navigate("/admin/companies"),
+        subtitle: "Company approvals / active companies list",
       },
       {
         label: "Gross bookings",
         value: `$${Math.round(18420 * m).toLocaleString()}`,
         trend: m >= 1 ? "+9% vs previous period" : "Flat vs previous period",
+        onClick: () => navigate("/admin/finance"),
+        subtitle: "Finance report view",
       },
     ];
-  }, [period]);
+  }, [period, navigate]);
 
   const tripTrends = useMemo(() => {
     const m = periodMultiplier[period] ?? 1;
     const base = [
-      { hour: "6AM", trips: 45, bookings: 1200 },
-      { hour: "8AM", trips: 156, bookings: 3800 },
-      { hour: "10AM", trips: 198, bookings: 4500 },
-      { hour: "12PM", trips: 220, bookings: 5200 },
-      { hour: "2PM", trips: 178, bookings: 4100 },
-      { hour: "4PM", trips: 234, bookings: 5600 },
-      { hour: "6PM", trips: 267, bookings: 6300 },
-      { hour: "8PM", trips: 145, bookings: 3400 },
-      { hour: "10PM", trips: 78, bookings: 1800 },
+      { hour: "6AM", rides: 30, deliveries: 15, bookings: 1200 },
+      { hour: "8AM", rides: 104, deliveries: 52, bookings: 3800 },
+      { hour: "10AM", rides: 132, deliveries: 66, bookings: 4500 },
+      { hour: "12PM", rides: 147, deliveries: 73, bookings: 5200 },
+      { hour: "2PM", rides: 119, deliveries: 59, bookings: 4100 },
+      { hour: "4PM", rides: 156, deliveries: 78, bookings: 5600 },
+      { hour: "6PM", rides: 178, deliveries: 89, bookings: 6300 },
+      { hour: "8PM", rides: 97, deliveries: 48, bookings: 3400 },
+      { hour: "10PM", rides: 52, deliveries: 26, bookings: 1800 },
     ];
-    return base.map((row) => ({
-      ...row,
-      trips: Math.round(row.trips * m),
-      bookings: Math.round(row.bookings * m),
-    }));
-  }, [period]);
+    return base.map((row) => {
+      const rides = Math.round(row.rides * m);
+      const deliveries = Math.round(row.deliveries * m);
+      let trips = 0;
+      if (tripTrendFilter === "Rides") {
+        trips = rides;
+      } else if (tripTrendFilter === "Delivery") {
+        trips = deliveries;
+      } else {
+        trips = rides + deliveries;
+      }
+      return {
+        ...row,
+        rides,
+        deliveries,
+        trips,
+        bookings: Math.round(row.bookings * m),
+      };
+    });
+  }, [period, tripTrendFilter]);
 
   const [alerts] = useState([
-    { text: "6 company approvals pending", path: "/admin/approvals" },
-    { text: "14 drivers awaiting document re-check", path: "/admin/drivers?tab=review" },
-    { text: "3 high severity incidents open", path: "/admin/safety" },
-    { text: "1 region with abnormal cancellation spike", path: "/admin/ops" },
+    { text: "Company approvals pending", count: 6, severity: "medium", path: "/admin/approvals", action: "Review approvals" },
+    { text: "Drivers awaiting document re-check", count: 14, severity: "low", path: "/admin/drivers?tab=review", action: "Review approvals" },
+    { text: "High severity incidents open", count: 3, severity: "high", path: "/admin/safety", action: "Open incident queue" },
+    { text: "Region with abnormal cancellation spike", count: 1, severity: "medium", path: "/admin/ops", action: "View region" },
   ]);
 
   const [safetyHighlights] = useState([
@@ -139,6 +166,15 @@ export default function AdminHomeDashboardPage() {
     "Payouts scheduled this week: $21,300",
     "Top city by revenue: Kampala",
   ]);
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "high": return "#ef4444";
+      case "medium": return "#f77f00";
+      case "low": return "#facc15";
+      default: return "#94a3b8";
+    }
+  };
 
   return (
     <Box>
@@ -159,7 +195,17 @@ export default function AdminHomeDashboardPage() {
             Daily overview of Rides & Logistics performance across all regions.
           </Typography>
         </Box>
-        <PeriodSelector value={period} onChange={(newPeriod) => setPeriod(newPeriod)} />
+        <Box className="flex items-center gap-2">
+          <IconButton
+            onClick={() => navigate("/admin/notifications")}
+            sx={{ color: "text.primary" }}
+          >
+            <Badge badgeContent={4} color="error">
+              <NotificationsIcon />
+            </Badge>
+          </IconButton>
+          <PeriodSelector value={period} onChange={(newPeriod) => setPeriod(newPeriod)} />
+        </Box>
       </Box>
 
       {/* KPI cards with reduced corner radius */}
@@ -168,6 +214,7 @@ export default function AdminHomeDashboardPage() {
           <Card
             key={kpi.label}
             elevation={2}
+            onClick={kpi.onClick}
             sx={{
               borderRadius: 2,
               cursor: 'pointer',
@@ -210,6 +257,14 @@ export default function AdminHomeDashboardPage() {
               >
                 {kpi.trend}
               </Typography>
+              {kpi.subtitle && (
+                <Typography
+                  variant="caption"
+                  className="text-[10px] text-slate-500 mt-1"
+                >
+                  {kpi.subtitle}
+                </Typography>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -233,27 +288,42 @@ export default function AdminHomeDashboardPage() {
           }}
         >
           <CardContent className="p-4 h-full flex flex-col gap-2">
-            <Box className="flex items-center justify-between">
+            <Box className="flex items-center justify-between flex-wrap gap-2">
               <Typography
                 variant="subtitle2"
                 className="font-semibold text-slate-50"
               >
                 Trip Trends
               </Typography>
-              <Box className="flex items-center gap-1">
+              <Box className="flex items-center gap-2 flex-wrap">
+                <ToggleButtonGroup
+                  value={tripTrendFilter}
+                  exclusive
+                  onChange={(e, newValue) => newValue && setTripTrendFilter(newValue)}
+                  size="small"
+                  sx={{
+                    '& .MuiToggleButton-root': {
+                      fontSize: 10,
+                      padding: '4px 8px',
+                      color: '#94a3b8',
+                      borderColor: '#334155',
+                      '&.Mui-selected': {
+                        bgcolor: EV_COLORS.primary,
+                        color: '#020617',
+                        '&:hover': {
+                          bgcolor: EV_COLORS.primary,
+                        },
+                      },
+                    },
+                  }}
+                >
+                  <ToggleButton value="Rides">Rides</ToggleButton>
+                  <ToggleButton value="Delivery">Delivery</ToggleButton>
+                  <ToggleButton value="Both">Both</ToggleButton>
+                </ToggleButtonGroup>
                 <PeriodSelector
                   value={period}
                   onChange={(newPeriod) => setPeriod(newPeriod)}
-                />
-                <Chip
-                  size="small"
-                  label="Rides & Delivery"
-                  sx={{
-                    fontSize: 10,
-                    height: 22,
-                    bgcolor: EV_COLORS.primary,
-                    color: "#020617",
-                  }}
                 />
               </Box>
             </Box>
@@ -293,13 +363,22 @@ export default function AdminHomeDashboardPage() {
           }}
         >
           <CardContent className="p-4 h-full flex flex-col">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold mb-1"
-              color="text.primary"
-            >
-              Alerts & approvals
-            </Typography>
+            <Box className="flex items-center justify-between mb-1">
+              <Typography
+                variant="subtitle2"
+                className="font-semibold"
+                color="text.primary"
+              >
+                Alerts & approvals
+              </Typography>
+              <Button
+                size="small"
+                onClick={() => navigate("/admin/approvals")}
+                sx={{ fontSize: 10, minWidth: 'auto', textTransform: 'none' }}
+              >
+                View all
+              </Button>
+            </Box>
             <Typography
               variant="caption"
               className="text-[11px] mb-2"
@@ -307,27 +386,62 @@ export default function AdminHomeDashboardPage() {
             >
               Items that may need Admin attention.
             </Typography>
-            <Box className="flex flex-col gap-1 text-[12px]">
+            <Box className="flex flex-col gap-2 text-[12px] flex-1">
               {alerts.map((item) => (
                 <Box
                   key={item.text}
                   onClick={() => navigate(item.path)}
-                  className="flex items-start gap-2 rounded-md px-2 py-1 cursor-pointer transition-colors"
-                  sx={{ '&:hover': { bgcolor: 'action.hover' } }}
+                  className="flex items-start gap-2 rounded-md px-2 py-2 cursor-pointer transition-colors"
+                  sx={{ 
+                    '&:hover': { bgcolor: 'action.hover' },
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
                 >
                   <Box
                     component="span"
                     sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "4px",
-                      bgcolor: "#facc15",
-                      mt: "6px",
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      bgcolor: getSeverityColor(item.severity),
+                      mt: "4px",
+                      flexShrink: 0,
                     }}
                   />
-                  <Typography variant="body2" className="text-[12px]" color="text.primary">
-                    {item.text}
-                  </Typography>
+                  <Box className="flex-1">
+                    <Box className="flex items-center gap-2 mb-1">
+                      <Typography variant="body2" className="text-[12px] font-medium" color="text.primary">
+                        {item.text}
+                      </Typography>
+                      <Chip
+                        label={item.count}
+                        size="small"
+                        sx={{
+                          height: 18,
+                          fontSize: 9,
+                          bgcolor: getSeverityColor(item.severity) + '20',
+                          color: getSeverityColor(item.severity),
+                        }}
+                      />
+                    </Box>
+                    <Button
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(item.path);
+                      }}
+                      sx={{
+                        fontSize: 9,
+                        textTransform: 'none',
+                        padding: '2px 8px',
+                        minWidth: 'auto',
+                        color: EV_COLORS.primary,
+                      }}
+                    >
+                      {item.action}
+                    </Button>
+                  </Box>
                 </Box>
               ))}
             </Box>
@@ -356,16 +470,23 @@ export default function AdminHomeDashboardPage() {
               Safety & quality
             </Typography>
             <Divider className="!my-1" />
-            {safetyHighlights.map((item) => (
-              <Typography
-                key={item}
-                variant="body2"
-                className="text-[12px]"
-                color="text.primary"
-              >
-                • {item}
+            <Box className="flex flex-col gap-1">
+              {safetyHighlights.map((item) => (
+                <Typography
+                  key={item}
+                  variant="body2"
+                  className="text-[12px]"
+                  color="text.primary"
+                >
+                  • {item}
+                </Typography>
+              ))}
+            </Box>
+            <Box className="mt-2 pt-2 border-t border-divider">
+              <Typography variant="caption" className="text-[10px] text-slate-500">
+                Key metrics: Ratings, incidents, SOS activations
               </Typography>
-            ))}
+            </Box>
           </CardContent>
         </Card>
 

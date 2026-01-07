@@ -445,7 +445,7 @@ export default function AdminShell() {
             </Box>
 
             {/* Center: Search Bar */}
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', px: 2 }}>
+            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center', px: 2, alignItems: 'center', gap: 1 }}>
               <Box sx={{ display: { xs: 'none', sm: 'block' }, width: '100%', maxWidth: 480 }}>
                 <TextField
                   placeholder="Search riders, drivers..."
@@ -489,6 +489,20 @@ export default function AdminShell() {
                   }}
                 />
               </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => navigate('/admin/search')}
+                sx={{
+                  fontSize: 10,
+                  textTransform: 'none',
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  display: { xs: 'none', md: 'flex' },
+                }}
+              >
+                Quick filters
+              </Button>
             </Box>
 
             {/* Right Section */}
