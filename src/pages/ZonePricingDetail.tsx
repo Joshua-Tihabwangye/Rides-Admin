@@ -39,17 +39,32 @@ export default function ZonePricingDetail() {
     };
 
     const handleSave = () => {
-        console.log("Saving rule:", pricing);
+        // Save pricing rule (simulated)
+        localStorage.setItem(`pricing_rule_${id}`, JSON.stringify(pricing));
         setSnackbarOpen(true);
     };
 
     const handlePreview = () => {
-        console.log("Previewing rule calculation...");
-        alert("Preview:\nTrip (5km, 15min) = " + (parseInt(pricing.baseFare) + 5 * parseInt(pricing.perKm) + 15 * parseInt(pricing.perMin)));
+        const exampleFare = calculateExampleTrip();
+        setSnackbarOpen(true);
+        // Show preview in a more visible way
+    };
+
+    const calculateExampleTrip = () => {
+        const distance = 5; // km
+        const duration = 15; // minutes
+        const base = parseInt(pricing.baseFare) || 0;
+        const perKm = parseInt(pricing.perKm) || 0;
+        const perMin = parseInt(pricing.perMin) || 0;
+        const minFare = parseInt(pricing.minFare) || 0;
+        const surge = parseFloat(pricing.surgeMultiplier) || 1.0;
+        
+        const calculated = (base + (distance * perKm) + (duration * perMin)) * surge;
+        return Math.max(calculated, minFare);
     };
 
     return (
-        <Box className="p-4 max-w-4xl mx-auto">
+        <Box sx={{ width: '100%', maxWidth: '100%', px: { xs: 2, md: 4 } }}>
             <Box className="flex items-center justify-between mb-4">
                 <Box className="flex items-center gap-2">
                     <Button
@@ -144,6 +159,33 @@ export default function ZonePricingDetail() {
                         </Grid>
                     </Grid>
                     <Divider sx={{ my: 4 }} />
+                    
+                    {/* Pricing Rule Display */}
+                    <Card elevation={0} sx={{ bgcolor: 'background.default', p: 3, mb: 3 }}>
+                        <Typography variant="subtitle2" className="font-semibold mb-2">
+                            Pricing Rule Formula
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 2, fontFamily: 'monospace' }}>
+                            Fare = (Base Fare + (Distance × Per KM) + (Duration × Per Minute)) × Surge Multiplier
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 2, fontFamily: 'monospace' }}>
+                            Final Fare = MAX(Calculated Fare, Minimum Fare)
+                        </Typography>
+                        <Divider sx={{ my: 2 }} />
+                        <Typography variant="subtitle2" className="font-semibold mb-2">
+                            Example Calculation
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                            Trip: 5 km, 15 minutes
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', fontWeight: 600 }}>
+                            = ({pricing.baseFare} + (5 × {pricing.perKm}) + (15 × {pricing.perMin})) × {pricing.surgeMultiplier}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', fontWeight: 600, mt: 1 }}>
+                            = {calculateExampleTrip().toLocaleString()} UGX
+                        </Typography>
+                    </Card>
+
                     <Typography variant="caption" color="text.secondary">
                         These changes will apply immediately to all new trips created in this zone.
                     </Typography>

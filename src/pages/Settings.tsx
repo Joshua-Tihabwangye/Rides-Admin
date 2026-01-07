@@ -37,15 +37,17 @@ export default function Settings() {
     }
 
     const handleSave = () => {
-        console.log('AuditLog:', {
-            event: 'Settings updated',
-            at: new Date().toISOString(),
-            actor: 'Current Admin',
+        // Save settings to localStorage
+        localStorage.setItem('admin_settings', JSON.stringify({
             notifications,
             language,
             timezone,
-        })
-        alert('Settings saved successfully!')
+            savedAt: new Date().toISOString(),
+        }));
+        
+        // Show success message and redirect
+        alert('Settings saved successfully!');
+        window.location.href = '/admin/home';
     }
 
     return (

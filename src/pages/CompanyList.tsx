@@ -7,6 +7,7 @@ import {
   Typography,
   TextField,
   Chip,
+  Button,
   Table,
   TableHead,
   TableBody,
@@ -73,13 +74,22 @@ export default function CompanyList() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>
-          Companies & Fleets
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Manage fleet partners, rental companies, and logistics providers.
-        </Typography>
+      <Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>
+            Companies & Fleets
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage fleet partners, rental companies, and logistics providers.
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          onClick={() => navigate("/admin/companies/approvals")}
+          sx={{ textTransform: "none", borderRadius: 2 }}
+        >
+          Company Approvals
+        </Button>
       </Box>
 
       {/* Filters */}

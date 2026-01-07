@@ -355,6 +355,27 @@ export default function AdminProfileRegionSettingsPage() {
           </CardContent>
         </Card>
       </Box>
+      
+      {/* Save Button */}
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="contained"
+          onClick={() => {
+            // Save profile changes
+            localStorage.setItem('admin_profile', JSON.stringify({ profile, regions, limitAssignedOnly }));
+            alert('Profile changes saved successfully!');
+          }}
+          sx={{
+            textTransform: 'none',
+            borderRadius: 2,
+            px: 4,
+            bgcolor: EV_COLORS.primary,
+            '&:hover': { bgcolor: '#0fb589' },
+          }}
+        >
+          Save Changes
+        </Button>
+      </Box>
     </Box>
   );
 }

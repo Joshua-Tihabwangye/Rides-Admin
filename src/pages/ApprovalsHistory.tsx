@@ -63,31 +63,32 @@ export default function ApprovalsHistory() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {history.length === 0 && (
+                                {history.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} align="center" className="text-slate-500 py-8">
-                                            No approval history found.
+                                        <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                                            No approval history yet. Approvals will appear here once processed.
                                         </TableCell>
                                     </TableRow>
+                                ) : (
+                                    history.map((row) => (
+                                        <TableRow key={row.id}>
+                                            <TableCell className="font-mono text-xs">{row.id}</TableCell>
+                                            <TableCell className="font-medium">{row.entity}</TableCell>
+                                            <TableCell>{row.type}</TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={row.action}
+                                                    size="small"
+                                                    color={row.action === 'Approved' ? 'success' : 'error'}
+                                                    variant="outlined"
+                                                    sx={{ height: 24, borderRadius: 1 }}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="text-slate-500 text-sm">{row.date}</TableCell>
+                                            <TableCell className="text-slate-500 text-sm">{row.actor}</TableCell>
+                                        </TableRow>
+                                    ))
                                 )}
-                                {history.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell className="font-mono text-xs">{row.id}</TableCell>
-                                        <TableCell className="font-medium">{row.entity}</TableCell>
-                                        <TableCell>{row.type}</TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={row.action}
-                                                size="small"
-                                                color={row.action === 'Approved' ? 'success' : 'error'}
-                                                variant="outlined"
-                                                sx={{ height: 24, borderRadius: 1 }}
-                                            />
-                                        </TableCell>
-                                        <TableCell className="text-slate-500 text-sm">{row.date}</TableCell>
-                                        <TableCell className="text-slate-500 text-sm">{row.actor}</TableCell>
-                                    </TableRow>
-                                ))}
                             </TableBody>
                         </Table>
                     </TableContainer>

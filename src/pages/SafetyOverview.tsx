@@ -73,6 +73,7 @@ const BASE_USERS_UNDER_REVIEW = [
 export default function SafetyOverviewDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodOption>('today');
+  const [selectedRegion, setSelectedRegion] = useState<string>('All Regions');
 
   const handlePeriodChange = (newPeriod: PeriodOption) => {
     setPeriod(newPeriod);
@@ -133,12 +134,29 @@ export default function SafetyOverviewDashboardPage() {
   }, [period]);
 
   const INCIDENT_CITIES = useMemo(
-    () =>
-      BASE_INCIDENT_CITIES.map((city) => {
-        const m = periodMultiplier[period] ?? 1;
-        return { ...city, incidents: Math.max(0, Math.round(city.incidents * m)) };
-      }),
-    [period],
+    () => {
+      const m = periodMultiplier[period] ?? 1;
+      let cities = BASE_INCIDENT_CITIES;
+      
+      // Filter by region if not "All Regions"
+      if (selectedRegion !== 'All Regions') {
+        cities = cities.filter(city => {
+          if (selectedRegion === 'East Africa') {
+            return city.region === 'East Africa';
+          } else if (selectedRegion === 'West Africa') {
+            return city.region === 'West Africa';
+          }
+          return true;
+        });
+      }
+      
+      return cities.map((city) => {
+        // Vary incidents by region to simulate different data
+        const regionMultiplier = city.region === 'East Africa' ? 1.2 : 0.8;
+        return { ...city, incidents: Math.max(0, Math.round(city.incidents * m * regionMultiplier)) };
+      });
+    },
+    [period, selectedRegion],
   );
 
   const USERS_UNDER_REVIEW = useMemo(() => BASE_USERS_UNDER_REVIEW, []);
@@ -166,7 +184,8 @@ export default function SafetyOverviewDashboardPage() {
           {/* Categories in dropdowns as requested */}
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <Select
-              value="All Regions"
+              value={selectedRegion}
+              onChange={(e) => setSelectedRegion(e.target.value)}
               displayEmpty
               sx={{ fontSize: 12, borderRadius: 2, bgcolor: 'background.paper', height: 40 }}
             >

@@ -38,10 +38,12 @@ export default function DriverManagement() {
       driver.phone.includes(search);
     const matchesTab =
       activeTab === "All" ||
-      (activeTab === "Active" && driver.activityStatus === "active") ||
-      (activeTab === "Under Review" && driver.primaryStatus === "under_review") ||
+      (activeTab === "Approved" && driver.primaryStatus === "approved") ||
+      (activeTab === "Under review" && driver.primaryStatus === "under_review") ||
       (activeTab === "Suspended" && driver.primaryStatus === "suspended");
-    return matchesSearch && matchesTab;
+    // Only show car drivers
+    const matchesVehicle = driver.vehicleType === "Car";
+    return matchesSearch && matchesTab && matchesVehicle;
   });
 
   const handleRowClick = (id: number) => {
@@ -50,13 +52,15 @@ export default function DriverManagement() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Driver Management
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Manage driver applications, vehicle compliance, and performance.
-        </Typography>
+      <Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>
+            Driver Management
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage driver accounts, view trip history, and monitor risk profiles.
+          </Typography>
+        </Box>
       </Box>
 
       {/* Filters */}
@@ -77,7 +81,7 @@ export default function DriverManagement() {
             sx={{ width: 300, "& .MuiOutlinedInput-root": { borderRadius: 8 } }}
           />
           <Box sx={{ display: "flex", gap: 1 }}>
-            {["All", "Active", "Under Review", "Suspended"].map((status) => (
+            {["All", "Approved", "Under review", "Suspended"].map((status) => (
               <Chip
                 key={status}
                 label={status}
@@ -102,6 +106,7 @@ export default function DriverManagement() {
                 <TableCell>City</TableCell>
                 <TableCell>Vehicle</TableCell>
                 <TableCell align="right">Trips</TableCell>
+                <TableCell align="right">Lifetime Spend</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Activity</TableCell>
               </TableRow>
@@ -122,6 +127,7 @@ export default function DriverManagement() {
                   <TableCell>{driver.city}</TableCell>
                   <TableCell>{driver.vehicle}</TableCell>
                   <TableCell align="right">{driver.trips}</TableCell>
+                  <TableCell align="right">{driver.spend}</TableCell>
                   <TableCell>
                     <StatusBadge status={driver.primaryStatus} />
                   </TableCell>

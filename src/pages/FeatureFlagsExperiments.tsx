@@ -51,86 +51,21 @@ const EV_COLORS = {
 };
 
 function AdminFlagsLayout({ children }) {
-  const [mode, setMode] = useState("light");
-  const isDark = mode === "dark";
-
-  const toggleMode = () => {
-    setMode((prev) => (prev === "light" ? "dark" : "light"));
-  };
-
   return (
-    <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
-        }`}
-      sx={{
-        background: isDark
-          ? `radial-gradient(circle at top left, ${EV_COLORS.primary}18, #020617), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}10, #020617)`
-          : `radial-gradient(circle at top left, ${EV_COLORS.primary}12, #ffffff), radial-gradient(circle at bottom right, ${EV_COLORS.secondary}08, #f9fafb)`,
-      }}
-    >
-      {/* Header */}
-      <Box className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-        <Box>
-          <Typography
-            variant="subtitle2"
-            className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
-              }`}
-          >
-            EVZONE ADMIN
-          </Typography>
-          <Typography
-            variant="caption"
-            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
-              }`}
-          >
-            System · Feature flags
-          </Typography>
-        </Box>
-        <Box className="flex items-center gap-2">
-          <Chip
-            size="small"
-            label="Flags"
-            sx={{
-              bgcolor: "#e0f2fe",
-              borderColor: "#bae6fd",
-              color: "#0f172a",
-              fontSize: 10,
-            }}
-          />
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={toggleMode}
-            sx={{
-              textTransform: "none",
-              borderRadius: 999,
-              borderColor: isDark ? "#1f2937" : "#e5e7eb",
-              color: isDark ? "#e5e7eb" : "#374151",
-              px: 1.8,
-              py: 0.4,
-              fontSize: 11,
-              minWidth: "auto",
-            }}
-          >
-            {isDark ? "Dark" : "Light"}
-          </Button>
-        </Box>
-      </Box>
-
+    <Box>
       {/* Title */}
-      <Box className="px-4 sm:px-6 pt-4 pb-2 flex items-center justify-between gap-2">
+      <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
           <Typography
             variant="h6"
-            className={`font-semibold tracking-tight ${isDark ? "text-slate-50" : "text-slate-900"
-              }`}
+            className="font-semibold tracking-tight"
+            color="text.primary"
           >
             Feature Flags & Experiments
           </Typography>
           <Typography
             variant="caption"
-            className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"
-              }`}
+            color="text.secondary"
           >
             Toggle features and run experiments per module, region and user
             segment.
@@ -138,7 +73,7 @@ function AdminFlagsLayout({ children }) {
         </Box>
       </Box>
 
-      <Box className="flex-1 flex flex-col px-4 sm:px-6 pb-6 gap-3">
+      <Box className="flex-1 flex flex-col gap-3">
         {children}
       </Box>
     </Box>
@@ -192,8 +127,13 @@ export default function FeatureFlagsExperimentsPage() {
   };
 
   const handleRowClick = (flag) => {
-    setSelectedId(flag.id);
-    syncEditingWithSelected(flag);
+    // Navigate to detail page for experiments, select for features
+    if (flag.type === "Experiment") {
+      navigate(`/admin/system/flags/${flag.id}/results`);
+    } else {
+      setSelectedId(flag.id);
+      syncEditingWithSelected(flag);
+    }
   };
 
   const handleNewFlag = () => {
@@ -422,7 +362,7 @@ export default function FeatureFlagsExperimentsPage() {
                   }}
                   onClick={() => navigate(`/admin/system/flags/${editing.id}/results`)}
                 >
-                  View Link
+                  View Details
                 </Button>
               )}
               <Button

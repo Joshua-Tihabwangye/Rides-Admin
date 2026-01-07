@@ -33,6 +33,7 @@ import PricingRulesTariffs from './pages/PricingRulesTariffs'
 import ZoneCreate from './pages/ZoneCreate'
 import ZoneMapView from './pages/ZoneMapView'
 import ZonePricingDetail from './pages/ZonePricingDetail'
+import ZonesList from './pages/ZonesList'
 import PromotionsIncentives from './pages/PromotionsIncentives'
 import VerticalPolicies from './pages/VerticalPolicies'
 import AgentManagement from './pages/AgentManagement'
@@ -91,6 +92,7 @@ export default function App() {
 
           {/* Companies */}
           <Route path="companies" element={<CompanyList />} />
+          <Route path="companies/approvals" element={<CompanyApprovals />} />
           <Route path="companies/:companyId" element={<CompanyDetail />} />
 
           {/* Finance */}
@@ -110,6 +112,7 @@ export default function App() {
           {/* Product config */}
           <Route path="services" element={<ServiceConfiguration />} />
           <Route path="pricing" element={<PricingRulesTariffs />} />
+          <Route path="pricing/zones" element={<ZonesList />} />
           <Route path="pricing/new-zone" element={<ZoneCreate />} />
           <Route path="pricing/map/:id" element={<ZoneMapView />} />
           <Route path="pricing/detail/:id" element={<ZonePricingDetail />} />

@@ -63,7 +63,26 @@ export default function ExperimentResults() {
     const [mode, setMode] = useState("light"); // Local simulated mode state or could consume context
 
     // In a real app, we'd fetch the experiment by ID
-    const experiment = EXPERIMENT_DATA;
+    // For now, use the ID to determine which experiment to show
+    const experiment = id === "2" || id === "delivery.pricing.ab" 
+      ? EXPERIMENT_DATA 
+      : {
+          ...EXPERIMENT_DATA,
+          name: "New rides home screen",
+          key: "rides.home.v2",
+          variants: [
+            { name: "Control (A)", users: 50000, conversion: 45.2, revenue: 125000 },
+            { name: "Variant (B)", users: 50000, conversion: 48.7, revenue: 135000 },
+          ],
+          dailyData: [
+            { day: "Day 1", A: 44.0, B: 45.1 },
+            { day: "Day 5", A: 44.5, B: 46.2 },
+            { day: "Day 10", A: 45.0, B: 47.5 },
+            { day: "Day 15", A: 45.1, B: 48.2 },
+            { day: "Day 20", A: 45.2, B: 48.5 },
+            { day: "Day 25", A: 45.2, B: 48.7 },
+          ],
+        };
 
     return (
         <Box className="p-4 sm:p-6 flex flex-col gap-6">
@@ -77,11 +96,11 @@ export default function ExperimentResults() {
                     Back to Flags
                 </Button>
                 <Box>
-                    <Typography variant="h5" className="font-bold text-slate-900">
-                        Experiment Results
+                    <Typography variant="h5" fontWeight={700} color="text.primary">
+                        Experiment Results: {experiment.name}
                     </Typography>
-                    <Typography variant="body2" className="text-slate-500">
-                        {experiment.name} ({experiment.key})
+                    <Typography variant="body2" color="text.secondary">
+                        Flag Key: {experiment.key} · Status: {experiment.status} · Duration: {experiment.duration}
                     </Typography>
                 </Box>
                 <Chip
@@ -96,56 +115,115 @@ export default function ExperimentResults() {
                 />
             </Box>
 
+            {/* Summary Card */}
+            <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper", mb: 3 }}>
+                <CardContent sx={{ p: 3 }}>
+                    <Typography variant="subtitle2" fontWeight={700} color="text.primary" sx={{ mb: 2 }}>
+                        Experiment Summary
+                    </Typography>
+                    <Box className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Box>
+                            <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
+                                Experiment Type
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600} color="text.primary">
+                                A/B Test
+                            </Typography>
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
+                                Start Date
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600} color="text.primary">
+                                {experiment.startDate}
+                            </Typography>
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
+                                Duration
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600} color="text.primary">
+                                {experiment.duration}
+                            </Typography>
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
+                                Status
+                            </Typography>
+                            <Chip
+                                label={experiment.status}
+                                size="small"
+                                sx={{
+                                    bgcolor: experiment.status === "Running" ? "#ecfdf5" : "#fee2e2",
+                                    color: experiment.status === "Running" ? "#059669" : "#dc2626",
+                                    fontWeight: 600,
+                                    height: 22,
+                                }}
+                            />
+                        </Box>
+                    </Box>
+                </CardContent>
+            </Card>
+
             {/* Overview Stats */}
             <Grid container spacing={3}>
                 <Grid item xs={12} md={4}>
-                    <Card elevation={1} sx={{ borderRadius: 4 }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
                         <CardContent className="flex items-center gap-4">
-                            <Box className="p-3 bg-blue-50 rounded-full text-blue-600">
+                            <Box sx={{ p: 2, bgcolor: 'primary.main', borderRadius: 2, color: 'white' }}>
                                 <GroupIcon />
                             </Box>
                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary">
+                                <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
                                     Total Participants
                                 </Typography>
-                                <Typography variant="h5" fontWeight={700}>
+                                <Typography variant="h5" fontWeight={700} color="text.primary">
                                     {(
                                         experiment.variants.reduce((acc, v) => acc + v.users, 0)
                                     ).toLocaleString()}
                                 </Typography>
+                                <Typography variant="caption" className="text-[10px]" color="text.secondary">
+                                    Across all variants
+                                </Typography>
                             </Box>
                         </CardContent>
                     </Card>
                 </Grid>
                 <Grid item xs={12} md={4}>
-                    <Card elevation={1} sx={{ borderRadius: 4 }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
                         <CardContent className="flex items-center gap-4">
-                            <Box className="p-3 bg-green-50 rounded-full text-green-600">
+                            <Box sx={{ p: 2, bgcolor: 'success.main', borderRadius: 2, color: 'white' }}>
                                 <TrendingUpIcon />
                             </Box>
                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary">
-                                    Uplift (Conversion)
+                                <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
+                                    Conversion Uplift
                                 </Typography>
                                 <Typography variant="h5" fontWeight={700} color="success.main">
-                                    +13.6%
+                                    {((experiment.variants[1].conversion - experiment.variants[0].conversion) / experiment.variants[0].conversion * 100).toFixed(1)}%
+                                </Typography>
+                                <Typography variant="caption" className="text-[10px]" color="text.secondary">
+                                    Variant B vs Control A
                                 </Typography>
                             </Box>
                         </CardContent>
                     </Card>
                 </Grid>
                 <Grid item xs={12} md={4}>
-                    <Card elevation={1} sx={{ borderRadius: 4 }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
                         <CardContent className="flex items-center gap-4">
-                            <Box className="p-3 bg-orange-50 rounded-full text-orange-600">
+                            <Box sx={{ p: 2, bgcolor: 'secondary.main', borderRadius: 2, color: 'white' }}>
                                 <AccessTimeIcon />
                             </Box>
                             <Box>
-                                <Typography variant="subtitle2" color="text.secondary">
-                                    Duration
+                                <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
+                                    Revenue Impact
                                 </Typography>
-                                <Typography variant="h5" fontWeight={700}>
-                                    {experiment.duration}
+                                <Typography variant="h5" fontWeight={700} color="text.primary">
+                                    ${(experiment.variants.reduce((acc, v) => acc + v.revenue, 0)).toLocaleString()}
+                                </Typography>
+                                <Typography variant="caption" className="text-[10px]" color="text.secondary">
+                                    Total across variants
                                 </Typography>
                             </Box>
                         </CardContent>
@@ -157,10 +235,13 @@ export default function ExperimentResults() {
             <Grid container spacing={3}>
                 {/* Left: Variant Comparison */}
                 <Grid item xs={12} lg={6}>
-                    <Card elevation={1} sx={{ borderRadius: 4, height: "100%" }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper", height: "100%" }}>
                         <CardContent>
-                            <Typography variant="h6" fontWeight={600} gutterBottom>
-                                Variant Performance
+                            <Typography variant="h6" fontWeight={700} color="text.primary" gutterBottom>
+                                Variant Performance Comparison
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                                Side-by-side comparison of Control (A) and Variant (B) performance metrics
                             </Typography>
                             <Divider sx={{ mb: 3 }} />
 

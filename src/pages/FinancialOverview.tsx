@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Card,
@@ -75,7 +75,7 @@ export default function FinancialOverviewPage() {
     navigate(`/admin/reports?region=${encodeURIComponent(region)}&tab=financials`);
   };
 
-  const kpis = [
+  const kpis = useMemo(() => [
     {
       label: "Gross bookings",
       value: `$${(128420 * multiplier).toLocaleString()}`,
@@ -91,13 +91,13 @@ export default function FinancialOverviewPage() {
       value: `$${(79320 * multiplier).toLocaleString()}`,
       subtitle: "Next 7 days",
     },
-  ];
+  ], [multiplier]);
 
-  const serviceRevenueData = [
+  const serviceRevenueData = useMemo(() => [
     { name: "Rides", value: 82000 * multiplier, color: "#03cd8c" },
     { name: "Deliveries", value: 32000 * multiplier, color: "#f77f00" },
     { name: "Rental", value: 14420 * multiplier, color: "#3b82f6" },
-  ];
+  ], [multiplier]);
 
   return (
     <Box>
