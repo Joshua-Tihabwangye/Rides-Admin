@@ -53,6 +53,30 @@ export default function AdminGlobalSearchPage() {
         </Box>
       </Box>
 
+      {/* Quick filters */}
+      <Box className="flex items-center gap-2 mb-4 flex-wrap">
+        <Chip
+          label="Riders"
+          onClick={() => navigate('/admin/riders')}
+          sx={{ cursor: 'pointer' }}
+        />
+        <Chip
+          label="Drivers"
+          onClick={() => navigate('/admin/drivers')}
+          sx={{ cursor: 'pointer' }}
+        />
+        <Chip
+          label="Trips"
+          onClick={() => navigate('/admin/ops')}
+          sx={{ cursor: 'pointer' }}
+        />
+        <Chip
+          label="Companies"
+          onClick={() => navigate('/admin/companies')}
+          sx={{ cursor: 'pointer' }}
+        />
+      </Box>
+
       {/* No standalone search field here – use the cards below to jump into the relevant modules */}
 
       {/* Results sections with reduced corner radius */}

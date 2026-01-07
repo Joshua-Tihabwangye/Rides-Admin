@@ -9,6 +9,7 @@ import {
   Button,
   Divider,
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import {
   LineChart,
   Line,
@@ -32,6 +33,7 @@ const EV_COLORS = {
 
 
 export default function OperationsDashboardPage() {
+  const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodOption>('today');
 
   const handlePeriodChange = (newPeriod: PeriodOption, range?: any) => {
@@ -59,26 +61,45 @@ export default function OperationsDashboardPage() {
 
   const kpis = useMemo(() => {
     const m = periodMultiplier[period] ?? 1;
+    const tripsValue = (261 * m).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const tripsChange = m >= 1 ? '-6%' : '-6%';
+    const completionRate = (95.1 - (1 - m) * 0.5).toFixed(1);
+    const avgWaitTime = (6.7 + (1 - m) * 0.3).toFixed(1);
+    const onlineDrivers = Math.round(62 * m);
+    const utilisation = Math.round(13 * m);
+    
     return [
       {
-        label: 'Trips (rides + deliveries)',
-        value: (1742 * m).toLocaleString(undefined, { maximumFractionDigits: 0 }),
-        subtitle: m >= 1 ? '+9% vs previous period' : 'Softer vs previous period',
+        label: 'Trips (Rides + Deliveries)',
+        value: tripsValue,
+        subtitle: `${tripsChange} vs prev`,
+        status: 'Watch',
+        description: 'Total completed trip volume = rides + deliveries in the selected period.',
+        explanation: `${tripsChange} vs prev means Compared to the previous comparable period usually yesterday or previous week same day/time, trips are down 6%.`,
       },
       {
         label: 'Completion rate',
-        value: `${(96.8 - (1 - m) * 2).toFixed(1)}%`,
-        subtitle: 'Target ≥ 95%',
+        value: `${completionRate}%`,
+        subtitle: `Target ≥ 95%`,
+        status: parseFloat(completionRate) >= 95 ? 'On target' : 'Below target',
+        description: '% of initiated requests that complete successfully.',
+        explanation: 'Target ≥ 95% means Your business has decided anything below 95% is unacceptable. On target 95.1% passes the threshold but it\'s close to the line',
       },
       {
         label: 'Avg wait time',
-        value: `${(5.2 + (1 - m) * 1.8).toFixed(1)} min`,
-        subtitle: 'Peak across central city',
+        value: `${avgWaitTime} min`,
+        subtitle: 'SLA ≤ 7.0m',
+        status: parseFloat(avgWaitTime) <= 7 ? 'On target' : 'Above SLA',
+        description: 'Average time from request → pickup/driver arrival or request → match, depending on definition.',
+        explanation: 'SLA ≤ 7.0m means Your operational promise is average should stay under 7 minutes. On target means 6.7 is within SLA but close to breach.',
       },
       {
         label: 'Online drivers',
-        value: Math.round(412 * m).toLocaleString(),
-        subtitle: `${Math.round(88 * m)}% utilisation`,
+        value: onlineDrivers.toLocaleString(),
+        subtitle: `${utilisation}% utilisation`,
+        status: 'Monitor',
+        description: 'Number of drivers currently online/available.',
+        explanation: `${utilisation}% utilisation. This likely means active/engaged drivers ÷ online drivers or online ÷ total registered.`,
       },
     ];
   }, [period]);
@@ -137,37 +158,66 @@ export default function OperationsDashboardPage() {
 
       {/* KPI row */}
       <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
-        {kpis.map((kpi) => (
-          <Card
-            key={kpi.label}
-            elevation={1}
-            sx={{
-              border: "1px solid rgba(148,163,184,0.5)",
-              background: "linear-gradient(145deg, #ffffff, #f9fafb)",
-            }}
-          >
-            <CardContent className="p-3 flex flex-col gap-1">
-              <Typography
-                variant="caption"
-                className="text-[11px] uppercase tracking-wide text-slate-500"
-              >
-                {kpi.label}
-              </Typography>
-              <Typography
-                variant="h6"
-                className="font-semibold text-slate-900 text-lg"
-              >
-                {kpi.value}
-              </Typography>
-              <Typography
-                variant="caption"
-                className="text-[11px] text-emerald-700"
-              >
-                {kpi.subtitle}
-              </Typography>
-            </CardContent>
-          </Card>
-        ))}
+        {kpis.map((kpi) => {
+          const getStatusColor = (status: string) => {
+            if (status === 'On target') return '#03cd8c';
+            if (status === 'Watch' || status === 'Monitor') return '#f77f00';
+            if (status === 'Below target' || status === 'Above SLA') return '#ef4444';
+            return '#94a3b8';
+          };
+          
+          return (
+            <Card
+              key={kpi.label}
+              elevation={1}
+              sx={{
+                border: "1px solid rgba(148,163,184,0.5)",
+                background: "linear-gradient(145deg, #ffffff, #f9fafb)",
+              }}
+            >
+              <CardContent className="p-3 flex flex-col gap-1">
+                <Typography
+                  variant="caption"
+                  className="text-[11px] uppercase tracking-wide text-slate-500"
+                >
+                  {kpi.label}
+                </Typography>
+                <Typography
+                  variant="h6"
+                  className="font-semibold text-slate-900 text-lg"
+                >
+                  {kpi.value}
+                </Typography>
+                <Box className="flex items-center gap-2">
+                  <Typography
+                    variant="caption"
+                    className="text-[11px] text-emerald-700"
+                  >
+                    {kpi.subtitle}
+                  </Typography>
+                  <Chip
+                    label={kpi.status}
+                    size="small"
+                    sx={{
+                      height: 18,
+                      fontSize: 9,
+                      bgcolor: getStatusColor(kpi.status) + '20',
+                      color: getStatusColor(kpi.status),
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+                <Typography
+                  variant="caption"
+                  className="text-[10px] text-slate-500 mt-1"
+                  title={kpi.explanation}
+                >
+                  {kpi.description}
+                </Typography>
+              </CardContent>
+            </Card>
+          );
+        })}
       </Box>
 
       <Box className="flex flex-col lg:flex-row gap-4 mb-10">
@@ -227,31 +277,88 @@ export default function OperationsDashboardPage() {
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
+            <Box className="flex items-center justify-between">
+              <Typography
+                variant="subtitle2"
+                className="font-semibold text-slate-900"
+              >
+                Cancellations & issues
+              </Typography>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => navigate('/admin/ops?tab=queue')}
+                sx={{
+                  fontSize: 10,
+                  textTransform: 'none',
+                  bgcolor: EV_COLORS.primary,
+                  '&:hover': { bgcolor: '#0fb589' },
+                }}
+              >
+                Open queue
+              </Button>
+            </Box>
             <Typography
-              variant="subtitle2"
-              className="font-semibold text-slate-900"
+              variant="caption"
+              className="text-[10px] text-slate-500 mb-1"
             >
-              Cancellations & issues
+              Turn metrics into action
             </Typography>
             <Divider className="!my-1" />
-            <Typography
-              variant="body2"
-              className="text-[12px] text-slate-800"
-            >
-              • Rider cancellations: 4.1% (target ≤ 5%)
-            </Typography>
-            <Typography
-              variant="body2"
-              className="text-[12px] text-slate-800"
-            >
-              • Driver cancellations: 3.3% (watchlist over 7%)
-            </Typography>
-            <Typography
-              variant="body2"
-              className="text-[12px] text-slate-800"
-            >
-              • Support tickets (last 24h): 32 (3 critical)
-            </Typography>
+            <Box className="flex items-center gap-2">
+              <Typography
+                variant="body2"
+                className="text-[12px] text-slate-800"
+              >
+                • Rider cancellations: 4.1%
+              </Typography>
+              <Chip
+                label="On target"
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: 9,
+                  bgcolor: '#03cd8c20',
+                  color: '#03cd8c',
+                }}
+              />
+            </Box>
+            <Box className="flex items-center gap-2">
+              <Typography
+                variant="body2"
+                className="text-[12px] text-slate-800"
+              >
+                • Driver cancellations: 3.3%
+              </Typography>
+              <Chip
+                label="Monitor"
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: 9,
+                  bgcolor: '#f77f0020',
+                  color: '#f77f00',
+                }}
+              />
+            </Box>
+            <Box className="flex items-center gap-2">
+              <Typography
+                variant="body2"
+                className="text-[12px] text-slate-800"
+              >
+                • Support tickets (24h): 32 + 3 critical
+              </Typography>
+              <Chip
+                label="Critical"
+                size="small"
+                sx={{
+                  height: 18,
+                  fontSize: 9,
+                  bgcolor: '#ef444420',
+                  color: '#ef4444',
+                }}
+              />
+            </Box>
             <Typography
               variant="caption"
               className="text-[11px] text-slate-500 mt-1"

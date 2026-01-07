@@ -42,11 +42,6 @@ const TITLE = "Rides Admin Panel";
 const track = (e, p = {}) => console.debug("[track]", e, { ...p, ts: Date.now() });
 
 export default function AuthSignIn() {
-  const params = new URLSearchParams(
-    typeof window !== "undefined" ? window.location.search : ""
-  );
-  const presetName = params.get("name") || "Allan";
-
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state && location.state.from) ? location.state.from : "/admin/home";
@@ -57,6 +52,7 @@ export default function AuthSignIn() {
   const [caps, setCaps] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [loginError, setLoginError] = useState("");
 
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 980 : false
@@ -79,12 +75,23 @@ export default function AuthSignIn() {
 
   const login = (e) => {
     e.preventDefault();
-    if (!email || !pwd) return alert("Email & password required");
+    setLoginError("");
+    if (!email || !pwd) {
+      setLoginError("Email & password required");
+      return;
+    }
     if (!validateEmail(email)) {
       setEmailErr("Enter a valid work email");
       return;
     }
-    signIn({ name: presetName, email, role: "Admin (simulated)" });
+    // Simulate authentication - in production, this would call an API
+    // Always show generic error to avoid revealing if email exists
+    const isValid = email === "admin@evzone.app" && pwd.length > 0;
+    if (!isValid) {
+      setLoginError("Email or password is incorrect");
+      return;
+    }
+    signIn({ name: "Admin", email, role: "Admin (simulated)" });
     track("auth_login", { email, remember });
     navigate(from, { replace: true });
   };
@@ -98,8 +105,7 @@ export default function AuthSignIn() {
     const tests = [];
     tests.push({ name: "has hero", pass: true });
     tests.push({ name: "email default set", pass: email === "admin@evzone.app" });
-    tests.push({ name: "name default is Allan", pass: presetName === "Allan" });
-    tests.push({ name: "title constant ok", pass: TITLE === "Admin Portal" });
+    tests.push({ name: "title constant ok", pass: TITLE === "Rides Admin Panel" });
     tests.push({
       name: "title includes Admin",
       pass: TITLE.toLowerCase().includes("admin"),
@@ -135,10 +141,12 @@ export default function AuthSignIn() {
       <div style={styles.formCol}>
         {/* Brand bar */}
         <div style={styles.brandBar}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+          <div style={{alignItems: "center", gap: 8 }}>
             <div style={styles.brandDot} />
             <strong>EVzone Admin</strong>
           </div>
+
           <div style={{ fontSize: 12, color: EV.grayText }}>Secure Console</div>
           <select style={styles.langSelect} defaultValue="en">
             <option value="zh">Chinese</option>
@@ -158,7 +166,7 @@ export default function AuthSignIn() {
 
         <div style={styles.cardMaxWidth}>
           <h2 style={styles.title}>{TITLE}</h2>
-          <h1 style={styles.h1}>Welcome back, {presetName}.</h1>
+          <h1 style={styles.h1}>Welcome back.</h1>
           <p style={styles.sub}>Sign in to access the {TITLE}.</p>
 
           {/* Email login */}
@@ -206,6 +214,7 @@ export default function AuthSignIn() {
                 </button>
               </div>
               {caps && <span style={styles.noteText}>Caps Lock is ON</span>}
+              {loginError && <span style={styles.errText}>{loginError}</span>}
             </div>
 
             <div style={styles.rowBetweenWrap}>
