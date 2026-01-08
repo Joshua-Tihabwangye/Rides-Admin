@@ -1,6 +1,8 @@
 export type PrimaryStatus = 'approved' | 'under_review' | 'suspended'
 export type ActivityStatus = 'active' | 'inactive'
 
+export type RiskLevel = 'Low' | 'Medium' | 'High'
+
 export type RiderRecord = {
   id: number
   name: string
@@ -10,7 +12,7 @@ export type RiderRecord = {
   vehicleType: 'Bike' | 'Car'
   trips: number
   spend: string
-  risk: 'Low' | 'High'
+  risk: RiskLevel
   primaryStatus: PrimaryStatus
   activityStatus: ActivityStatus
 }
@@ -24,7 +26,7 @@ export type DriverRecord = {
   vehicleType: 'Bike' | 'Car'
   trips: number
   spend: string
-  risk: 'Low' | 'High'
+  risk: RiskLevel
   primaryStatus: PrimaryStatus
   activityStatus: ActivityStatus
 }
