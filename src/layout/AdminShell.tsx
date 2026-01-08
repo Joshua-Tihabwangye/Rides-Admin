@@ -21,6 +21,8 @@ import {
   useMediaQuery,
   Breadcrumbs,
   Link as MuiLink,
+  Badge,
+  Popover,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
@@ -59,6 +61,10 @@ import IntegrationInstructionsIcon from '@mui/icons-material/IntegrationInstruct
 import DnsIcon from '@mui/icons-material/Dns'
 import HistoryIcon from '@mui/icons-material/History'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
+import NotificationsIcon from '@mui/icons-material/Notifications'
+import WarningIcon from '@mui/icons-material/Warning'
+import InfoIcon from '@mui/icons-material/Info'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, signOut } from '../auth/auth'
@@ -137,6 +143,42 @@ const EV_COLORS = {
   secondary: '#f77f00',
 }
 
+// Sample notifications data
+const SAMPLE_NOTIFICATIONS = [
+  {
+    id: 1,
+    type: 'warning',
+    title: 'Company approvals pending',
+    message: '6 companies awaiting approval',
+    time: '5 min ago',
+    read: false,
+  },
+  {
+    id: 2,
+    type: 'error',
+    title: 'High severity incidents',
+    message: '3 incidents require immediate attention',
+    time: '12 min ago',
+    read: false,
+  },
+  {
+    id: 3,
+    type: 'info',
+    title: 'Driver documents expiring',
+    message: '14 drivers need document re-check',
+    time: '1 hour ago',
+    read: false,
+  },
+  {
+    id: 4,
+    type: 'success',
+    title: 'Payouts completed',
+    message: 'Weekly payouts processed successfully',
+    time: '2 hours ago',
+    read: true,
+  },
+]
+
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2)
   return parts.map((p) => p[0]?.toUpperCase()).join('') || 'AA'
@@ -153,14 +195,37 @@ export default function AdminShell() {
   const [desktopOpen, setDesktopOpen] = useState(true)
   const [search, setSearch] = useState('')
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null)
+  const [notificationAnchor, setNotificationAnchor] = useState<null | HTMLElement>(null)
+  const [notifications, setNotifications] = useState(SAMPLE_NOTIFICATIONS)
 
   const user = getAuthUser() || { name: 'Admin', email: 'admin@evzone.app', role: 'Admin' }
   const userInitials = useMemo(() => initials(user.name), [user.name])
+
+  const unreadCount = notifications.filter(n => !n.read).length
 
   const handleDrawerToggle = () => setMobileOpen((v) => !v)
   const handleDesktopToggle = () => setDesktopOpen((v) => !v)
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => setUserMenuAnchor(event.currentTarget)
   const handleUserMenuClose = () => setUserMenuAnchor(null)
+  const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => setNotificationAnchor(event.currentTarget)
+  const handleNotificationClose = () => setNotificationAnchor(null)
+
+  const handleMarkAsRead = (id: number) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'warning': return <WarningIcon sx={{ color: '#f77f00' }} fontSize="small" />
+      case 'error': return <WarningIcon sx={{ color: '#ef4444' }} fontSize="small" />
+      case 'success': return <CheckCircleIcon sx={{ color: '#03cd8c' }} fontSize="small" />
+      default: return <InfoIcon sx={{ color: '#3b82f6' }} fontSize="small" />
+    }
+  }
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -281,7 +346,7 @@ export default function AdminShell() {
               )}
 
               {section.items.map((item) => (
-                <NavItem
+                <NavItemComponent
                   key={item.to}
                   to={item.to}
                   label={item.label}
@@ -506,7 +571,87 @@ export default function AdminShell() {
             </Box>
 
             {/* Right Section */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* Notifications */}
+              <IconButton onClick={handleNotificationOpen} color="inherit">
+                <Badge badgeContent={unreadCount} color="error">
+                  <NotificationsIcon />
+                </Badge>
+              </IconButton>
+
+              {/* Notifications Popover */}
+              <Popover
+                open={Boolean(notificationAnchor)}
+                anchorEl={notificationAnchor}
+                onClose={handleNotificationClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{
+                  sx: {
+                    mt: 1,
+                    width: 360,
+                    maxHeight: 480,
+                    borderRadius: 2,
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                  },
+                }}
+              >
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Notifications
+                  </Typography>
+                  {unreadCount > 0 && (
+                    <Button size="small" onClick={handleMarkAllAsRead} sx={{ fontSize: 11, textTransform: 'none' }}>
+                      Mark all as read
+                    </Button>
+                  )}
+                </Box>
+                <Box sx={{ maxHeight: 380, overflowY: 'auto' }}>
+                  {notifications.length === 0 ? (
+                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        No notifications
+                      </Typography>
+                    </Box>
+                  ) : (
+                    notifications.map((notification) => (
+                      <Box
+                        key={notification.id}
+                        onClick={() => handleMarkAsRead(notification.id)}
+                        sx={{
+                          p: 2,
+                          borderBottom: '1px solid',
+                          borderColor: 'divider',
+                          cursor: 'pointer',
+                          bgcolor: notification.read ? 'transparent' : 'action.hover',
+                          '&:hover': { bgcolor: 'action.selected' },
+                          display: 'flex',
+                          gap: 2,
+                        }}
+                      >
+                        <Box sx={{ mt: 0.5 }}>
+                          {getNotificationIcon(notification.type)}
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: notification.read ? 400 : 600, fontSize: 13 }}>
+                            {notification.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                            {notification.message}
+                          </Typography>
+                          <Typography variant="caption" color="text.disabled" sx={{ fontSize: 10 }}>
+                            {notification.time}
+                          </Typography>
+                        </Box>
+                        {!notification.read && (
+                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: EV_COLORS.primary, mt: 1 }} />
+                        )}
+                      </Box>
+                    ))
+                  )}
+                </Box>
+              </Popover>
+
               {/* Theme Toggle */}
               <IconButton onClick={toggle} color="inherit">
                 {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
@@ -633,9 +778,20 @@ export default function AdminShell() {
   )
 }
 
-function NavItem({ to, label, icon, minimized }: { to: string; label: string; icon: React.ReactNode; minimized: boolean }) {
+function NavItemComponent({ to, label, icon, minimized }: { to: string; label: string; icon: React.ReactNode; minimized: boolean }) {
   const location = useLocation()
-  const isActive = location.pathname === to || location.pathname.startsWith(to + '/')
+  
+  // More precise active matching - only exact match or direct children
+  // Avoid highlighting parent routes when on child routes
+  const isExactMatch = location.pathname === to
+  const isChildRoute = location.pathname.startsWith(to + '/') && 
+    // Make sure this isn't a more specific route that should take precedence
+    !NAV.flatMap(s => s.items).some(item => 
+      item.to !== to && 
+      item.to.startsWith(to + '/') && 
+      (location.pathname === item.to || location.pathname.startsWith(item.to + '/'))
+    )
+  const isActive = isExactMatch || isChildRoute
 
   return (
     <ListItemButton

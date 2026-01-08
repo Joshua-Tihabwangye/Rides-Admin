@@ -15,6 +15,8 @@ import {
   TableCell,
   TableContainer,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   PieChart,
@@ -23,9 +25,16 @@ import {
   ResponsiveContainer,
   Tooltip,
   Legend,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import DownloadIcon from "@mui/icons-material/Download";
+import TableChartIcon from "@mui/icons-material/TableChart";
+import ShowChartIcon from "@mui/icons-material/ShowChart";
 import PeriodSelector from "../components/PeriodSelector";
 import dayjs from "dayjs";
 
@@ -33,10 +42,16 @@ import dayjs from "dayjs";
 // Route suggestion: /admin/finance
 // High-level financial KPIs and simple breakdowns by service and region.
 
+const EV_COLORS = {
+  primary: "#03cd8c",
+  secondary: "#f77f00",
+};
+
 export default function FinancialOverviewPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState("week");
   const [customRange, setCustomRange] = useState([null, null]);
+  const [regionViewMode, setRegionViewMode] = useState<'table' | 'chart'>('table');
 
   // Mock data update simulation
   // Simple multiplier based on period to simulate data changing
@@ -98,6 +113,23 @@ export default function FinancialOverviewPage() {
     { name: "Deliveries", value: 32000 * multiplier, color: "#f77f00" },
     { name: "Rental", value: 14420 * multiplier, color: "#3b82f6" },
   ], [multiplier]);
+
+  // Line chart data for region revenue over time
+  const regionLineData = useMemo(() => {
+    const baseData = [
+      { month: 'Jan', eastAfrica: 45000, westAfrica: 32000 },
+      { month: 'Feb', eastAfrica: 52000, westAfrica: 38000 },
+      { month: 'Mar', eastAfrica: 61000, westAfrica: 42000 },
+      { month: 'Apr', eastAfrica: 58000, westAfrica: 45000 },
+      { month: 'May', eastAfrica: 67000, westAfrica: 48000 },
+      { month: 'Jun', eastAfrica: 74000, westAfrica: 54420 },
+    ];
+    return baseData.map(d => ({
+      ...d,
+      eastAfrica: Math.round(d.eastAfrica * multiplier / 4),
+      westAfrica: Math.round(d.westAfrica * multiplier / 4),
+    }));
+  }, [multiplier]);
 
   return (
     <Box>
@@ -216,6 +248,7 @@ export default function FinancialOverviewPage() {
                 <Tooltip
                   contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#f8fafc" }}
                   itemStyle={{ color: "#f8fafc" }}
+                  formatter={(value) => `$${value.toLocaleString()}`}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
               </PieChart>
@@ -223,7 +256,7 @@ export default function FinancialOverviewPage() {
           </CardContent>
         </Card>
 
-        {/* By region breakdown */}
+        {/* By region breakdown with toggle */}
         <Card
           elevation={2}
           sx={{
@@ -233,53 +266,124 @@ export default function FinancialOverviewPage() {
             bgcolor: "background.paper"
           }}
         >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-              color="text.primary"
-            >
-              Revenue by region (sample)
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Click a region to view detailed reports.
-            </Typography>
+          <CardContent className="p-4 flex flex-col gap-2" sx={{ height: regionViewMode === 'chart' ? 350 : 'auto' }}>
+            <Box className="flex items-center justify-between">
+              <Box>
+                <Typography
+                  variant="subtitle2"
+                  className="font-semibold"
+                  color="text.primary"
+                >
+                  Revenue by region (sample)
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Click a region to view detailed reports.
+                </Typography>
+              </Box>
+              <ToggleButtonGroup
+                value={regionViewMode}
+                exclusive
+                onChange={(e, newMode) => newMode && setRegionViewMode(newMode)}
+                size="small"
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    padding: '4px 8px',
+                    '&.Mui-selected': {
+                      bgcolor: EV_COLORS.primary,
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: '#02b87d',
+                      },
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="table" aria-label="table view">
+                  <TableChartIcon fontSize="small" />
+                </ToggleButton>
+                <ToggleButton value="chart" aria-label="chart view">
+                  <ShowChartIcon fontSize="small" />
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
             <Divider className="!my-1" />
-            <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Region</TableCell>
-                    <TableCell align="right">Gross</TableCell>
-                    <TableCell align="right">Net</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  <TableRow
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleRegionClick('East Africa')}
-                  >
-                    <TableCell>East Africa</TableCell>
-                    <TableCell align="right">${(74000 * multiplier).toLocaleString()}</TableCell>
-                    <TableCell align="right">${(14200 * multiplier).toLocaleString()}</TableCell>
-                  </TableRow>
-                  <TableRow
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleRegionClick('West Africa')}
-                  >
-                    <TableCell>West Africa</TableCell>
-                    <TableCell align="right">${(54420 * multiplier).toLocaleString()}</TableCell>
-                    <TableCell align="right">${(10480 * multiplier).toLocaleString()}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
+            
+            {regionViewMode === 'table' ? (
+              <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Region</TableCell>
+                      <TableCell align="right">Gross</TableCell>
+                      <TableCell align="right">Net</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    <TableRow
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => handleRegionClick('East Africa')}
+                    >
+                      <TableCell>East Africa</TableCell>
+                      <TableCell align="right">${(74000 * multiplier).toLocaleString()}</TableCell>
+                      <TableCell align="right">${(14200 * multiplier).toLocaleString()}</TableCell>
+                    </TableRow>
+                    <TableRow
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => handleRegionClick('West Africa')}
+                    >
+                      <TableCell>West Africa</TableCell>
+                      <TableCell align="right">${(54420 * multiplier).toLocaleString()}</TableCell>
+                      <TableCell align="right">${(10480 * multiplier).toLocaleString()}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Box sx={{ flex: 1, minHeight: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={regionLineData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                    <YAxis 
+                      tick={{ fontSize: 11 }} 
+                      stroke="#94a3b8" 
+                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#f8fafc" }}
+                      labelStyle={{ color: "#f8fafc" }}
+                      formatter={(value) => [`$${value.toLocaleString()}`, '']}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36} 
+                      wrapperStyle={{ fontSize: '11px' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="eastAfrica" 
+                      stroke={EV_COLORS.primary} 
+                      strokeWidth={2} 
+                      name="East Africa"
+                      dot={{ fill: EV_COLORS.primary, strokeWidth: 2 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="westAfrica" 
+                      stroke={EV_COLORS.secondary} 
+                      strokeWidth={2} 
+                      name="West Africa"
+                      dot={{ fill: EV_COLORS.secondary, strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
           </CardContent>
         </Card>
       </Box>
     </Box>
   );
 }
-

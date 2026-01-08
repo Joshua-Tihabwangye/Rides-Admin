@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Card,
@@ -14,10 +14,12 @@ import {
   TableCell,
   TableContainer,
   Paper,
-  InputAdornment
+  InputAdornment,
+  Button,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
 import StatusBadge from "../components/StatusBadge";
 
 // D1 – Agent Management (Light/Dark, EVzone themed)
@@ -27,6 +29,7 @@ import StatusBadge from "../components/StatusBadge";
 const SAMPLE_AGENTS = [
   {
     id: 1,
+    uniqueId: "AGT-001",
     name: "Alice Support",
     email: "alice.support@evzone.com",
     team: "Support",
@@ -36,6 +39,7 @@ const SAMPLE_AGENTS = [
   },
   {
     id: 2,
+    uniqueId: "AGT-002",
     name: "Brian Onboard",
     email: "brian.onboard@evzone.com",
     team: "Onboarding",
@@ -45,6 +49,7 @@ const SAMPLE_AGENTS = [
   },
   {
     id: 3,
+    uniqueId: "AGT-003",
     name: "Carol Dispatch",
     email: "carol.dispatch@evzone.com",
     team: "Dispatch",
@@ -54,6 +59,7 @@ const SAMPLE_AGENTS = [
   },
   {
     id: 4,
+    uniqueId: "AGT-004",
     name: "David Safety",
     email: "david.safety@evzone.com",
     team: "Safety",
@@ -76,12 +82,29 @@ export default function AgentManagementPage() {
     navigate(`/admin/agents/${agent.id}`);
   };
 
+  const handleAddAgent = () => {
+    // Navigate to add agent page or open modal
+    navigate('/admin/agents/new');
+  };
+
   const filteredAgents = SAMPLE_AGENTS.filter(agent => {
     const matchesSearch = agent.name.toLowerCase().includes(search.toLowerCase()) ||
-      agent.email.toLowerCase().includes(search.toLowerCase());
+      agent.email.toLowerCase().includes(search.toLowerCase()) ||
+      agent.uniqueId.toLowerCase().includes(search.toLowerCase());
     const matchesTeam = activeTeam === "All" || agent.team === activeTeam;
     return matchesSearch && matchesTeam;
   });
+
+  // Calculate team counts for tabs with totals
+  const teamCounts = useMemo(() => {
+    return {
+      All: SAMPLE_AGENTS.length,
+      Support: SAMPLE_AGENTS.filter(a => a.team === "Support").length,
+      Onboarding: SAMPLE_AGENTS.filter(a => a.team === "Onboarding").length,
+      Dispatch: SAMPLE_AGENTS.filter(a => a.team === "Dispatch").length,
+      Safety: SAMPLE_AGENTS.filter(a => a.team === "Safety").length,
+    };
+  }, []);
 
   return (
     <Box>
@@ -102,6 +125,15 @@ export default function AgentManagementPage() {
             Manage support, onboarding, dispatch and safety agents. Monitor performance and role assignments.
           </Typography>
         </Box>
+        {/* Add Agent Button */}
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleAddAgent}
+          sx={{ textTransform: "none", borderRadius: 999 }}
+        >
+          Add agent
+        </Button>
       </Box>
 
       {/* Filters */}
@@ -119,7 +151,7 @@ export default function AgentManagementPage() {
             <TextField
               fullWidth
               size="small"
-              placeholder="Search agents by name or email…"
+              placeholder="Search agents by name, email, or ID…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               InputProps={{
@@ -147,7 +179,7 @@ export default function AgentManagementPage() {
                 <Chip
                   key={team}
                   size="small"
-                  label={team}
+                  label={`${team} (${teamCounts[team]})`}
                   onClick={() => setActiveTeam(team)}
                   color={activeTeam === team ? "primary" : "default"}
                   variant={activeTeam === team ? "filled" : "outlined"}
@@ -173,6 +205,7 @@ export default function AgentManagementPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
+                  <TableCell>ID</TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Team</TableCell>
@@ -189,7 +222,19 @@ export default function AgentManagementPage() {
                     sx={{ cursor: "pointer" }}
                     onClick={() => handleRowClick(agent)}
                   >
-                    <TableCell fontWeight={600}>{agent.name}</TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: 'text.secondary' }}>
+                      {agent.uniqueId}
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {agent.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: 10 }}>
+                          {agent.uniqueId}
+                        </Typography>
+                      </Box>
+                    </TableCell>
                     <TableCell>{agent.email}</TableCell>
                     <TableCell>
                       <Chip label={agent.team} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
@@ -209,4 +254,3 @@ export default function AgentManagementPage() {
     </Box>
   );
 }
-

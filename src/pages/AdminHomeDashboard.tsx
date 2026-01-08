@@ -2,29 +2,16 @@
 import React, { useMemo, useState } from "react";
 import {
   Box,
-  AppBar,
-  Toolbar,
   Typography,
-  IconButton,
-  Button,
-  TextField,
-  InputAdornment,
   Card,
   CardContent,
   Chip,
   Divider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Badge,
+  Button,
   ToggleButton,
   ToggleButtonGroup,
 } from "@mui/material";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   XAxis,
@@ -36,27 +23,6 @@ import {
 
 // A2 – Admin Home / Global Dashboard (v2, tighter card corners)
 // Route: /admin or /admin/home
-// Establishes AdminMainLayout, navigation, theming and the main dashboard.
-//
-// Manual test cases:
-// 1) Initial render
-//    - Light mode by default.
-//    - AppBar shows EVZONE ADMIN brand, Home/Profile/Search nav, global search,
-//      and a Light theme toggle.
-//    - Dashboard shows 4 KPI cards, an operations heatmap card, an Alerts
-//      card, and Safety/Finance cards. Card corners should be gently rounded
-//      (radius ~8–10px), not fully pill-shaped.
-// 2) Theme toggle
-//    - Toggle to Dark; expect background, AppBar and cards to shift to darker
-//      palettes while content remains readable and layout unchanged.
-//    - Toggle back to Light; no loss of state.
-// 3) Global search
-//    - Type a term and submit; expect a console log placeholder.
-// 4) Nav buttons
-//    - Home appears active; Profile/Search just log to console (ready for
-//      router wiring).
-// 5) Responsiveness
-//    - KPI cards stack on mobile, become 2x2 grid on sm+.
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -196,14 +162,6 @@ export default function AdminHomeDashboardPage() {
           </Typography>
         </Box>
         <Box className="flex items-center gap-2">
-          <IconButton
-            onClick={() => navigate("/admin/notifications")}
-            sx={{ color: "text.primary" }}
-          >
-            <Badge badgeContent={4} color="error">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
           <PeriodSelector value={period} onChange={(newPeriod) => setPeriod(newPeriod)} />
         </Box>
       </Box>

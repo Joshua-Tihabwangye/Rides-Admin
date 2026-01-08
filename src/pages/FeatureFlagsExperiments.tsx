@@ -127,13 +127,14 @@ export default function FeatureFlagsExperimentsPage() {
   };
 
   const handleRowClick = (flag) => {
-    // Navigate to detail page for experiments, select for features
-    if (flag.type === "Experiment") {
-      navigate(`/admin/system/flags/${flag.id}/results`);
-    } else {
-      setSelectedId(flag.id);
-      syncEditingWithSelected(flag);
-    }
+    // Navigate to detail page for all flags (both experiments and features)
+    navigate(`/admin/system/flags/${flag.id}/results`);
+  };
+
+  const handleRowSelect = (flag) => {
+    // Just select the flag for editing (used by editor)
+    setSelectedId(flag.id);
+    syncEditingWithSelected(flag);
   };
 
   const handleNewFlag = () => {

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -31,13 +31,48 @@ import {
   Cell,
 } from "recharts";
 import PeriodSelector, { PeriodOption } from '../components/PeriodSelector';
+import QueueIcon from "@mui/icons-material/Queue";
+import { getRiders, getDrivers, upsertRider, upsertDriver } from "../lib/peopleStore";
 
-const BASE_INCIDENT_KPIS = [
-  { label: "Total incidents", value: 18, note: "+3 vs previous period" },
-  { label: "Critical incidents", value: 1, note: "All handled" },
-  { label: "SOS activations", value: 2, note: "0 unresolved" },
-  { label: "Users under review", value: 7, note: "4 riders · 3 drivers" },
-];
+// Base data for different regions
+const REGION_DATA = {
+  'All Regions': {
+    totalIncidents: 18,
+    criticalIncidents: 1,
+    sosActivations: 2,
+    usersUnderReview: 7,
+    note: {
+      total: "+3 vs previous period",
+      critical: "All handled",
+      sos: "0 unresolved",
+      users: "4 riders · 3 drivers"
+    }
+  },
+  'East Africa': {
+    totalIncidents: 10,
+    criticalIncidents: 1,
+    sosActivations: 1,
+    usersUnderReview: 4,
+    note: {
+      total: "+2 vs previous period",
+      critical: "All handled",
+      sos: "0 unresolved",
+      users: "2 riders · 2 drivers"
+    }
+  },
+  'West Africa': {
+    totalIncidents: 8,
+    criticalIncidents: 0,
+    sosActivations: 1,
+    usersUnderReview: 3,
+    note: {
+      total: "+1 vs previous period",
+      critical: "None this period",
+      sos: "0 unresolved",
+      users: "2 riders · 1 driver"
+    }
+  },
+};
 
 const BASE_INCIDENT_CITIES = [
   { city: "Kampala", region: "East Africa", incidents: 7 },
@@ -46,34 +81,57 @@ const BASE_INCIDENT_CITIES = [
   { city: "Accra", region: "West Africa", incidents: 3 },
 ];
 
-const BASE_USERS_UNDER_REVIEW = [
-  {
-    id: 1,
-    name: "John Okello",
-    type: "Rider",
-    city: "Kampala",
-    reason: "Multiple low ratings",
-  },
-  {
-    id: 2,
-    name: "Michael Driver",
-    type: "Driver",
-    city: "Kampala",
-    reason: "High cancellation rate",
-  },
-  {
-    id: 3,
-    name: "Samuel K.",
-    type: "Rider",
-    city: "Lagos",
-    reason: "Refund disputes",
-  },
-];
+const getRiskColor = (riskLevel: string) => {
+  switch (riskLevel?.toLowerCase()) {
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    case "low":
+      return "success";
+    default:
+      return "default";
+  }
+};
 
 export default function SafetyOverviewDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodOption>('today');
   const [selectedRegion, setSelectedRegion] = useState<string>('All Regions');
+  const [usersUnderReview, setUsersUnderReview] = useState<any[]>([]);
+
+  // Fetch users under review from peopleStore
+  useEffect(() => {
+    const riders = getRiders();
+    const drivers = getDrivers();
+    
+    // Get riders and drivers that are under review (not approved)
+    const underReviewRiders = riders
+      .filter(r => r.primaryStatus === 'under_review')
+      .map(r => ({
+        id: r.id,
+        name: r.name,
+        type: 'Rider',
+        city: r.city,
+        reason: r.risk === 'High' ? 'Multiple low ratings' : r.risk === 'Medium' ? 'Needs monitoring' : 'Pending verification',
+        riskLevel: r.risk || 'Low',
+        record: r,
+      }));
+    
+    const underReviewDrivers = drivers
+      .filter(d => d.primaryStatus === 'under_review')
+      .map(d => ({
+        id: d.id,
+        name: d.name,
+        type: 'Driver',
+        city: d.city,
+        reason: d.risk === 'High' ? 'High cancellation rate' : d.risk === 'Medium' ? 'Needs monitoring' : 'Document verification',
+        riskLevel: d.risk || 'Low',
+        record: d,
+      }));
+    
+    setUsersUnderReview([...underReviewRiders, ...underReviewDrivers]);
+  }, []);
 
   const handlePeriodChange = (newPeriod: PeriodOption) => {
     setPeriod(newPeriod);
@@ -87,32 +145,61 @@ export default function SafetyOverviewDashboardPage() {
     custom: 0.8,
   };
 
+  // Get region-specific KPIs
   const INCIDENT_KPIS = useMemo(() => {
     const m = periodMultiplier[period] ?? 1;
-    return BASE_INCIDENT_KPIS.map((kpi) => {
-      if (kpi.label === "Total incidents") {
-        return { ...kpi, value: Math.max(1, Math.round(18 * m)) };
-      }
-      if (kpi.label === "Critical incidents") {
-        return { ...kpi, value: Math.max(0, Math.round(1 * m)) };
-      }
-      if (kpi.label === "SOS activations") {
-        return { ...kpi, value: Math.max(0, Math.round(2 * m)) };
-      }
-      if (kpi.label === "Users under review") {
-        return { ...kpi, value: Math.max(0, Math.round(7 * m)) };
-      }
-      return kpi;
-    });
-  }, [period]);
+    const regionData = REGION_DATA[selectedRegion] || REGION_DATA['All Regions'];
+    
+    return [
+      { 
+        label: "Total incidents", 
+        value: Math.max(1, Math.round(regionData.totalIncidents * m)), 
+        note: regionData.note.total 
+      },
+      { 
+        label: "Critical incidents", 
+        value: Math.max(0, Math.round(regionData.criticalIncidents * m)), 
+        note: regionData.note.critical 
+      },
+      { 
+        label: "SOS activations", 
+        value: Math.max(0, Math.round(regionData.sosActivations * m)), 
+        note: regionData.note.sos 
+      },
+      { 
+        label: "Users under review", 
+        value: usersUnderReview.length, 
+        note: `${usersUnderReview.filter(u => u.type === 'Rider').length} riders · ${usersUnderReview.filter(u => u.type === 'Driver').length} drivers` 
+      },
+    ];
+  }, [period, selectedRegion, usersUnderReview]);
 
   const handleUserClick = (user) => {
     // Navigate to rider or driver management based on type
     if (user.type === 'Driver') {
-      navigate('/admin/drivers?tab=review');
+      navigate(`/admin/drivers/${user.id}`);
     } else {
-      navigate('/admin/riders?tab=review');
+      navigate(`/admin/riders/${user.id}`);
     }
+  };
+
+  const handleApproveUser = (user, e) => {
+    e.stopPropagation();
+    
+    if (user.type === 'Rider') {
+      const updatedRecord = { ...user.record, primaryStatus: 'approved' };
+      upsertRider(updatedRecord);
+    } else {
+      const updatedRecord = { ...user.record, primaryStatus: 'approved' };
+      upsertDriver(updatedRecord);
+    }
+    
+    // Remove from local state
+    setUsersUnderReview(prev => prev.filter(u => !(u.id === user.id && u.type === user.type)));
+  };
+
+  const handleViewQueue = () => {
+    navigate('/admin/risk?view=queue');
   };
 
   const handleSeeMoreIncidents = () => {
@@ -123,15 +210,18 @@ export default function SafetyOverviewDashboardPage() {
     navigate(`/admin/risk?city=${city}`);
   }
 
+  // Incident distribution data - varies by region
   const incidentData = useMemo(() => {
     const m = periodMultiplier[period] ?? 1;
+    const regionMultiplier = selectedRegion === 'East Africa' ? 1.2 : selectedRegion === 'West Africa' ? 0.8 : 1;
+    
     return [
-      { type: "Accident", count: Math.max(0, Math.round(8 * m)), color: "#ef4444" },
-      { type: "Harassment", count: Math.max(0, Math.round(4 * m)), color: "#f97316" },
-      { type: "Lost Item", count: Math.max(0, Math.round(3 * m)), color: "#3b82f6" },
-      { type: "Dispute", count: Math.max(0, Math.round(3 * m)), color: "#a855f7" },
+      { type: "Accident", count: Math.max(0, Math.round(8 * m * regionMultiplier)), color: "#ef4444" },
+      { type: "Harassment", count: Math.max(0, Math.round(4 * m * regionMultiplier)), color: "#f97316" },
+      { type: "Lost Item", count: Math.max(0, Math.round(3 * m * regionMultiplier)), color: "#3b82f6" },
+      { type: "Dispute", count: Math.max(0, Math.round(3 * m * regionMultiplier)), color: "#a855f7" },
     ];
-  }, [period]);
+  }, [period, selectedRegion]);
 
   const INCIDENT_CITIES = useMemo(
     () => {
@@ -158,8 +248,6 @@ export default function SafetyOverviewDashboardPage() {
     },
     [period, selectedRegion],
   );
-
-  const USERS_UNDER_REVIEW = useMemo(() => BASE_USERS_UNDER_REVIEW, []);
 
   return (
     <Box>
@@ -261,7 +349,7 @@ export default function SafetyOverviewDashboardPage() {
                 variant="subtitle2"
                 className="font-semibold text-slate-50"
               >
-                Incident Distribution
+                Incident Distribution {selectedRegion !== 'All Regions' ? `(${selectedRegion})` : ''}
               </Typography>
               <Button
                 variant="text"
@@ -307,7 +395,7 @@ export default function SafetyOverviewDashboardPage() {
               className="font-semibold"
               color="text.primary"
             >
-              Incidents by city
+              Incidents by city {selectedRegion !== 'All Regions' ? `(${selectedRegion})` : ''}
             </Typography>
             <Divider className="!my-1" />
             <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
@@ -351,35 +439,76 @@ export default function SafetyOverviewDashboardPage() {
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-              color="text.primary"
-            >
-              Users under review
-            </Typography>
-            <Divider className="!my-1" />
-            <Box className="flex flex-col gap-2 text-[12px] text-slate-800">
-              {USERS_UNDER_REVIEW.map((u) => (
-                <Box
-                  key={u.id}
-                  className="flex flex-col rounded-md px-2 py-1 hover:bg-black/5 cursor-pointer"
-                  onClick={() => handleUserClick(u)}
-                >
-                  <Box className="flex items-center justify-between">
-                    <span className="font-medium">{u.name}</span>
-                    <Chip
-                      size="small"
-                      label={u.type}
-                      sx={{ fontSize: 10, height: 20 }}
-                    />
-                  </Box>
-                  <span className="text-[11px] text-slate-600">
-                    {u.city} · {u.reason}
-                  </span>
-                </Box>
-              ))}
+            <Box className="flex items-center justify-between">
+              <Typography
+                variant="subtitle2"
+                className="font-semibold"
+                color="text.primary"
+              >
+                Users under review ({usersUnderReview.length})
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<QueueIcon fontSize="small" />}
+                onClick={handleViewQueue}
+                sx={{ textTransform: "none", fontSize: 11, borderRadius: 2 }}
+              >
+                View queue
+              </Button>
             </Box>
+            <Divider className="!my-1" />
+            {usersUnderReview.length === 0 ? (
+              <Box sx={{ py: 4, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  No users under review
+                </Typography>
+                <Typography variant="caption" color="text.disabled">
+                  All users have been approved
+                </Typography>
+              </Box>
+            ) : (
+              <Box className="flex flex-col gap-2 text-[12px] text-slate-800" sx={{ maxHeight: 300, overflowY: 'auto' }}>
+                {usersUnderReview.map((u) => (
+                  <Box
+                    key={`${u.type}-${u.id}`}
+                    className="flex flex-col rounded-md px-2 py-2 hover:bg-black/5 cursor-pointer"
+                    onClick={() => handleUserClick(u)}
+                  >
+                    <Box className="flex items-center justify-between">
+                      <Box className="flex items-center gap-2">
+                        <span className="font-medium">{u.name}</span>
+                        <Chip
+                          size="small"
+                          label={u.riskLevel}
+                          color={getRiskColor(u.riskLevel)}
+                          sx={{ fontSize: 9, height: 18, fontWeight: 600 }}
+                        />
+                      </Box>
+                      <Box className="flex items-center gap-1">
+                        <Chip
+                          size="small"
+                          label={u.type}
+                          sx={{ fontSize: 10, height: 20 }}
+                        />
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={(e) => handleApproveUser(u, e)}
+                          sx={{ fontSize: 9, minWidth: 'auto', px: 1, py: 0.25, height: 20, textTransform: 'none' }}
+                        >
+                          Approve
+                        </Button>
+                      </Box>
+                    </Box>
+                    <span className="text-[11px] text-slate-600">
+                      {u.city} · {u.reason}
+                    </span>
+                  </Box>
+                ))}
+              </Box>
+            )}
           </CardContent>
         </Card>
 

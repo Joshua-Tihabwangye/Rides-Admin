@@ -14,38 +14,68 @@ import {
     TableCell,
     TableContainer,
     Paper,
+    Snackbar,
+    Alert,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 
-// Removed static HISTORY_DATA
-// using localStorage 'approval_history'
+// Data only comes from localStorage 'approval_history' - starts empty until approvals are processed
 
 export default function ApprovalsHistory() {
     const navigate = useNavigate();
     const [history, setHistory] = React.useState([]);
+    const [snackbar, setSnackbar] = React.useState({ open: false, message: '' });
 
     React.useEffect(() => {
         const stored = localStorage.getItem('approval_history');
         if (stored) {
-            setHistory(JSON.parse(stored));
+            try {
+                const parsed = JSON.parse(stored);
+                setHistory(Array.isArray(parsed) ? parsed : []);
+            } catch {
+                setHistory([]);
+            }
+        } else {
+            setHistory([]);
         }
     }, []);
 
+    const handleClearAll = () => {
+        localStorage.removeItem('approval_history');
+        setHistory([]);
+        setSnackbar({ open: true, message: 'Approval history cleared successfully' });
+    };
+
     return (
         <Box className="p-6">
-            <Box className="flex items-center gap-2 mb-4">
-                <Button
-                    size="small"
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => navigate('/admin/approvals')}
-                    sx={{ color: 'text.secondary', textTransform: 'none' }}
-                >
-                    Back to Queue
-                </Button>
-                <Typography variant="h6" className="font-semibold text-slate-900">
-                    Approval History
-                </Typography>
+            <Box className="flex items-center justify-between mb-4">
+                <Box className="flex items-center gap-2">
+                    <Button
+                        size="small"
+                        startIcon={<ArrowBackIcon />}
+                        onClick={() => navigate('/admin/approvals')}
+                        sx={{ color: 'text.secondary', textTransform: 'none' }}
+                    >
+                        Back to Queue
+                    </Button>
+                    <Typography variant="h6" className="font-semibold text-slate-900">
+                        Approval History
+                    </Typography>
+                </Box>
+                {history.length > 0 && (
+                    <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        startIcon={<DeleteSweepIcon />}
+                        onClick={handleClearAll}
+                        sx={{ textTransform: 'none', borderRadius: 2 }}
+                    >
+                        Clear All
+                    </Button>
+                )}
             </Box>
 
             <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
@@ -94,6 +124,16 @@ export default function ApprovalsHistory() {
                     </TableContainer>
                 </CardContent>
             </Card>
+                <Snackbar
+                open={snackbar.open}
+                autoHideDuration={3000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert severity="success" onClose={() => setSnackbar({ ...snackbar, open: false })}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 }
