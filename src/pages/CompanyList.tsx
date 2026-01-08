@@ -16,11 +16,17 @@ import {
   TableContainer,
   Paper,
   InputAdornment,
+  IconButton,
+  Menu,
+  MenuItem,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import StatusBadge from "../components/StatusBadge";
 
-const SAMPLE_COMPANIES = [
+const INITIAL_COMPANIES = [
   {
     id: 1,
     name: "GreenMove Fleet",
@@ -51,26 +57,79 @@ const SAMPLE_COMPANIES = [
     commission: "10%",
     status: "Suspended",
   },
+  {
+    id: 4,
+    name: "Swift Riders",
+    regions: "Lagos",
+    type: "Fleet Partner",
+    drivers: 78,
+    vehicles: 65,
+    commission: "14%",
+    status: "Inactive",
+  },
 ];
 
 export default function CompanyList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("All");
+  const [companies, setCompanies] = useState(INITIAL_COMPANIES);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
 
   const handleRowClick = (id: number) => {
     navigate(`/admin/companies/${id}`);
   };
 
-  const filteredCompanies = SAMPLE_COMPANIES.filter((company) => {
+  const handleActionClick = (event: React.MouseEvent<HTMLElement>, companyId: number) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+    setSelectedCompanyId(companyId);
+  };
+
+  const handleActionClose = () => {
+    setAnchorEl(null);
+    setSelectedCompanyId(null);
+  };
+
+  const handleStatusChange = (newStatus: string) => {
+    if (selectedCompanyId) {
+      setCompanies(prev => prev.map(company => 
+        company.id === selectedCompanyId 
+          ? { ...company, status: newStatus }
+          : company
+      ));
+      const companyName = companies.find(c => c.id === selectedCompanyId)?.name;
+      setSnackbar({ 
+        open: true, 
+        message: `${companyName} status changed to ${newStatus}`,
+        severity: 'success'
+      });
+    }
+    handleActionClose();
+  };
+
+  const filteredCompanies = companies.filter((company) => {
     const matchesSearch = company.name.toLowerCase().includes(search.toLowerCase());
     const matchesTab =
       activeTab === "All" ||
       (activeTab === "Active" && company.status === "Active") ||
+      (activeTab === "Inactive" && company.status === "Inactive") ||
       (activeTab === "Pending" && company.status === "Pending") ||
       (activeTab === "Suspended" && company.status === "Suspended");
     return matchesSearch && matchesTab;
   });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Active": return "success";
+      case "Inactive": return "default";
+      case "Pending": return "warning";
+      case "Suspended": return "error";
+      default: return "default";
+    }
+  };
 
   return (
     <Box>
@@ -110,7 +169,7 @@ export default function CompanyList() {
             sx={{ width: 300, "& .MuiOutlinedInput-root": { borderRadius: 8 } }}
           />
           <Box sx={{ display: "flex", gap: 1 }}>
-            {["All", "Active", "Pending", "Suspended"].map((status) => (
+            {["All", "Active", "Inactive", "Pending", "Suspended"].map((status) => (
               <Chip
                 key={status}
                 label={status}
@@ -137,6 +196,7 @@ export default function CompanyList() {
                 <TableCell align="right">Vehicles</TableCell>
                 <TableCell align="right">Commission</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -154,13 +214,26 @@ export default function CompanyList() {
                   <TableCell align="right">{company.vehicles}</TableCell>
                   <TableCell align="right">{company.commission}</TableCell>
                   <TableCell>
-                    <StatusBadge status={company.status} />
+                    <Chip
+                      size="small"
+                      label={company.status}
+                      color={getStatusColor(company.status)}
+                      sx={{ fontSize: 11, height: 24 }}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleActionClick(e, company.id)}
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
               {filteredCompanies.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     No companies found.
                   </TableCell>
                 </TableRow>
@@ -169,6 +242,54 @@ export default function CompanyList() {
           </Table>
         </TableContainer>
       </Card>
+
+      {/* Actions Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleActionClose}
+      >
+        <MenuItem 
+          onClick={() => handleStatusChange("Active")}
+          sx={{ color: 'success.main' }}
+        >
+          Set as Active
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleStatusChange("Inactive")}
+          sx={{ color: 'text.secondary' }}
+        >
+          Set as Inactive
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleStatusChange("Suspended")}
+          sx={{ color: 'error.main' }}
+        >
+          Suspend Company
+        </MenuItem>
+        <MenuItem 
+          onClick={() => {
+            if (selectedCompanyId) {
+              navigate(`/admin/companies/${selectedCompanyId}`);
+            }
+            handleActionClose();
+          }}
+        >
+          View Details
+        </MenuItem>
+      </Menu>
+
+      {/* Snackbar for feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

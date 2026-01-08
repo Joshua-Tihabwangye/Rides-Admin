@@ -15,6 +15,7 @@ import RiderDetail from './pages/RiderDetail'
 import RiderCreate from './pages/RiderCreate'
 import DriverManagement from './pages/DriverManagement'
 import DriverDetail from './pages/DriverDetail'
+import DriverCreate from './pages/DriverCreate'
 import SafetyOverview from './pages/SafetyOverview'
 import RiskFraudCenter from './pages/RiskFraudCenter'
 import RiskDetail from './pages/RiskDetail'
@@ -36,6 +37,7 @@ import ZoneMapView from './pages/ZoneMapView'
 import ZonePricingDetail from './pages/ZonePricingDetail'
 import ZonesList from './pages/ZonesList'
 import PromotionsIncentives from './pages/PromotionsIncentives'
+import PromoDetail from './pages/PromoDetail'
 import VerticalPolicies from './pages/VerticalPolicies'
 import AgentManagement from './pages/AgentManagement'
 import AgentDetail from './pages/AgentDetail'
@@ -86,6 +88,7 @@ export default function App() {
           <Route path="riders/new" element={<RiderCreate />} />
           <Route path="riders/:id" element={<RiderDetail />} />
           <Route path="drivers" element={<DriverManagement />} />
+          <Route path="drivers/new" element={<DriverCreate />} />
           <Route path="drivers/:id" element={<DriverDetail />} />
           <Route path="safety" element={<SafetyOverview />} />
           <Route path="risk" element={<RiskFraudCenter />} />
@@ -118,6 +121,7 @@ export default function App() {
           <Route path="pricing/map/:id" element={<ZoneMapView />} />
           <Route path="pricing/detail/:id" element={<ZonePricingDetail />} />
           <Route path="promos" element={<PromotionsIncentives />} />
+          <Route path="promos/:id" element={<PromoDetail />} />
           <Route path="vertical-policies" element={<VerticalPolicies />} />
 
           {/* Users & roles */}

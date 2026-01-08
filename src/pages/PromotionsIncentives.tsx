@@ -367,7 +367,10 @@ function RuleBuilder({ contextLabel }) {
   );
 }
 
+import { useNavigate } from "react-router-dom";
+
 export default function PromotionsIncentivesPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState("rider");
 
   const handleTabChange = (event, value) => {
@@ -377,7 +380,7 @@ export default function PromotionsIncentivesPage() {
   const campaigns = tab === "rider" ? DEMO_CAMPAIGNS.rider : DEMO_CAMPAIGNS.driver;
 
   const handleCampaignClick = (campaign) => {
-    console.log("Open campaign detail: ", campaign);
+    navigate(`/admin/promos/${campaign.id}`);
   };
 
   return (

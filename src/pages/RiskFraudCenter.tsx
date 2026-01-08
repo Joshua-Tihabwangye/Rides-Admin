@@ -8,29 +8,12 @@ import {
   Typography,
   TextField,
   Chip,
-  Button,
   Divider,
 } from "@mui/material";
 
 // H2 – Risk & Fraud Center (Light/Dark, EVzone themed)
 // Route suggestion: /admin/risk
 // Central view for fraud alerts, suspicious behaviours and triage workflow.
-//
-// Manual test cases:
-// 1) Initial render
-//    - Light mode by default.
-//    - Header shows EVZONE ADMIN and "Risk & Fraud" subtitle.
-//    - Filters row includes type, severity, age, region chips.
-//    - A list/grid of risk case cards is visible.
-// 2) Theme toggle
-//    - Toggle Light/Dark; cards and background adjust while content remains
-//      readable.
-// 3) Filters (demo)
-//    - Clicking a filter chip logs the chosen filter to the console.
-// 4) Case actions
-//    - Clicking a card logs that case (placeholder for opening deep detail).
-//    - Action buttons (Monitor, Limit features, Escalate) log the respective
-//      action and case ID.
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -108,17 +91,6 @@ export default function RiskFraudCenterPage() {
 
   const handleCaseClick = (riskCase) => {
     navigate(`/admin/risk/${riskCase.id}`);
-  };
-
-  const handleActionClick = (riskCase, action) => {
-    console.log('AuditLog:', {
-      event: `Risk action: ${action}`,
-      at: new Date().toISOString(),
-      actor: 'Current Admin',
-      caseId: riskCase.id,
-      action,
-    });
-    alert(`Action "${action}" logged for ${riskCase.id}`);
   };
 
   const filteredCases = useMemo(() => {
@@ -246,6 +218,7 @@ export default function RiskFraudCenterPage() {
           <Card
             key={riskCase.id}
             elevation={1}
+            onClick={() => handleCaseClick(riskCase)}
             sx={{
               borderRadius: 8,
               border: "1px solid rgba(148,163,184,0.6)",
@@ -258,10 +231,7 @@ export default function RiskFraudCenterPage() {
               },
             }}
           >
-            <CardContent
-              className="p-4 flex flex-col gap-2 cursor-pointer"
-              onClick={() => handleCaseClick(riskCase)}
-            >
+            <CardContent className="p-4 flex flex-col gap-2">
               <Box className="flex items-center justify-between gap-2">
                 <Box>
                   <Typography
@@ -327,58 +297,12 @@ export default function RiskFraudCenterPage() {
                 >
                   Risk engine score: 82 (sample)
                 </Typography>
-                <Box className="flex gap-1">
-                  <Button
-                    size="small"
-                    variant="text"
-                    sx={{
-                      textTransform: "none",
-                      borderRadius: 2,
-                      fontSize: 11,
-                      color: "#4b5563",
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleActionClick(riskCase, "Monitor");
-                    }}
-                  >
-                    Monitor
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      textTransform: "none",
-                      borderRadius: 2,
-                      fontSize: 11,
-                      borderColor: "#f97316",
-                      color: "#92400e",
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleActionClick(riskCase, "Limit features");
-                    }}
-                  >
-                    Limit features
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    sx={{
-                      textTransform: "none",
-                      borderRadius: 2,
-                      fontSize: 11,
-                      bgcolor: "#ef4444",
-                      "&:hover": { bgcolor: "#dc2626" },
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleActionClick(riskCase, "Escalate");
-                    }}
-                  >
-                    Escalate
-                  </Button>
-                </Box>
+                <Typography
+                  variant="caption"
+                  className="text-[11px] text-blue-600 cursor-pointer hover:underline"
+                >
+                  View details →
+                </Typography>
               </Box>
             </CardContent>
           </Card>

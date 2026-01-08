@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import {
   Box,
@@ -13,9 +13,15 @@ import {
 } from "@mui/material";
 import CallIcon from '@mui/icons-material/Call';
 import ChatIcon from '@mui/icons-material/Chat';
+import SendIcon from '@mui/icons-material/Send';
 
 // H2 – Risk Case Detail (Light/Dark, EVzone themed)
 // Route suggestion: /admin/risk/:riskId
+
+const EV_COLORS = {
+  primary: "#03cd8c",
+  secondary: "#f77f00",
+};
 
 const RISK_CASES = {
   "RISK-101": {
@@ -64,9 +70,12 @@ export default function RiskCaseDetailPage() {
   const [noteList, setNoteList] = useState<string[]>([]);
   const [showChat, setShowChat] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<string[]>([
-    "System: This is a simulated chat room for this risk actor.",
+  const [chatMessages, setChatMessages] = useState<{text: string, isUser: boolean, time: string}[]>([
+    { text: "Hello, I'm reaching out regarding your recent activity on the platform.", isUser: false, time: "10:30 AM" },
+    { text: "Hi, yes I saw there was some issue flagged?", isUser: true, time: "10:32 AM" },
+    { text: "Yes, we noticed some unusual patterns. Could you explain the multiple refund requests?", isUser: false, time: "10:33 AM" },
   ]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const riskCase = useMemo(() => {
     if (riskId && RISK_CASES[riskId as keyof typeof RISK_CASES]) {
@@ -75,6 +84,13 @@ export default function RiskCaseDetailPage() {
     return RISK_CASES["RISK-101"];
   }, [riskId]);
 
+  // Auto-scroll to bottom of chat
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages]);
+
   const handleAction = (action: string) => {
     const entry = `Action: ${action} on ${riskCase.id}${notes.trim() ? ` – note: ${notes.trim()}` : ""
       }`;
@@ -82,17 +98,13 @@ export default function RiskCaseDetailPage() {
     
     // Process the action without console logs or alerts
     if (action === "Monitor") {
-      // Monitor action - just track
       setNoteList((prev) => [`Monitoring started for ${riskCase.actorName}`, ...prev]);
     } else if (action === "Limit features") {
-      // Limit features - restrict certain capabilities
       setNoteList((prev) => [`Features limited for ${riskCase.actorName}`, ...prev]);
     } else if (action === "Escalate") {
-      // Escalate - move to higher priority
       setNoteList((prev) => [`Case escalated for ${riskCase.actorName}`, ...prev]);
     }
     
-    // Clear notes after action
     setNotes("");
   };
 
@@ -116,8 +128,30 @@ export default function RiskCaseDetailPage() {
   const handleSendChat = () => {
     const trimmed = chatInput.trim();
     if (!trimmed) return;
-    setChatMessages((prev) => [...prev, `You: ${trimmed}`]);
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    setChatMessages((prev) => [...prev, { text: trimmed, isUser: true, time: timeStr }]);
     setChatInput("");
+    
+    // Simulate agent response after a delay
+    setTimeout(() => {
+      const responses = [
+        "I understand. Let me check the details on our end.",
+        "Thank you for clarifying. I'll update the case notes.",
+        "I see. We'll review this further and get back to you.",
+        "Got it. Is there anything else you'd like to add?",
+      ];
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+      const responseTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      setChatMessages((prev) => [...prev, { text: randomResponse, isUser: false, time: responseTime }]);
+    }, 1500);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendChat();
+    }
   };
 
   return (
@@ -444,6 +478,7 @@ export default function RiskCaseDetailPage() {
         </Card>
       </Box>
 
+      {/* Chat section - moved to bottom with improved design */}
       {showChat && (
         <Box sx={{ mt: 3 }}>
           <Card
@@ -452,55 +487,152 @@ export default function RiskCaseDetailPage() {
               borderRadius: 2,
               border: "1px solid rgba(148,163,184,0.3)",
               bgcolor: "background.paper",
+              overflow: 'hidden',
             }}
           >
-            <CardContent className="p-4 flex flex-col gap-2">
-              <Typography
-                variant="subtitle2"
-                className="font-semibold"
-                color="text.primary"
-              >
-                Chat with {riskCase.actorName}
-              </Typography>
-              <Box
+            {/* Chat Header */}
+            <Box sx={{ 
+              p: 2, 
+              borderBottom: '1px solid', 
+              borderColor: 'divider',
+              bgcolor: 'background.default',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: '50%', 
+                  bgcolor: EV_COLORS.primary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontWeight: 700,
+                  fontSize: 14,
+                }}>
+                  {riskCase.actorName.split(' ').map(n => n[0]).join('')}
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    Chat with {riskCase.actorName}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {riskCase.actorType} · {riskCase.region}
+                  </Typography>
+                </Box>
+              </Box>
+              <Chip 
+                size="small" 
+                label="Active" 
+                color="success" 
+                sx={{ fontSize: 10, height: 20 }} 
+              />
+            </Box>
+
+            {/* Chat Messages */}
+            <Box
+              sx={{
+                p: 2,
+                height: 350,
+                overflowY: 'auto',
+                bgcolor: '#f8fafc',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+              }}
+            >
+              {chatMessages.map((msg, idx) => (
+                <Box
+                  key={idx}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: msg.isUser ? 'flex-end' : 'flex-start',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      maxWidth: '70%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: msg.isUser ? 'flex-end' : 'flex-start',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 1.5,
+                        borderRadius: msg.isUser 
+                          ? '16px 16px 4px 16px' 
+                          : '16px 16px 16px 4px',
+                        bgcolor: msg.isUser ? EV_COLORS.primary : 'white',
+                        color: msg.isUser ? 'white' : 'text.primary',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontSize: 13 }}>
+                        {msg.text}
+                      </Typography>
+                    </Box>
+                    <Typography 
+                      variant="caption" 
+                      color="text.disabled" 
+                      sx={{ fontSize: 10, mt: 0.5, px: 1 }}
+                    >
+                      {msg.time}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+              <div ref={chatEndRef} />
+            </Box>
+
+            {/* Chat Input */}
+            <Box sx={{ 
+              p: 2, 
+              borderTop: '1px solid', 
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              display: 'flex',
+              gap: 1,
+              alignItems: 'flex-end',
+            }}>
+              <TextField
+                fullWidth
+                multiline
+                maxRows={3}
+                size="small"
+                placeholder="Type a message…"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyPress={handleKeyPress}
                 sx={{
-                  borderRadius: 2,
-                  border: "1px solid rgba(148,163,184,0.3)",
-                  bgcolor: "background.default",
-                  p: 2,
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  fontSize: 12,
+                  "& .MuiOutlinedInput-root": { 
+                    bgcolor: "background.default",
+                    borderRadius: 3,
+                  },
+                  "& .MuiInputBase-input": { fontSize: 13 },
+                }}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSendChat}
+                disabled={!chatInput.trim()}
+                sx={{ 
+                  minWidth: 'auto',
+                  px: 2,
+                  py: 1,
+                  borderRadius: 3,
+                  bgcolor: EV_COLORS.primary,
+                  '&:hover': { bgcolor: '#02b87d' },
+                  '&:disabled': { bgcolor: '#e2e8f0' },
                 }}
               >
-                {chatMessages.map((msg, idx) => (
-                  <Typography key={idx} variant="body2" sx={{ mb: 0.5 }}>
-                    {msg}
-                  </Typography>
-                ))}
-              </Box>
-              <Box className="flex gap-2 mt-1">
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Type a message…"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  sx={{
-                    "& .MuiOutlinedInput-root": { bgcolor: "background.default" },
-                    "& .MuiInputBase-input": { fontSize: 12 },
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  size="small"
-                  sx={{ textTransform: "none", borderRadius: 999, fontSize: 12 }}
-                  onClick={handleSendChat}
-                >
-                  Send
-                </Button>
-              </Box>
-            </CardContent>
+                <SendIcon fontSize="small" />
+              </Button>
+            </Box>
           </Card>
         </Box>
       )}
