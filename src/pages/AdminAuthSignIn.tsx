@@ -3,56 +3,67 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { signIn } from "../auth/auth";
 
-// Professional, dependency-free Auth page for EVzone Admin Portal
-// No external UI libs. Clean, enterprise style.
-//
-// Manual test cases:
-// 1) Initial render
-//    - Page shows a left hero (on desktop) with EV visuals and a right auth card.
-//    - Title reads "Admin Portal" and header bar reads "EVzone Admin · Secure Console".
-// 2) Email validation
-//    - Blurring the email field with an invalid email shows an error message.
-//    - Entering a valid email clears the error.
-// 3) Password visibility
-//    - Clicking the eye icon toggles between hidden and visible password.
-// 4) Caps lock warning
-//    - Turning Caps Lock on while typing password shows a caps-lock warning.
-// 5) Login
-//    - Submitting with empty email/password shows an alert.
-//    - Submitting with valid email/password triggers a console "auth_login" and demo alert.
-// 6) SSO buttons
-//    - Clicking any SSO button logs an "auth_sso" event and shows a demo alert.
-// 7) Remember device
-//    - Checkbox defaults to checked and toggles correctly.
-// 8) Self-tests
-//    - Console warns if any self-test fails (e.g. title mismatch).
+// Professional Auth page for EVzone Admin Portal
+// Clean, enterprise style with real SSO provider icons
 
 const EV = {
   green: "#03CD8C",
   orange: "#F77F00",
   wheat: "#FCE7C6",
   dark: "#0f172a",
-  grayBorder: "#e5e7eb",
+  grayBorder: "#e2e8f0",
   grayText: "#64748b",
+  lightGray: "#f8fafc",
   white: "#ffffff",
 };
 
-const TITLE = "Rides Admin Panel";
-
 const track = (e, p = {}) => console.debug("[track]", e, { ...p, ts: Date.now() });
+
+// SVG Icons for SSO providers
+const GoogleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+);
+
+const MicrosoftIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24">
+    <path fill="#F25022" d="M1 1h10v10H1z"/>
+    <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+    <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+    <path fill="#FFB900" d="M13 13h10v10H13z"/>
+  </svg>
+);
+
+const AppleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="#000000">
+    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+  </svg>
+);
+
+const EVzoneIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="10" fill={EV.green}/>
+    <path d="M14 7l-5 6h4l-3 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 export default function AuthSignIn() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state && location.state.from) ? location.state.from : "/admin/home";
 
-  const [email, setEmail] = useState("admin@evzone.app");
+  const [email, setEmail] = useState("");
   const [emailErr, setEmailErr] = useState("");
   const [pwd, setPwd] = useState("");
   const [caps, setCaps] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loginError, setLoginError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 980 : false
@@ -69,26 +80,30 @@ export default function AuthSignIn() {
 
   const onEmailBlur = () => {
     setEmailErr(
-      email && !validateEmail(email) ? "Enter a valid work email" : ""
+      email && !validateEmail(email) ? "Please enter a valid email address" : ""
     );
   };
 
-  const login = (e) => {
+  const login = async (e) => {
     e.preventDefault();
     setLoginError("");
     if (!email || !pwd) {
-      setLoginError("Email & password required");
+      setLoginError("Email and password are required");
       return;
     }
     if (!validateEmail(email)) {
-      setEmailErr("Enter a valid work email");
+      setEmailErr("Please enter a valid email address");
       return;
     }
-    // Simulate authentication - in production, this would call an API
-    // Always show generic error to avoid revealing if email exists
+    
+    setIsLoading(true);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
     const isValid = email === "admin@evzone.app" && pwd.length > 0;
     if (!isValid) {
-      setLoginError("Email or password is incorrect");
+      setLoginError("Invalid email or password. Please try again.");
+      setIsLoading(false);
       return;
     }
     signIn({ name: "Admin", email, role: "Admin (simulated)" });
@@ -96,30 +111,18 @@ export default function AuthSignIn() {
     navigate(from, { replace: true });
   };
 
-  const sso = (prov) => {
-    track("auth_sso", { provider: prov });
-    alert("SSO: " + prov + " (demo – wire to Admin SSO)");
+  const sso = (provider) => {
+    track("auth_sso", { provider });
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      alert(`${provider} SSO authentication (demo – connect to your identity provider)`);
+    }, 500);
   };
-
-  useEffect(() => {
-    const tests = [];
-    tests.push({ name: "has hero", pass: true });
-    tests.push({ name: "email default set", pass: email === "admin@evzone.app" });
-    tests.push({ name: "title constant ok", pass: TITLE === "Rides Admin Panel" });
-    tests.push({
-      name: "title includes Admin",
-      pass: TITLE.toLowerCase().includes("admin"),
-    });
-    tests.push({ name: "title/h1 color contrast", pass: EV.grayText !== EV.dark });
-    tests.push({ name: "login handler present", pass: typeof login === "function" });
-    tests.push({ name: "sso handler present", pass: typeof sso === "function" });
-    tests.push({ name: "remember defaults true", pass: remember === true });
-    if (!tests.every((t) => t.pass)) console.warn("[auth self-tests]", tests);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={styles.page}>
-      {/* LEFT HERO */}
+      {/* LEFT HERO - Keep the existing image/visual */}
       {!isMobile && (
         <div style={styles.heroWrap}>
           <div style={styles.heroGradient} />
@@ -133,155 +136,165 @@ export default function AuthSignIn() {
               {iconRing()}
             </div>
           </div>
-          <div style={styles.heroFooter}>{TITLE}</div>
+          <div style={styles.heroFooter}>
+            <div style={styles.heroFooterContent}>
+              <span style={styles.heroFooterBrand}>EVzone</span>
+              <span style={styles.heroFooterText}>Rides Admin Portal</span>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* RIGHT AUTH COLUMN */}
+      {/* RIGHT AUTH COLUMN - Redesigned */}
       <div style={styles.formCol}>
-        {/* Brand bar */}
-        <div style={styles.brandBar}>
-
-          <div style={{alignItems: "center", gap: 8 }}>
-            <div style={styles.brandDot} />
-            <strong>EVzone Admin</strong>
+        {/* Top bar */}
+        <div style={styles.topBar}>
+          <div style={styles.logoContainer}>
+            <div style={styles.logoDot} />
+            <span style={styles.logoText}>EVzone</span>
           </div>
-
-          <div style={{ fontSize: 12, color: EV.grayText }}>Secure Console</div>
           <select style={styles.langSelect} defaultValue="en">
-            <option value="zh">Chinese</option>
-            <option value="fr">French</option>
-            <option value="de">German</option>
             <option value="en">English</option>
-            <option value="sw">Swahili</option>
-            <option value="es">Spanish</option>
-            <option value="it">Italian</option>
-            <option value="pt">Portuguese</option>
-            <option value="ko">Korean</option>
-            <option value="ja">Japanese</option>
-            <option value="ru">Russian</option>
-            <option value="hi">Hindu</option>
+            <option value="fr">Français</option>
+            <option value="sw">Kiswahili</option>
+            <option value="es">Español</option>
+            <option value="pt">Português</option>
           </select>
         </div>
 
-        <div style={styles.cardMaxWidth}>
-          <h2 style={styles.title}>{TITLE}</h2>
-          <h1 style={styles.h1}>Welcome back.</h1>
-          <p style={styles.sub}>Sign in to access the {TITLE}.</p>
+        <div style={styles.formContainer}>
+          {/* Header */}
+          <div style={styles.headerSection}>
+            <h1 style={styles.mainTitle}>Welcome back</h1>
+            <p style={styles.subtitle}>
+              Sign in to access your admin dashboard and manage your fleet operations.
+            </p>
+          </div>
 
-          {/* Email login */}
-          <form style={styles.cardBox} onSubmit={login}>
-            <div style={styles.fieldCol}>
-              <label style={styles.label}>Work email</label>
+          {/* SSO Buttons */}
+          <div style={styles.ssoSection}>
+            <button style={styles.ssoButton} onClick={() => sso("Google")} disabled={isLoading}>
+              <GoogleIcon />
+              <span>Continue with Google</span>
+            </button>
+            <button style={styles.ssoButton} onClick={() => sso("Microsoft")} disabled={isLoading}>
+              <MicrosoftIcon />
+              <span>Continue with Microsoft</span>
+            </button>
+            <div style={styles.ssoRow}>
+              <button style={styles.ssoButtonSmall} onClick={() => sso("Apple")} disabled={isLoading}>
+                <AppleIcon />
+                <span>Apple</span>
+              </button>
+              <button style={styles.ssoButtonSmall} onClick={() => sso("EVzone")} disabled={isLoading}>
+                <EVzoneIcon />
+                <span>EVzone Account</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={styles.divider}>
+            <div style={styles.dividerLine} />
+            <span style={styles.dividerText}>or continue with email</span>
+            <div style={styles.dividerLine} />
+          </div>
+
+          {/* Email Form */}
+          <form style={styles.form} onSubmit={login}>
+            <div style={styles.fieldGroup}>
+              <label style={styles.label}>Email address</label>
               <input
                 style={{
                   ...styles.input,
-                  borderColor: emailErr ? "#fecaca" : EV.grayBorder,
+                  borderColor: emailErr ? "#fca5a5" : EV.grayBorder,
+                  backgroundColor: emailErr ? "#fef2f2" : EV.white,
                 }}
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setEmailErr(""); }}
                 onBlur={onEmailBlur}
-                placeholder="name@company.com"
-                required
+                placeholder="you@company.com"
+                disabled={isLoading}
               />
-              {emailErr && <span style={styles.errText}>{emailErr}</span>}
+              {emailErr && <span style={styles.errorText}>{emailErr}</span>}
             </div>
 
-            <div style={styles.fieldCol}>
-              <label style={styles.label}>Password</label>
-              <div style={{ position: "relative" }}>
+            <div style={styles.fieldGroup}>
+              <div style={styles.labelRow}>
+                <label style={styles.label}>Password</label>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate("/admin/forgot-password");
+                  }}
+                  style={styles.forgotLink}
+                >
+                  Forgot password?
+                </a>
+              </div>
+              <div style={styles.passwordWrapper}>
                 <input
-                  style={{ ...styles.input, paddingRight: 44 }}
+                  style={{ ...styles.input, paddingRight: 48 }}
                   type={showPwd ? "text" : "password"}
                   value={pwd}
                   onChange={(e) => setPwd(e.target.value)}
                   onKeyUp={(e) =>
-                    setCaps(
-                      e.getModifierState && e.getModifierState("CapsLock")
-                    )
+                    setCaps(e.getModifierState && e.getModifierState("CapsLock"))
                   }
-                  placeholder="••••••••"
-                  required
+                  placeholder="Enter your password"
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
-                  aria-label={showPwd ? "Hide password" : "Show password"}
                   onClick={() => setShowPwd((s) => !s)}
-                  style={styles.eyeBtn}
+                  style={styles.eyeButton}
+                  aria-label={showPwd ? "Hide password" : "Show password"}
                 >
                   {showPwd ? eyeOffSvg() : eyeOpenSvg()}
                 </button>
               </div>
-              {caps && <span style={styles.noteText}>Caps Lock is ON</span>}
-              {loginError && <span style={styles.errText}>{loginError}</span>}
+              {caps && <span style={styles.warningText}>⚠️ Caps Lock is on</span>}
+              {loginError && <span style={styles.errorText}>{loginError}</span>}
             </div>
 
-            <div style={styles.rowBetweenWrap}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={styles.rememberRow}>
+              <label style={styles.checkboxLabel}>
                 <input
                   type="checkbox"
                   checked={remember}
                   onChange={(e) => setRemember(e.target.checked)}
+                  style={styles.checkbox}
                 />
-                <span style={styles.caption}>Remember this device</span>
+                <span>Keep me signed in</span>
               </label>
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  track("auth_forgot");
-                  alert("Password reset (demo – wire to Admin reset flow)");
-                }}
-                style={styles.link}
-              >
-                Forgot password?
-              </a>
             </div>
 
             <button
               type="submit"
-              style={{ ...styles.btnPrimary, width: "100%", marginTop: 10 }}
+              style={{
+                ...styles.submitButton,
+                opacity: isLoading ? 0.7 : 1,
+                cursor: isLoading ? "wait" : "pointer",
+              }}
+              disabled={isLoading}
             >
-              Sign in
+              {isLoading ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
-          {/* Divider */}
-          <div style={styles.divider}>
-            <span style={styles.dividerText}>or</span>
-          </div>
-
-          {/* SSO providers */}
-          <div style={styles.rowGap}>
-            <button style={styles.btnSSO} onClick={() => sso("Google")}>
-              🔐 Google SSO
-            </button>
-            <button style={styles.btnSSO} onClick={() => sso("Microsoft Entra")}>
-              🔐 Microsoft Entra
-            </button>
-            <button style={styles.btnSSO} onClick={() => sso("Apple")}>
-              🔐 Apple
-            </button>
-          </div>
-
-          <div style={{ marginTop: 12, fontSize: 12, color: EV.grayText }}>
-            By signing in you agree to the{" "}
-            <a style={styles.link} href="#">
-              Terms
-            </a>{" "}
-            and{" "}
-            <a style={styles.link} href="#">
-              Privacy
-            </a>
-            .
-          </div>
-          <div style={{ marginTop: 10, fontSize: 12, color: EV.grayText }}>
-            SSO & strong passwords required · Sessions logged in Audit · Need
-            help?{" "}
-            <a href="#" style={styles.link}>
-              Contact Admin
-            </a>
+          {/* Footer */}
+          <div style={styles.footerSection}>
+            <p style={styles.footerText}>
+              Protected by enterprise-grade security. By signing in, you agree to our{" "}
+              <a href="#" style={styles.footerLink}>Terms of Service</a>
+              {" "}and{" "}
+              <a href="#" style={styles.footerLink}>Privacy Policy</a>.
+            </p>
+            <p style={styles.helpText}>
+              Need help? <a href="#" style={styles.footerLink}>Contact Support</a>
+            </p>
           </div>
         </div>
       </div>
@@ -289,9 +302,8 @@ export default function AuthSignIn() {
   );
 }
 
-// Icon helpers
+// Icon helpers - keeping the existing hero visuals
 function trolleySvg() {
-  // Central hero icon – EV vehicle to reflect Rides Admin context
   return (
     <svg
       width="240"
@@ -301,29 +313,9 @@ function trolleySvg() {
       xmlns="http://www.w3.org/2000/svg"
       style={{ display: "block" }}
     >
-      {/* soft outer glow */}
       <circle cx="120" cy="120" r="110" fill={EV.white} opacity="0.08" />
-      {/* road */}
-      <rect
-        x="40"
-        y="160"
-        width="160"
-        height="6"
-        rx="3"
-        fill={EV.white}
-        opacity="0.3"
-      />
-      {/* car body */}
-      <rect
-        x="60"
-        y="110"
-        width="120"
-        height="40"
-        rx="18"
-        fill={EV.white}
-        opacity="0.95"
-      />
-      {/* windshield / roof */}
+      <rect x="40" y="160" width="160" height="6" rx="3" fill={EV.white} opacity="0.3" />
+      <rect x="60" y="110" width="120" height="40" rx="18" fill={EV.white} opacity="0.95" />
       <path
         d="M80 110L96 90h48l16 20"
         stroke={EV.white}
@@ -332,15 +324,12 @@ function trolleySvg() {
         strokeLinejoin="round"
         opacity="0.95"
       />
-      {/* headlights */}
       <circle cx="70" cy="132" r="5" fill={EV.orange} />
       <circle cx="170" cy="132" r="5" fill={EV.orange} />
-      {/* wheels */}
       <circle cx="85" cy="160" r="13" fill={EV.dark} opacity="0.95" />
       <circle cx="155" cy="160" r="13" fill={EV.dark} opacity="0.95" />
       <circle cx="85" cy="160" r="6" fill={EV.white} opacity="0.9" />
       <circle cx="155" cy="160" r="6" fill={EV.white} opacity="0.9" />
-      {/* EV bolt on door */}
       <path
         d="M122 118l-10 18h12l-8 16"
         stroke={EV.orange}
@@ -354,59 +343,32 @@ function trolleySvg() {
 
 function eyeOpenSvg() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
       <path
         d="M12 5C7 5 3.3 8.1 2 12c1.3 3.9 5 7 10 7s8.7-3.1 10-7c-1.3-3.9-5-7-10-7Z"
-        stroke="#475569"
-        strokeWidth="1.6"
+        stroke="#64748b"
+        strokeWidth="1.5"
       />
-      <circle cx="12" cy="12" r="3.2" stroke="#475569" strokeWidth="1.6" />
+      <circle cx="12" cy="12" r="3" stroke="#64748b" strokeWidth="1.5" />
     </svg>
   );
 }
 
 function eyeOffSvg() {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M3 3l18 18" stroke="#475569" strokeWidth="1.6" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M3 3l18 18" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" />
       <path
-        d="M12 5c-5 0-8.7 3.1-10 7 1.1 3.3 3.9 5.9 7.4 6.7M21.9 12.3C20.6 8.3 16.9 5 12 5"
-        stroke="#475569"
-        strokeWidth="1.6"
+        d="M12 5c-5 0-8.7 3.1-10 7 .5 1.5 1.4 2.9 2.5 4M12 19c5 0 8.7-3.1 10-7-.5-1.5-1.4-2.9-2.5-4"
+        stroke="#64748b"
+        strokeWidth="1.5"
       />
-      <circle cx="12" cy="12" r="3.2" stroke="#475569" strokeWidth="1.6" />
     </svg>
   );
 }
 
 function iconRing() {
-  // Rides & Logistics focused icons – each circle represents a key mobility/logistics domain
-  const icons = [
-    "🚗", // EV car / standard rides
-    "🚕", // taxi / on-demand rides
-    "🚙", // SUV / premium rides
-    "🚌", // school bus / shuttles
-    "🚎", // city bus / BRT
-    "🚐", // tourist van / tours
-    "🚚", // delivery van / last-mile logistics
-    "🚛", // truck / freight & bulk
-    "🛵", // motorbike courier / boda
-    "🚲", // bicycles / micro-mobility
-    "🚦", // traffic & routing
-    "📦", // parcels / packages
-  ];
+  const icons = ["🚗", "🚕", "🚙", "🚌", "🚎", "🚐", "🚚", "🚛", "🛵", "🚲", "🚦", "📦"];
   const size = 72;
   const font = 30;
   const r = 260;
@@ -446,8 +408,16 @@ function iconRing() {
 
 // Styles
 const styles = {
-  page: { display: "flex", minHeight: "100vh", background: EV.white },
-  heroWrap: { flex: 1, position: "relative", overflow: "hidden" },
+  page: {
+    display: "flex",
+    minHeight: "100vh",
+    background: EV.white,
+  },
+  heroWrap: {
+    flex: 1,
+    position: "relative",
+    overflow: "hidden",
+  },
   heroGradient: {
     position: "absolute",
     inset: 0,
@@ -474,138 +444,260 @@ const styles = {
   },
   heroFooter: {
     position: "absolute",
-    bottom: 24,
-    left: 24,
+    bottom: 32,
+    left: 32,
+    background: "rgba(255,255,255,.95)",
+    padding: "12px 20px",
+    borderRadius: 12,
+    boxShadow: "0 4px 12px rgba(0,0,0,.08)",
+  },
+  heroFooterContent: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  heroFooterBrand: {
+    fontWeight: 800,
+    fontSize: 18,
     color: EV.dark,
-    fontWeight: 700,
-    background: "rgba(255,255,255,.9)",
-    padding: "6px 10px",
-    borderRadius: 8,
-    letterSpacing: 0.3,
+  },
+  heroFooterText: {
+    color: EV.grayText,
+    fontSize: 14,
   },
   formCol: {
     flex: 1,
-    display: "grid",
-    placeItems: "center",
-    padding: 24,
-    position: "relative",
-  },
-  brandBar: {
-    position: "absolute",
-    top: 16,
-    right: 24,
     display: "flex",
-    alignItems: "center",
-    gap: 16,
+    flexDirection: "column",
+    padding: "24px 48px",
+    maxWidth: 560,
+    minWidth: 400,
   },
-  brandDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 9999,
-    background: EV.green,
-  },
-  cardMaxWidth: { width: "100%", maxWidth: 520 },
-  title: {
-    margin: 0,
-    color: EV.dark,
-    fontWeight: 900,
-    fontSize: 32,
-    letterSpacing: 0.3,
-  },
-  h1: {
-    margin: "6px 0 0",
-    color: EV.grayText,
-    fontWeight: 800,
-    fontSize: 24,
-  },
-  sub: { marginTop: 6, color: EV.grayText },
-  cardBox: {
-    border: `1px solid ${EV.grayBorder}`,
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 12,
-    background: EV.white,
-  },
-  caption: { fontSize: 12, color: EV.grayText },
-  rowBetweenWrap: {
+  topBar: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
-    flexWrap: "wrap",
+    marginBottom: 24,
   },
-  fieldCol: {
+  logoContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  logoDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 9999,
+    background: EV.green,
+  },
+  logoText: {
+    fontWeight: 700,
+    fontSize: 18,
+    color: EV.dark,
+  },
+  langSelect: {
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: `1px solid ${EV.grayBorder}`,
+    fontSize: 13,
+    color: EV.grayText,
+    background: EV.white,
+    cursor: "pointer",
+    outline: "none",
+  },
+  formContainer: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    maxWidth: 420,
+  },
+  headerSection: {
+    marginBottom: 32,
+  },
+  mainTitle: {
+    margin: 0,
+    fontSize: 32,
+    fontWeight: 700,
+    color: EV.dark,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    margin: "8px 0 0",
+    fontSize: 15,
+    color: EV.grayText,
+    lineHeight: 1.5,
+  },
+  ssoSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    marginBottom: 24,
+  },
+  ssoButton: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    padding: "12px 16px",
+    borderRadius: 10,
+    border: `1px solid ${EV.grayBorder}`,
+    background: EV.white,
+    cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 500,
+    color: EV.dark,
+    transition: "all 0.2s ease",
+    ":hover": {
+      background: EV.lightGray,
+      borderColor: "#cbd5e1",
+    },
+  },
+  ssoRow: {
+    display: "flex",
+    gap: 12,
+  },
+  ssoButtonSmall: {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: `1px solid ${EV.grayBorder}`,
+    background: EV.white,
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 500,
+    color: EV.dark,
+  },
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    background: EV.grayBorder,
+  },
+  dividerText: {
+    fontSize: 13,
+    color: EV.grayText,
+    whiteSpace: "nowrap",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 20,
+  },
+  fieldGroup: {
     display: "flex",
     flexDirection: "column",
     gap: 6,
-    marginTop: 10,
   },
-  label: { fontSize: 12, color: "#475569" },
-  input: {
-    border: `1px solid ${EV.grayBorder}`,
-    borderRadius: 8,
-    padding: "10px 12px",
-    outline: "none",
+  labelRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  label: {
     fontSize: 14,
-    width: "100%",
+    fontWeight: 500,
+    color: EV.dark,
   },
-  eyeBtn: {
-    position: "absolute",
-    right: 8,
-    top: 6,
-    padding: "6px 10px",
-    fontSize: 12,
+  forgotLink: {
+    fontSize: 13,
+    color: EV.green,
+    textDecoration: "none",
+    fontWeight: 500,
+  },
+  input: {
+    padding: "12px 14px",
+    borderRadius: 10,
     border: `1px solid ${EV.grayBorder}`,
-    borderRadius: 8,
-    background: EV.white,
+    fontSize: 15,
+    outline: "none",
+    transition: "all 0.2s ease",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+  passwordWrapper: {
+    position: "relative",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: 12,
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 4,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorText: {
+    fontSize: 13,
+    color: "#dc2626",
+    marginTop: 4,
+  },
+  warningText: {
+    fontSize: 13,
+    color: "#d97706",
+    marginTop: 4,
+  },
+  rememberRow: {
+    display: "flex",
+    alignItems: "center",
+  },
+  checkboxLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 14,
+    color: EV.grayText,
     cursor: "pointer",
   },
-  btnPrimary: {
+  checkbox: {
+    width: 18,
+    height: 18,
+    accentColor: EV.green,
+    cursor: "pointer",
+  },
+  submitButton: {
+    padding: "14px 20px",
+    borderRadius: 10,
+    border: "none",
     background: EV.green,
     color: EV.white,
-    padding: "11px 14px",
-    borderRadius: 8,
-    border: 0,
-    cursor: "pointer",
-    fontWeight: 700,
-  },
-  btnSSO: {
-    background: "#f8fafc",
-    color: "#0f172a",
-    padding: "10px 14px",
-    borderRadius: 8,
-    border: `1px solid ${EV.grayBorder}`,
-    cursor: "pointer",
-    width: "100%",
-    textAlign: "left",
-  },
-  link: {
-    color: EV.orange,
-    textDecoration: "none",
+    fontSize: 15,
     fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.2s ease",
+    marginTop: 8,
   },
-  divider: { position: "relative", textAlign: "center", margin: "16px 0" },
-  dividerText: {
-    background: EV.white,
-    padding: "0 8px",
-    color: "#94a3b8",
+  footerSection: {
+    marginTop: 32,
+    textAlign: "center",
   },
-  rowGap: {
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: 8,
-    marginTop: 10,
+  footerText: {
+    fontSize: 12,
+    color: EV.grayText,
+    lineHeight: 1.6,
+    margin: 0,
   },
-  errText: { color: "#b91c1c", fontSize: 12 },
-  noteText: { color: "#0ea5e9", fontSize: 12 },
-  langSelect: {
-    marginLeft: 16,
-    padding: "4px 8px",
-    borderRadius: 6,
-    border: "1px solid #e2e8f0",
-    fontSize: 11,
-    color: "#475569",
-    outline: "none",
-    cursor: "pointer"
-  }
+  footerLink: {
+    color: EV.green,
+    textDecoration: "none",
+    fontWeight: 500,
+  },
+  helpText: {
+    fontSize: 13,
+    color: EV.grayText,
+    marginTop: 12,
+  },
 };
