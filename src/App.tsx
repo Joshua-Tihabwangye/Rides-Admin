@@ -5,6 +5,8 @@ import AdminShell from './layout/AdminShell'
 
 // Pages (attached)
 import AdminAuthSignIn from './pages/AdminAuthSignIn'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import AdminWelcomeNotice from './pages/AdminWelcomeNotice'
 import AdminOnboardingChecklist from './pages/AdminOnboardingChecklist'
 import AdminHomeDashboard from './pages/AdminHomeDashboard'
@@ -63,6 +65,8 @@ export default function App() {
 
         {/* Auth & onboarding (public) */}
         <Route path="/admin/login" element={<AdminAuthSignIn />} />
+        <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+        <Route path="/admin/reset-password" element={<ResetPassword />} />
         <Route path="/admin/onboarding/welcome" element={<AdminWelcomeNotice />} />
         <Route path="/admin/onboarding/checklist" element={<AdminOnboardingChecklist />} />
 
