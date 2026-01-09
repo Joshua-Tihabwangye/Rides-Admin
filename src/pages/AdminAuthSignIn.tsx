@@ -100,7 +100,7 @@ export default function AuthSignIn() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    const isValid = email === "admin@evzone.app" && pwd.length > 0;
+    const isValid = validateEmail(email) && pwd.length > 0;
     if (!isValid) {
       setLoginError("Invalid email or password. Please try again.");
       setIsLoading(false);
