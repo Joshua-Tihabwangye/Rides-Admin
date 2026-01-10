@@ -5,6 +5,7 @@ import { signIn } from "../auth/auth";
 
 // Professional Auth page for EVzone Admin Portal
 // Clean, enterprise style with real SSO provider icons
+// ✅ Hover added for Google, Microsoft, Apple, EVzone buttons (inline style friendly)
 
 const EV = {
   green: "#03CD8C",
@@ -22,39 +23,57 @@ const track = (e, p = {}) => console.debug("[track]", e, { ...p, ts: Date.now() 
 // SVG Icons for SSO providers
 const GoogleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24">
-    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    <path
+      fill="#4285F4"
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+    />
+    <path
+      fill="#EA4335"
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+    />
   </svg>
 );
 
 const MicrosoftIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24">
-    <path fill="#F25022" d="M1 1h10v10H1z"/>
-    <path fill="#00A4EF" d="M1 13h10v10H1z"/>
-    <path fill="#7FBA00" d="M13 1h10v10H13z"/>
-    <path fill="#FFB900" d="M13 13h10v10H13z"/>
+    <path fill="#F25022" d="M1 1h10v10H1z" />
+    <path fill="#00A4EF" d="M1 13h10v10H1z" />
+    <path fill="#7FBA00" d="M13 1h10v10H13z" />
+    <path fill="#FFB900" d="M13 13h10v10H13z" />
   </svg>
 );
 
 const AppleIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="#000000">
-    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
   </svg>
 );
 
 const EVzoneIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="12" r="10" fill={EV.green}/>
-    <path d="M14 7l-5 6h4l-3 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="10" fill={EV.green} />
+    <path
+      d="M14 7l-5 6h4l-3 5"
+      stroke="white"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
 export default function AuthSignIn() {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state && location.state.from) ? location.state.from : "/admin/home";
+  const from = location.state && location.state.from ? location.state.from : "/admin/home";
 
   const [email, setEmail] = useState("");
   const [emailErr, setEmailErr] = useState("");
@@ -64,6 +83,9 @@ export default function AuthSignIn() {
   const [remember, setRemember] = useState(true);
   const [loginError, setLoginError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // ✅ Hover tracking
+  const [hoveredBtn, setHoveredBtn] = useState(null);
 
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < 980 : false
@@ -79,14 +101,13 @@ export default function AuthSignIn() {
     /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(val).toLowerCase());
 
   const onEmailBlur = () => {
-    setEmailErr(
-      email && !validateEmail(email) ? "Please enter a valid email address" : ""
-    );
+    setEmailErr(email && !validateEmail(email) ? "Please enter a valid email address" : "");
   };
 
   const login = async (e) => {
     e.preventDefault();
     setLoginError("");
+
     if (!email || !pwd) {
       setLoginError("Email and password are required");
       return;
@@ -95,17 +116,19 @@ export default function AuthSignIn() {
       setEmailErr("Please enter a valid email address");
       return;
     }
-    
+
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    // ✅ Demo validation: any valid email + any password
     const isValid = validateEmail(email) && pwd.length > 0;
+
     if (!isValid) {
       setLoginError("Invalid email or password. Please try again.");
       setIsLoading(false);
       return;
     }
+
     signIn({ name: "Admin", email, role: "Admin (simulated)" });
     track("auth_login", { email, remember });
     navigate(from, { replace: true });
@@ -120,18 +143,32 @@ export default function AuthSignIn() {
     }, 500);
   };
 
+  // ✅ Hover styles
+  const hoverStyles = {
+    big: {
+      background: EV.lightGray,
+      borderColor: "#cbd5e1",
+      transform: "translateY(-1px)",
+      boxShadow: "0 10px 25px rgba(15, 23, 42, 0.08)",
+    },
+    small: {
+      background: EV.lightGray,
+      borderColor: "#cbd5e1",
+      transform: "translateY(-1px)",
+      boxShadow: "0 10px 20px rgba(15, 23, 42, 0.08)",
+    },
+  };
+
   return (
     <div style={styles.page}>
-      {/* LEFT HERO - Keep the existing image/visual */}
+      {/* LEFT HERO */}
       {!isMobile && (
         <div style={styles.heroWrap}>
           <div style={styles.heroGradient} />
           <div style={styles.heroCenter}>
             <div style={{ ...styles.roundel, background: EV.orange }}>
               <div style={styles.centerFull}>
-                <div style={{ position: "relative", width: 240, height: 240 }}>
-                  {trolleySvg()}
-                </div>
+                <div style={{ position: "relative", width: 240, height: 240 }}>{trolleySvg()}</div>
               </div>
               {iconRing()}
             </div>
@@ -145,7 +182,7 @@ export default function AuthSignIn() {
         </div>
       )}
 
-      {/* RIGHT AUTH COLUMN - Redesigned */}
+      {/* RIGHT AUTH COLUMN */}
       <div style={styles.formCol}>
         {/* Top bar */}
         <div style={styles.topBar}>
@@ -173,20 +210,67 @@ export default function AuthSignIn() {
 
           {/* SSO Buttons */}
           <div style={styles.ssoSection}>
-            <button style={styles.ssoButton} onClick={() => sso("Google")} disabled={isLoading}>
+            {/* Google */}
+            <button
+              style={{
+                ...styles.ssoButton,
+                ...(hoveredBtn === "google" ? hoverStyles.big : {}),
+                ...(isLoading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
+              }}
+              onMouseEnter={() => setHoveredBtn("google")}
+              onMouseLeave={() => setHoveredBtn(null)}
+              onClick={() => sso("Google")}
+              disabled={isLoading}
+            >
               <GoogleIcon />
               <span>Continue with Google</span>
             </button>
-            <button style={styles.ssoButton} onClick={() => sso("Microsoft")} disabled={isLoading}>
+
+            {/* Microsoft */}
+            <button
+              style={{
+                ...styles.ssoButton,
+                ...(hoveredBtn === "microsoft" ? hoverStyles.big : {}),
+                ...(isLoading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
+              }}
+              onMouseEnter={() => setHoveredBtn("microsoft")}
+              onMouseLeave={() => setHoveredBtn(null)}
+              onClick={() => sso("Microsoft")}
+              disabled={isLoading}
+            >
               <MicrosoftIcon />
               <span>Continue with Microsoft</span>
             </button>
+
             <div style={styles.ssoRow}>
-              <button style={styles.ssoButtonSmall} onClick={() => sso("Apple")} disabled={isLoading}>
+              {/* Apple */}
+              <button
+                style={{
+                  ...styles.ssoButtonSmall,
+                  ...(hoveredBtn === "apple" ? hoverStyles.small : {}),
+                  ...(isLoading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
+                }}
+                onMouseEnter={() => setHoveredBtn("apple")}
+                onMouseLeave={() => setHoveredBtn(null)}
+                onClick={() => sso("Apple")}
+                disabled={isLoading}
+              >
                 <AppleIcon />
                 <span>Apple</span>
               </button>
-              <button style={styles.ssoButtonSmall} onClick={() => sso("EVzone")} disabled={isLoading}>
+
+              {/* EVzone */}
+              <button
+                style={{
+                  ...styles.ssoButtonSmall,
+                  ...(hoveredBtn === "evzone" ? hoverStyles.small : {}),
+                  ...(isLoading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
+                }}
+                onMouseEnter={() => setHoveredBtn("evzone")}
+                onMouseLeave={() => setHoveredBtn(null)}
+                onClick={() => sso("EVzone")}
+                disabled={isLoading}
+              >
                 <EVzoneIcon />
                 <span>EVzone Account</span>
               </button>
@@ -212,7 +296,10 @@ export default function AuthSignIn() {
                 }}
                 type="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setEmailErr(""); }}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailErr("");
+                }}
                 onBlur={onEmailBlur}
                 placeholder="you@company.com"
                 disabled={isLoading}
@@ -234,6 +321,7 @@ export default function AuthSignIn() {
                   Forgot password?
                 </a>
               </div>
+
               <div style={styles.passwordWrapper}>
                 <input
                   style={{ ...styles.input, paddingRight: 48 }}
@@ -246,6 +334,7 @@ export default function AuthSignIn() {
                   placeholder="Enter your password"
                   disabled={isLoading}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPwd((s) => !s)}
@@ -255,6 +344,7 @@ export default function AuthSignIn() {
                   {showPwd ? eyeOffSvg() : eyeOpenSvg()}
                 </button>
               </div>
+
               {caps && <span style={styles.warningText}>⚠️ Caps Lock is on</span>}
               {loginError && <span style={styles.errorText}>{loginError}</span>}
             </div>
@@ -288,9 +378,14 @@ export default function AuthSignIn() {
           <div style={styles.footerSection}>
             <p style={styles.footerText}>
               Protected by enterprise-grade security. By signing in, you agree to our{" "}
-              <a href="#" style={styles.footerLink}>Terms of Service</a>
-              {" "}and{" "}
-              <a href="#" style={styles.footerLink}>Privacy Policy</a>.
+              <a href="#" style={styles.footerLink}>
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="#" style={styles.footerLink}>
+                Privacy Policy
+              </a>
+              .
             </p>
             <p style={styles.helpText}>
               Need help? <a href="#" style={styles.footerLink}>Contact Support</a>
@@ -305,14 +400,7 @@ export default function AuthSignIn() {
 // Icon helpers - keeping the existing hero visuals
 function trolleySvg() {
   return (
-    <svg
-      width="240"
-      height="240"
-      viewBox="0 0 240 240"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ display: "block" }}
-    >
+    <svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="120" cy="120" r="110" fill={EV.white} opacity="0.08" />
       <rect x="40" y="160" width="160" height="6" rx="3" fill={EV.white} opacity="0.3" />
       <rect x="60" y="110" width="120" height="40" rx="18" fill={EV.white} opacity="0.95" />
@@ -330,13 +418,7 @@ function trolleySvg() {
       <circle cx="155" cy="160" r="13" fill={EV.dark} opacity="0.95" />
       <circle cx="85" cy="160" r="6" fill={EV.white} opacity="0.9" />
       <circle cx="155" cy="160" r="6" fill={EV.white} opacity="0.9" />
-      <path
-        d="M122 118l-10 18h12l-8 16"
-        stroke={EV.orange}
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M122 118l-10 18h12l-8 16" stroke={EV.orange} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -374,6 +456,7 @@ function iconRing() {
   const r = 260;
   const cx = 280;
   const cy = 280;
+
   return (
     <div style={{ position: "absolute", inset: 0 }}>
       {icons.map((ic, i) => {
@@ -548,10 +631,7 @@ const styles = {
     fontWeight: 500,
     color: EV.dark,
     transition: "all 0.2s ease",
-    ":hover": {
-      background: EV.lightGray,
-      borderColor: "#cbd5e1",
-    },
+    willChange: "transform, box-shadow",
   },
   ssoRow: {
     display: "flex",
@@ -571,6 +651,8 @@ const styles = {
     fontSize: 13,
     fontWeight: 500,
     color: EV.dark,
+    transition: "all 0.2s ease",
+    willChange: "transform, box-shadow",
   },
   divider: {
     display: "flex",
