@@ -226,7 +226,7 @@ export default function GlobalTrainingManagerPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
                     <TableCell>Title</TableCell>
                     <TableCell>Audience</TableCell>
                     <TableCell>Status</TableCell>

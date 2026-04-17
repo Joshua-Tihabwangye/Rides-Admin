@@ -54,7 +54,7 @@ export default function TrainingModulePreview() {
                                 sx={{ 
                                     borderRadius: 2, 
                                     border:"1px solid #e2e8f0", 
-                                    bgcolor: '#fff',
+                                    bgcolor: 'background.paper',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s',
                                     '&:hover': {
@@ -82,7 +82,7 @@ export default function TrainingModulePreview() {
                                             {isPlaying ? 'Playing... 2:34 / 5:00' : '5 mins · Video'}
                                         </Typography>
                                         {isPlaying && (
-                                            <Box sx={{ mt: 1, width: '100%', height: 4, bgcolor: '#e2e8f0', borderRadius: 2, overflow: 'hidden' }}>
+                                            <Box sx={{ mt: 1, width: '100%', height: 4, bgcolor: 'action.disabledBackground', borderRadius: 2, overflow: 'hidden' }}>
                                                 <Box sx={{ width: '52%', height: '100%', bgcolor: '#03cd8c' }} />
                                             </Box>
                                         )}

@@ -449,7 +449,7 @@ function ShellAppBar({ isDark, toggleMode }) {
             sx={{
               height: 22,
               borderRadius: 999,
-              bgcolor:"#fee2e2",
+              bgcolor: '#ef444420',
               color:"#7f1d1d",
               fontSize: 11,
               fontWeight: 500,
@@ -516,7 +516,7 @@ function ShellAppBar({ isDark, toggleMode }) {
             sx={{
               minWidth: 80,"& .MuiOutlinedInput-root": {
                 borderRadius: 999,
-                bgcolor:"#f9fafb","& fieldset": { borderColor:"#e5e7eb" },
+                bgcolor: 'background.default',"& fieldset": { borderColor:"#e5e7eb" },
               },
             }}
           >
@@ -531,7 +531,7 @@ function ShellAppBar({ isDark, toggleMode }) {
             sx={{
               minWidth: 80,"& .MuiOutlinedInput-root": {
                 borderRadius: 999,
-                bgcolor:"#f9fafb","& fieldset": { borderColor:"#e5e7eb" },
+                bgcolor: 'background.default',"& fieldset": { borderColor:"#e5e7eb" },
               },
             }}
           >

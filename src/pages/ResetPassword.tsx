@@ -7,11 +7,11 @@ import { useNavigate, useSearchParams } from"react-router-dom";
 const EV = {
   green:"#03CD8C",
   orange:"#F77F00",
-  dark:"#0f172a",
-  grayBorder:"#e2e8f0",
-  grayText:"#64748b",
-  lightGray:"#f8fafc",
-  white:"#ffffff",
+  dark:"var(--ev-text, #0f172a)",
+  grayBorder:"var(--ev-border, #e2e8f0)",
+  grayText:"var(--ev-text-secondary, #64748b)",
+  lightGray:"var(--ev-light-gray, #f8fafc)",
+  white:"var(--ev-paper, #ffffff)",
 };
 
 const LockIcon = () => (
@@ -195,7 +195,7 @@ export default function ResetPassword() {
                   style={{
                     ...styles.input,
                     borderColor: errors.password ?"#fca5a5" : EV.grayBorder,
-                    backgroundColor: errors.password ?"#fef2f2" : EV.white,
+                    backgroundColor: errors.password ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
                     paddingRight: 48,
                   }}
                   type={showPassword ?"text" :"password"}
@@ -251,7 +251,7 @@ export default function ResetPassword() {
                   style={{
                     ...styles.input,
                     borderColor: errors.confirmPassword ?"#fca5a5" : EV.grayBorder,
-                    backgroundColor: errors.confirmPassword ?"#fef2f2" : EV.white,
+                    backgroundColor: errors.confirmPassword ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
                     paddingRight: 48,
                   }}
                   type={showConfirmPassword ?"text" :"password"}
@@ -314,7 +314,7 @@ function RequirementItem({ met, text }) {
 const styles = {
   page: {
     minHeight:"100vh",
-    background: `linear-gradient(135deg, ${EV.lightGray} 0%, ${EV.white} 100%)`,
+    background: 'var(--ev-bg, #f8fafc)',
     display:"flex",
     alignItems:"center",
     justifyContent:"center",
@@ -349,7 +349,7 @@ const styles = {
     background: EV.white,
     borderRadius: 16,
     padding: 40,
-    boxShadow:"0 4px 24px rgba(0,0,0,0.06)",
+    boxShadow:"var(--ev-card-shadow, 0 4px 24px rgba(0,0,0,0.06))",
     textAlign:"center",
   },
   iconWrapper: {

@@ -331,7 +331,7 @@ export default function RolesPermissionsPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
                     <TableCell>Role</TableCell>
                     <TableCell>Scope</TableCell>
                     <TableCell align="right">Admins</TableCell>

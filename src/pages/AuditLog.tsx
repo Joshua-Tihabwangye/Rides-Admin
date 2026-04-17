@@ -224,7 +224,7 @@ export default function AuditLogPage() {
           <TableContainer component={Paper} elevation={0}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
+                <TableRow sx={{ backgroundColor: 'action.hover' }}>
                   <TableCell>Time</TableCell>
                   <TableCell>Actor</TableCell>
                   <TableCell>Module</TableCell>

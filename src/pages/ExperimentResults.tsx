@@ -127,11 +127,11 @@ export default function ExperimentResults() {
         switch (status) {
             case"On":
             case"Running":
-                return { bgcolor:"#ecfdf5", color:"#059669" };
+                return { bgcolor: '#03cd8c15', color:"#059669" };
             case"Off":
-                return { bgcolor:"#fee2e2", color:"#dc2626" };
+                return { bgcolor: '#ef444420', color:"#dc2626" };
             default:
-                return { bgcolor:"#fef3c7", color:"#d97706" };
+                return { bgcolor: '#eab30820', color:"#d97706" };
         }
     };
 
@@ -222,7 +222,7 @@ export default function ExperimentResults() {
 
             {/* Show message if flag is Off */}
             {isOff && (
-                <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"#fef3c7", p: 3 }}>
+                <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor: '#eab30820', p: 3 }}>
                     <Typography variant="body1" fontWeight={600} color="#92400e">
                         This feature flag is currently OFF
                     </Typography>

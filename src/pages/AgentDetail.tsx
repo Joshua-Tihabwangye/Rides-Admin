@@ -338,7 +338,7 @@ export default function AgentDetail() {
                     Chat with {agent.name}
                 </DialogTitle>
                 <DialogContent sx={{ height: 400, display: 'flex', flexDirection: 'column', p: 0 }}>
-                    <Box sx={{ flex: 1, overflowY: 'auto', p: 2, bgcolor: '#f1f5f9' }}>
+                    <Box sx={{ flex: 1, overflowY: 'auto', p: 2, bgcolor: 'action.hover' }}>
                         {messages.map((msg, idx) => (
                             <Box key={idx} sx={{
                                 display: 'flex',
@@ -348,7 +348,7 @@ export default function AgentDetail() {
                                 <Box sx={{
                                     p: 1.5,
                                     borderRadius: 2,
-                                    bgcolor: msg.sender === 'You' ? '#03cd8c' : 'white',
+                                    bgcolor: msg.sender === 'You' ? '#03cd8c' : 'background.paper',
                                     color: msg.sender === 'You' ? 'white' : 'text.primary',
                                     boxShadow: 1,
                                     maxWidth: '70%'
