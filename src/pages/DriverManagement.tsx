@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from"react";
 import {
   Box,
   Card,
@@ -20,14 +20,14 @@ import {
   MenuItem,
   FormControl,
   Select,
-} from "@mui/material";
-import { useNavigate, useLocation } from "react-router-dom";
-import StatusBadge from "../components/StatusBadge";
-import SearchIcon from "@mui/icons-material/Search";
-import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
-import AddIcon from "@mui/icons-material/Add";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import { getDrivers, DriverRecord } from "../lib/peopleStore";
+} from"@mui/material";
+import { useNavigate, useLocation } from"react-router-dom";
+import StatusBadge from"../components/StatusBadge";
+import SearchIcon from"@mui/icons-material/Search";
+import DirectionsCarIcon from"@mui/icons-material/DirectionsCar";
+import AddIcon from"@mui/icons-material/Add";
+import MoreVertIcon from"@mui/icons-material/MoreVert";
+import { getDrivers, DriverRecord } from"../lib/peopleStore";
 
 export default function DriverManagement() {
   const navigate = useNavigate();
@@ -51,12 +51,12 @@ export default function DriverManagement() {
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
-    const carDrivers = drivers.filter(d => d.vehicleType === "Car");
+    const carDrivers = drivers.filter(d => d.vehicleType ==="Car");
     return {
       all: carDrivers.length,
-      active: carDrivers.filter(d => d.primaryStatus === "approved").length,
-      pending: carDrivers.filter(d => d.primaryStatus === "under_review").length,
-      suspended: carDrivers.filter(d => d.primaryStatus === "suspended").length,
+      active: carDrivers.filter(d => d.primaryStatus ==="approved").length,
+      pending: carDrivers.filter(d => d.primaryStatus ==="under_review").length,
+      suspended: carDrivers.filter(d => d.primaryStatus ==="suspended").length,
     };
   }, [drivers]);
 
@@ -72,23 +72,23 @@ export default function DriverManagement() {
       driver.phone.includes(search) ||
       `DRV-${driver.id}`.toLowerCase().includes(search.toLowerCase());
     const matchesTab =
-      activeTab === "All" ||
-      (activeTab === "Active/Verified" && driver.primaryStatus === "approved") ||
-      (activeTab === "Pending review" && driver.primaryStatus === "under_review") ||
-      (activeTab === "Suspended" && driver.primaryStatus === "suspended");
+      activeTab ==="All" ||
+      (activeTab ==="Active/Verified" && driver.primaryStatus ==="approved") ||
+      (activeTab ==="Pending review" && driver.primaryStatus ==="under_review") ||
+      (activeTab ==="Suspended" && driver.primaryStatus ==="suspended");
     // Only show car drivers
-    const matchesVehicle = driver.vehicleType === "Car";
+    const matchesVehicle = driver.vehicleType ==="Car";
     
     // City filter
-    const matchesCity = cityFilter === "all" || driver.city === cityFilter;
+    const matchesCity = cityFilter ==="all" || driver.city === cityFilter;
     
     // Account filter
-    const matchesAccount = accountFilter === "all" || 
-      (accountFilter === "active" && driver.activityStatus === "active") ||
-      (accountFilter === "inactive" && driver.activityStatus === "inactive");
+    const matchesAccount = accountFilter ==="all" || 
+      (accountFilter ==="active" && driver.activityStatus ==="active") ||
+      (accountFilter ==="inactive" && driver.activityStatus ==="inactive");
     
     // Risk filter
-    const matchesRisk = riskFilter === "all" || driver.risk.toLowerCase() === riskFilter;
+    const matchesRisk = riskFilter ==="all" || driver.risk.toLowerCase() === riskFilter;
     
     return matchesSearch && matchesTab && matchesVehicle && matchesCity && matchesAccount && matchesRisk;
   });
@@ -111,13 +111,13 @@ export default function DriverManagement() {
   const handleActionSelect = (action: string) => {
     if (selectedDriverId) {
       switch (action) {
-        case "view":
+        case"view":
           navigate(`/admin/drivers/${selectedDriverId}`);
           break;
-        case "suspend":
+        case"suspend":
           // Handle suspend action
           break;
-        case "contact":
+        case"contact":
           // Handle contact action
           break;
       }
@@ -142,15 +142,15 @@ export default function DriverManagement() {
   };
 
   const tabs = [
-    { label: "All", count: tabCounts.all },
-    { label: "Active/Verified", count: tabCounts.active },
-    { label: "Pending review", count: tabCounts.pending },
-    { label: "Suspended", count: tabCounts.suspended },
+    { label:"All", count: tabCounts.all },
+    { label:"Active/Verified", count: tabCounts.active },
+    { label:"Pending review", count: tabCounts.pending },
+    { label:"Suspended", count: tabCounts.suspended },
   ];
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <Box sx={{ mb: 3, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
             Driver Management
@@ -163,7 +163,7 @@ export default function DriverManagement() {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          sx={{ textTransform: "none", borderRadius: 999 }}
+          sx={{ textTransform:"none", borderRadius: 999 }}
           onClick={() => navigate('/admin/drivers/new')}
         >
           Create driver
@@ -172,7 +172,7 @@ export default function DriverManagement() {
 
       {/* Dropdown Filters Row */}
       <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", p: 2 }}>
+        <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             Filters:
           </Typography>
@@ -222,7 +222,7 @@ export default function DriverManagement() {
 
       {/* Search and Tabs */}
       <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", p: 2 }}>
+        <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <TextField
             size="small"
             placeholder="Search drivers by name, phone, or ID..."
@@ -235,17 +235,17 @@ export default function DriverManagement() {
                 </InputAdornment>
               ),
             }}
-            sx={{ width: 300, "& .MuiOutlinedInput-root": { borderRadius: 8 } }}
+            sx={{ width: 300,"& .MuiOutlinedInput-root": { borderRadius: 8 } }}
           />
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box sx={{ display:"flex", gap: 1 }}>
             {tabs.map((tab) => (
               <Chip
                 key={tab.label}
                 label={`${tab.label} (${tab.count})`}
                 onClick={() => setActiveTab(tab.label)}
-                color={activeTab === tab.label ? "primary" : "default"}
+                color={activeTab === tab.label ?"primary" :"default"}
                 sx={{ borderRadius: 2, height: 32 }}
-                variant={activeTab === tab.label ? "filled" : "outlined"}
+                variant={activeTab === tab.label ?"filled" :"outlined"}
               />
             ))}
           </Box>
@@ -279,12 +279,12 @@ export default function DriverManagement() {
                   key={driver.id}
                   hover
                   onClick={() => handleRowClick(driver.id)}
-                  sx={{ cursor: "pointer" }}
+                  sx={{ cursor:"pointer" }}
                 >
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: 'text.secondary' }}>
                     DRV-{driver.id}
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 1 }}>
+                  <TableCell sx={{ fontWeight: 600, display:"flex", alignItems:"center", gap: 1 }}>
                     <DirectionsCarIcon fontSize="small" color="primary" />
                     {driver.name}
                   </TableCell>
@@ -300,14 +300,14 @@ export default function DriverManagement() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge
-                      status={driver.activityStatus === "active" ? "active" : "inactive"}
+                      status={driver.activityStatus ==="active" ?"active" :"inactive"}
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
                       label={driver.risk}
-                      color={driver.risk === "Low" ? "success" : driver.risk === "Medium" ? "warning" : "error"}
+                      color={driver.risk ==="Low" ?"success" : driver.risk ==="Medium" ?"warning" :"error"}
                       sx={{ fontSize: 10, height: 20 }}
                     />
                   </TableCell>

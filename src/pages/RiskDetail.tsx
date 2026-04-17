@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useMemo, useState, useRef, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import React, { useMemo, useState, useRef, useEffect } from"react";
+import { useParams } from"react-router-dom";
 import {
   Box,
   Card,
@@ -10,7 +10,7 @@ import {
   Button,
   Divider,
   TextField,
-} from "@mui/material";
+} from"@mui/material";
 import CallIcon from '@mui/icons-material/Call';
 import ChatIcon from '@mui/icons-material/Chat';
 import SendIcon from '@mui/icons-material/Send';
@@ -19,48 +19,38 @@ import SendIcon from '@mui/icons-material/Send';
 // Route suggestion: /admin/risk/:riskId
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
-const RISK_CASES = {
-  "RISK-101": {
-    id: "RISK-101",
-    type: "Account abuse",
-    actorType: "Rider",
-    actorName: "John Okello",
-    severity: "High",
-    age: "1h",
-    region: "East Africa",
-    summary: "Multiple refund disputes across 3 drivers in less than 24 hours.",
-    signals: [
-      "3 refund tickets from different drivers in 18 hours",
-      "2 chargebacks flagged by payment gateway",
-      "Device linked to another suspended account",
+const RISK_CASES = {"RISK-101": {
+    id:"RISK-101",
+    type:"Account abuse",
+    actorType:"Rider",
+    actorName:"John Okello",
+    severity:"High",
+    age:"1h",
+    region:"East Africa",
+    summary:"Multiple refund disputes across 3 drivers in less than 24 hours.",
+    signals: ["3 refund tickets from different drivers in 18 hours","2 chargebacks flagged by payment gateway","Device linked to another suspended account",
     ],
-    context:
-      "Rider completed 42 trips in the last 30 days (avg rating 4.1). Recent behaviour deviates from historical pattern.",
-    financialExposure: "Estimated financial exposure for the last 7 days: $86 (unpaid disputes).",
-    phone: "+256700000000",
-  },
-  "RISK-102": {
-    id: "RISK-102",
-    type: "Payment fraud",
-    actorType: "Driver",
-    actorName: "Michael Driver",
-    severity: "Medium",
-    age: "3h",
-    region: "West Africa",
-    summary: "Unusual pattern of short trips with identical card tokens.",
-    signals: [
-      "Multiple cards used from same device within 2 hours",
-      "Spike in refunds on short-distance trips",
-      "Linked to previously blocked payment instrument",
+    context:"Rider completed 42 trips in the last 30 days (avg rating 4.1). Recent behaviour deviates from historical pattern.",
+    financialExposure:"Estimated financial exposure for the last 7 days: $86 (unpaid disputes).",
+    phone:"+256700000000",
+  },"RISK-102": {
+    id:"RISK-102",
+    type:"Payment fraud",
+    actorType:"Driver",
+    actorName:"Michael Driver",
+    severity:"Medium",
+    age:"3h",
+    region:"West Africa",
+    summary:"Unusual pattern of short trips with identical card tokens.",
+    signals: ["Multiple cards used from same device within 2 hours","Spike in refunds on short-distance trips","Linked to previously blocked payment instrument",
     ],
-    context:
-      "Driver recently increased trip volume by 65%. Pattern shows repeated short trips with similar routes and tokens.",
-    financialExposure: "Estimated exposure in last 7 days: $120 (potential fraud).",
-    phone: "+256701111111",
+    context:"Driver recently increased trip volume by 65%. Pattern shows repeated short trips with similar routes and tokens.",
+    financialExposure:"Estimated exposure in last 7 days: $120 (potential fraud).",
+    phone:"+256701111111",
   },
 } as const;
 
@@ -71,9 +61,9 @@ export default function RiskCaseDetailPage() {
   const [showChat, setShowChat] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<{text: string, isUser: boolean, time: string}[]>([
-    { text: "Hello, I'm reaching out regarding your recent activity on the platform.", isUser: false, time: "10:30 AM" },
-    { text: "Hi, yes I saw there was some issue flagged?", isUser: true, time: "10:32 AM" },
-    { text: "Yes, we noticed some unusual patterns. Could you explain the multiple refund requests?", isUser: false, time: "10:33 AM" },
+    { text:"Hello, I'm reaching out regarding your recent activity on the platform.", isUser: false, time:"10:30 AM" },
+    { text:"Hi, yes I saw there was some issue flagged?", isUser: true, time:"10:32 AM" },
+    { text:"Yes, we noticed some unusual patterns. Could you explain the multiple refund requests?", isUser: false, time:"10:33 AM" },
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -92,26 +82,26 @@ export default function RiskCaseDetailPage() {
   }, [chatMessages]);
 
   const handleAction = (action: string) => {
-    const entry = `Action: ${action} on ${riskCase.id}${notes.trim() ? ` – note: ${notes.trim()}` : ""
+    const entry = `Action: ${action} on ${riskCase.id}${notes.trim() ? ` – note: ${notes.trim()}` :""
       }`;
     setNoteList((prev) => [entry, ...prev]);
     
     // Process the action without console logs or alerts
-    if (action === "Monitor") {
+    if (action ==="Monitor") {
       setNoteList((prev) => [`Monitoring started for ${riskCase.actorName}`, ...prev]);
-    } else if (action === "Limit features") {
+    } else if (action ==="Limit features") {
       setNoteList((prev) => [`Features limited for ${riskCase.actorName}`, ...prev]);
-    } else if (action === "Escalate") {
+    } else if (action ==="Escalate") {
       setNoteList((prev) => [`Case escalated for ${riskCase.actorName}`, ...prev]);
     }
     
     setNotes("");
   };
 
-  const handleCommunication = (method: "Call" | "Chat") => {
-    if (method === "Call") {
+  const handleCommunication = (method:"Call" |"Chat") => {
+    if (method ==="Call") {
       if (riskCase.phone) {
-        window.open(`tel:${riskCase.phone}`, "_self");
+        window.open(`tel:${riskCase.phone}`,"_self");
       }
     } else {
       setShowChat(true);
@@ -135,11 +125,7 @@ export default function RiskCaseDetailPage() {
     
     // Simulate agent response after a delay
     setTimeout(() => {
-      const responses = [
-        "I understand. Let me check the details on our end.",
-        "Thank you for clarifying. I'll update the case notes.",
-        "I see. We'll review this further and get back to you.",
-        "Got it. Is there anything else you'd like to add?",
+      const responses = ["I understand. Let me check the details on our end.","Thank you for clarifying. I'll update the case notes.","I see. We'll review this further and get back to you.","Got it. Is there anything else you'd like to add?",
       ];
       const randomResponse = responses[Math.floor(Math.random() * responses.length)];
       const responseTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -202,8 +188,8 @@ export default function RiskCaseDetailPage() {
         elevation={2}
         sx={{
           borderRadius: 2,
-          border: "1px solid rgba(148,163,184,0.3)",
-          background: "linear-gradient(145deg, #fef2f2, #ffffff)",
+          border:"1px solid rgba(148,163,184,0.3)",
+          
           mb: 3
         }}
       >
@@ -211,7 +197,7 @@ export default function RiskCaseDetailPage() {
           <Box>
             <Typography
               variant="caption"
-              className="text-[11px] text-slate-600"
+              className="text-[11px] text-slate-500"
             >
               {riskCase.id}
             </Typography>
@@ -224,7 +210,7 @@ export default function RiskCaseDetailPage() {
             </Typography>
             <Typography
               variant="caption"
-              className="text-[11px] text-slate-600"
+              className="text-[11px] text-slate-500"
             >
               {riskCase.actorType} · {riskCase.type}
             </Typography>
@@ -237,11 +223,11 @@ export default function RiskCaseDetailPage() {
                 fontSize: 10,
                 height: 22,
                 bgcolor:
-                  riskCase.severity === "High"
-                    ? "#fee2e2"
-                    : riskCase.severity === "Medium"
-                      ? "#fef3c7"
-                      : "#e0f2fe",
+                  riskCase.severity ==="High"
+                    ?"#fee2e2"
+                    : riskCase.severity ==="Medium"
+                      ?"#fef3c7"
+                      :"#e0f2fe",
               }}
             />
             <Chip
@@ -265,8 +251,8 @@ export default function RiskCaseDetailPage() {
           sx={{
             flex: 2,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.3)",
-            bgcolor: "background.paper"
+            border:"1px solid rgba(148,163,184,0.3)",
+            bgcolor:"background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -280,7 +266,7 @@ export default function RiskCaseDetailPage() {
               </Typography>
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800"
+                className="text-[12px]"
               >
                 {riskCase.summary}
               </Typography>
@@ -301,7 +287,7 @@ export default function RiskCaseDetailPage() {
                   <Typography
                     key={s}
                     variant="body2"
-                    className="text-[12px] text-slate-800"
+                    className="text-[12px]"
                   >
                     • {s}
                   </Typography>
@@ -319,13 +305,13 @@ export default function RiskCaseDetailPage() {
               </Typography>
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800"
+                className="text-[12px]"
               >
                 {riskCase.context}
               </Typography>
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800 mt-1"
+                className="text-[12px] mt-1"
               >
                 {riskCase.financialExposure}
               </Typography>
@@ -349,16 +335,14 @@ export default function RiskCaseDetailPage() {
                   placeholder="Add notes for audit trail and hand-off to fraud desk…"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  sx={{
-                    "& .MuiOutlinedInput-root": { bgcolor: "background.paper" },
-                    "& .MuiInputBase-input": { fontSize: 12 },
+                  sx={{"& .MuiOutlinedInput-root": { bgcolor:"background.paper" },"& .MuiInputBase-input": { fontSize: 12 },
                   }}
                 />
                 <Button
                   variant="contained"
                   size="small"
                   color="success"
-                  sx={{ alignSelf: "flex-end", textTransform: "none", borderRadius: 999, fontSize: 12, color: "white" }}
+                  sx={{ alignSelf:"flex-end", textTransform:"none", borderRadius: 999, fontSize: 12, color:"white" }}
                   onClick={handleAddNote}
                 >
                   Add note
@@ -366,7 +350,7 @@ export default function RiskCaseDetailPage() {
               </Box>
 
               {noteList.length > 0 && (
-                <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
+                <Box sx={{ mt: 2, display:"flex", flexDirection:"column", gap: 0.5 }}>
                   <Typography
                     variant="caption"
                     className="text-[11px]"
@@ -378,7 +362,7 @@ export default function RiskCaseDetailPage() {
                     <Typography
                       key={idx}
                       variant="body2"
-                      className="text-[12px] text-slate-700"
+                      className="text-[12px] text-slate-500"
                     >
                       • {n}
                     </Typography>
@@ -395,20 +379,20 @@ export default function RiskCaseDetailPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.3)",
-            background: "linear-gradient(145deg, #fef2f2, #fffbeb)",
+            border:"1px solid rgba(148,163,184,0.3)",
+            background:"linear-gradient(145deg, #fef2f2, #fffbeb)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Actions & triage
             </Typography>
             <Typography
               variant="caption"
-              className="text-[11px] text-slate-700"
+              className="text-[11px] text-slate-500"
             >
               Choose the appropriate action. All actions and notes will be
               logged in the audit trail.
@@ -419,10 +403,10 @@ export default function RiskCaseDetailPage() {
               variant="text"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                color: "#4b5563",
+                color:"#4b5563",
               }}
               onClick={() => handleAction("Monitor")}
             >
@@ -433,11 +417,11 @@ export default function RiskCaseDetailPage() {
               variant="outlined"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                borderColor: "#f97316",
-                color: "#92400e",
+                borderColor:"#f97316",
+                color:"#92400e",
               }}
               onClick={() => handleAction("Limit features")}
             >
@@ -448,11 +432,10 @@ export default function RiskCaseDetailPage() {
               variant="contained"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                bgcolor: "#ef4444",
-                "&:hover": { bgcolor: "#dc2626" },
+                bgcolor:"#ef4444","&:hover": { bgcolor:"#dc2626" },
               }}
               onClick={() => handleAction("Escalate to fraud desk")}
             >
@@ -463,12 +446,11 @@ export default function RiskCaseDetailPage() {
               variant="contained"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                bgcolor: "#16a34a",
-                color: "#ffffff",
-                "&:hover": { bgcolor: "#15803d" },
+                bgcolor:"#16a34a",
+                color:"#ffffff","&:hover": { bgcolor:"#15803d" },
               }}
               onClick={() => handleAction("Suspend account")}
             >
@@ -485,8 +467,8 @@ export default function RiskCaseDetailPage() {
             elevation={2}
             sx={{
               borderRadius: 2,
-              border: "1px solid rgba(148,163,184,0.3)",
-              bgcolor: "background.paper",
+              border:"1px solid rgba(148,163,184,0.3)",
+              bgcolor:"background.paper",
               overflow: 'hidden',
             }}
           >
@@ -608,12 +590,10 @@ export default function RiskCaseDetailPage() {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                sx={{
-                  "& .MuiOutlinedInput-root": { 
-                    bgcolor: "background.default",
+                sx={{"& .MuiOutlinedInput-root": { 
+                    bgcolor:"background.default",
                     borderRadius: 3,
-                  },
-                  "& .MuiInputBase-input": { fontSize: 13 },
+                  },"& .MuiInputBase-input": { fontSize: 13 },
                 }}
               />
               <Button

@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState } from"react";
+import { useParams, useNavigate } from"react-router-dom";
 import {
     Box,
     Card,
@@ -10,11 +10,11 @@ import {
     Grid,
     Chip,
     Divider,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import GroupIcon from "@mui/icons-material/Group";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
+} from"@mui/material";
+import ArrowBackIcon from"@mui/icons-material/ArrowBack";
+import TrendingUpIcon from"@mui/icons-material/TrendingUp";
+import GroupIcon from"@mui/icons-material/Group";
+import AccessTimeIcon from"@mui/icons-material/AccessTime";
 import {
     BarChart,
     Bar,
@@ -26,80 +26,80 @@ import {
     ResponsiveContainer,
     LineChart,
     Line,
-} from "recharts";
+} from"recharts";
 
 // Mock data for flags and experiments
 const FLAGS_DATA = {
     1: {
         id: 1,
-        name: "New rides home screen",
-        key: "rides.home.v2",
-        status: "On",
-        type: "Feature",
-        startDate: "2025-10-15",
-        duration: "Active",
-        description: "New redesigned home screen for the rides module with improved UX and faster load times.",
-        module: "Rides",
-        segment: "All users",
+        name:"New rides home screen",
+        key:"rides.home.v2",
+        status:"On",
+        type:"Feature",
+        startDate:"2025-10-15",
+        duration:"Active",
+        description:"New redesigned home screen for the rides module with improved UX and faster load times.",
+        module:"Rides",
+        segment:"All users",
         variants: [
-            { name: "Control (Old)", users: 50000, conversion: 45.2, revenue: 125000 },
-            { name: "New Version", users: 50000, conversion: 48.7, revenue: 135000 },
+            { name:"Control (Old)", users: 50000, conversion: 45.2, revenue: 125000 },
+            { name:"New Version", users: 50000, conversion: 48.7, revenue: 135000 },
         ],
         dailyData: [
-            { day: "Day 1", A: 44.0, B: 45.1 },
-            { day: "Day 5", A: 44.5, B: 46.2 },
-            { day: "Day 10", A: 45.0, B: 47.5 },
-            { day: "Day 15", A: 45.1, B: 48.2 },
-            { day: "Day 20", A: 45.2, B: 48.5 },
-            { day: "Day 25", A: 45.2, B: 48.7 },
+            { day:"Day 1", A: 44.0, B: 45.1 },
+            { day:"Day 5", A: 44.5, B: 46.2 },
+            { day:"Day 10", A: 45.0, B: 47.5 },
+            { day:"Day 15", A: 45.1, B: 48.2 },
+            { day:"Day 20", A: 45.2, B: 48.5 },
+            { day:"Day 25", A: 45.2, B: 48.7 },
         ],
         adoptionData: [
-            { day: "Week 1", adoption: 25 },
-            { day: "Week 2", adoption: 45 },
-            { day: "Week 3", adoption: 68 },
-            { day: "Week 4", adoption: 85 },
-            { day: "Week 5", adoption: 92 },
-            { day: "Week 6", adoption: 98 },
+            { day:"Week 1", adoption: 25 },
+            { day:"Week 2", adoption: 45 },
+            { day:"Week 3", adoption: 68 },
+            { day:"Week 4", adoption: 85 },
+            { day:"Week 5", adoption: 92 },
+            { day:"Week 6", adoption: 98 },
         ],
     },
     2: {
         id: 2,
-        name: "Delivery Price Experiment",
-        key: "delivery.pricing.ab",
-        status: "Running",
-        type: "Experiment",
-        startDate: "2025-11-01",
-        duration: "25 days",
-        description: "A/B test for new delivery pricing model with dynamic surge pricing.",
-        module: "Deliveries",
-        segment: "10% random",
+        name:"Delivery Price Experiment",
+        key:"delivery.pricing.ab",
+        status:"Running",
+        type:"Experiment",
+        startDate:"2025-11-01",
+        duration:"25 days",
+        description:"A/B test for new delivery pricing model with dynamic surge pricing.",
+        module:"Deliveries",
+        segment:"10% random",
         variants: [
-            { name: "Control (A)", users: 12500, conversion: 12.5, revenue: 45000 },
-            { name: "Variant (B)", users: 12450, conversion: 14.2, revenue: 52000 },
+            { name:"Control (A)", users: 12500, conversion: 12.5, revenue: 45000 },
+            { name:"Variant (B)", users: 12450, conversion: 14.2, revenue: 52000 },
         ],
         dailyData: [
-            { day: "Day 1", A: 12.0, B: 12.1 },
-            { day: "Day 5", A: 12.2, B: 12.8 },
-            { day: "Day 10", A: 12.3, B: 13.5 },
-            { day: "Day 15", A: 12.1, B: 13.9 },
-            { day: "Day 20", A: 12.5, B: 14.1 },
-            { day: "Day 25", A: 12.5, B: 14.2 },
+            { day:"Day 1", A: 12.0, B: 12.1 },
+            { day:"Day 5", A: 12.2, B: 12.8 },
+            { day:"Day 10", A: 12.3, B: 13.5 },
+            { day:"Day 15", A: 12.1, B: 13.9 },
+            { day:"Day 20", A: 12.5, B: 14.1 },
+            { day:"Day 25", A: 12.5, B: 14.2 },
         ],
     },
     3: {
         id: 3,
-        name: "EV-only banner",
-        key: "global.evOnlyBanner",
-        status: "Off",
-        type: "Feature",
-        startDate: "2025-12-01",
-        duration: "Inactive",
-        description: "Promotional banner highlighting EV-only rides for environmental awareness campaigns.",
-        module: "Global",
-        segment: "All users",
+        name:"EV-only banner",
+        key:"global.evOnlyBanner",
+        status:"Off",
+        type:"Feature",
+        startDate:"2025-12-01",
+        duration:"Inactive",
+        description:"Promotional banner highlighting EV-only rides for environmental awareness campaigns.",
+        module:"Global",
+        segment:"All users",
         variants: [
-            { name: "Without Banner", users: 100000, conversion: 22.5, revenue: 180000 },
-            { name: "With Banner", users: 0, conversion: 0, revenue: 0 },
+            { name:"Without Banner", users: 100000, conversion: 22.5, revenue: 180000 },
+            { name:"With Banner", users: 0, conversion: 0, revenue: 0 },
         ],
         dailyData: [],
         adoptionData: [],
@@ -107,10 +107,10 @@ const FLAGS_DATA = {
 };
 
 const EV_COLORS = {
-    primary: "#03cd8c",
-    secondary: "#f77f00",
-    blue: "#3b82f6",
-    red: "#ef4444",
+    primary:"#03cd8c",
+    secondary:"#f77f00",
+    blue:"#3b82f6",
+    red:"#ef4444",
 };
 
 export default function ExperimentResults() {
@@ -118,20 +118,20 @@ export default function ExperimentResults() {
     const navigate = useNavigate();
 
     // Get the flag/experiment data by ID
-    const flagId = parseInt(id || "1", 10);
+    const flagId = parseInt(id ||"1", 10);
     const flag = FLAGS_DATA[flagId] || FLAGS_DATA[1];
-    const isFeature = flag.type === "Feature";
-    const isOff = flag.status === "Off";
+    const isFeature = flag.type ==="Feature";
+    const isOff = flag.status ==="Off";
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "On":
-            case "Running":
-                return { bgcolor: "#ecfdf5", color: "#059669" };
-            case "Off":
-                return { bgcolor: "#fee2e2", color: "#dc2626" };
+            case"On":
+            case"Running":
+                return { bgcolor:"#ecfdf5", color:"#059669" };
+            case"Off":
+                return { bgcolor:"#fee2e2", color:"#dc2626" };
             default:
-                return { bgcolor: "#fef3c7", color: "#d97706" };
+                return { bgcolor:"#fef3c7", color:"#d97706" };
         }
     };
 
@@ -142,13 +142,13 @@ export default function ExperimentResults() {
                 <Button
                     startIcon={<ArrowBackIcon />}
                     onClick={() => navigate("/admin/system/flags")}
-                    sx={{ textTransform: "none", color: "text.secondary" }}
+                    sx={{ textTransform:"none", color:"text.secondary" }}
                 >
                     Back to Flags
                 </Button>
                 <Box>
                     <Typography variant="h5" fontWeight={700} color="text.primary">
-                        {isFeature ? "Feature Flag" : "Experiment Results"}: {flag.name}
+                        {isFeature ?"Feature Flag" :"Experiment Results"}: {flag.name}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                         Key: {flag.key} · Module: {flag.module} · Segment: {flag.segment}
@@ -158,7 +158,7 @@ export default function ExperimentResults() {
                     label={flag.status}
                     size="small"
                     sx={{
-                        ml: "auto",
+                        ml:"auto",
                         ...getStatusColor(flag.status),
                         fontWeight: 600,
                     }}
@@ -166,10 +166,10 @@ export default function ExperimentResults() {
             </Box>
 
             {/* Summary Card */}
-            <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper", mb: 3 }}>
+            <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper", mb: 3 }}>
                 <CardContent sx={{ p: 3 }}>
                     <Typography variant="subtitle2" fontWeight={700} color="text.primary" sx={{ mb: 2 }}>
-                        {isFeature ? "Feature Flag Details" : "Experiment Summary"}
+                        {isFeature ?"Feature Flag Details" :"Experiment Summary"}
                     </Typography>
                     
                     {/* Description */}
@@ -196,7 +196,7 @@ export default function ExperimentResults() {
                         </Box>
                         <Box>
                             <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
-                                {isFeature ? "State" : "Duration"}
+                                {isFeature ?"State" :"Duration"}
                             </Typography>
                             <Typography variant="body2" fontWeight={600} color="text.primary">
                                 {flag.duration}
@@ -222,7 +222,7 @@ export default function ExperimentResults() {
 
             {/* Show message if flag is Off */}
             {isOff && (
-                <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "#fef3c7", p: 3 }}>
+                <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"#fef3c7", p: 3 }}>
                     <Typography variant="body1" fontWeight={600} color="#92400e">
                         This feature flag is currently OFF
                     </Typography>
@@ -244,14 +244,14 @@ export default function ExperimentResults() {
             {!isOff && (
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={4}>
-                        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+                        <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                             <CardContent className="flex items-center gap-4">
                                 <Box sx={{ p: 2, bgcolor: 'primary.main', borderRadius: 2, color: 'white' }}>
                                     <GroupIcon />
                                 </Box>
                                 <Box>
                                     <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
-                                        {isFeature ? "Total Users" : "Total Participants"}
+                                        {isFeature ?"Total Users" :"Total Participants"}
                                     </Typography>
                                     <Typography variant="h5" fontWeight={700} color="text.primary">
                                         {(
@@ -259,21 +259,21 @@ export default function ExperimentResults() {
                                         ).toLocaleString()}
                                     </Typography>
                                     <Typography variant="caption" className="text-[10px]" color="text.secondary">
-                                        {isFeature ? "Using this feature" : "Across all variants"}
+                                        {isFeature ?"Using this feature" :"Across all variants"}
                                     </Typography>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+                        <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                             <CardContent className="flex items-center gap-4">
                                 <Box sx={{ p: 2, bgcolor: 'success.main', borderRadius: 2, color: 'white' }}>
                                     <TrendingUpIcon />
                                 </Box>
                                 <Box>
                                     <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
-                                        {isFeature ? "Conversion Rate" : "Conversion Uplift"}
+                                        {isFeature ?"Conversion Rate" :"Conversion Uplift"}
                                     </Typography>
                                     <Typography variant="h5" fontWeight={700} color="success.main">
                                         {isFeature 
@@ -282,14 +282,14 @@ export default function ExperimentResults() {
                                         }
                                     </Typography>
                                     <Typography variant="caption" className="text-[10px]" color="text.secondary">
-                                        {isFeature ? "Current performance" : "Variant B vs Control A"}
+                                        {isFeature ?"Current performance" :"Variant B vs Control A"}
                                     </Typography>
                                 </Box>
                             </CardContent>
                         </Card>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+                        <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                             <CardContent className="flex items-center gap-4">
                                 <Box sx={{ p: 2, bgcolor: 'secondary.main', borderRadius: 2, color: 'white' }}>
                                     <AccessTimeIcon />
@@ -302,7 +302,7 @@ export default function ExperimentResults() {
                                         ${(flag.variants.reduce((acc, v) => acc + v.revenue, 0)).toLocaleString()}
                                     </Typography>
                                     <Typography variant="caption" className="text-[10px]" color="text.secondary">
-                                        {isFeature ? "Total revenue" : "Total across variants"}
+                                        {isFeature ?"Total revenue" :"Total across variants"}
                                     </Typography>
                                 </Box>
                             </CardContent>
@@ -316,15 +316,15 @@ export default function ExperimentResults() {
                 <Grid container spacing={3}>
                     {/* Left: Variant Comparison or Feature Adoption */}
                     <Grid item xs={12} lg={6}>
-                        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper", height: "100%" }}>
+                        <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper", height:"100%" }}>
                             <CardContent>
                                 <Typography variant="h6" fontWeight={700} color="text.primary" gutterBottom>
-                                    {isFeature ? "Feature Performance" : "Variant Performance Comparison"}
+                                    {isFeature ?"Feature Performance" :"Variant Performance Comparison"}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
                                     {isFeature 
-                                        ? "Performance metrics for this feature flag"
-                                        : "Side-by-side comparison of Control (A) and Variant (B) performance metrics"
+                                        ?"Performance metrics for this feature flag"
+                                        :"Side-by-side comparison of Control (A) and Variant (B) performance metrics"
                                     }
                                 </Typography>
                                 <Divider sx={{ mb: 3 }} />
@@ -360,7 +360,7 @@ export default function ExperimentResults() {
                                             </Box>
                                             <Box className="flex justify-between text-sm font-semibold mt-1">
                                                 <span className="text-slate-500">Conv. Rate</span>
-                                                <span className={v.name.includes("Variant") || v.name.includes("New") ? "text-green-600" : ""}>
+                                                <span className={v.name.includes("Variant") || v.name.includes("New") ?"text-green-600" :""}>
                                                     {v.conversion}%
                                                 </span>
                                             </Box>
@@ -373,10 +373,10 @@ export default function ExperimentResults() {
 
                     {/* Right: Trend Over Time or Adoption Rate */}
                     <Grid item xs={12} lg={6}>
-                        <Card elevation={1} sx={{ borderRadius: 4, height: "100%" }}>
+                        <Card elevation={1} sx={{ borderRadius: 4, height:"100%" }}>
                             <CardContent>
                                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                                    {isFeature && flag.adoptionData?.length > 0 ? "Adoption Rate Over Time" : "Conversion Trend (Daily)"}
+                                    {isFeature && flag.adoptionData?.length > 0 ?"Adoption Rate Over Time" :"Conversion Trend (Daily)"}
                                 </Typography>
                                 <Divider sx={{ mb: 3 }} />
 
@@ -416,7 +416,7 @@ export default function ExperimentResults() {
                                     <Typography variant="body2" className="text-green-700 mt-1">
                                         {isFeature 
                                             ? `This feature is performing well with ${flag.variants[1]?.conversion || flag.variants[0]?.conversion}% conversion rate. Consider expanding to more user segments.`
-                                            : "Variant B is showing a significant improvement (+13.6% conversion) with 95% statistical confidence. Consider rolling out to 100% of users."
+                                            :"Variant B is showing a significant improvement (+13.6% conversion) with 95% statistical confidence. Consider rolling out to 100% of users."
                                         }
                                     </Typography>
                                     <Button
@@ -424,7 +424,7 @@ export default function ExperimentResults() {
                                         size="small"
                                         sx={{ mt: 2, bgcolor: EV_COLORS.primary, textTransform: 'none' }}
                                     >
-                                        {isFeature ? "Expand Rollout" : "Rollout Variant B"}
+                                        {isFeature ?"Expand Rollout" :"Rollout Variant B"}
                                     </Button>
                                 </Box>
                             </CardContent>

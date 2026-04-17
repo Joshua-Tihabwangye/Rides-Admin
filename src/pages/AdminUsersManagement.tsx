@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -17,9 +17,9 @@ import {
   TableContainer,
   Paper,
   InputAdornment
-} from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import StatusBadge from "../components/StatusBadge";
+} from"@mui/material";
+import SearchIcon from"@mui/icons-material/Search";
+import StatusBadge from"../components/StatusBadge";
 
 // D2 – Admin Users Management (Light/Dark, EVzone themed)
 // Route suggestion: /admin/admin-users
@@ -27,8 +27,8 @@ import StatusBadge from "../components/StatusBadge";
 // Admin detail drawer. The same RoleMatrix pattern is also used in D3.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 // RoleMatrix and AdminDetailDrawer moved to AdminUserDetail page.
@@ -38,33 +38,33 @@ const EV_COLORS = {
 const SAMPLE_ADMINS = [
   {
     id: 1,
-    name: "Alex Admin",
-    email: "alex.admin@evzonehq.com",
-    roles: "Super Admin",
-    regions: "Global",
-    status: "Active",
-    lastLogin: "2025-11-25 09:02",
-    twoFA: "Enabled",
+    name:"Alex Admin",
+    email:"alex.admin@evzonehq.com",
+    roles:"Super Admin",
+    regions:"Global",
+    status:"Active",
+    lastLogin:"2025-11-25 09:02",
+    twoFA:"Enabled",
   },
   {
     id: 2,
-    name: "Maria Mobility",
-    email: "maria.mobility@evzonehq.com",
-    roles: "Mobility Admin",
-    regions: "East & West Africa",
-    status: "Active",
-    lastLogin: "2025-11-24 17:30",
-    twoFA: "Enabled",
+    name:"Maria Mobility",
+    email:"maria.mobility@evzonehq.com",
+    roles:"Mobility Admin",
+    regions:"East & West Africa",
+    status:"Active",
+    lastLogin:"2025-11-24 17:30",
+    twoFA:"Enabled",
   },
   {
     id: 3,
-    name: "Felix Finance",
-    email: "felix.finance@evzonehq.com",
-    roles: "Finance Admin",
-    regions: "East Africa",
-    status: "Suspended",
-    lastLogin: "2025-11-10 12:15",
-    twoFA: "Disabled",
+    name:"Felix Finance",
+    email:"felix.finance@evzonehq.com",
+    roles:"Finance Admin",
+    regions:"East Africa",
+    status:"Suspended",
+    lastLogin:"2025-11-10 12:15",
+    twoFA:"Disabled",
   },
 ];
 
@@ -84,7 +84,7 @@ export default function AdminUsersManagementPage() {
   const filteredAdmins = SAMPLE_ADMINS.filter((admin) => {
     const matchesSearch = admin.name.toLowerCase().includes(search.toLowerCase()) ||
       admin.email.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = activeRole === "All" || admin.roles.includes(activeRole);
+    const matchesRole = activeRole ==="All" || admin.roles.includes(activeRole);
     return matchesSearch && matchesRole;
   });
 
@@ -114,8 +114,8 @@ export default function AdminUsersManagementPage() {
         elevation={2}
         sx={{
           borderRadius: 2,
-          border: "1px solid rgba(148,163,184,0.3)",
-          bgcolor: "background.paper",
+          border:"1px solid rgba(148,163,184,0.3)",
+          bgcolor:"background.paper",
           mb: 3
         }}
       >
@@ -134,9 +134,7 @@ export default function AdminUsersManagementPage() {
                   </InputAdornment>
                 ),
               }}
-              sx={{
-                "& .MuiOutlinedInput-root": { bgcolor: "background.default", borderRadius: 8 },
-                "& .MuiInputBase-input::placeholder": { fontSize: 13 },
+              sx={{"& .MuiOutlinedInput-root": { bgcolor:"background.default", borderRadius: 8 },"& .MuiInputBase-input::placeholder": { fontSize: 13 },
               }}
             />
           </Box>
@@ -147,14 +145,14 @@ export default function AdminUsersManagementPage() {
             >
               Role:
             </Typography>
-            {["All", "Super Admin", "Mobility Admin", "Finance Admin"].map((role) => (
+            {["All","Super Admin","Mobility Admin","Finance Admin"].map((role) => (
               <Chip
                 key={role}
                 size="small"
                 label={role}
                 onClick={() => setActiveRole(role)}
-                color={activeRole === role ? "primary" : "default"}
-                variant={activeRole === role ? "filled" : "outlined"}
+                color={activeRole === role ?"primary" :"default"}
+                variant={activeRole === role ?"filled" :"outlined"}
                 sx={{ fontSize: 11, height: 24, cursor: 'pointer' }}
               />
             ))}
@@ -167,8 +165,8 @@ export default function AdminUsersManagementPage() {
         elevation={2}
         sx={{
           borderRadius: 2,
-          border: "1px solid rgba(148,163,184,0.3)",
-          bgcolor: "background.paper"
+          border:"1px solid rgba(148,163,184,0.3)",
+          bgcolor:"background.paper"
         }}
       >
         <CardContent className="p-0">
@@ -190,7 +188,7 @@ export default function AdminUsersManagementPage() {
                   <TableRow
                     key={admin.id}
                     hover
-                    sx={{ cursor: "pointer" }}
+                    sx={{ cursor:"pointer" }}
                     onClick={() => handleRowClick(admin)}
                   >
                     <TableCell sx={{ fontWeight: 600 }}>{admin.name}</TableCell>

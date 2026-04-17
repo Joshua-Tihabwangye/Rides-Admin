@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -17,8 +17,8 @@ import {
   Paper,
   Select,
   MenuItem,
-} from "@mui/material";
-import { clearAuditEvents, getAuditEvents } from "../lib/auditStore";
+} from"@mui/material";
+import { clearAuditEvents, getAuditEvents } from"../lib/auditStore";
 
 // K3 – Audit Log (Light/Dark, EVzone themed)
 // Route suggestion: /admin/system/audit-log
@@ -28,8 +28,8 @@ import { clearAuditEvents, getAuditEvents } from "../lib/auditStore";
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "System · Audit log".
-//    - Title "Audit Log" visible, with a short description.
+//    - Header shows EVZONE ADMIN and subtitle"System · Audit log".
+//    - Title"Audit Log" visible, with a short description.
 //    - Filter row has Module, Actor and Range selects.
 //    - Table shows at least 5 sample audit events.
 // 2) Theme toggle
@@ -41,8 +41,8 @@ import { clearAuditEvents, getAuditEvents } from "../lib/auditStore";
 //      detail drawer.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminAuditLayout({ children }) {
@@ -76,52 +76,52 @@ function AdminAuditLayout({ children }) {
 
 const SAMPLE_EVENTS = [
   {
-    id: "EVT-001",
-    at: "2025-11-25 17:45",
-    actor: "Alex Admin",
-    module: "Training",
-    event: "TRAINING_MODULE_UPDATED",
-    detail: "Updated 'Driver onboarding 101'",
+    id:"EVT-001",
+    at:"2025-11-25 17:45",
+    actor:"Alex Admin",
+    module:"Training",
+    event:"TRAINING_MODULE_UPDATED",
+    detail:"Updated 'Driver onboarding 101'",
   },
   {
-    id: "EVT-002",
-    at: "2025-11-25 17:40",
-    actor: "Maria Mobility",
-    module: "Pricing",
-    event: "PRICING_RULE_SAVED",
-    detail: "Saved Kampala EV Car – Standard pricing",
+    id:"EVT-002",
+    at:"2025-11-25 17:40",
+    actor:"Maria Mobility",
+    module:"Pricing",
+    event:"PRICING_RULE_SAVED",
+    detail:"Saved Kampala EV Car – Standard pricing",
   },
   {
-    id: "EVT-003",
-    at: "2025-11-25 17:35",
-    actor: "Felix Finance",
-    module: "Finance",
-    event: "REGION_TAX_CONFIG_UPDATED",
-    detail: "Updated VAT for Uganda",
+    id:"EVT-003",
+    at:"2025-11-25 17:35",
+    actor:"Felix Finance",
+    module:"Finance",
+    event:"REGION_TAX_CONFIG_UPDATED",
+    detail:"Updated VAT for Uganda",
   },
   {
-    id: "EVT-004",
-    at: "2025-11-25 17:30",
-    actor: "Alex Admin",
-    module: "System",
-    event: "FLAG_UPDATED",
-    detail: "Turned on rides.home.v2",
+    id:"EVT-004",
+    at:"2025-11-25 17:30",
+    actor:"Alex Admin",
+    module:"System",
+    event:"FLAG_UPDATED",
+    detail:"Turned on rides.home.v2",
   },
   {
-    id: "EVT-005",
-    at: "2025-11-25 17:20",
-    actor: "RiskBot",
-    module: "Risk",
-    event: "RISK_ACTION_LOGGED",
-    detail: "Escalated RISK-101 to fraud desk",
+    id:"EVT-005",
+    at:"2025-11-25 17:20",
+    actor:"RiskBot",
+    module:"Risk",
+    event:"RISK_ACTION_LOGGED",
+    detail:"Escalated RISK-101 to fraud desk",
   },
 ];
 
 export default function AuditLogPage() {
   const [filters, setFilters] = useState({
-    module: "All",
-    actor: "All",
-    range: "24h",
+    module:"All",
+    actor:"All",
+    range:"24h",
   });
 
   const storedEvents = getAuditEvents();
@@ -147,8 +147,8 @@ export default function AuditLogPage() {
   };
 
   const filteredEvents = eventsForTable.filter((evt) => {
-    if (filters.module !== "All" && evt.module !== filters.module) return false;
-    if (filters.actor !== "All" && evt.actor !== filters.actor) return false;
+    if (filters.module !=="All" && evt.module !== filters.module) return false;
+    if (filters.actor !=="All" && evt.actor !== filters.actor) return false;
     // Range filter omitted in this demo, but logged above.
     return true;
   });
@@ -160,8 +160,8 @@ export default function AuditLogPage() {
         elevation={1}
         sx={{
           borderRadius: 8,
-          border: "1px solid rgba(148,163,184,0.5)",
-          background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+          border:"1px solid rgba(148,163,184,0.5)",
+          
         }}
       >
         <CardContent className="p-4 flex flex-col gap-3">
@@ -170,36 +170,30 @@ export default function AuditLogPage() {
               label="Module"
               value={filters.module}
               onChange={handleFilterChange("module")}
-              options={[
-                "All",
-                "Training",
-                "Pricing",
-                "Finance",
-                "System",
-                "Risk",
+              options={["All","Training","Pricing","Finance","System","Risk",
               ]}
             />
             <FilterSelect
               label="Actor"
               value={filters.actor}
               onChange={handleFilterChange("actor")}
-              options={["All", "Alex Admin", "Maria Mobility", "Felix Finance", "RiskBot"]}
+              options={["All","Alex Admin","Maria Mobility","Felix Finance","RiskBot"]}
             />
             <FilterSelect
               label="Range"
               value={filters.range}
               onChange={handleFilterChange("range")}
-              options={["24h", "7d", "30d"]}
+              options={["24h","7d","30d"]}
             />
           </Box>
           <Box className="flex items-center justify-between mt-2">
             <Typography variant="caption" className="text-[11px] text-slate-500">
-              Showing {filteredEvents.length} event(s){storedEvents.length ? " from this session" : " (sample data)"}.
+              Showing {filteredEvents.length} event(s){storedEvents.length ?" from this session" :" (sample data)"}.
             </Typography>
             <Button
               variant="outlined"
               size="small"
-              sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }}
+              sx={{ textTransform:"none", borderRadius: 999, fontSize: 11 }}
               onClick={() => {
                 clearAuditEvents();
                 // Clear sample events from localStorage
@@ -222,15 +216,15 @@ export default function AuditLogPage() {
         elevation={1}
         sx={{
           borderRadius: 8,
-          border: "1px solid rgba(148,163,184,0.5)",
-          background: "#ffffff",
+          border:"1px solid rgba(148,163,184,0.5)",
+          
         }}
       >
         <CardContent className="p-4 flex flex-col gap-2">
           <TableContainer component={Paper} elevation={0}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ backgroundColor: "#f3f4f6" }}>
+                <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
                   <TableCell>Time</TableCell>
                   <TableCell>Actor</TableCell>
                   <TableCell>Module</TableCell>
@@ -250,7 +244,7 @@ export default function AuditLogPage() {
                     <TableRow
                       key={evt.id}
                       hover
-                      sx={{ cursor: "pointer" }}
+                      sx={{ cursor:"pointer" }}
                       onClick={() => handleRowClick(evt)}
                     >
                       <TableCell>{evt.at}</TableCell>
@@ -284,7 +278,7 @@ function FilterSelect({ label, value, onChange, options }) {
         value={value}
         onChange={onChange}
         fullWidth
-        sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+        sx={{"& .MuiOutlinedInput-root": {  } }}
       >
         {options.map((opt) => (
           <MenuItem key={opt} value={opt}>

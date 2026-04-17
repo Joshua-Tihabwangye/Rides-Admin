@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -19,7 +19,7 @@ import {
   TextField,
   Select,
   MenuItem,
-} from "@mui/material";
+} from"@mui/material";
 
 // J1 – Global Training Manager (Light/Dark, EVzone themed)
 // Route suggestion: /admin/training
@@ -30,8 +30,8 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Training · Global manager".
-//    - Title "Global Training Manager" visible.
+//    - Header shows EVZONE ADMIN and subtitle"Training · Global manager".
+//    - Title"Global Training Manager" visible.
 //    - Left card lists sample training modules with columns: Title, Audience,
 //      Status, Language.
 //    - Right card shows the selected module's title, type, language and
@@ -42,17 +42,17 @@ import {
 //    - Clicking a row in the module table selects it and updates the editor
 //      fields accordingly.
 // 4) Edit & save
-//    - Change Title/Type/Language/Description and click "Save module".
+//    - Change Title/Type/Language/Description and click"Save module".
 //    - Expect a console log with the updated module and an AuditLog-style
 //      entry (simulated).
 // 5) New module
-//    - Click "+ New module"; editor should clear to defaults and selecting
-//      "Save" logs creation for a new module id (demo only, no full list
+//    - Click"+ New module"; editor should clear to defaults and selecting
+//"Save" logs creation for a new module id (demo only, no full list
 //      persistence).
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminTrainingLayout({ children }) {
@@ -88,27 +88,27 @@ function AdminTrainingLayout({ children }) {
 const INITIAL_MODULES = [
   {
     id: 1,
-    title: "Driver onboarding 101",
-    audience: "Drivers",
-    status: "Published",
-    language: "en",
-    description: "Core onboarding for new EV drivers.",
+    title:"Driver onboarding 101",
+    audience:"Drivers",
+    status:"Published",
+    language:"en",
+    description:"Core onboarding for new EV drivers.",
   },
   {
     id: 2,
-    title: "Safety & SOS procedures",
-    audience: "Drivers",
-    status: "Draft",
-    language: "en",
-    description: "How to handle emergencies and SOS events.",
+    title:"Safety & SOS procedures",
+    audience:"Drivers",
+    status:"Draft",
+    language:"en",
+    description:"How to handle emergencies and SOS events.",
   },
   {
     id: 3,
-    title: "Agent ticket handling",
-    audience: "Agents",
-    status: "Published",
-    language: "en",
-    description: "Guidelines for agents handling rider/driver tickets.",
+    title:"Agent ticket handling",
+    audience:"Agents",
+    status:"Published",
+    language:"en",
+    description:"Guidelines for agents handling rider/driver tickets.",
   },
 ];
 
@@ -139,11 +139,11 @@ export default function GlobalTrainingManagerPage() {
   const handleNewModule = () => {
     const draft = {
       id: null,
-      title: "",
-      audience: "Drivers",
-      status: "Draft",
-      language: "en",
-      description: "",
+      title:"",
+      audience:"Drivers",
+      status:"Draft",
+      language:"en",
+      description:"",
     };
     setSelectedId(null);
     setEditing(draft);
@@ -163,11 +163,11 @@ export default function GlobalTrainingManagerPage() {
       setSelectedId(nextId);
       console.log("Training module created:", newModule);
       console.log("AuditLog:", {
-        event: "TRAINING_MODULE_CREATED",
+        event:"TRAINING_MODULE_CREATED",
         moduleId: nextId,
         title: newModule.title,
         at: new Date().toISOString(),
-        actor: "Admin (simulated)",
+        actor:"Admin (simulated)",
       });
     } else {
       // Update existing
@@ -178,11 +178,11 @@ export default function GlobalTrainingManagerPage() {
       setSelectedId(editing.id);
       console.log("Training module updated:", editing);
       console.log("AuditLog:", {
-        event: "TRAINING_MODULE_UPDATED",
+        event:"TRAINING_MODULE_UPDATED",
         moduleId: editing.id,
         title: editing.title,
         at: new Date().toISOString(),
-        actor: "Admin (simulated)",
+        actor:"Admin (simulated)",
       });
     }
   };
@@ -196,15 +196,15 @@ export default function GlobalTrainingManagerPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Box className="flex items-center justify-between gap-2">
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900"
+                className="font-semibold"
               >
                 Modules
               </Typography>
@@ -212,7 +212,7 @@ export default function GlobalTrainingManagerPage() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 11,
                 }}
@@ -226,7 +226,7 @@ export default function GlobalTrainingManagerPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
                     <TableCell>Title</TableCell>
                     <TableCell>Audience</TableCell>
                     <TableCell>Status</TableCell>
@@ -238,7 +238,7 @@ export default function GlobalTrainingManagerPage() {
                     <TableRow
                       key={module.id}
                       hover
-                      sx={{ cursor: "pointer" }}
+                      sx={{ cursor:"pointer" }}
                       selected={module.id === selectedId}
                       onClick={() => handleRowClick(module)}
                     >
@@ -263,7 +263,7 @@ export default function GlobalTrainingManagerPage() {
             {/* Upload Resources Section */}
             <Divider className="!my-2" />
             <Box className="flex flex-col gap-2">
-              <Typography variant="caption" className="text-[11px] font-semibold text-slate-700">
+              <Typography variant="caption" className="text-[11px] font-semibold text-slate-500">
                 Upload Resources
               </Typography>
               <Button
@@ -271,7 +271,7 @@ export default function GlobalTrainingManagerPage() {
                 size="small"
                 component="label"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 2,
                   fontSize: 11,
                 }}
@@ -303,14 +303,14 @@ export default function GlobalTrainingManagerPage() {
           sx={{
             flex: 1.3,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #eef2ff, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Module editor
             </Typography>
@@ -329,7 +329,7 @@ export default function GlobalTrainingManagerPage() {
                   fullWidth
                   value={editing.title}
                   onChange={handleFieldChange("title")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 />
               </Box>
               <Box className="flex flex-col gap-1">
@@ -344,7 +344,7 @@ export default function GlobalTrainingManagerPage() {
                   fullWidth
                   value={editing.audience}
                   onChange={handleFieldChange("audience")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="Drivers">Drivers</MenuItem>
                   <MenuItem value="Agents">Agents</MenuItem>
@@ -363,7 +363,7 @@ export default function GlobalTrainingManagerPage() {
                   fullWidth
                   value={editing.status}
                   onChange={handleFieldChange("status")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="Draft">Draft</MenuItem>
                   <MenuItem value="Published">Published</MenuItem>
@@ -381,7 +381,7 @@ export default function GlobalTrainingManagerPage() {
                   fullWidth
                   value={editing.language}
                   onChange={handleFieldChange("language")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="en">English</MenuItem>
                   <MenuItem value="fr">French</MenuItem>
@@ -405,7 +405,7 @@ export default function GlobalTrainingManagerPage() {
                 maxRows={5}
                 value={editing.description}
                 onChange={handleFieldChange("description")}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                sx={{"& .MuiOutlinedInput-root": {  } }}
               />
             </Box>
 
@@ -432,11 +432,10 @@ export default function GlobalTrainingManagerPage() {
                 variant="contained"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 12,
-                  bgcolor: EV_COLORS.primary,
-                  "&:hover": { bgcolor: "#0fb589" },
+                  bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                 }}
                 onClick={handleSave}
               >

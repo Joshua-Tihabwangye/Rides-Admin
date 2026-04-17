@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -18,7 +18,7 @@ import {
   TextField,
   Select,
   MenuItem,
-} from "@mui/material";
+} from"@mui/material";
 
 // J2 – Localization & Language Content (Light/Dark, EVzone themed)
 // Route suggestion: /admin/localization
@@ -27,7 +27,7 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Localization & Languages".
+//    - Header shows EVZONE ADMIN and subtitle"Localization & Languages".
 //    - Left card lists translation bundles with columns: Namespace, Language,
 //      Completion.
 //    - Right card shows an editor with keys + translations for the selected
@@ -37,15 +37,15 @@ import {
 // 3) Select bundle
 //    - Clicking a row selects it and updates the editor fields.
 // 4) Edit & save
-//    - Change one or more translation values and click "Save translations";
+//    - Change one or more translation values and click"Save translations";
 //      expect a console log and an AuditLog-style entry.
 // 5) New bundle
-//    - Click "+ New bundle"; editor clears to defaults (namespace/language);
+//    - Click"+ New bundle"; editor clears to defaults (namespace/language);
 //      saving logs creation (demo only, no full list persistence).
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminLocalizationLayout({ children }) {
@@ -81,32 +81,26 @@ function AdminLocalizationLayout({ children }) {
 const INITIAL_BUNDLES = [
   {
     id: 1,
-    namespace: "app.shell",
-    language: "en",
-    completion: "100%",
-    keys: {
-      "title": "EVzone Super App",
-      "cta.start": "Get started",
+    namespace:"app.shell",
+    language:"en",
+    completion:"100%",
+    keys: {"title":"EVzone Super App","cta.start":"Get started",
     },
   },
   {
     id: 2,
-    namespace: "app.shell",
-    language: "fr",
-    completion: "80%",
-    keys: {
-      "title": "Application EVzone",
-      "cta.start": "Commencer",
+    namespace:"app.shell",
+    language:"fr",
+    completion:"80%",
+    keys: {"title":"Application EVzone","cta.start":"Commencer",
     },
   },
   {
     id: 3,
-    namespace: "rides.booking",
-    language: "en",
-    completion: "100%",
-    keys: {
-      "pickup": "Pickup location",
-      "dropoff": "Drop-off location",
+    namespace:"rides.booking",
+    language:"en",
+    completion:"100%",
+    keys: {"pickup":"Pickup location","dropoff":"Drop-off location",
     },
   },
 ];
@@ -132,12 +126,10 @@ export default function LocalizationLanguageContentPage() {
   const handleNewBundle = () => {
     const draft = {
       id: null,
-      namespace: "",
-      language: "en",
-      completion: "0%",
-      keys: {
-        "title": "",
-        "cta.start": "",
+      namespace:"",
+      language:"en",
+      completion:"0%",
+      keys: {"title":"","cta.start":"",
       },
     };
     setSelectedId(null);
@@ -169,12 +161,12 @@ export default function LocalizationLanguageContentPage() {
       setSelectedId(nextId);
       console.log("Localization bundle created:", newBundle);
       console.log("AuditLog:", {
-        event: "LOCALIZATION_BUNDLE_CREATED",
+        event:"LOCALIZATION_BUNDLE_CREATED",
         bundleId: nextId,
         namespace: newBundle.namespace,
         language: newBundle.language,
         at: new Date().toISOString(),
-        actor: "Admin (simulated)",
+        actor:"Admin (simulated)",
       });
     } else {
       setBundles((prev) =>
@@ -184,12 +176,12 @@ export default function LocalizationLanguageContentPage() {
       );
       console.log("Localization bundle updated:", editingBundle);
       console.log("AuditLog:", {
-        event: "LOCALIZATION_BUNDLE_UPDATED",
+        event:"LOCALIZATION_BUNDLE_UPDATED",
         bundleId: editingBundle.id,
         namespace: editingBundle.namespace,
         language: editingBundle.language,
         at: new Date().toISOString(),
-        actor: "Admin (simulated)",
+        actor:"Admin (simulated)",
       });
     }
   };
@@ -203,15 +195,15 @@ export default function LocalizationLanguageContentPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Box className="flex items-center justify-between gap-2">
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900"
+                className="font-semibold"
               >
                 Bundles
               </Typography>
@@ -219,7 +211,7 @@ export default function LocalizationLanguageContentPage() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 11,
                 }}
@@ -233,7 +225,7 @@ export default function LocalizationLanguageContentPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
                     <TableCell>Namespace</TableCell>
                     <TableCell>Language</TableCell>
                     <TableCell>Completion</TableCell>
@@ -244,7 +236,7 @@ export default function LocalizationLanguageContentPage() {
                     <TableRow
                       key={bundle.id}
                       hover
-                      sx={{ cursor: "pointer" }}
+                      sx={{ cursor:"pointer" }}
                       selected={bundle.id === selectedId}
                       onClick={() => handleRowClick(bundle)}
                     >
@@ -273,14 +265,14 @@ export default function LocalizationLanguageContentPage() {
           sx={{
             flex: 1.3,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #e0f2fe, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Bundle editor
             </Typography>
@@ -299,7 +291,7 @@ export default function LocalizationLanguageContentPage() {
                   fullWidth
                   value={editingBundle.namespace}
                   onChange={handleBundleFieldChange("namespace")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 />
               </Box>
               <Box className="flex flex-col gap-1">
@@ -314,7 +306,7 @@ export default function LocalizationLanguageContentPage() {
                   fullWidth
                   value={editingBundle.language}
                   onChange={handleBundleFieldChange("language")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="en">English</MenuItem>
                   <MenuItem value="fr">French</MenuItem>
@@ -333,9 +325,9 @@ export default function LocalizationLanguageContentPage() {
               <TextField
                 size="small"
                 fullWidth
-                value={editingBundle.keys["title"] || ""}
+                value={editingBundle.keys["title"] ||""}
                 onChange={handleKeyChange("title")}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                sx={{"& .MuiOutlinedInput-root": {  } }}
               />
             </Box>
 
@@ -349,9 +341,9 @@ export default function LocalizationLanguageContentPage() {
               <TextField
                 size="small"
                 fullWidth
-                value={editingBundle.keys["cta.start"] || ""}
+                value={editingBundle.keys["cta.start"] ||""}
                 onChange={handleKeyChange("cta.start")}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                sx={{"& .MuiOutlinedInput-root": {  } }}
               />
             </Box>
 
@@ -360,11 +352,10 @@ export default function LocalizationLanguageContentPage() {
                 variant="contained"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 12,
-                  bgcolor: EV_COLORS.primary,
-                  "&:hover": { bgcolor: "#0fb589" },
+                  bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                 }}
                 onClick={handleSave}
               >

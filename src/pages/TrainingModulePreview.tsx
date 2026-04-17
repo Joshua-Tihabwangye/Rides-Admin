@@ -1,14 +1,14 @@
 // @ts-nocheck
-import React from "react";
-import { Box, Card, CardContent, Typography, Button, Container } from "@mui/material";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import React from"react";
+import { Box, Card, CardContent, Typography, Button, Container } from"@mui/material";
+import { useNavigate, useParams, useSearchParams } from"react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 export default function TrainingModulePreview() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const title = searchParams.get("title") || "Module Preview";
-    const desc = searchParams.get("desc") || "No description provided.";
+    const title = searchParams.get("title") ||"Module Preview";
+    const desc = searchParams.get("desc") ||"No description provided.";
 
     return (
         <Box className="min-h-screen bg-slate-50 flex flex-col">
@@ -28,15 +28,15 @@ export default function TrainingModulePreview() {
             </Box>
 
             <Container maxWidth={false} sx={{ maxWidth: { xs: '100%', sm: '600px', lg: '100%' }, px: { xs: 2, lg: 4 } }} className="flex-1 py-6">
-                <Card elevation={0} sx={{ borderRadius: 3, border: "1px solid #e2e8f0", mb: 2 }}>
+                <Card elevation={0} sx={{ borderRadius: 3, border:"1px solid #e2e8f0", mb: 2 }}>
                     <CardContent className="p-6">
                         <Typography variant="overline" className="text-slate-500 tracking-wider">
                             MODULE
                         </Typography>
-                        <Typography variant="h5" className="font-bold text-slate-900 mb-2 leading-tight">
+                        <Typography variant="h5" className="font-bold mb-2 leading-tight">
                             {title}
                         </Typography>
-                        <Typography variant="body2" className="text-slate-600 leading-relaxed">
+                        <Typography variant="body2" className="text-slate-500 leading-relaxed">
                             {desc}
                         </Typography>
                     </CardContent>
@@ -53,7 +53,7 @@ export default function TrainingModulePreview() {
                                 onClick={() => setIsPlaying(!isPlaying)}
                                 sx={{ 
                                     borderRadius: 2, 
-                                    border: "1px solid #e2e8f0", 
+                                    border:"1px solid #e2e8f0", 
                                     bgcolor: '#fff',
                                     cursor: 'pointer',
                                     transition: 'all 0.2s',

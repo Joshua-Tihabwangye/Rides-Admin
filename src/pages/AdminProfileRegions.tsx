@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -11,15 +11,15 @@ import {
   Switch,
   FormControlLabel,
   Divider,
-} from "@mui/material";
+} from"@mui/material";
 
 // A5 – Admin Profile & Region Settings (v2, tighter card corners)
 // Route: /admin/profile
 // Inline AdminMainLayoutShell so this canvas is previewable standalone.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 
@@ -27,9 +27,9 @@ const EV_COLORS = {
 
 export default function AdminProfileRegionSettingsPage() {
   const [profile, setProfile] = useState({
-    name: "Alex Admin",
-    email: "alex.admin@evzonehq.com",
-    phone: "+256 700 000 000",
+    name:"Alex Admin",
+    email:"alex.admin@evzonehq.com",
+    phone:"+256 700 000 000",
   });
 
   const [regions, setRegions] = useState({
@@ -55,14 +55,14 @@ export default function AdminProfileRegionSettingsPage() {
   const regionChipVariant = (active) =>
     active
       ? {
-        bgcolor: "#ecfdf5",
-        borderColor: "#bbf7d0",
-        color: "#14532d",
+        bgcolor:"#ecfdf5",
+        borderColor:"#bbf7d0",
+        color:"#14532d",
       }
       : {
-        bgcolor: "action.hover", // Use theme aware color
-        borderColor: "divider",
-        color: "text.secondary",
+        bgcolor:"action.hover", // Use theme aware color
+        borderColor:"divider",
+        color:"text.secondary",
       };
 
   return (
@@ -93,8 +93,8 @@ export default function AdminProfileRegionSettingsPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            // background: "linear-gradient(145deg, #f8fafc, #ffffff)", // Remove fixed gradient
+            border:"1px solid rgba(148,163,184,0.5)",
+            //  // Remove fixed gradient
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -112,11 +112,11 @@ export default function AdminProfileRegionSettingsPage() {
                 sx={{
                   fontSize: 10,
                   height: 22,
-                  bgcolor: "#dcfce7",
-                  borderColor: "#22c55e",
+                  bgcolor:"#dcfce7",
+                  borderColor:"#22c55e",
                   borderWidth: 1,
-                  borderStyle: "solid",
-                  color: "#14532d",
+                  borderStyle:"solid",
+                  color:"#14532d",
                 }}
               />
               <Chip
@@ -125,11 +125,11 @@ export default function AdminProfileRegionSettingsPage() {
                 sx={{
                   fontSize: 10,
                   height: 22,
-                  bgcolor: "#e0f2fe",
-                  borderColor: "#0ea5e9",
+                  bgcolor:"#e0f2fe",
+                  borderColor:"#0ea5e9",
                   borderWidth: 1,
-                  borderStyle: "solid",
-                  color: "#0f172a",
+                  borderStyle:"solid",
+                  color:"#0f172a",
                 }}
               />
               <Chip
@@ -138,11 +138,11 @@ export default function AdminProfileRegionSettingsPage() {
                 sx={{
                   fontSize: 10,
                   height: 22,
-                  bgcolor: "#fefce8",
-                  borderColor: "#facc15",
+                  bgcolor:"#fefce8",
+                  borderColor:"#facc15",
                   borderWidth: 1,
-                  borderStyle: "solid",
-                  color: "#78350f",
+                  borderStyle:"solid",
+                  color:"#78350f",
                 }}
               />
             </Box>
@@ -190,8 +190,8 @@ export default function AdminProfileRegionSettingsPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            // background: "linear-gradient(145deg, #eff6ff, #ffffff)", // Remove fixed gradient
+            border:"1px solid rgba(148,163,184,0.5)",
+            //  // Remove fixed gradient
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">

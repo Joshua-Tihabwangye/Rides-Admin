@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -13,7 +13,7 @@ import {
   FormControlLabel,
   Snackbar,
   Alert
-} from "@mui/material";
+} from"@mui/material";
 
 // C2 – Company Onboarding / Detail (Light/Dark, EVzone themed)
 // Route suggestion: /admin/companies/:companyId
@@ -22,19 +22,19 @@ import {
 // will also be used in I2.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 const SAMPLE_COMPANY = {
   id: 1,
-  name: "GreenMove Fleet",
-  status: "Active",
-  type: "Fleet partner",
-  regions: "Kampala, Entebbe",
-  contactName: "James Fleet",
-  contactEmail: "james.fleet@greenmove.com",
-  contactPhone: "+256 700 111 111",
+  name:"GreenMove Fleet",
+  status:"Active",
+  type:"Fleet partner",
+  regions:"Kampala, Entebbe",
+  contactName:"James Fleet",
+  contactEmail:"james.fleet@greenmove.com",
+  contactPhone:"+256 700 111 111",
 };
 
 function CompanyHeader({ company }) {
@@ -43,19 +43,19 @@ function CompanyHeader({ company }) {
       elevation={1}
       sx={{
         borderRadius: 8,
-        border: "1px solid rgba(148,163,184,0.5)",
-        background: "linear-gradient(145deg, #ecfdf5, #ffffff)",
+        border:"1px solid rgba(148,163,184,0.5)",
+        
         mb: 3,
       }}
     >
       <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <Box>
-          <Typography variant="h6" className="font-semibold text-slate-900">
+          <Typography variant="h6" className="font-semibold">
             {company.name}
           </Typography>
           <Typography
             variant="caption"
-            className="text-[11px] text-slate-600"
+            className="text-[11px] text-slate-500"
           >
             {company.type} · {company.regions}
           </Typography>
@@ -68,19 +68,19 @@ function CompanyHeader({ company }) {
               fontSize: 10,
               height: 22,
               bgcolor:
-                company.status === "Active"
-                  ? "#ecfdf5"
-                  : company.status === "Pending"
-                    ? "#fefce8"
-                    : "#fee2e2",
+                company.status ==="Active"
+                  ?"#ecfdf5"
+                  : company.status ==="Pending"
+                    ?"#fefce8"
+                    :"#fee2e2",
               borderColor:
-                company.status === "Active"
-                  ? "#bbf7d0"
-                  : company.status === "Pending"
-                    ? "#facc15"
-                    : "#fecaca",
+                company.status ==="Active"
+                  ?"#bbf7d0"
+                  : company.status ==="Pending"
+                    ?"#facc15"
+                    :"#fecaca",
               borderWidth: 1,
-              borderStyle: "solid",
+              borderStyle:"solid",
             }}
           />
           <Chip
@@ -132,9 +132,9 @@ function AdminCompanyLayout({ children }) {
 export default function CompanyDetailPage() {
   const [company, setCompany] = useState(SAMPLE_COMPANY);
   const [commission, setCommission] = useState({
-    baseRate: "12%",
-    minFare: "$1.50",
-    surgeShare: "80%",
+    baseRate:"12%",
+    minFare:"$1.50",
+    surgeShare:"80%",
   });
   const [verticals, setVerticals] = useState({
     ride: true,
@@ -189,14 +189,14 @@ export default function CompanyDetailPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900 mb-1"
+              className="font-semibold mb-1"
             >
               Company profile
             </Typography>
@@ -207,7 +207,7 @@ export default function CompanyDetailPage() {
               fullWidth
               value={company.name}
               onChange={handleCompanyChange("name")}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             />
 
             <TextField
@@ -216,7 +216,7 @@ export default function CompanyDetailPage() {
               fullWidth
               value={company.regions}
               onChange={handleCompanyChange("regions")}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             />
 
             <TextField
@@ -225,14 +225,14 @@ export default function CompanyDetailPage() {
               fullWidth
               value={company.type}
               onChange={handleCompanyChange("type")}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             />
 
             <Divider className="!my-2" />
 
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900 mb-1"
+              className="font-semibold mb-1"
             >
               Contact information
             </Typography>
@@ -243,7 +243,7 @@ export default function CompanyDetailPage() {
               fullWidth
               value={company.contactName}
               onChange={handleCompanyChange("contactName")}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             />
 
             <TextField
@@ -252,7 +252,7 @@ export default function CompanyDetailPage() {
               fullWidth
               value={company.contactEmail}
               onChange={handleCompanyChange("contactEmail")}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             />
 
             <TextField
@@ -261,7 +261,7 @@ export default function CompanyDetailPage() {
               fullWidth
               value={company.contactPhone}
               onChange={handleCompanyChange("contactPhone")}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             />
 
             <Typography
@@ -280,14 +280,14 @@ export default function CompanyDetailPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #fefce8, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900 mb-1"
+              className="font-semibold mb-1"
             >
               Commission & contract
             </Typography>
@@ -298,21 +298,21 @@ export default function CompanyDetailPage() {
                 size="small"
                 value={commission.baseRate}
                 onChange={handleCommissionChange("baseRate")}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                sx={{"& .MuiOutlinedInput-root": {  } }}
               />
               <TextField
                 label="Minimum fare"
                 size="small"
                 value={commission.minFare}
                 onChange={handleCommissionChange("minFare")}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                sx={{"& .MuiOutlinedInput-root": {  } }}
               />
               <TextField
                 label="Surge share"
                 size="small"
                 value={commission.surgeShare}
                 onChange={handleCommissionChange("surgeShare")}
-                sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                sx={{"& .MuiOutlinedInput-root": {  } }}
               />
             </Box>
 
@@ -328,7 +328,7 @@ export default function CompanyDetailPage() {
 
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900 mb-1"
+              className="font-semibold mb-1"
             >
               Vertical rights (services this company can operate)
             </Typography>

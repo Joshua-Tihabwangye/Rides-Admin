@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useMemo } from"react";
+import { useParams, useNavigate } from"react-router-dom";
 import {
     Box,
     Grid,
@@ -19,75 +19,68 @@ import {
     TableCell,
     Chip,
     Alert
-} from "@mui/material";
+} from"@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import StatusBadge from "../components/StatusBadge";
+import StatusBadge from"../components/StatusBadge";
 
 // Mock Data
 const SAMPLE_ADMINS = [
     {
         id: 1,
-        name: "Alex Admin",
-        email: "alex.admin@evzonehq.com",
-        roles: "Super Admin",
-        regions: "Global",
-        status: "Active",
-        lastLogin: "2025-11-25 09:02",
-        twoFA: "Enabled",
-        avatarColor: "#03cd8c"
+        name:"Alex Admin",
+        email:"alex.admin@evzonehq.com",
+        roles:"Super Admin",
+        regions:"Global",
+        status:"Active",
+        lastLogin:"2025-11-25 09:02",
+        twoFA:"Enabled",
+        avatarColor:"#03cd8c"
     },
     {
         id: 2,
-        name: "Maria Mobility",
-        email: "maria.mobility@evzonehq.com",
-        roles: "Mobility Admin",
-        regions: "East & West Africa",
-        status: "Active",
-        lastLogin: "2025-11-24 17:30",
-        twoFA: "Enabled",
-        avatarColor: "#f77f00"
+        name:"Maria Mobility",
+        email:"maria.mobility@evzonehq.com",
+        roles:"Mobility Admin",
+        regions:"East & West Africa",
+        status:"Active",
+        lastLogin:"2025-11-24 17:30",
+        twoFA:"Enabled",
+        avatarColor:"#f77f00"
     },
     {
         id: 3,
-        name: "Felix Finance",
-        email: "felix.finance@evzonehq.com",
-        roles: "Finance Admin",
-        regions: "East Africa",
-        status: "Suspended",
-        lastLogin: "2025-11-10 12:15",
-        twoFA: "Disabled",
-        avatarColor: "#3b82f6"
+        name:"Felix Finance",
+        email:"felix.finance@evzonehq.com",
+        roles:"Finance Admin",
+        regions:"East Africa",
+        status:"Suspended",
+        lastLogin:"2025-11-10 12:15",
+        twoFA:"Disabled",
+        avatarColor:"#3b82f6"
     },
 ];
 
-const ROLES = ["Super Admin", "Mobility Admin", "Finance Admin", "Support Agent"];
+const ROLES = ["Super Admin","Mobility Admin","Finance Admin","Support Agent"];
 
 // Matrix Data
-const RESOURCES = [
-    "Riders",
-    "Drivers",
-    "Companies",
-    "Agents",
-    "Payouts",
-    "Roles & RBAC",
-    "System flags",
+const RESOURCES = ["Riders","Drivers","Companies","Agents","Payouts","Roles & RBAC","System flags",
 ];
 
-const PERMISSIONS = ["View", "Edit", "Suspend/Block", "Configure"];
+const PERMISSIONS = ["View","Edit","Suspend/Block","Configure"];
 
 // Helper to check if role has permission
 // Mock logic: Super Admin has all. Others have subset.
 const hasPermission = (role: string, resource: string, perm: string) => {
-    if (role === "Super Admin") return true;
-    if (role === "Mobility Admin") {
-        if (["Riders", "Drivers"].includes(resource)) return true;
-        if (resource === "Companies" && perm !== "Configure") return true;
+    if (role ==="Super Admin") return true;
+    if (role ==="Mobility Admin") {
+        if (["Riders","Drivers"].includes(resource)) return true;
+        if (resource ==="Companies" && perm !=="Configure") return true;
         return false;
     }
-    if (role === "Finance Admin") {
-        if (resource === "Payouts") return true;
-        if (resource === "Companies" && perm === "View") return true;
+    if (role ==="Finance Admin") {
+        if (resource ==="Payouts") return true;
+        if (resource ==="Companies" && perm ==="View") return true;
         return false;
     }
     return false; // Default
@@ -99,8 +92,8 @@ function RoleMatrix({ roleName }: { roleName: string }) {
             elevation={2}
             sx={{
                 borderRadius: 2,
-                border: "1px solid rgba(148,163,184,0.3)",
-                bgcolor: "background.paper",
+                border:"1px solid rgba(148,163,184,0.3)",
+                bgcolor:"background.paper",
             }}
         >
             <CardContent className="p-3 flex flex-col gap-2">
@@ -111,7 +104,7 @@ function RoleMatrix({ roleName }: { roleName: string }) {
                 >
                     Role Matrix – {roleName}
                 </Typography>
-                <Box sx={{ overflowX: "auto" }}>
+                <Box sx={{ overflowX:"auto" }}>
                     <Table size="small">
                         <TableHead>
                             <TableRow>
@@ -131,9 +124,9 @@ function RoleMatrix({ roleName }: { roleName: string }) {
                                         <TableCell key={perm} align="center">
                                             <Chip
                                                 size="small"
-                                                label={hasPermission(roleName, res, perm) ? "✓" : "-"}
-                                                color={hasPermission(roleName, res, perm) ? "success" : "default"}
-                                                variant={hasPermission(roleName, res, perm) ? "filled" : "outlined"}
+                                                label={hasPermission(roleName, res, perm) ?"✓" :"-"}
+                                                color={hasPermission(roleName, res, perm) ?"success" :"default"}
+                                                variant={hasPermission(roleName, res, perm) ?"filled" :"outlined"}
                                                 sx={{ fontSize: 10, height: 20, minWidth: 24 }}
                                             />
                                         </TableCell>
@@ -228,7 +221,7 @@ export default function AdminUserDetail() {
 
                             <Box sx={{ mb: 3 }}>
                                 <Alert severity="info" sx={{ mb: 2 }}>
-                                    Assigning "Super Admin" grants full access to all system resources. Please proceed with caution.
+                                    Assigning"Super Admin" grants full access to all system resources. Please proceed with caution.
                                 </Alert>
                                 <FormControl fullWidth size="small">
                                     <InputLabel>Select Role</InputLabel>

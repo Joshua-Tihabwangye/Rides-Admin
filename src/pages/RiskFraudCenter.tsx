@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useMemo, useState } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -9,15 +9,15 @@ import {
   TextField,
   Chip,
   Divider,
-} from "@mui/material";
+} from"@mui/material";
 
 // H2 – Risk & Fraud Center (Light/Dark, EVzone themed)
 // Route suggestion: /admin/risk
 // Central view for fraud alerts, suspicious behaviours and triage workflow.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminRiskLayout({ children }) {
@@ -51,34 +51,34 @@ function AdminRiskLayout({ children }) {
 
 const SAMPLE_RISK_CASES = [
   {
-    id: "RISK-101",
-    type: "Account abuse",
-    actorType: "Rider",
-    actorName: "John Okello",
-    severity: "High",
-    age: "1h",
-    region: "East Africa",
-    summary: "Multiple refund disputes across 3 drivers in 24 hours.",
+    id:"RISK-101",
+    type:"Account abuse",
+    actorType:"Rider",
+    actorName:"John Okello",
+    severity:"High",
+    age:"1h",
+    region:"East Africa",
+    summary:"Multiple refund disputes across 3 drivers in 24 hours.",
   },
   {
-    id: "RISK-102",
-    type: "Payment fraud",
-    actorType: "Driver",
-    actorName: "Michael Driver",
-    severity: "Medium",
-    age: "3h",
-    region: "West Africa",
-    summary: "Unusual pattern of short trips with identical card tokens.",
+    id:"RISK-102",
+    type:"Payment fraud",
+    actorType:"Driver",
+    actorName:"Michael Driver",
+    severity:"Medium",
+    age:"3h",
+    region:"West Africa",
+    summary:"Unusual pattern of short trips with identical card tokens.",
   },
   {
-    id: "RISK-103",
-    type: "Device sharing",
-    actorType: "Rider",
-    actorName: "Samuel K.",
-    severity: "Low",
-    age: "Today",
-    region: "West Africa",
-    summary: "Multiple accounts logging in from the same device/IMEI.",
+    id:"RISK-103",
+    type:"Device sharing",
+    actorType:"Rider",
+    actorName:"Samuel K.",
+    severity:"Low",
+    age:"Today",
+    region:"West Africa",
+    summary:"Multiple accounts logging in from the same device/IMEI.",
   },
 ];
 
@@ -96,21 +96,21 @@ export default function RiskFraudCenterPage() {
   const filteredCases = useMemo(() => {
     return SAMPLE_RISK_CASES.filter((c) => {
       const matchesType =
-        typeFilter === "All" ||
-        (typeFilter === "Account" && c.type.toLowerCase().includes("account")) ||
-        (typeFilter === "Payment" && c.type.toLowerCase().includes("payment")) ||
-        (typeFilter === "Device" && c.type.toLowerCase().includes("device"));
+        typeFilter ==="All" ||
+        (typeFilter ==="Account" && c.type.toLowerCase().includes("account")) ||
+        (typeFilter ==="Payment" && c.type.toLowerCase().includes("payment")) ||
+        (typeFilter ==="Device" && c.type.toLowerCase().includes("device"));
 
       const matchesSeverity =
-        severityFilter === "All" || c.severity.toLowerCase() === severityFilter.toLowerCase();
+        severityFilter ==="All" || c.severity.toLowerCase() === severityFilter.toLowerCase();
 
       const matchesAge =
-        ageFilter === "All" ||
-        (ageFilter === "<1h" && c.age === "1h") ||
-        (ageFilter === "Today" && c.age === "Today") ||
-        (ageFilter === ">24h" && c.age === ">24h");
+        ageFilter ==="All" ||
+        (ageFilter ==="<1h" && c.age ==="1h") ||
+        (ageFilter ==="Today" && c.age ==="Today") ||
+        (ageFilter ===">24h" && c.age ===">24h");
 
-      const matchesRegion = regionFilter === "All" || c.region === regionFilter;
+      const matchesRegion = regionFilter ==="All" || c.region === regionFilter;
 
       return matchesType && matchesSeverity && matchesAge && matchesRegion;
     });
@@ -123,8 +123,8 @@ export default function RiskFraudCenterPage() {
         elevation={1}
         sx={{
           borderRadius: 8,
-          border: "1px solid rgba(148,163,184,0.5)",
-          background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+          border:"1px solid rgba(148,163,184,0.5)",
+          
         }}
       >
         <CardContent className="p-3 flex flex-col gap-3">
@@ -148,9 +148,9 @@ export default function RiskFraudCenterPage() {
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
                 SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+                sx={{ fontSize: 12, bgcolor:"background.paper" }}
               >
-                {["All", "Account", "Payment", "Device"].map((v) => (
+                {["All","Account","Payment","Device"].map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
@@ -165,9 +165,9 @@ export default function RiskFraudCenterPage() {
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value)}
                 SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+                sx={{ fontSize: 12, bgcolor:"background.paper" }}
               >
-                {["All", "Low", "Medium", "High"].map((v) => (
+                {["All","Low","Medium","High"].map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
@@ -182,9 +182,9 @@ export default function RiskFraudCenterPage() {
                 value={ageFilter}
                 onChange={(e) => setAgeFilter(e.target.value)}
                 SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+                sx={{ fontSize: 12, bgcolor:"background.paper" }}
               >
-                {["All", "<1h", "Today", ">24h"].map((v) => (
+                {["All","<1h","Today",">24h"].map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
@@ -199,9 +199,9 @@ export default function RiskFraudCenterPage() {
                 value={regionFilter}
                 onChange={(e) => setRegionFilter(e.target.value)}
                 SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+                sx={{ fontSize: 12, bgcolor:"background.paper" }}
               >
-                {["All", "East Africa", "West Africa"].map((v) => (
+                {["All","East Africa","West Africa"].map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
@@ -221,12 +221,11 @@ export default function RiskFraudCenterPage() {
             onClick={() => handleCaseClick(riskCase)}
             sx={{
               borderRadius: 8,
-              border: "1px solid rgba(148,163,184,0.6)",
-              background: "linear-gradient(145deg, #fef2f2, #fef9c3)",
-              transition: "transform 0.15s ease, box-shadow 0.15s ease",
-              cursor: "pointer",
-              "&:hover": {
-                transform: "translateY(-3px)",
+              border:"1px solid rgba(148,163,184,0.6)",
+              background:"linear-gradient(145deg, #fef2f2, #fef9c3)",
+              transition:"transform 0.15s ease, box-shadow 0.15s ease",
+              cursor:"pointer","&:hover": {
+                transform:"translateY(-3px)",
                 boxShadow: 4,
               },
             }}
@@ -236,19 +235,19 @@ export default function RiskFraudCenterPage() {
                 <Box>
                   <Typography
                     variant="caption"
-                    className="text-[11px] text-slate-600"
+                    className="text-[11px] text-slate-500"
                   >
                     {riskCase.id}
                   </Typography>
                   <Typography
                     variant="subtitle2"
-                    className="font-semibold text-slate-900"
+                    className="font-semibold"
                   >
                     {riskCase.actorName}
                   </Typography>
                   <Typography
                     variant="caption"
-                    className="text-[11px] text-slate-600"
+                    className="text-[11px] text-slate-500"
                   >
                     {riskCase.actorType} · {riskCase.region}
                   </Typography>
@@ -267,11 +266,11 @@ export default function RiskFraudCenterPage() {
                         fontSize: 10,
                         height: 22,
                         bgcolor:
-                          riskCase.severity === "High"
-                            ? "#fee2e2"
-                            : riskCase.severity === "Medium"
-                              ? "#fef3c7"
-                              : "#e0f2fe",
+                          riskCase.severity ==="High"
+                            ?"#fee2e2"
+                            : riskCase.severity ==="Medium"
+                              ?"#fef3c7"
+                              :"#e0f2fe",
                       }}
                     />
                     <Chip
@@ -285,7 +284,7 @@ export default function RiskFraudCenterPage() {
 
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800"
+                className="text-[12px]"
               >
                 {riskCase.summary}
               </Typography>
@@ -293,7 +292,7 @@ export default function RiskFraudCenterPage() {
               <Box className="flex items-center justify-between mt-1">
                 <Typography
                   variant="caption"
-                  className="text-[11px] text-slate-600"
+                  className="text-[11px] text-slate-500"
                 >
                   Risk engine score: 82 (sample)
                 </Typography>

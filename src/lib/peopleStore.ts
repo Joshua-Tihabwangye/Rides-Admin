@@ -157,7 +157,7 @@ export function createRider(partial: Omit<RiderRecord, 'id' | 'vehicle' | 'vehic
   const riders = getRiders()
   const nextId = riders.length ? Math.max(...riders.map((r) => r.id)) + 1 : 100
 
-  // Extract vehicle fields to avoid "specified more than once" error in object literal
+  // Extract vehicle fields to avoid"specified more than once" error in object literal
   const { vehicle = 'EV Bike', vehicleType = 'Bike', ...rest } = partial
 
   const record: RiderRecord = {

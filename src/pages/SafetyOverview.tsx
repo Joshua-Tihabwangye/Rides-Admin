@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useMemo, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useMemo, useState, useEffect } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -19,7 +19,7 @@ import {
   Select,
   MenuItem,
   FormControl,
-} from "@mui/material";
+} from"@mui/material";
 import {
   BarChart,
   Bar,
@@ -29,10 +29,10 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-} from "recharts";
+} from"recharts";
 import PeriodSelector, { PeriodOption } from '../components/PeriodSelector';
-import QueueIcon from "@mui/icons-material/Queue";
-import { getRiders, getDrivers, upsertRider, upsertDriver } from "../lib/peopleStore";
+import QueueIcon from"@mui/icons-material/Queue";
+import { getRiders, getDrivers, upsertRider, upsertDriver } from"../lib/peopleStore";
 
 // Base data for different regions
 const REGION_DATA = {
@@ -42,10 +42,10 @@ const REGION_DATA = {
     sosActivations: 2,
     usersUnderReview: 7,
     note: {
-      total: "+3 vs previous period",
-      critical: "All handled",
-      sos: "0 unresolved",
-      users: "4 riders · 3 drivers"
+      total:"+3 vs previous period",
+      critical:"All handled",
+      sos:"0 unresolved",
+      users:"4 riders · 3 drivers"
     }
   },
   'East Africa': {
@@ -54,10 +54,10 @@ const REGION_DATA = {
     sosActivations: 1,
     usersUnderReview: 4,
     note: {
-      total: "+2 vs previous period",
-      critical: "All handled",
-      sos: "0 unresolved",
-      users: "2 riders · 2 drivers"
+      total:"+2 vs previous period",
+      critical:"All handled",
+      sos:"0 unresolved",
+      users:"2 riders · 2 drivers"
     }
   },
   'West Africa': {
@@ -66,31 +66,31 @@ const REGION_DATA = {
     sosActivations: 1,
     usersUnderReview: 3,
     note: {
-      total: "+1 vs previous period",
-      critical: "None this period",
-      sos: "0 unresolved",
-      users: "2 riders · 1 driver"
+      total:"+1 vs previous period",
+      critical:"None this period",
+      sos:"0 unresolved",
+      users:"2 riders · 1 driver"
     }
   },
 };
 
 const BASE_INCIDENT_CITIES = [
-  { city: "Kampala", region: "East Africa", incidents: 7 },
-  { city: "Lagos", region: "West Africa", incidents: 5 },
-  { city: "Nairobi", region: "East Africa", incidents: 3 },
-  { city: "Accra", region: "West Africa", incidents: 3 },
+  { city:"Kampala", region:"East Africa", incidents: 7 },
+  { city:"Lagos", region:"West Africa", incidents: 5 },
+  { city:"Nairobi", region:"East Africa", incidents: 3 },
+  { city:"Accra", region:"West Africa", incidents: 3 },
 ];
 
 const getRiskColor = (riskLevel: string) => {
   switch (riskLevel?.toLowerCase()) {
-    case "high":
-      return "error";
-    case "medium":
-      return "warning";
-    case "low":
-      return "success";
+    case"high":
+      return"error";
+    case"medium":
+      return"warning";
+    case"low":
+      return"success";
     default:
-      return "default";
+      return"default";
   }
 };
 
@@ -152,22 +152,22 @@ export default function SafetyOverviewDashboardPage() {
     
     return [
       { 
-        label: "Total incidents", 
+        label:"Total incidents", 
         value: Math.max(1, Math.round(regionData.totalIncidents * m)), 
         note: regionData.note.total 
       },
       { 
-        label: "Critical incidents", 
+        label:"Critical incidents", 
         value: Math.max(0, Math.round(regionData.criticalIncidents * m)), 
         note: regionData.note.critical 
       },
       { 
-        label: "SOS activations", 
+        label:"SOS activations", 
         value: Math.max(0, Math.round(regionData.sosActivations * m)), 
         note: regionData.note.sos 
       },
       { 
-        label: "Users under review", 
+        label:"Users under review", 
         value: usersUnderReview.length, 
         note: `${usersUnderReview.filter(u => u.type === 'Rider').length} riders · ${usersUnderReview.filter(u => u.type === 'Driver').length} drivers` 
       },
@@ -216,10 +216,10 @@ export default function SafetyOverviewDashboardPage() {
     const regionMultiplier = selectedRegion === 'East Africa' ? 1.2 : selectedRegion === 'West Africa' ? 0.8 : 1;
     
     return [
-      { type: "Accident", count: Math.max(0, Math.round(8 * m * regionMultiplier)), color: "#ef4444" },
-      { type: "Harassment", count: Math.max(0, Math.round(4 * m * regionMultiplier)), color: "#f97316" },
-      { type: "Lost Item", count: Math.max(0, Math.round(3 * m * regionMultiplier)), color: "#3b82f6" },
-      { type: "Dispute", count: Math.max(0, Math.round(3 * m * regionMultiplier)), color: "#a855f7" },
+      { type:"Accident", count: Math.max(0, Math.round(8 * m * regionMultiplier)), color:"#ef4444" },
+      { type:"Harassment", count: Math.max(0, Math.round(4 * m * regionMultiplier)), color:"#f97316" },
+      { type:"Lost Item", count: Math.max(0, Math.round(3 * m * regionMultiplier)), color:"#3b82f6" },
+      { type:"Dispute", count: Math.max(0, Math.round(3 * m * regionMultiplier)), color:"#a855f7" },
     ];
   }, [period, selectedRegion]);
 
@@ -228,7 +228,7 @@ export default function SafetyOverviewDashboardPage() {
       const m = periodMultiplier[period] ?? 1;
       let cities = BASE_INCIDENT_CITIES;
       
-      // Filter by region if not "All Regions"
+      // Filter by region if not"All Regions"
       if (selectedRegion !== 'All Regions') {
         cities = cities.filter(city => {
           if (selectedRegion === 'East Africa') {
@@ -295,8 +295,8 @@ export default function SafetyOverviewDashboardPage() {
             onClick={() => navigate('/admin/risk')}
             sx={{
               borderRadius: 2,
-              border: "1px solid rgba(148,163,184,0.3)",
-              bgcolor: "background.paper",
+              border:"1px solid rgba(148,163,184,0.3)",
+              bgcolor:"background.paper",
               cursor: 'pointer',
               transition: 'all 0.2s ease-in-out',
               '&:hover': {
@@ -338,9 +338,9 @@ export default function SafetyOverviewDashboardPage() {
           sx={{
             flex: 2,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #0b1120, #020617)",
-            color: "#e5e7eb",
+            border:"1px solid rgba(148,163,184,0.5)",
+            background:"linear-gradient(145deg, #0b1120, #020617)",
+            color:"#e5e7eb",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2 h-[350px]">
@@ -354,7 +354,7 @@ export default function SafetyOverviewDashboardPage() {
               <Button
                 variant="text"
                 size="small"
-                sx={{ textTransform: "none", fontSize: 11, color: "#93c5fd" }}
+                sx={{ textTransform:"none", fontSize: 11, color:"#93c5fd" }}
                 onClick={handleSeeMoreIncidents}
               >
                 See full incidents
@@ -366,8 +366,8 @@ export default function SafetyOverviewDashboardPage() {
                 <XAxis type="number" fontSize={11} stroke="#94a3b8" />
                 <YAxis dataKey="type" type="category" fontSize={11} stroke="#94a3b8" width={80} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
-                  labelStyle={{ color: "#e5e7eb" }}
+                  contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11 }}
+                  labelStyle={{ color:"#e5e7eb" }}
                 />
                 <Bar dataKey="count" name="Incidents" radius={[0, 4, 4, 0]}>
                   {incidentData.map((entry, index) => (
@@ -385,8 +385,8 @@ export default function SafetyOverviewDashboardPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.3)",
-            bgcolor: "background.paper"
+            border:"1px solid rgba(148,163,184,0.3)",
+            bgcolor:"background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
@@ -434,8 +434,8 @@ export default function SafetyOverviewDashboardPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.3)",
-            bgcolor: "background.paper"
+            border:"1px solid rgba(148,163,184,0.3)",
+            bgcolor:"background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
@@ -452,7 +452,7 @@ export default function SafetyOverviewDashboardPage() {
                 size="small"
                 startIcon={<QueueIcon fontSize="small" />}
                 onClick={handleViewQueue}
-                sx={{ textTransform: "none", fontSize: 11, borderRadius: 2 }}
+                sx={{ textTransform:"none", fontSize: 11, borderRadius: 2 }}
               >
                 View queue
               </Button>
@@ -468,7 +468,7 @@ export default function SafetyOverviewDashboardPage() {
                 </Typography>
               </Box>
             ) : (
-              <Box className="flex flex-col gap-2 text-[12px] text-slate-800" sx={{ maxHeight: 300, overflowY: 'auto' }}>
+              <Box className="flex flex-col gap-2 text-[12px]" sx={{ maxHeight: 300, overflowY: 'auto' }}>
                 {usersUnderReview.map((u) => (
                   <Box
                     key={`${u.type}-${u.id}`}
@@ -502,7 +502,7 @@ export default function SafetyOverviewDashboardPage() {
                         </Button>
                       </Box>
                     </Box>
-                    <span className="text-[11px] text-slate-600">
+                    <span className="text-[11px] text-slate-500">
                       {u.city} · {u.reason}
                     </span>
                   </Box>
@@ -518,8 +518,8 @@ export default function SafetyOverviewDashboardPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.3)",
-            bgcolor: "background.paper"
+            border:"1px solid rgba(148,163,184,0.3)",
+            bgcolor:"background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
@@ -533,14 +533,14 @@ export default function SafetyOverviewDashboardPage() {
             <Divider className="!my-1" />
             <Typography
               variant="body2"
-              className="text-[12px] text-slate-700"
+              className="text-[12px] text-slate-500"
             >
               • Critical incidents must be acknowledged within 5 minutes and
               fully handled within 24 hours.
             </Typography>
             <Typography
               variant="body2"
-              className="text-[12px] text-slate-700"
+              className="text-[12px] text-slate-500"
             >
               • Drivers flagged by the system (high cancellations, repeated
               complaints) should be routed through retraining before
@@ -548,7 +548,7 @@ export default function SafetyOverviewDashboardPage() {
             </Typography>
             <Typography
               variant="body2"
-              className="text-[12px] text-slate-700"
+              className="text-[12px] text-slate-500"
             >
               • Riders exhibiting abuse or fraud patterns should be escalated to
               risk for review and possible ban.

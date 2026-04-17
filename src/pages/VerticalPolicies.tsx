@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -13,7 +13,7 @@ import {
   TextField,
   Snackbar,
   Alert
-} from "@mui/material";
+} from"@mui/material";
 
 // F5 – Vertical Service Policies (Light/Dark, EVzone themed)
 // Route suggestion: /admin/services/policies
@@ -25,7 +25,7 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Vertical service policies".
+//    - Header shows EVZONE ADMIN and subtitle"Vertical service policies".
 //    - Four vertical cards are visible: Rental, School shuttles, EMS, Tours.
 // 2) Theme toggle
 //    - Toggle Light/Dark; cards and background update while all switches and
@@ -36,11 +36,11 @@ import {
 //      policy state.
 // 4) Limits & requirements
 //    - Edit numeric/text fields (e.g. Min driver rating for Tours) and click
-//      "Save policies"; expect a console log with the full policies object.
+//"Save policies"; expect a console log with the full policies object.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminVerticalPoliciesLayout({ children }) {
@@ -133,14 +133,14 @@ export default function VerticalPoliciesPage() {
           elevation={1}
           sx={{
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Rental policies
             </Typography>
@@ -158,13 +158,13 @@ export default function VerticalPoliciesPage() {
                 <Switch
                   size="small"
                   checked={rental.allowNonEvException}
-                  onChange={handleToggle("rental", "allowNonEvException")}
+                  onChange={handleToggle("rental","allowNonEvException")}
                 />
               }
               label={
                 <Typography
                   variant="body2"
-                  className="text-[12px] text-slate-700"
+                  className="text-[12px] text-slate-500"
                 >
                   Allow non-EV exception for specific partners (tours etc.)
                 </Typography>
@@ -175,13 +175,13 @@ export default function VerticalPoliciesPage() {
               <NumberField
                 label="Max vehicle age (years)"
                 value={rental.maxVehicleAgeYears}
-                onChange={handleNumberChange("rental", "maxVehicleAgeYears")}
+                onChange={handleNumberChange("rental","maxVehicleAgeYears")}
               />
               <NumberField
                 label="Min driver rating"
                 value={rental.minDriverRating}
                 step="0.1"
-                onChange={handleNumberChange("rental", "minDriverRating")}
+                onChange={handleNumberChange("rental","minDriverRating")}
               />
             </Box>
           </CardContent>
@@ -192,14 +192,14 @@ export default function VerticalPoliciesPage() {
           elevation={1}
           sx={{
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #eef2ff, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               School shuttle policies
             </Typography>
@@ -217,13 +217,13 @@ export default function VerticalPoliciesPage() {
                 <Switch
                   size="small"
                   checked={school.requireBackgroundCheck}
-                  onChange={handleToggle("school", "requireBackgroundCheck")}
+                  onChange={handleToggle("school","requireBackgroundCheck")}
                 />
               }
               label={
                 <Typography
                   variant="body2"
-                  className="text-[12px] text-slate-700"
+                  className="text-[12px] text-slate-500"
                 >
                   Require background check for all School drivers
                 </Typography>
@@ -234,12 +234,12 @@ export default function VerticalPoliciesPage() {
               <NumberField
                 label="Min training modules"
                 value={school.minTrainingModules}
-                onChange={handleNumberChange("school", "minTrainingModules")}
+                onChange={handleNumberChange("school","minTrainingModules")}
               />
               <NumberField
                 label="Max kids per vehicle"
                 value={school.maxKidsPerVehicle}
-                onChange={handleNumberChange("school", "maxKidsPerVehicle")}
+                onChange={handleNumberChange("school","maxKidsPerVehicle")}
               />
             </Box>
           </CardContent>
@@ -250,14 +250,14 @@ export default function VerticalPoliciesPage() {
           elevation={1}
           sx={{
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #fef2f2, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               EMS / Ambulance policies
             </Typography>
@@ -275,13 +275,13 @@ export default function VerticalPoliciesPage() {
                 <Switch
                   size="small"
                   checked={ems.allowNonEvForAmbulance}
-                  onChange={handleToggle("ems", "allowNonEvForAmbulance")}
+                  onChange={handleToggle("ems","allowNonEvForAmbulance")}
                 />
               }
               label={
                 <Typography
                   variant="body2"
-                  className="text-[12px] text-slate-700"
+                  className="text-[12px] text-slate-500"
                 >
                   Allow non-EV vehicles for Ambulance category
                 </Typography>
@@ -293,13 +293,13 @@ export default function VerticalPoliciesPage() {
                 <Switch
                   size="small"
                   checked={ems.requireMedicalPartnerApproval}
-                  onChange={handleToggle("ems", "requireMedicalPartnerApproval")}
+                  onChange={handleToggle("ems","requireMedicalPartnerApproval")}
                 />
               }
               label={
                 <Typography
                   variant="body2"
-                  className="text-[12px] text-slate-700"
+                  className="text-[12px] text-slate-500"
                 >
                   Require approval from Medical module partners
                 </Typography>
@@ -310,7 +310,7 @@ export default function VerticalPoliciesPage() {
               <NumberField
                 label="Response time target (minutes)"
                 value={ems.responseTimeTargetMin}
-                onChange={handleNumberChange("ems", "responseTimeTargetMin")}
+                onChange={handleNumberChange("ems","responseTimeTargetMin")}
               />
             </Box>
           </CardContent>
@@ -321,14 +321,14 @@ export default function VerticalPoliciesPage() {
           elevation={1}
           sx={{
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #fefce8, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Tours & tourism policies
             </Typography>
@@ -346,12 +346,12 @@ export default function VerticalPoliciesPage() {
                 label="Min driver rating"
                 value={tours.minDriverRating}
                 step="0.1"
-                onChange={handleNumberChange("tours", "minDriverRating")}
+                onChange={handleNumberChange("tours","minDriverRating")}
               />
               <NumberField
                 label="Max daily driving hours"
                 value={tours.maxDailyDrivingHours}
-                onChange={handleNumberChange("tours", "maxDailyDrivingHours")}
+                onChange={handleNumberChange("tours","maxDailyDrivingHours")}
               />
             </Box>
 
@@ -360,13 +360,13 @@ export default function VerticalPoliciesPage() {
                 <Switch
                   size="small"
                   checked={tours.requireLocalGuide}
-                  onChange={handleToggle("tours", "requireLocalGuide")}
+                  onChange={handleToggle("tours","requireLocalGuide")}
                 />
               }
               label={
                 <Typography
                   variant="body2"
-                  className="text-[12px] text-slate-700"
+                  className="text-[12px] text-slate-500"
                 >
                   Require certified local guide for long tours
                 </Typography>
@@ -388,11 +388,10 @@ export default function VerticalPoliciesPage() {
           variant="contained"
           size="small"
           sx={{
-            textTransform: "none",
+            textTransform:"none",
             borderRadius: 999,
             fontSize: 12,
-            bgcolor: EV_COLORS.primary,
-            "&:hover": { bgcolor: "#0fb589" },
+            bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
           }}
           onClick={handleSave}
         >
@@ -413,7 +412,7 @@ export default function VerticalPoliciesPage() {
   );
 }
 
-function NumberField({ label, value, onChange, step = "1" }) {
+function NumberField({ label, value, onChange, step ="1" }) {
   return (
     <Box className="flex flex-col gap-1">
       <Typography
@@ -429,9 +428,7 @@ function NumberField({ label, value, onChange, step = "1" }) {
         onChange={onChange}
         type="number"
         inputProps={{ step }}
-        sx={{
-          "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
-          "& .MuiInputBase-input": { fontSize: 12 },
+        sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
         }}
       />
     </Box>

@@ -1,11 +1,11 @@
 // @ts-nocheck
-import React from "react";
-import { Box, Card, CardContent, Typography, Button } from "@mui/material";
-import { useNavigate, useParams } from "react-router-dom";
+import React from"react";
+import { Box, Card, CardContent, Typography, Button } from"@mui/material";
+import { useNavigate, useParams } from"react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const EV_COLORS = {
-    primary: "#03cd8c",
+    primary:"#03cd8c",
 };
 
 export default function ZoneMapView() {
@@ -35,9 +35,9 @@ export default function ZoneMapView() {
                     mx: 4,
                     mb: 4,
                     borderRadius: 2,
-                    border: "1px solid rgba(148,163,184,0.5)",
-                    background: "#0f172a", // Dark map background
-                    color: "#e2e8f0",
+                    border:"1px solid rgba(148,163,184,0.5)",
+                    background:"#0f172a", // Dark map background
+                    color:"#e2e8f0",
                     position: 'relative',
                     overflow: 'hidden'
                 }}

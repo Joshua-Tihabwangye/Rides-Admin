@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -15,7 +15,7 @@ import {
   MenuItem,
   Alert,
   Snackbar,
-} from "@mui/material";
+} from"@mui/material";
 
 // F4 – Promotions & Incentives (Light/Dark, EVzone themed)
 // Route suggestion: /admin/promos
@@ -25,8 +25,8 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Promotions & Incentives".
-//    - Tabs show "Rider promotions" and "Driver incentives"; first tab is
+//    - Header shows EVZONE ADMIN and subtitle"Promotions & Incentives".
+//    - Tabs show"Rider promotions" and"Driver incentives"; first tab is
 //      selected.
 //    - Summary card shows counts of demo campaigns.
 //    - Rule builder shows fields for Audience, Trigger, Count, Time window,
@@ -38,15 +38,15 @@ import {
 //    - Switch between Rider promotions and Driver incentives; rule builder
 //      subtitle updates to indicate which context you are configuring.
 // 4) Rule editing
-//    - Change Audience/Trigger/Reward fields; click "Preview rule" and
-//      "Save rule"; expect console logs with the current rule state.
+//    - Change Audience/Trigger/Reward fields; click"Preview rule" and
+//"Save rule"; expect console logs with the current rule state.
 // 5) Campaign list interaction
 //    - Clicking a campaign card logs which campaign was clicked; in your real
 //      app this would open a detail view.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminPromotionsLayout({ children }) {
@@ -82,42 +82,42 @@ function AdminPromotionsLayout({ children }) {
 const DEMO_CAMPAIGNS = {
   rider: [
     {
-      id: "PROMO-NEW-UG",
-      name: "Welcome rides Uganda",
-      segment: "New riders",
-      reward: "50% off first 3 rides",
+      id:"PROMO-NEW-UG",
+      name:"Welcome rides Uganda",
+      segment:"New riders",
+      reward:"50% off first 3 rides",
     },
     {
-      id: "PROMO-OFFPEAK",
-      name: "Off-peak discount",
-      segment: "All riders",
-      reward: "10% off rides 10am–3pm",
+      id:"PROMO-OFFPEAK",
+      name:"Off-peak discount",
+      segment:"All riders",
+      reward:"10% off rides 10am–3pm",
     },
   ],
   driver: [
     {
-      id: "INCENTIVE-PEAK",
-      name: "Peak hours bonus",
-      segment: "Active drivers",
-      reward: "Bonus after 10 peak trips",
+      id:"INCENTIVE-PEAK",
+      name:"Peak hours bonus",
+      segment:"Active drivers",
+      reward:"Bonus after 10 peak trips",
     },
     {
-      id: "INCENTIVE-EV",
-      name: "EV utilisation boost",
-      segment: "EV drivers",
-      reward: "Extra bonus for 95% EV-only hours",
+      id:"INCENTIVE-EV",
+      name:"EV utilisation boost",
+      segment:"EV drivers",
+      reward:"Extra bonus for 95% EV-only hours",
     },
   ],
 };
 
 function RuleBuilder({ contextLabel }) {
   const [rule, setRule] = useState({
-    audience: "New riders",
-    trigger: "Trip completed",
+    audience:"New riders",
+    trigger:"Trip completed",
     minTrips: 1,
-    window: "7d",
-    rewardType: "Percent discount",
-    rewardValue: "10",
+    window:"7d",
+    rewardType:"Percent discount",
+    rewardValue:"10",
   });
 
   const handleChange = (field) => (event) => {
@@ -133,7 +133,7 @@ function RuleBuilder({ contextLabel }) {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handlePreview = () => {
-    const previewText = `Rule Preview:\n\nIF ${rule.audience} ${rule.trigger === "Trip completed" ? "completes" : rule.trigger === "X trips in window" ? "completes" : "signs up"} ${rule.minTrips} ${rule.minTrips > 1 ? "trips" : "trip"} in ${rule.window},\nTHEN apply ${rule.rewardValue}${rule.rewardType === "Percent discount" ? "% discount" : rule.rewardType === "Fixed amount" ? " off" : " bonus payout"}.\n\nThis rule will be active for ${contextLabel.toLowerCase()}.`;
+    const previewText = `Rule Preview:\n\nIF ${rule.audience} ${rule.trigger ==="Trip completed" ?"completes" : rule.trigger ==="X trips in window" ?"completes" :"signs up"} ${rule.minTrips} ${rule.minTrips > 1 ?"trips" :"trip"} in ${rule.window},\nTHEN apply ${rule.rewardValue}${rule.rewardType ==="Percent discount" ?"% discount" : rule.rewardType ==="Fixed amount" ?" off" :" bonus payout"}.\n\nThis rule will be active for ${contextLabel.toLowerCase()}.`;
     setPreviewResult(previewText);
     setSaveSuccess(false);
   };
@@ -162,14 +162,14 @@ function RuleBuilder({ contextLabel }) {
       elevation={1}
       sx={{
         borderRadius: 8,
-        border: "1px solid rgba(148,163,184,0.5)",
-        background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+        border:"1px solid rgba(148,163,184,0.5)",
+        
       }}
     >
       <CardContent className="p-4 flex flex-col gap-3">
         <Typography
           variant="subtitle2"
-          className="font-semibold text-slate-900"
+          className="font-semibold"
         >
           Rule & eligibility builder ({contextLabel})
         </Typography>
@@ -194,7 +194,7 @@ function RuleBuilder({ contextLabel }) {
               value={rule.audience}
               onChange={handleChange("audience")}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             >
               <MenuItem value="New riders">New riders</MenuItem>
               <MenuItem value="All riders">All riders</MenuItem>
@@ -217,7 +217,7 @@ function RuleBuilder({ contextLabel }) {
               value={rule.trigger}
               onChange={handleChange("trigger")}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             >
               <MenuItem value="Trip completed">Trip completed</MenuItem>
               <MenuItem value="X trips in window">
@@ -240,9 +240,7 @@ function RuleBuilder({ contextLabel }) {
               value={rule.minTrips}
               onChange={handleNumberChange("minTrips")}
               inputProps={{ min: 1 }}
-              sx={{
-                "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
-                "& .MuiInputBase-input": { fontSize: 12 },
+              sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
               }}
             />
           </Box>
@@ -259,7 +257,7 @@ function RuleBuilder({ contextLabel }) {
               value={rule.window}
               onChange={handleChange("window")}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             >
               <MenuItem value="24h">Last 24h</MenuItem>
               <MenuItem value="7d">Last 7 days</MenuItem>
@@ -279,7 +277,7 @@ function RuleBuilder({ contextLabel }) {
               value={rule.rewardType}
               onChange={handleChange("rewardType")}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             >
               <MenuItem value="Percent discount">Percent discount</MenuItem>
               <MenuItem value="Fixed amount">Fixed amount off</MenuItem>
@@ -299,9 +297,7 @@ function RuleBuilder({ contextLabel }) {
               value={rule.rewardValue}
               onChange={handleChange("rewardValue")}
               placeholder="e.g. 10 or 5.00"
-              sx={{
-                "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
-                "& .MuiInputBase-input": { fontSize: 12 },
+              sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
               }}
             />
           </Box>
@@ -318,16 +314,16 @@ function RuleBuilder({ contextLabel }) {
             variant="caption"
             className="text-[11px] text-slate-500"
           >
-            Example: IF {rule.audience} completes {rule.minTrips} trips in {" "}
+            Example: IF {rule.audience} completes {rule.minTrips} trips in {""}
             {rule.window}, THEN apply {rule.rewardValue}
-            {rule.rewardType === "Percent discount" ? "% discount" : ""}.
+            {rule.rewardType ==="Percent discount" ?"% discount" :""}.
           </Typography>
           <Box className="flex gap-1">
             <Button
               variant="outlined"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
               }}
@@ -339,11 +335,10 @@ function RuleBuilder({ contextLabel }) {
               variant="contained"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                bgcolor: EV_COLORS.primary,
-                "&:hover": { bgcolor: "#0fb589" },
+                bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
               }}
               onClick={handleSave}
             >
@@ -367,17 +362,17 @@ function RuleBuilder({ contextLabel }) {
   );
 }
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from"react-router-dom";
 
 export default function PromotionsIncentivesPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("rider");
 
   const handleTabChange = (event, value) => {
-    setTab(value === 0 ? "rider" : "driver");
+    setTab(value === 0 ?"rider" :"driver");
   };
 
-  const campaigns = tab === "rider" ? DEMO_CAMPAIGNS.rider : DEMO_CAMPAIGNS.driver;
+  const campaigns = tab ==="rider" ? DEMO_CAMPAIGNS.rider : DEMO_CAMPAIGNS.driver;
 
   const handleCampaignClick = (campaign) => {
     navigate(`/admin/promos/${campaign.id}`);
@@ -390,13 +385,13 @@ export default function PromotionsIncentivesPage() {
         elevation={1}
         sx={{
           borderRadius: 8,
-          border: "1px solid rgba(148,163,184,0.5)",
-          background: "#ffffff",
+          border:"1px solid rgba(148,163,184,0.5)",
+          
         }}
       >
         <CardContent className="p-0 flex flex-col">
           <Tabs
-            value={tab === "rider" ? 0 : 1}
+            value={tab ==="rider" ? 0 : 1}
             onChange={handleTabChange}
             variant="fullWidth"
             textColor="primary"
@@ -404,11 +399,11 @@ export default function PromotionsIncentivesPage() {
           >
             <Tab
               label="Rider promotions"
-              sx={{ textTransform: "none", fontSize: 13 }}
+              sx={{ textTransform:"none", fontSize: 13 }}
             />
             <Tab
               label="Driver incentives"
-              sx={{ textTransform: "none", fontSize: 13 }}
+              sx={{ textTransform:"none", fontSize: 13 }}
             />
           </Tabs>
 
@@ -421,9 +416,9 @@ export default function PromotionsIncentivesPage() {
                 elevation={0}
                 sx={{
                   borderRadius: 8,
-                  border: "1px solid rgba(148,163,184,0.4)",
-                  background: "linear-gradient(145deg, #f9fafb, #ffffff)",
-                  cursor: "pointer",
+                  border:"1px solid rgba(148,163,184,0.4)",
+                  
+                  cursor:"pointer",
                 }}
                 onClick={() => handleCampaignClick(campaign)}
               >
@@ -436,7 +431,7 @@ export default function PromotionsIncentivesPage() {
                   </Typography>
                   <Typography
                     variant="body2"
-                    className="text-[13px] font-semibold text-slate-900"
+                    className="text-[13px] font-semibold"
                   >
                     {campaign.name}
                   </Typography>
@@ -448,7 +443,7 @@ export default function PromotionsIncentivesPage() {
                   </Typography>
                   <Typography
                     variant="body2"
-                    className="text-[12px] text-slate-700"
+                    className="text-[12px] text-slate-500"
                   >
                     {campaign.reward}
                   </Typography>
@@ -461,7 +456,7 @@ export default function PromotionsIncentivesPage() {
 
       {/* Rule builder */}
       <RuleBuilder
-        contextLabel={tab === "rider" ? "Rider promotions" : "Driver incentives"}
+        contextLabel={tab ==="rider" ?"Rider promotions" :"Driver incentives"}
       />
     </AdminPromotionsLayout>
   );

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -18,7 +18,7 @@ import {
   TableCell,
   TableContainer,
   Paper,
-} from "@mui/material";
+} from"@mui/material";
 
 // I2 – Company Payout Config & History (Light/Dark, EVzone themed)
 // Routes:
@@ -32,8 +32,8 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Finance · Company payouts".
-//    - Title "Company Payout Config & History" visible.
+//    - Header shows EVZONE ADMIN and subtitle"Finance · Company payouts".
+//    - Title"Company Payout Config & History" visible.
 //    - Left card shows payout configuration form fields (frequency, day,
 //      method, currency, destination, holdback).
 //    - Right card shows payout history table with a few sample rows.
@@ -41,18 +41,18 @@ import {
 //    - Tapping the toggle in the header flips between light and dark shell
 //      colours; form values remain intact.
 // 3) Save config
-//    - Editing any field and clicking "Save payout config" logs a payload and
+//    - Editing any field and clicking"Save payout config" logs a payload and
 //      an AuditLog-style object to the console.
 // 4) Test payout
-//    - Clicking "Test payout" logs a message about a test payout for the
+//    - Clicking"Test payout" logs a message about a test payout for the
 //      sample company.
 // 5) Row click safety
 //    - Clicking on history rows should not throw errors (they are read-only
 //      in this sample).
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminFinanceCompanyLayout({ children }) {
@@ -86,44 +86,44 @@ function AdminFinanceCompanyLayout({ children }) {
 }
 
 const SAMPLE_COMPANY = {
-  id: "GREENMOVE-UG",
-  name: "GreenMove Fleet",
-  regions: "Kampala, Entebbe",
+  id:"GREENMOVE-UG",
+  name:"GreenMove Fleet",
+  regions:"Kampala, Entebbe",
 };
 
 const SAMPLE_PAYOUTS = [
   {
     id: 1,
-    period: "2025-06-01 → 2025-06-07",
-    amount: "$3,420",
-    status: "Completed",
-    method: "Bank (UGX)",
+    period:"2025-06-01 → 2025-06-07",
+    amount:"$3,420",
+    status:"Completed",
+    method:"Bank (UGX)",
   },
   {
     id: 2,
-    period: "2025-05-25 → 2025-05-31",
-    amount: "$3,180",
-    status: "Completed",
-    method: "Bank (UGX)",
+    period:"2025-05-25 → 2025-05-31",
+    amount:"$3,180",
+    status:"Completed",
+    method:"Bank (UGX)",
   },
   {
     id: 3,
-    period: "2025-05-18 → 2025-05-24",
-    amount: "$2,980",
-    status: "Pending",
-    method: "Bank (UGX)",
+    period:"2025-05-18 → 2025-05-24",
+    amount:"$2,980",
+    status:"Pending",
+    method:"Bank (UGX)",
   },
 ];
 
 export default function CompanyPayoutConfigPage() {
   const [company] = useState(SAMPLE_COMPANY);
   const [config, setConfig] = useState({
-    frequency: "Weekly",
-    dayOfWeek: "Monday",
-    method: "Bank transfer",
-    currency: "UGX",
-    accountLast4: "9876",
-    holdbackPercent: "5%",
+    frequency:"Weekly",
+    dayOfWeek:"Monday",
+    method:"Bank transfer",
+    currency:"UGX",
+    accountLast4:"9876",
+    holdbackPercent:"5%",
   });
 
   const handleConfigChange = (field) => (event) => {
@@ -133,12 +133,12 @@ export default function CompanyPayoutConfigPage() {
   const handleSaveConfig = () => {
     console.log("Saving payout config for company:", company.id, config);
     console.log("AuditLog:", {
-      event: "COMPANY_PAYOUT_CONFIG_UPDATED",
+      event:"COMPANY_PAYOUT_CONFIG_UPDATED",
       companyId: company.id,
       companyName: company.name,
       payload: config,
       at: new Date().toISOString(),
-      actor: "Admin (simulated)",
+      actor:"Admin (simulated)",
     });
   };
 
@@ -155,8 +155,8 @@ export default function CompanyPayoutConfigPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -164,7 +164,7 @@ export default function CompanyPayoutConfigPage() {
               <Box>
                 <Typography
                   variant="subtitle2"
-                  className="font-semibold text-slate-900"
+                  className="font-semibold"
                 >
                   {company.name}
                 </Typography>
@@ -191,7 +191,7 @@ export default function CompanyPayoutConfigPage() {
                   fullWidth
                   value={config.frequency}
                   onChange={handleConfigChange("frequency")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="Weekly">Weekly</MenuItem>
                   <MenuItem value="Bi-weekly">Bi-weekly</MenuItem>
@@ -205,7 +205,7 @@ export default function CompanyPayoutConfigPage() {
                   fullWidth
                   value={config.dayOfWeek}
                   onChange={handleConfigChange("dayOfWeek")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="Monday">Monday</MenuItem>
                   <MenuItem value="Tuesday">Tuesday</MenuItem>
@@ -221,7 +221,7 @@ export default function CompanyPayoutConfigPage() {
                   fullWidth
                   value={config.method}
                   onChange={handleConfigChange("method")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="Bank transfer">Bank transfer</MenuItem>
                   <MenuItem value="Mobile money">Mobile money</MenuItem>
@@ -235,7 +235,7 @@ export default function CompanyPayoutConfigPage() {
                   fullWidth
                   value={config.currency}
                   onChange={handleConfigChange("currency")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="UGX">UGX</MenuItem>
                   <MenuItem value="KES">KES</MenuItem>
@@ -250,7 +250,7 @@ export default function CompanyPayoutConfigPage() {
                   fullWidth
                   value={config.accountLast4}
                   onChange={handleConfigChange("accountLast4")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 />
               </FieldWithLabel>
 
@@ -260,7 +260,7 @@ export default function CompanyPayoutConfigPage() {
                   fullWidth
                   value={config.holdbackPercent}
                   onChange={handleConfigChange("holdbackPercent")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 />
               </FieldWithLabel>
             </Box>
@@ -278,7 +278,7 @@ export default function CompanyPayoutConfigPage() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 12,
                 }}
@@ -290,11 +290,10 @@ export default function CompanyPayoutConfigPage() {
                 variant="contained"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 12,
-                  bgcolor: EV_COLORS.primary,
-                  "&:hover": { bgcolor: "#0fb589" },
+                  bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                 }}
                 onClick={handleSaveConfig}
               >
@@ -310,14 +309,14 @@ export default function CompanyPayoutConfigPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #fefce8, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Payout history
             </Typography>
@@ -325,7 +324,7 @@ export default function CompanyPayoutConfigPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
                     <TableCell>Period</TableCell>
                     <TableCell>Amount</TableCell>
                     <TableCell>Status</TableCell>

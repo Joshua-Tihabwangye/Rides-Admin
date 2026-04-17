@@ -1,17 +1,17 @@
 // @ts-nocheck
-import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import React, { useState } from"react";
+import { useNavigate, useSearchParams } from"react-router-dom";
 
 // Reset Password - Step 2: Enter new password (accessed via reset link)
 
 const EV = {
-  green: "#03CD8C",
-  orange: "#F77F00",
-  dark: "#0f172a",
-  grayBorder: "#e2e8f0",
-  grayText: "#64748b",
-  lightGray: "#f8fafc",
-  white: "#ffffff",
+  green:"#03CD8C",
+  orange:"#F77F00",
+  dark:"#0f172a",
+  grayBorder:"#e2e8f0",
+  grayText:"#64748b",
+  lightGray:"#f8fafc",
+  white:"#ffffff",
 };
 
 const LockIcon = () => (
@@ -67,10 +67,10 @@ export default function ResetPassword() {
   const strengthScore = [hasMinLength, hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
 
   const getStrengthLabel = () => {
-    if (strengthScore <= 2) return { label: "Weak", color: "#dc2626" };
-    if (strengthScore <= 3) return { label: "Fair", color: "#d97706" };
-    if (strengthScore <= 4) return { label: "Good", color: "#2563eb" };
-    return { label: "Strong", color: EV.green };
+    if (strengthScore <= 2) return { label:"Weak", color:"#dc2626" };
+    if (strengthScore <= 3) return { label:"Fair", color:"#d97706" };
+    if (strengthScore <= 4) return { label:"Good", color:"#2563eb" };
+    return { label:"Strong", color: EV.green };
   };
 
   const handleSubmit = async (e) => {
@@ -78,15 +78,15 @@ export default function ResetPassword() {
     const newErrors = {};
 
     if (!password) {
-      newErrors.password = "Please enter a new password";
+      newErrors.password ="Please enter a new password";
     } else if (password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
+      newErrors.password ="Password must be at least 8 characters";
     }
 
     if (!confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password";
+      newErrors.confirmPassword ="Please confirm your password";
     } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
+      newErrors.confirmPassword ="Passwords do not match";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -194,13 +194,13 @@ export default function ResetPassword() {
                 <input
                   style={{
                     ...styles.input,
-                    borderColor: errors.password ? "#fca5a5" : EV.grayBorder,
-                    backgroundColor: errors.password ? "#fef2f2" : EV.white,
+                    borderColor: errors.password ?"#fca5a5" : EV.grayBorder,
+                    backgroundColor: errors.password ?"#fef2f2" : EV.white,
                     paddingRight: 48,
                   }}
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ?"text" :"password"}
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setErrors({ ...errors, password: "" }); }}
+                  onChange={(e) => { setPassword(e.target.value); setErrors({ ...errors, password:"" }); }}
                   placeholder="Enter new password"
                   disabled={isLoading}
                 />
@@ -223,7 +223,7 @@ export default function ResetPassword() {
                         key={i}
                         style={{
                           ...styles.strengthBar,
-                          backgroundColor: i <= strengthScore ? getStrengthLabel().color : "#e2e8f0",
+                          backgroundColor: i <= strengthScore ? getStrengthLabel().color :"#e2e8f0",
                         }}
                       />
                     ))}
@@ -250,13 +250,13 @@ export default function ResetPassword() {
                 <input
                   style={{
                     ...styles.input,
-                    borderColor: errors.confirmPassword ? "#fca5a5" : EV.grayBorder,
-                    backgroundColor: errors.confirmPassword ? "#fef2f2" : EV.white,
+                    borderColor: errors.confirmPassword ?"#fca5a5" : EV.grayBorder,
+                    backgroundColor: errors.confirmPassword ?"#fef2f2" : EV.white,
                     paddingRight: 48,
                   }}
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ?"text" :"password"}
                   value={confirmPassword}
-                  onChange={(e) => { setConfirmPassword(e.target.value); setErrors({ ...errors, confirmPassword: "" }); }}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setErrors({ ...errors, confirmPassword:"" }); }}
                   placeholder="Confirm new password"
                   disabled={isLoading}
                 />
@@ -276,11 +276,11 @@ export default function ResetPassword() {
               style={{
                 ...styles.submitButton,
                 opacity: isLoading ? 0.7 : 1,
-                cursor: isLoading ? "wait" : "pointer",
+                cursor: isLoading ?"wait" :"pointer",
               }}
               disabled={isLoading}
             >
-              {isLoading ? "Resetting password..." : "Reset password"}
+              {isLoading ?"Resetting password..." :"Reset password"}
             </button>
           </form>
 
@@ -298,7 +298,7 @@ export default function ResetPassword() {
 
 function RequirementItem({ met, text }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ display:"flex", alignItems:"center", gap: 8 }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
         {met ? (
           <path d="M5 12l5 5L20 7" stroke={EV.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -313,23 +313,23 @@ function RequirementItem({ met, text }) {
 
 const styles = {
   page: {
-    minHeight: "100vh",
+    minHeight:"100vh",
     background: `linear-gradient(135deg, ${EV.lightGray} 0%, ${EV.white} 100%)`,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
     padding: 24,
   },
   container: {
-    width: "100%",
+    width:"100%",
     maxWidth: 440,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
+    display:"flex",
+    flexDirection:"column",
+    alignItems:"center",
   },
   logoContainer: {
-    display: "flex",
-    alignItems: "center",
+    display:"flex",
+    alignItems:"center",
     gap: 8,
     marginBottom: 32,
   },
@@ -345,16 +345,16 @@ const styles = {
     color: EV.dark,
   },
   card: {
-    width: "100%",
+    width:"100%",
     background: EV.white,
     borderRadius: 16,
     padding: 40,
-    boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-    textAlign: "center",
+    boxShadow:"0 4px 24px rgba(0,0,0,0.06)",
+    textAlign:"center",
   },
   iconWrapper: {
-    display: "flex",
-    justifyContent: "center",
+    display:"flex",
+    justifyContent:"center",
     marginBottom: 20,
   },
   title: {
@@ -365,21 +365,21 @@ const styles = {
     letterSpacing: -0.5,
   },
   subtitle: {
-    margin: "12px 0 0",
+    margin:"12px 0 0",
     fontSize: 15,
     color: EV.grayText,
     lineHeight: 1.6,
   },
   form: {
-    display: "flex",
-    flexDirection: "column",
+    display:"flex",
+    flexDirection:"column",
     gap: 20,
     marginTop: 28,
-    textAlign: "left",
+    textAlign:"left",
   },
   fieldGroup: {
-    display: "flex",
-    flexDirection: "column",
+    display:"flex",
+    flexDirection:"column",
     gap: 6,
   },
   label: {
@@ -388,44 +388,44 @@ const styles = {
     color: EV.dark,
   },
   input: {
-    padding: "14px 16px",
+    padding:"14px 16px",
     borderRadius: 10,
     border: `1px solid ${EV.grayBorder}`,
     fontSize: 15,
-    outline: "none",
-    transition: "all 0.2s ease",
-    width: "100%",
-    boxSizing: "border-box",
+    outline:"none",
+    transition:"all 0.2s ease",
+    width:"100%",
+    boxSizing:"border-box",
   },
   passwordWrapper: {
-    position: "relative",
+    position:"relative",
   },
   eyeButton: {
-    position: "absolute",
+    position:"absolute",
     right: 12,
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
+    top:"50%",
+    transform:"translateY(-50%)",
+    background:"none",
+    border:"none",
+    cursor:"pointer",
     padding: 4,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
   },
   errorText: {
     fontSize: 13,
-    color: "#dc2626",
+    color:"#dc2626",
     marginTop: 4,
   },
   strengthContainer: {
-    display: "flex",
-    alignItems: "center",
+    display:"flex",
+    alignItems:"center",
     gap: 12,
     marginTop: 8,
   },
   strengthBars: {
-    display: "flex",
+    display:"flex",
     gap: 4,
     flex: 1,
   },
@@ -433,15 +433,15 @@ const styles = {
     height: 4,
     flex: 1,
     borderRadius: 2,
-    transition: "background-color 0.2s ease",
+    transition:"background-color 0.2s ease",
   },
   strengthLabel: {
     fontSize: 12,
     fontWeight: 600,
   },
   requirements: {
-    display: "flex",
-    flexDirection: "column",
+    display:"flex",
+    flexDirection:"column",
     gap: 6,
     marginTop: 12,
     padding: 12,
@@ -449,30 +449,30 @@ const styles = {
     borderRadius: 8,
   },
   submitButton: {
-    padding: "14px 20px",
+    padding:"14px 20px",
     borderRadius: 10,
-    border: "none",
+    border:"none",
     background: EV.green,
     color: EV.white,
     fontSize: 15,
     fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.2s ease",
+    cursor:"pointer",
+    transition:"all 0.2s ease",
   },
   backButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
     gap: 8,
-    padding: "12px 20px",
+    padding:"12px 20px",
     borderRadius: 10,
-    border: "none",
-    background: "transparent",
+    border:"none",
+    background:"transparent",
     color: EV.grayText,
     fontSize: 14,
     fontWeight: 500,
-    cursor: "pointer",
-    width: "100%",
+    cursor:"pointer",
+    width:"100%",
     marginTop: 16,
   },
 };

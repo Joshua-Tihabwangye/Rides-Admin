@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from"react";
 import {
   Box,
   Card,
@@ -8,8 +8,8 @@ import {
   Chip,
   Button,
   Divider,
-} from "@mui/material";
-import { useNavigate } from "react-router-dom";
+} from"@mui/material";
+import { useNavigate } from"react-router-dom";
 import {
   LineChart,
   Line,
@@ -21,13 +21,13 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from "recharts";
+} from"recharts";
 import PeriodSelector, { PeriodOption } from '../components/PeriodSelector';
 import dayjs from 'dayjs';
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 
@@ -171,8 +171,8 @@ export default function OperationsDashboardPage() {
               key={kpi.label}
               elevation={1}
               sx={{
-                border: "1px solid rgba(148,163,184,0.5)",
-                background: "linear-gradient(145deg, #ffffff, #f9fafb)",
+                border:"1px solid rgba(148,163,184,0.5)",
+                
               }}
             >
               <CardContent className="p-3 flex flex-col gap-1">
@@ -184,14 +184,14 @@ export default function OperationsDashboardPage() {
                 </Typography>
                 <Typography
                   variant="h6"
-                  className="font-semibold text-slate-900 text-lg"
+                  className="font-semibold text-lg"
                 >
                   {kpi.value}
                 </Typography>
                 <Box className="flex items-center gap-2">
                   <Typography
                     variant="caption"
-                    className="text-[11px] text-emerald-700"
+                    className="text-[11px] text-emerald-500"
                   >
                     {kpi.subtitle}
                   </Typography>
@@ -226,9 +226,9 @@ export default function OperationsDashboardPage() {
           elevation={1}
           sx={{
             flex: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #0b1120, #020617)",
-            color: "#e5e7eb",
+            border:"1px solid rgba(148,163,184,0.5)",
+            background:"linear-gradient(145deg, #0b1120, #020617)",
+            color:"#e5e7eb",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2 h-[350px]">
@@ -245,8 +245,8 @@ export default function OperationsDashboardPage() {
                 sx={{
                   fontSize: 10,
                   height: 22,
-                  bgcolor: "#020617",
-                  color: "#e5e7eb",
+                  bgcolor:"#020617",
+                  color:"#e5e7eb",
                 }}
               />
             </Box>
@@ -256,8 +256,8 @@ export default function OperationsDashboardPage() {
                 <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} />
                 <YAxis stroke="#94a3b8" fontSize={11} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
-                  labelStyle={{ color: "#e5e7eb" }}
+                  contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11 }}
+                  labelStyle={{ color:"#e5e7eb" }}
                 />
                 <Legend />
                 <Line type="monotone" dataKey="demand" stroke="#f77f00" strokeWidth={2} name="Demand (Trips)" />
@@ -272,15 +272,15 @@ export default function OperationsDashboardPage() {
           elevation={1}
           sx={{
             flex: 1,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #fef2f2, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Box className="flex items-center justify-between">
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900"
+                className="font-semibold"
               >
                 Cancellations & issues
               </Typography>
@@ -308,7 +308,7 @@ export default function OperationsDashboardPage() {
             <Box className="flex items-center gap-2">
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800"
+                className="text-[12px]"
               >
                 • Rider cancellations: 4.1%
               </Typography>
@@ -326,7 +326,7 @@ export default function OperationsDashboardPage() {
             <Box className="flex items-center gap-2">
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800"
+                className="text-[12px]"
               >
                 • Driver cancellations: 3.3%
               </Typography>
@@ -344,7 +344,7 @@ export default function OperationsDashboardPage() {
             <Box className="flex items-center gap-2">
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800"
+                className="text-[12px]"
               >
                 • Support tickets (24h): 32 + 3 critical
               </Typography>
@@ -376,14 +376,14 @@ export default function OperationsDashboardPage() {
           elevation={1}
           sx={{
             flex: 1,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #eef2ff, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2 h-[300px]">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Service Mix by Region
             </Typography>
@@ -394,7 +394,7 @@ export default function OperationsDashboardPage() {
                 <XAxis type="number" fontSize={11} />
                 <YAxis dataKey="region" type="category" fontSize={11} width={60} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 11 }}
+                  contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11, color: "#e5e7eb" }}
                 />
                 <Legend />
                 <Bar dataKey="rides" fill="#03cd8c" name="Rides" stackId="mix" radius={[0, 4, 4, 0]} />
@@ -409,27 +409,27 @@ export default function OperationsDashboardPage() {
           elevation={1}
           sx={{
             flex: 1,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #fefce8, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Region highlights
             </Typography>
             <Divider className="!my-1" />
             <Typography
               variant="body2"
-              className="text-[12px] text-slate-800"
+              className="text-[12px]"
             >
               • Kampala – strong demand, wait times within target.
             </Typography>
             <Typography
               variant="body2"
-              className="text-[12px] text-slate-800"
+              className="text-[12px]"
             >
               • Lagos – watch cancellations; consider fleet reinforcement.
             </Typography>

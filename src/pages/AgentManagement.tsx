@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from"react";
 import {
   Box,
   Card,
@@ -16,11 +16,11 @@ import {
   Paper,
   InputAdornment,
   Button,
-} from "@mui/material";
-import { useNavigate } from "react-router-dom";
-import SearchIcon from "@mui/icons-material/Search";
-import AddIcon from "@mui/icons-material/Add";
-import StatusBadge from "../components/StatusBadge";
+} from"@mui/material";
+import { useNavigate } from"react-router-dom";
+import SearchIcon from"@mui/icons-material/Search";
+import AddIcon from"@mui/icons-material/Add";
+import StatusBadge from"../components/StatusBadge";
 
 // D1 – Agent Management (Light/Dark, EVzone themed)
 // Route suggestion: /admin/agents
@@ -29,43 +29,43 @@ import StatusBadge from "../components/StatusBadge";
 const SAMPLE_AGENTS = [
   {
     id: 1,
-    uniqueId: "AGT-001",
-    name: "Alice Support",
-    email: "alice.support@evzone.com",
-    team: "Support",
-    roles: "Support Agent",
-    status: "Active",
-    lastLogin: "2025-11-20 09:24",
+    uniqueId:"AGT-001",
+    name:"Alice Support",
+    email:"alice.support@evzone.com",
+    team:"Support",
+    roles:"Support Agent",
+    status:"Active",
+    lastLogin:"2025-11-20 09:24",
   },
   {
     id: 2,
-    uniqueId: "AGT-002",
-    name: "Brian Onboard",
-    email: "brian.onboard@evzone.com",
-    team: "Onboarding",
-    roles: "Onboarding Agent",
-    status: "Active",
-    lastLogin: "2025-11-25 08:02",
+    uniqueId:"AGT-002",
+    name:"Brian Onboard",
+    email:"brian.onboard@evzone.com",
+    team:"Onboarding",
+    roles:"Onboarding Agent",
+    status:"Active",
+    lastLogin:"2025-11-25 08:02",
   },
   {
     id: 3,
-    uniqueId: "AGT-003",
-    name: "Carol Dispatch",
-    email: "carol.dispatch@evzone.com",
-    team: "Dispatch",
-    roles: "Dispatch Agent",
-    status: "Away",
-    lastLogin: "2025-11-24 22:41",
+    uniqueId:"AGT-003",
+    name:"Carol Dispatch",
+    email:"carol.dispatch@evzone.com",
+    team:"Dispatch",
+    roles:"Dispatch Agent",
+    status:"Away",
+    lastLogin:"2025-11-24 22:41",
   },
   {
     id: 4,
-    uniqueId: "AGT-004",
-    name: "David Safety",
-    email: "david.safety@evzone.com",
-    team: "Safety",
-    roles: "Safety Agent",
-    status: "Suspended",
-    lastLogin: "2025-11-22 16:10",
+    uniqueId:"AGT-004",
+    name:"David Safety",
+    email:"david.safety@evzone.com",
+    team:"Safety",
+    roles:"Safety Agent",
+    status:"Suspended",
+    lastLogin:"2025-11-22 16:10",
   },
 ];
 
@@ -91,7 +91,7 @@ export default function AgentManagementPage() {
     const matchesSearch = agent.name.toLowerCase().includes(search.toLowerCase()) ||
       agent.email.toLowerCase().includes(search.toLowerCase()) ||
       agent.uniqueId.toLowerCase().includes(search.toLowerCase());
-    const matchesTeam = activeTeam === "All" || agent.team === activeTeam;
+    const matchesTeam = activeTeam ==="All" || agent.team === activeTeam;
     return matchesSearch && matchesTeam;
   });
 
@@ -99,10 +99,10 @@ export default function AgentManagementPage() {
   const teamCounts = useMemo(() => {
     return {
       All: SAMPLE_AGENTS.length,
-      Support: SAMPLE_AGENTS.filter(a => a.team === "Support").length,
-      Onboarding: SAMPLE_AGENTS.filter(a => a.team === "Onboarding").length,
-      Dispatch: SAMPLE_AGENTS.filter(a => a.team === "Dispatch").length,
-      Safety: SAMPLE_AGENTS.filter(a => a.team === "Safety").length,
+      Support: SAMPLE_AGENTS.filter(a => a.team ==="Support").length,
+      Onboarding: SAMPLE_AGENTS.filter(a => a.team ==="Onboarding").length,
+      Dispatch: SAMPLE_AGENTS.filter(a => a.team ==="Dispatch").length,
+      Safety: SAMPLE_AGENTS.filter(a => a.team ==="Safety").length,
     };
   }, []);
 
@@ -130,7 +130,7 @@ export default function AgentManagementPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={handleAddAgent}
-          sx={{ textTransform: "none", borderRadius: 999 }}
+          sx={{ textTransform:"none", borderRadius: 999 }}
         >
           Add agent
         </Button>
@@ -141,8 +141,8 @@ export default function AgentManagementPage() {
         elevation={2}
         sx={{
           borderRadius: 2,
-          border: "1px solid rgba(148,163,184,0.3)",
-          bgcolor: "background.paper",
+          border:"1px solid rgba(148,163,184,0.3)",
+          bgcolor:"background.paper",
           mb: 3
         }}
       >
@@ -161,9 +161,7 @@ export default function AgentManagementPage() {
                   </InputAdornment>
                 ),
               }}
-              sx={{
-                "& .MuiOutlinedInput-root": { bgcolor: "background.default", borderRadius: 8 },
-                "& .MuiInputBase-input::placeholder": { fontSize: 13 },
+              sx={{"& .MuiOutlinedInput-root": { bgcolor:"background.default", borderRadius: 8 },"& .MuiInputBase-input::placeholder": { fontSize: 13 },
               }}
             />
           </Box>
@@ -174,15 +172,15 @@ export default function AgentManagementPage() {
             >
               Team:
             </Typography>
-            {["All", "Support", "Onboarding", "Dispatch", "Safety"].map(
+            {["All","Support","Onboarding","Dispatch","Safety"].map(
               (team) => (
                 <Chip
                   key={team}
                   size="small"
                   label={`${team} (${teamCounts[team]})`}
                   onClick={() => setActiveTeam(team)}
-                  color={activeTeam === team ? "primary" : "default"}
-                  variant={activeTeam === team ? "filled" : "outlined"}
+                  color={activeTeam === team ?"primary" :"default"}
+                  variant={activeTeam === team ?"filled" :"outlined"}
                   sx={{ fontSize: 11, height: 24, cursor: 'pointer' }}
                 />
               )
@@ -196,8 +194,8 @@ export default function AgentManagementPage() {
         elevation={2}
         sx={{
           borderRadius: 2,
-          border: "1px solid rgba(148,163,184,0.3)",
-          bgcolor: "background.paper"
+          border:"1px solid rgba(148,163,184,0.3)",
+          bgcolor:"background.paper"
         }}
       >
         <CardContent className="p-0">
@@ -219,7 +217,7 @@ export default function AgentManagementPage() {
                   <TableRow
                     key={agent.id}
                     hover
-                    sx={{ cursor: "pointer" }}
+                    sx={{ cursor:"pointer" }}
                     onClick={() => handleRowClick(agent)}
                   >
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: 'text.secondary' }}>

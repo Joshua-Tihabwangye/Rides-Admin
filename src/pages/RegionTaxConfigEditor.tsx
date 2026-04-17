@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -16,30 +16,30 @@ import {
   TableContainer,
   Paper,
   TextField,
-} from "@mui/material";
-import { useParams, useNavigate } from "react-router-dom";
+} from"@mui/material";
+import { useParams, useNavigate } from"react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 const SAMPLE_REGIONS = [
   {
-    id: "UG",
-    name: "Uganda",
-    taxName: "VAT",
-    taxRate: "18%",
-    invoicePrefix: "UG-INV-",
+    id:"UG",
+    name:"Uganda",
+    taxName:"VAT",
+    taxRate:"18%",
+    invoicePrefix:"UG-INV-",
   },
   {
-    id: "KE",
-    name: "Kenya",
-    taxName: "VAT",
-    taxRate: "16%",
-    invoicePrefix: "KE-INV-",
+    id:"KE",
+    name:"Kenya",
+    taxName:"VAT",
+    taxRate:"16%",
+    invoicePrefix:"KE-INV-",
   },
 ];
 
@@ -192,14 +192,14 @@ export default function TaxesInvoicingPage() {
           sx={{
             flex: 1.4,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Region tax overview
             </Typography>
@@ -207,7 +207,7 @@ export default function TaxesInvoicingPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
                     <TableCell>Region</TableCell>
                     <TableCell>Tax name</TableCell>
                     <TableCell align="right">Rate</TableCell>
@@ -227,9 +227,9 @@ export default function TaxesInvoicingPage() {
                           size="small"
                           variant="text"
                           sx={{
-                            textTransform: "none",
+                            textTransform:"none",
                             fontSize: 11,
-                            minWidth: "auto",
+                            minWidth:"auto",
                             padding: 0,
                             color: EV_COLORS.primary,
                           }}
@@ -252,32 +252,32 @@ export default function TaxesInvoicingPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #eef2ff, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Invoice template settings
             </Typography>
             <Typography
               variant="caption"
-              className="text-[11px] text-slate-600"
+              className="text-[11px] text-slate-500"
             >
               Header/footer text, logo placement and line-item layout. These
               apply globally, with per-region overrides for tax lines.
             </Typography>
             <Divider className="!my-1" />
 
-            <Box className="flex flex-col gap-1 text-[12px] text-slate-800">
+            <Box className="flex flex-col gap-1 text-[12px]">
               <Typography variant="body2">
-                • Global header: "EVzone Mobility – Official Receipt".
+                • Global header:"EVzone Mobility – Official Receipt".
               </Typography>
               <Typography variant="body2">
-                • Footer: "Thank you for choosing EVzone" + contact info.
+                • Footer:"Thank you for choosing EVzone" + contact info.
               </Typography>
               <Typography variant="body2">
                 • Tax lines: region-specific name & rate taken from region
@@ -297,11 +297,10 @@ export default function TaxesInvoicingPage() {
                 variant="contained"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 12,
-                  bgcolor: EV_COLORS.primary,
-                  "&:hover": { bgcolor: "#0fb589" },
+                  bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                 }}
                 onClick={handlePreviewTemplate}
               >

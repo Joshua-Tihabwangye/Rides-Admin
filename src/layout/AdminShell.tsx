@@ -264,7 +264,7 @@ export default function AdminShell() {
   });
 
   const drawerContent = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: "hidden" }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow:"hidden" }}>
       {/* Sidebar Logo Area - Hidden on Desktop if collapsed, or shown differently? 
           Actually, user wants Logo in Header. We can keep this for Mobile or Full Desktop, 
           but simpler to just hide/simplify when collapsed. */}
@@ -444,11 +444,11 @@ export default function AdminShell() {
         flexGrow: 1,
         // Replaced width calc with simple flex behavior since Drawer is now distinct
         // But wait, Drawer variant permanent takes up flow space? Yes.
-        // The issue described was "covering". This usually happens if position fixed/absolute.
+        // The issue described was"covering". This usually happens if position fixed/absolute.
         // By default Drawer is fixed.
         // To fix overlay, we can just let flex handle it if we structure it right or use margin.
         // But standard admin template usually uses marginLeft/Width.
-        // Because the Drawer above has "display: block" in sx for md, it MIGHT be taking space if position is relative? 
+        // Because the Drawer above has"display: block" in sx for md, it MIGHT be taking space if position is relative? 
         // Actually MUI Drawer is fixed by default. 
         // So we MUST add margin or width adjustment.
         width: {

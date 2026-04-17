@@ -38,75 +38,75 @@ import StatusBadge from '../components/StatusBadge'
 const AGENTS_DATA = [
     {
         id: 1,
-        name: "Alice Support",
-        email: "alice.support@evzone.com",
-        phone: "+250 788 111 222",
-        team: "Support",
-        roles: "Support Agent",
-        status: "active",
-        lastLogin: "2025-11-20 09:24",
-        avatarColor: "#03cd8c",
+        name:"Alice Support",
+        email:"alice.support@evzone.com",
+        phone:"+250 788 111 222",
+        team:"Support",
+        roles:"Support Agent",
+        status:"active",
+        lastLogin:"2025-11-20 09:24",
+        avatarColor:"#03cd8c",
         kpa: {
             ticketsResolved: 142,
-            avgResponseTime: "4m 30s",
+            avgResponseTime:"4m 30s",
             csatScore: 4.8
         }
     },
     {
         id: 2,
-        name: "Brian Onboard",
-        email: "brian.onboard@evzone.com",
-        phone: "+250 788 333 444",
-        team: "Onboarding",
-        roles: "Onboarding Agent",
-        status: "active",
-        lastLogin: "2025-11-25 08:02",
-        avatarColor: "#f77f00",
+        name:"Brian Onboard",
+        email:"brian.onboard@evzone.com",
+        phone:"+250 788 333 444",
+        team:"Onboarding",
+        roles:"Onboarding Agent",
+        status:"active",
+        lastLogin:"2025-11-25 08:02",
+        avatarColor:"#f77f00",
         kpa: {
             ticketsResolved: 89,
-            avgResponseTime: "12m 10s",
+            avgResponseTime:"12m 10s",
             csatScore: 4.5
         }
     },
     {
         id: 3,
-        name: "Carol Dispatch",
-        email: "carol.dispatch@evzone.com",
-        phone: "+250 788 555 666",
-        team: "Dispatch",
-        roles: "Dispatch Agent",
-        status: "away",
-        lastLogin: "2025-11-24 22:41",
-        avatarColor: "#3b82f6",
+        name:"Carol Dispatch",
+        email:"carol.dispatch@evzone.com",
+        phone:"+250 788 555 666",
+        team:"Dispatch",
+        roles:"Dispatch Agent",
+        status:"away",
+        lastLogin:"2025-11-24 22:41",
+        avatarColor:"#3b82f6",
         kpa: {
             ticketsResolved: 310,
-            avgResponseTime: "1m 45s",
+            avgResponseTime:"1m 45s",
             csatScore: 4.9
         }
     },
     {
         id: 4,
-        name: "David Safety",
-        email: "david.safety@evzone.com",
-        phone: "+250 788 777 888",
-        team: "Safety",
-        roles: "Safety Agent",
-        status: "suspended",
-        lastLogin: "2025-11-22 16:10",
-        avatarColor: "#ef4444",
+        name:"David Safety",
+        email:"david.safety@evzone.com",
+        phone:"+250 788 777 888",
+        team:"Safety",
+        roles:"Safety Agent",
+        status:"suspended",
+        lastLogin:"2025-11-22 16:10",
+        avatarColor:"#ef4444",
         kpa: {
             ticketsResolved: 45,
-            avgResponseTime: "8m 00s",
+            avgResponseTime:"8m 00s",
             csatScore: 3.2
         }
     },
 ]
 
 const ACTIVITY_LOG = [
-    { id: 1, action: "Logged in", time: "2025-11-25 09:00", details: "IP: 192.168.1.1" },
-    { id: 2, action: "Resolved Ticket #1023", time: "2025-11-25 09:15", details: "Refund processed" },
-    { id: 3, action: "Updated Rider Profile", time: "2025-11-25 10:30", details: "Updated ID doc" },
-    { id: 4, action: "Initiated Call", time: "2025-11-25 11:05", details: "Outbound to Driver #442" },
+    { id: 1, action:"Logged in", time:"2025-11-25 09:00", details:"IP: 192.168.1.1" },
+    { id: 2, action:"Resolved Ticket #1023", time:"2025-11-25 09:15", details:"Refund processed" },
+    { id: 3, action:"Updated Rider Profile", time:"2025-11-25 10:30", details:"Updated ID doc" },
+    { id: 4, action:"Initiated Call", time:"2025-11-25 11:05", details:"Outbound to Driver #442" },
 ]
 
 export default function AgentDetail() {
