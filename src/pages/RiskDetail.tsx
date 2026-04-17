@@ -380,7 +380,7 @@ export default function RiskCaseDetailPage() {
             flex: 1,
             borderRadius: 2,
             border:"1px solid rgba(148,163,184,0.3)",
-            background:"linear-gradient(145deg, #fef2f2, #fffbeb)",
+            background: 'linear-gradient(145deg, #ef444410, #eab30808)',
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -406,7 +406,7 @@ export default function RiskCaseDetailPage() {
                 textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                color:"#4b5563",
+                color: 'text.secondary',
               }}
               onClick={() => handleAction("Monitor")}
             >
@@ -520,7 +520,7 @@ export default function RiskCaseDetailPage() {
                 p: 2,
                 height: 350,
                 overflowY: 'auto',
-                bgcolor: '#f8fafc',
+                bgcolor: 'background.default',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 2,
@@ -549,7 +549,7 @@ export default function RiskCaseDetailPage() {
                         borderRadius: msg.isUser 
                           ? '16px 16px 4px 16px' 
                           : '16px 16px 16px 4px',
-                        bgcolor: msg.isUser ? EV_COLORS.primary : 'white',
+                        bgcolor: msg.isUser ? EV_COLORS.primary : 'background.paper',
                         color: msg.isUser ? 'white' : 'text.primary',
                         boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                       }}
@@ -607,7 +607,7 @@ export default function RiskCaseDetailPage() {
                   borderRadius: 3,
                   bgcolor: EV_COLORS.primary,
                   '&:hover': { bgcolor: '#02b87d' },
-                  '&:disabled': { bgcolor: '#e2e8f0' },
+                  '&:disabled': { bgcolor: 'action.disabledBackground' },
                 }}
               >
                 <SendIcon fontSize="small" />

@@ -127,9 +127,9 @@ export default function SystemOverviewPage() {
           size="small"
           label="System health"
           sx={{
-            bgcolor:"#e0f2fe",
+            bgcolor: '#3b82f615',
             borderColor:"#bae6fd",
-            color:"#0f172a",
+            color: 'text.primary',
             fontSize: 10,
           }}
         />

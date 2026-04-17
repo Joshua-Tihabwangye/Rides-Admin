@@ -188,7 +188,7 @@ export default function ServiceConfigurationPage() {
                   sx={{
                     fontSize: 10,
                     height: 22,
-                    bgcolor: c === city ?"#ecfdf5" :"#f9fafb",
+                    bgcolor: c === city ? '#03cd8c15' : 'background.default',
                     borderColor: c === city ?"#bbf7d0" :"#e5e7eb",
                     borderWidth: 1,
                     borderStyle:"solid",

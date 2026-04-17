@@ -7,11 +7,11 @@ import { useNavigate } from"react-router-dom";
 const EV = {
   green:"#03CD8C",
   orange:"#F77F00",
-  dark:"#0f172a",
-  grayBorder:"#e2e8f0",
-  grayText:"#64748b",
-  lightGray:"#f8fafc",
-  white:"#ffffff",
+  dark:"var(--ev-text, #0f172a)",
+  grayBorder:"var(--ev-border, #e2e8f0)",
+  grayText:"var(--ev-text-secondary, #64748b)",
+  lightGray:"var(--ev-light-gray, #f8fafc)",
+  white:"var(--ev-paper, #ffffff)",
 };
 
 const MailIcon = () => (
@@ -122,7 +122,7 @@ export default function ForgotPassword() {
                 style={{
                   ...styles.input,
                   borderColor: emailErr ?"#fca5a5" : EV.grayBorder,
-                  backgroundColor: emailErr ?"#fef2f2" : EV.white,
+                  backgroundColor: emailErr ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
                 }}
                 type="email"
                 value={email}
@@ -164,7 +164,7 @@ export default function ForgotPassword() {
 const styles = {
   page: {
     minHeight:"100vh",
-    background: `linear-gradient(135deg, ${EV.lightGray} 0%, ${EV.white} 100%)`,
+    background: 'var(--ev-bg, #f8fafc)',
     display:"flex",
     alignItems:"center",
     justifyContent:"center",
@@ -199,7 +199,7 @@ const styles = {
     background: EV.white,
     borderRadius: 16,
     padding: 40,
-    boxShadow:"0 4px 24px rgba(0,0,0,0.06)",
+    boxShadow:"var(--ev-card-shadow, 0 4px 24px rgba(0,0,0,0.06))",
     textAlign:"center",
   },
   iconWrapper: {

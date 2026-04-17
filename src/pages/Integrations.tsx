@@ -241,7 +241,7 @@ function StatusCard({ integration, onViewDetails, onAction }) {
               fontSize: 11,
               minWidth:"auto",
               padding: 0,
-              color:"#4b5563",
+              color: 'text.secondary',
             }}
             onClick={onViewDetails}
           >

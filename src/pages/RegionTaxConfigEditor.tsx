@@ -207,7 +207,7 @@ export default function TaxesInvoicingPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
                     <TableCell>Region</TableCell>
                     <TableCell>Tax name</TableCell>
                     <TableCell align="right">Rate</TableCell>

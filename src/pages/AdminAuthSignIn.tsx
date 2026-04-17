@@ -11,11 +11,11 @@ const EV = {
   green:"#03CD8C",
   orange:"#F77F00",
   wheat:"#FCE7C6",
-  dark:"#0f172a",
-  grayBorder:"#e2e8f0",
-  grayText:"#64748b",
-  lightGray:"#f8fafc",
-  white:"#ffffff",
+  dark:"var(--ev-text, #0f172a)",
+  grayBorder:"var(--ev-border, #e2e8f0)",
+  grayText:"var(--ev-text-secondary, #64748b)",
+  lightGray:"var(--ev-light-gray, #f8fafc)",
+  white:"var(--ev-paper, #ffffff)",
 };
 
 const track = (e, p = {}) => console.debug("[track]", e, { ...p, ts: Date.now() });
@@ -292,7 +292,7 @@ export default function AuthSignIn() {
                 style={{
                   ...styles.input,
                   borderColor: emailErr ?"#fca5a5" : EV.grayBorder,
-                  backgroundColor: emailErr ?"#fef2f2" : EV.white,
+                  backgroundColor: emailErr ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
                 }}
                 type="email"
                 value={email}
@@ -478,7 +478,7 @@ const styles = {
   page: {
     display:"flex",
     minHeight:"100vh",
-    background: EV.white,
+    background: 'var(--ev-bg, #ffffff)',
   },
   heroWrap: {
     flex: 1,
@@ -513,7 +513,7 @@ const styles = {
     position:"absolute",
     bottom: 32,
     left: 32,
-    background:"rgba(255,255,255,.95)",
+    background:"var(--ev-hero-footer-bg, rgba(255,255,255,0.95))",
     padding:"12px 20px",
     borderRadius: 12,
     boxShadow:"0 4px 12px rgba(0,0,0,.08)",

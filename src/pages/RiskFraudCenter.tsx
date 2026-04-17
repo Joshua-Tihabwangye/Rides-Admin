@@ -222,7 +222,7 @@ export default function RiskFraudCenterPage() {
             sx={{
               borderRadius: 8,
               border:"1px solid rgba(148,163,184,0.6)",
-              background:"linear-gradient(145deg, #fef2f2, #fef9c3)",
+              background: 'linear-gradient(145deg, #ef444410, #eab30810)',
               transition:"transform 0.15s ease, box-shadow 0.15s ease",
               cursor:"pointer","&:hover": {
                 transform:"translateY(-3px)",

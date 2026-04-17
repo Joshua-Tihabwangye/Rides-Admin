@@ -77,6 +77,33 @@ export function makeEvzoneTheme(mode: ColorMode) {
           },
         },
       },
+      MuiTableHead: {
+        styleOverrides: {
+          root: {
+            backgroundColor: isDark ? 'rgba(148,163,184,0.08)' : '#f3f4f6',
+          },
+        },
+      },
+      MuiCssBaseline: {
+        styleOverrides: {
+          ':root': {
+            '--ev-bg': isDark ? '#020617' : '#f8fafc',
+            '--ev-paper': isDark ? '#0b1220' : '#ffffff',
+            '--ev-text': isDark ? '#f1f5f9' : '#0f172a',
+            '--ev-text-secondary': isDark ? '#cbd5e1' : '#64748b',
+            '--ev-border': isDark ? '#334155' : '#e2e8f0',
+            '--ev-input-bg': isDark ? '#0b1220' : '#ffffff',
+            '--ev-input-bg-error': isDark ? 'rgba(239,68,68,0.1)' : '#fef2f2',
+            '--ev-light-gray': isDark ? '#0b1220' : '#f8fafc',
+            '--ev-card-shadow': isDark
+              ? '0 4px 24px rgba(0,0,0,0.3)'
+              : '0 4px 24px rgba(0,0,0,0.06)',
+            '--ev-hero-footer-bg': isDark
+              ? 'rgba(11,18,32,0.95)'
+              : 'rgba(255,255,255,0.95)',
+          },
+        },
+      },
     },
   }
 

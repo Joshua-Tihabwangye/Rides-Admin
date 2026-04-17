@@ -225,7 +225,7 @@ export default function LocalizationLanguageContentPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
                     <TableCell>Namespace</TableCell>
                     <TableCell>Language</TableCell>
                     <TableCell>Completion</TableCell>

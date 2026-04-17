@@ -305,7 +305,7 @@ export default function ApprovalDetailPage() {
                 textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                color:"#4b5563",
+                color: 'text.secondary',
               }}
               onClick={() => handleDecision("Request more info")}
             >

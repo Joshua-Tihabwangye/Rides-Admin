@@ -55,7 +55,7 @@ export default function AdminProfileRegionSettingsPage() {
   const regionChipVariant = (active) =>
     active
       ? {
-        bgcolor:"#ecfdf5",
+        bgcolor: '#03cd8c15',
         borderColor:"#bbf7d0",
         color:"#14532d",
       }
@@ -125,11 +125,11 @@ export default function AdminProfileRegionSettingsPage() {
                 sx={{
                   fontSize: 10,
                   height: 22,
-                  bgcolor:"#e0f2fe",
+                  bgcolor: '#3b82f615',
                   borderColor:"#0ea5e9",
                   borderWidth: 1,
                   borderStyle:"solid",
-                  color:"#0f172a",
+                  color: 'text.primary',
                 }}
               />
               <Chip
@@ -138,7 +138,7 @@ export default function AdminProfileRegionSettingsPage() {
                 sx={{
                   fontSize: 10,
                   height: 22,
-                  bgcolor:"#fefce8",
+                  bgcolor: '#eab30815',
                   borderColor:"#facc15",
                   borderWidth: 1,
                   borderStyle:"solid",

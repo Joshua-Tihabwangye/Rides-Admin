@@ -82,7 +82,7 @@ export default function ApprovalsHistory() {
                 <CardContent className="p-0">
                     <TableContainer component={Paper} elevation={0}>
                         <Table>
-                            <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                            <TableHead sx={{ bgcolor: 'background.default' }}>
                                 <TableRow>
                                     <TableCell>ID</TableCell>
                                     <TableCell>Entity</TableCell>
