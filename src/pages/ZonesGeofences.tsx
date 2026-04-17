@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -22,7 +22,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-} from "@mui/material";
+} from"@mui/material";
 
 // F2 – Zone & Geofence Management (Light/Dark, EVzone themed)
 // Route suggestion: /admin/zones
@@ -33,7 +33,7 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Core product config · Zones".
+//    - Header shows EVZONE ADMIN and subtitle"Core product config · Zones".
 //    - Country select shows Uganda and Kenya.
 //    - Zone table lists sample zones for the selected country.
 //    - Map placeholder card is visible with instructions.
@@ -43,45 +43,45 @@ import {
 // 3) Country selection
 //    - Switching countries updates the zone list.
 // 4) Edit (demo)
-//    - Clicking "Add zone" logs a placeholder.
+//    - Clicking"Add zone" logs a placeholder.
 //    - Clicking a zone row logs that zone for further editing.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 const INITIAL_ZONES = {
   Uganda: [
     {
-      id: "UG-Z1",
-      name: "Kampala Central",
-      city: "Kampala",
-      services: "Ride, Delivery, Rental",
-      specialPricing: "Peak evening surcharge",
+      id:"UG-Z1",
+      name:"Kampala Central",
+      city:"Kampala",
+      services:"Ride, Delivery, Rental",
+      specialPricing:"Peak evening surcharge",
     },
     {
-      id: "UG-Z2",
-      name: "Airport / Entebbe",
-      city: "Entebbe",
-      services: "Ride, Delivery",
-      specialPricing: "Airport pickup fee",
+      id:"UG-Z2",
+      name:"Airport / Entebbe",
+      city:"Entebbe",
+      services:"Ride, Delivery",
+      specialPricing:"Airport pickup fee",
     },
   ],
   Kenya: [
     {
-      id: "KE-Z1",
-      name: "Nairobi CBD",
-      city: "Nairobi",
-      services: "Ride, Delivery, Rental",
-      specialPricing: "Standard",
+      id:"KE-Z1",
+      name:"Nairobi CBD",
+      city:"Nairobi",
+      services:"Ride, Delivery, Rental",
+      specialPricing:"Standard",
     },
     {
-      id: "KE-Z2",
-      name: "Westlands",
-      city: "Nairobi",
-      services: "Ride, Delivery",
-      specialPricing: "Night surcharge",
+      id:"KE-Z2",
+      name:"Westlands",
+      city:"Nairobi",
+      services:"Ride, Delivery",
+      specialPricing:"Night surcharge",
     },
   ],
 };
@@ -91,7 +91,7 @@ const INITIAL_ZONES = {
 export default function ZonesGeofencesPage() {
   const [zones, setZones] = useState(INITIAL_ZONES);
   const countries = Object.keys(zones);
-  const [country, setCountry] = useState(countries[0] || "Uganda");
+  const [country, setCountry] = useState(countries[0] ||"Uganda");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newZone, setNewZone] = useState({ name: '', city: '', services: '' });
 
@@ -156,9 +156,9 @@ export default function ZonesGeofencesPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #0b1120, #020617)",
-            color: "#e5e7eb",
+            border:"1px solid rgba(148,163,184,0.5)",
+            background:"linear-gradient(145deg, #0b1120, #020617)",
+            color:"#e5e7eb",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2 h-full">
@@ -175,8 +175,8 @@ export default function ZonesGeofencesPage() {
                 sx={{
                   fontSize: 10,
                   height: 22,
-                  bgcolor: "#020617",
-                  color: "#e5e7eb",
+                  bgcolor:"#020617",
+                  color:"#e5e7eb",
                 }}
               />
             </Box>
@@ -190,7 +190,7 @@ export default function ZonesGeofencesPage() {
             <Box className="mt-2 flex-1 rounded-lg border border-dashed border-slate-600 bg-slate-900/60 flex flex-col items-center justify-center text-[11px] text-slate-400">
               <span>Map / geofence editor goes here</span>
               <span className="mt-1 text-[10px] text-slate-500">
-                Click "Add zone" to start drawing a new polygon in your real
+                Click"Add zone" to start drawing a new polygon in your real
                 implementation.
               </span>
             </Box>
@@ -203,7 +203,7 @@ export default function ZonesGeofencesPage() {
           sx={{
             flex: 2,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
+            border:"1px solid rgba(148,163,184,0.5)",
             // Use standard background from theme or keep slight gradient but ensure it respects dark mode?
             // User wants global theme. The gradient was hardcoded light/dark in previous layout.
             // Let's use standard default background or a subtle one. A neutral one is safest.
@@ -238,7 +238,7 @@ export default function ZonesGeofencesPage() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 2,
                   fontSize: 11,
                 }}
@@ -253,7 +253,7 @@ export default function ZonesGeofencesPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "action.hover" }}>
+                  <TableRow sx={{ backgroundColor:"action.hover" }}>
                     <TableCell>Zone</TableCell>
                     <TableCell>City</TableCell>
                     <TableCell>Services</TableCell>
@@ -265,7 +265,7 @@ export default function ZonesGeofencesPage() {
                     <TableRow
                       key={zone.id}
                       hover
-                      sx={{ cursor: "pointer" }}
+                      sx={{ cursor:"pointer" }}
                       onClick={() => handleZoneClick(zone)}
                     >
                       <TableCell>{zone.name}</TableCell>

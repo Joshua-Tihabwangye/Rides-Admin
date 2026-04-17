@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from "react";
+import React from"react";
 import {
     Box,
     Card,
@@ -16,8 +16,8 @@ import {
     Paper,
     Snackbar,
     Alert,
-} from "@mui/material";
-import { useNavigate } from "react-router-dom";
+} from"@mui/material";
+import { useNavigate } from"react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 
@@ -60,7 +60,7 @@ export default function ApprovalsHistory() {
                     >
                         Back to Queue
                     </Button>
-                    <Typography variant="h6" className="font-semibold text-slate-900">
+                    <Typography variant="h6" className="font-semibold">
                         Approval History
                     </Typography>
                 </Box>
@@ -78,7 +78,7 @@ export default function ApprovalsHistory() {
                 )}
             </Box>
 
-            <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
+            <Card elevation={1} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)" }}>
                 <CardContent className="p-0">
                     <TableContainer component={Paper} elevation={0}>
                         <Table>

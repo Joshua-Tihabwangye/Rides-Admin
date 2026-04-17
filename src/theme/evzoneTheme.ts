@@ -30,7 +30,7 @@ export function makeEvzoneTheme(mode: ColorMode) {
     shape: { borderRadius: 4 },
     typography: {
       fontFamily:
-        'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"',
+        'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,"Apple Color Emoji","Segoe UI Emoji"',
     },
     components: {
       MuiButton: {

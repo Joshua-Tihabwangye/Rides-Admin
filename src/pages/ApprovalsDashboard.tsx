@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -16,10 +16,10 @@ import {
   InputLabel,
   Snackbar,
   Alert
-} from "@mui/material";
-import PeriodSelector from "../components/PeriodSelector";
-import dayjs from "dayjs";
-import isBetween from "dayjs/plugin/isBetween";
+} from"@mui/material";
+import PeriodSelector from"../components/PeriodSelector";
+import dayjs from"dayjs";
+import isBetween from"dayjs/plugin/isBetween";
 
 dayjs.extend(isBetween);
 
@@ -30,7 +30,7 @@ dayjs.extend(isBetween);
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Approvals".
+//    - Header shows EVZONE ADMIN and subtitle"Approvals".
 //    - Filters row shows type, severity, age and region chips.
 //    - A list of approval case cards is visible with tags and actions.
 // 2) Theme toggle
@@ -44,8 +44,8 @@ dayjs.extend(isBetween);
 //    - Approve/Reject buttons on the card log the action and case id.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminApprovalsLayout({ children }) {
@@ -80,47 +80,44 @@ function AdminApprovalsLayout({ children }) {
 
 const SAMPLE_APPROVALS_INITIAL = [
   {
-    id: "APP-001",
-    type: "Company onboarding",
-    entity: "GreenMove Fleet",
-    severity: "Medium",
-    age: "2h",
+    id:"APP-001",
+    type:"Company onboarding",
+    entity:"GreenMove Fleet",
+    severity:"Medium",
+    age:"2h",
     timestamp: dayjs().subtract(2, 'hour').toISOString(),
-    region: "East Africa",
-    summary: "New fleet partner onboarding – contract and KYB ready for review.",
+    region:"East Africa",
+    summary:"New fleet partner onboarding – contract and KYB ready for review.",
   },
   {
-    id: "APP-002",
-    type: "Vehicle exception",
-    entity: "CityRide Tours – UBA 123T",
-    severity: "High",
-    age: "30m",
+    id:"APP-002",
+    type:"Vehicle exception",
+    entity:"CityRide Tours – UBA 123T",
+    severity:"High",
+    age:"30m",
     timestamp: dayjs().subtract(30, 'minute').toISOString(),
-    region: "East Africa",
-    summary:
-      "Request to approve ICE bus for tours module (non-EV exception).",
+    region:"East Africa",
+    summary:"Request to approve ICE bus for tours module (non-EV exception).",
   },
   {
-    id: "APP-003",
-    type: "Driver escalation",
-    entity: "Michael Driver",
-    severity: "High",
-    age: "4h",
+    id:"APP-003",
+    type:"Driver escalation",
+    entity:"Michael Driver",
+    severity:"High",
+    age:"4h",
     timestamp: dayjs().subtract(4, 'hour').toISOString(),
-    region: "West Africa",
-    summary:
-      "Driver flagged by risk rules (high cancellations + fare disputes).",
+    region:"West Africa",
+    summary:"Driver flagged by risk rules (high cancellations + fare disputes).",
   },
   {
-    id: "APP-004",
-    type: "Policy exception",
-    entity: "Sunrise Logistics",
-    severity: "Low",
-    age: "1d",
+    id:"APP-004",
+    type:"Policy exception",
+    entity:"Sunrise Logistics",
+    severity:"Low",
+    age:"1d",
     timestamp: dayjs().subtract(1, 'day').toISOString(),
-    region: "West Africa",
-    summary:
-      "Manual commission override request for promotion campaign.",
+    region:"West Africa",
+    summary:"Manual commission override request for promotion campaign.",
   },
 ];
 
@@ -149,7 +146,7 @@ export default function ApprovalsDashboardPage() {
       ...approval,
       action,
       date: dayjs().format("YYYY-MM-DD HH:mm"),
-      actor: "Admin User", // Simulated
+      actor:"Admin User", // Simulated
     };
 
     const existingHistory = JSON.parse(localStorage.getItem('approval_history') || '[]');
@@ -196,8 +193,8 @@ export default function ApprovalsDashboardPage() {
       <Card
         elevation={1}
         sx={{
-          border: "1px solid rgba(148,163,184,0.5)",
-          background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+          border:"1px solid rgba(148,163,184,0.5)",
+          
         }}
       >
         <CardContent className="p-3 flex flex-col gap-3">
@@ -261,8 +258,8 @@ export default function ApprovalsDashboardPage() {
             key={approval.id}
             elevation={1}
             sx={{
-              border: "1px solid rgba(148,163,184,0.5)",
-              background: "linear-gradient(145deg, #ffffff, #f9fafb)",
+              border:"1px solid rgba(148,163,184,0.5)",
+              
             }}
           >
             <CardContent
@@ -279,7 +276,7 @@ export default function ApprovalsDashboardPage() {
                   </Typography>
                   <Typography
                     variant="subtitle2"
-                    className="font-semibold text-slate-900"
+                    className="font-semibold"
                   >
                     {approval.entity}
                   </Typography>
@@ -298,11 +295,11 @@ export default function ApprovalsDashboardPage() {
                         fontSize: 10,
                         height: 22,
                         bgcolor:
-                          approval.severity === "High"
-                            ? "#fee2e2"
-                            : approval.severity === "Medium"
-                              ? "#fef3c7"
-                              : "#e0f2fe",
+                          approval.severity ==="High"
+                            ?"#fee2e2"
+                            : approval.severity ==="Medium"
+                              ?"#fef3c7"
+                              :"#e0f2fe",
                       }}
                     />
                     <Chip
@@ -316,7 +313,7 @@ export default function ApprovalsDashboardPage() {
 
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-700"
+                className="text-[12px] text-slate-500"
               >
                 {approval.summary}
               </Typography>
@@ -333,13 +330,13 @@ export default function ApprovalsDashboardPage() {
                     size="small"
                     variant="outlined"
                     sx={{
-                      textTransform: "none",
+                      textTransform:"none",
                       borderRadius: 2,
                       fontSize: 11,
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleActionClick(approval, "Reject");
+                      handleActionClick(approval,"Reject");
                     }}
                   >
                     Reject
@@ -348,15 +345,14 @@ export default function ApprovalsDashboardPage() {
                     size="small"
                     variant="contained"
                     sx={{
-                      textTransform: "none",
+                      textTransform:"none",
                       borderRadius: 2,
                       fontSize: 11,
-                      bgcolor: EV_COLORS.primary,
-                      "&:hover": { bgcolor: "#0fb589" },
+                      bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleActionClick(approval, "Approve");
+                      handleActionClick(approval,"Approve");
                     }}
                   >
                     Approve

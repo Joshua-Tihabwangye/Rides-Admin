@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   AppBar,
@@ -16,7 +16,7 @@ import {
   Select,
   MenuItem,
   Chip,
-} from "@mui/material";
+} from"@mui/material";
 import {
   BrowserRouter as Router,
   Routes,
@@ -24,7 +24,7 @@ import {
   NavLink,
   useLocation,
   useNavigate,
-} from "react-router-dom";
+} from"react-router-dom";
 
 // Premium EVzone Admin App Shell
 // -------------------------------
@@ -57,65 +57,65 @@ import {
 //      placeholder with a button back to Home.
 
 const EV_COLORS = {
-  primary: "#03cd8c", // EVzone Green
-  secondary: "#f77f00", // EVzone Orange
+  primary:"#03cd8c", // EVzone Green
+  secondary:"#f77f00", // EVzone Orange
 };
 
 const drawerWidth = 260;
 
 const NAV_SECTIONS = [
   {
-    id: "overview",
-    label: "Overview & Ops",
+    id:"overview",
+    label:"Overview & Ops",
     items: [
-      { label: "Home", to: "/admin/home" },
-      { label: "Global Search", to: "/admin/search" },
-      { label: "Safety overview", to: "/admin/safety" },
+      { label:"Home", to:"/admin/home" },
+      { label:"Global Search", to:"/admin/search" },
+      { label:"Safety overview", to:"/admin/safety" },
     ],
   },
   {
-    id: "people",
-    label: "People",
+    id:"people",
+    label:"People",
     items: [
-      { label: "Riders", to: "/admin/riders" },
-      { label: "Drivers", to: "/admin/drivers" },
-      { label: "Agents", to: "/admin/agents" },
-      { label: "Admin users", to: "/admin/admin-users" },
-      { label: "Roles & permissions", to: "/admin/roles" },
+      { label:"Riders", to:"/admin/riders" },
+      { label:"Drivers", to:"/admin/drivers" },
+      { label:"Agents", to:"/admin/agents" },
+      { label:"Admin users", to:"/admin/admin-users" },
+      { label:"Roles & permissions", to:"/admin/roles" },
     ],
   },
   {
-    id: "companies",
-    label: "Companies & Payouts",
+    id:"companies",
+    label:"Companies & Payouts",
     items: [
-      { label: "Companies", to: "/admin/companies" },
-      { label: "Payouts", to: "/admin/companies/1/payouts" },
+      { label:"Companies", to:"/admin/companies" },
+      { label:"Payouts", to:"/admin/companies/1/payouts" },
     ],
   },
   {
-    id: "services",
-    label: "Services & Pricing",
+    id:"services",
+    label:"Services & Pricing",
     items: [
-      { label: "Service config", to: "/admin/services" },
-      { label: "Zones & geofences", to: "/admin/zones" },
-      { label: "Company payouts", to: "/admin/companies/1/payouts" },
-      { label: "Taxes & invoicing", to: "/admin/finance/tax-invoices" },
+      { label:"Service config", to:"/admin/services" },
+      { label:"Zones & geofences", to:"/admin/zones" },
+      { label:"Company payouts", to:"/admin/companies/1/payouts" },
+      { label:"Taxes & invoicing", to:"/admin/finance/tax-invoices" },
     ],
   },
   {
-    id: "system",
-    label: "System & Risk",
+    id:"system",
+    label:"System & Risk",
     items: [
-      { label: "Integrations", to: "/admin/system/integrations" },
-      { label: "System overview", to: "/admin/system/overview" },
-      { label: "Audit log", to: "/admin/system/audit-log" },
-      { label: "Risk & fraud", to: "/admin/safety" },
+      { label:"Integrations", to:"/admin/system/integrations" },
+      { label:"System overview", to:"/admin/system/overview" },
+      { label:"Audit log", to:"/admin/system/audit-log" },
+      { label:"Risk & fraud", to:"/admin/safety" },
     ],
   },
   {
-    id: "account",
-    label: "Account",
-    items: [{ label: "My profile", to: "/admin/profile" }],
+    id:"account",
+    label:"Account",
+    items: [{ label:"My profile", to:"/admin/profile" }],
   },
 ];
 
@@ -125,7 +125,7 @@ function Placeholder({ title }) {
       <Typography variant="h5" className="font-semibold mb-2">
         {title}
       </Typography>
-      <Typography variant="body2" className="text-slate-600">
+      <Typography variant="body2" className="text-slate-500">
         This is a placeholder. Replace with your generated page component.
       </Typography>
     </Box>
@@ -134,17 +134,17 @@ function Placeholder({ title }) {
 
 export default function AdminAppShell() {
   const [mode, setMode] = useState("light");
-  const isDark = mode === "dark";
+  const isDark = mode ==="dark";
 
   const toggleMode = () => {
-    setMode((prev) => (prev === "light" ? "dark" : "light"));
+    setMode((prev) => (prev ==="light" ?"dark" :"light"));
   };
 
   return (
     <Router>
       <Box
         className={`min-h-screen flex ${
-          isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+          isDark ?"bg-slate-950 text-slate-50" :"bg-slate-50"
         }`}
       >
         {/* Side navigation */}
@@ -152,14 +152,13 @@ export default function AdminAppShell() {
           variant="permanent"
           sx={{
             width: drawerWidth,
-            flexShrink: 0,
-            "& .MuiDrawer-paper": {
+            flexShrink: 0,"& .MuiDrawer-paper": {
               width: drawerWidth,
-              boxSizing: "border-box",
-              borderRight: "1px solid #e5e7eb",
+              boxSizing:"border-box",
+              borderRight:"1px solid #e5e7eb",
               background: isDark
-                ? "linear-gradient(180deg, #020617, #020617)"
-                : "linear-gradient(180deg, #ffffff, #f9fafb)",
+                ?"linear-gradient(180deg, #020617, #020617)"
+                :"linear-gradient(180deg, #ffffff, #f9fafb)",
             },
           }}
         >
@@ -168,9 +167,9 @@ export default function AdminAppShell() {
               sx={{
                 width: 28,
                 height: 28,
-                borderRadius: "999px",
+                borderRadius:"999px",
                 bgcolor: EV_COLORS.primary,
-                boxShadow: "0 0 0 4px rgba(3,205,140,0.18)",
+                boxShadow:"0 0 0 4px rgba(3,205,140,0.18)",
               }}
             />
             <Box className="flex flex-col">
@@ -211,8 +210,8 @@ export default function AdminAppShell() {
           sx={{
             flexGrow: 1,
             ml: `${drawerWidth}px`,
-            display: "flex",
-            flexDirection: "column",
+            display:"flex",
+            flexDirection:"column",
           }}
         >
           <ShellAppBar isDark={isDark} toggleMode={toggleMode} />
@@ -337,14 +336,14 @@ export default function AdminAppShell() {
                     </Typography>
                     <Typography
                       variant="body2"
-                      className="text-slate-600 mb-4"
+                      className="text-slate-500 mb-4"
                     >
                       The page you are looking for does not exist.
                     </Typography>
                     <Button
                       variant="contained"
-                      sx={{ textTransform: "none" }}
-                      onClick={() => (window.location.href = "/admin/home")}
+                      sx={{ textTransform:"none" }}
+                      onClick={() => (window.location.href ="/admin/home")}
                     >
                       Go to Home
                     </Button>
@@ -368,18 +367,17 @@ function NavItem({ to, label }) {
       component={NavLink}
       to={to}
       sx={{
-        position: "relative",
+        position:"relative",
         borderRadius: 999,
         mx: 1,
         mb: 0.5,
         minHeight: 36,
         px: 2,
-        color: isActive ? "#020617" : "#4b5563",
-        backgroundColor: isActive ? EV_COLORS.primary + "1A" : "transparent",
-        "&::before": isActive
+        color: isActive ?"#020617" :"#4b5563",
+        backgroundColor: isActive ? EV_COLORS.primary +"1A" :"transparent","&::before": isActive
           ? {
               content: '""',
-              position: "absolute",
+              position:"absolute",
               left: 6,
               top: 6,
               bottom: 6,
@@ -387,9 +385,8 @@ function NavItem({ to, label }) {
               borderRadius: 999,
               background: `linear-gradient(180deg, ${EV_COLORS.primary}, ${EV_COLORS.secondary})`,
             }
-          : {},
-        "&:hover": {
-          backgroundColor: isActive ? EV_COLORS.primary + "26" : "#e5e7eb",
+          : {},"&:hover": {
+          backgroundColor: isActive ? EV_COLORS.primary +"26" :"#e5e7eb",
         },
       }}
     >
@@ -423,22 +420,22 @@ function ShellAppBar({ isDark, toggleMode }) {
       position="static"
       elevation={0}
       sx={{
-        bgcolor: isDark ? "#020617f7" : "#fffffffa",
-        color: isDark ? "#e5e7eb" : "#0f172a",
-        borderBottom: isDark ? "1px solid #1f2937" : "1px solid #e5e7eb",
-        backdropFilter: "blur(14px)",
+        bgcolor: isDark ?"#020617f7" :"#fffffffa",
+        color: isDark ?"#e5e7eb" :"#0f172a",
+        borderBottom: isDark ?"1px solid #1f2937" :"1px solid #e5e7eb",
+        backdropFilter:"blur(14px)",
         boxShadow: isDark
-          ? "0 10px 30px rgba(15,23,42,0.7)"
-          : "0 10px 30px rgba(15,23,42,0.08)",
+          ?"0 10px 30px rgba(15,23,42,0.7)"
+          :"0 10px 30px rgba(15,23,42,0.08)",
       }}
     >
       <Toolbar
         sx={{
           minHeight: 60,
           px: 3,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          display:"flex",
+          alignItems:"center",
+          justifyContent:"space-between",
           gap: 2,
         }}
       >
@@ -452,8 +449,8 @@ function ShellAppBar({ isDark, toggleMode }) {
             sx={{
               height: 22,
               borderRadius: 999,
-              bgcolor: "#fee2e2",
-              color: "#7f1d1d",
+              bgcolor:"#fee2e2",
+              color:"#7f1d1d",
               fontSize: 11,
               fontWeight: 500,
             }}
@@ -465,7 +462,7 @@ function ShellAppBar({ isDark, toggleMode }) {
           <Box
             component="form"
             onSubmit={handleSearchSubmit}
-            sx={{ width: "100%", maxWidth: 640 }}
+            sx={{ width:"100%", maxWidth: 640 }}
           >
             <TextField
               size="small"
@@ -479,12 +476,11 @@ function ShellAppBar({ isDark, toggleMode }) {
                       type="submit"
                       size="small"
                       sx={{
-                        textTransform: "none",
+                        textTransform:"none",
                         borderRadius: 999,
                         fontSize: 11,
                         px: 1.8,
-                        bgcolor: EV_COLORS.primary,
-                        "&:hover": { bgcolor: "#0fb589" },
+                        bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                       }}
                       variant="contained"
                     >
@@ -494,21 +490,16 @@ function ShellAppBar({ isDark, toggleMode }) {
                 ),
               }}
               sx={{
-                width: "100%",
-                "& .MuiOutlinedInput-root": {
+                width:"100%","& .MuiOutlinedInput-root": {
                   borderRadius: 999,
-                  bgcolor: isDark ? "#020617" : "#f3f4f6",
-                  "& fieldset": {
-                    borderColor: "transparent",
-                  },
-                  "&:hover fieldset": {
+                  bgcolor: isDark ?"#020617" :"#f3f4f6","& fieldset": {
+                    borderColor:"transparent",
+                  },"&:hover fieldset": {
+                    borderColor: EV_COLORS.primary,
+                  },"&.Mui-focused fieldset": {
                     borderColor: EV_COLORS.primary,
                   },
-                  "&.Mui-focused fieldset": {
-                    borderColor: EV_COLORS.primary,
-                  },
-                },
-                "& .MuiInputBase-input::placeholder": {
+                },"& .MuiInputBase-input::placeholder": {
                   fontSize: 12,
                 },
               }}
@@ -523,11 +514,9 @@ function ShellAppBar({ isDark, toggleMode }) {
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
             sx={{
-              minWidth: 80,
-              "& .MuiOutlinedInput-root": {
+              minWidth: 80,"& .MuiOutlinedInput-root": {
                 borderRadius: 999,
-                bgcolor: "#f9fafb",
-                "& fieldset": { borderColor: "#e5e7eb" },
+                bgcolor:"#f9fafb","& fieldset": { borderColor:"#e5e7eb" },
               },
             }}
           >
@@ -540,11 +529,9 @@ function ShellAppBar({ isDark, toggleMode }) {
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
             sx={{
-              minWidth: 80,
-              "& .MuiOutlinedInput-root": {
+              minWidth: 80,"& .MuiOutlinedInput-root": {
                 borderRadius: 999,
-                bgcolor: "#f9fafb",
-                "& fieldset": { borderColor: "#e5e7eb" },
+                bgcolor:"#f9fafb","& fieldset": { borderColor:"#e5e7eb" },
               },
             }}
           >
@@ -557,7 +544,7 @@ function ShellAppBar({ isDark, toggleMode }) {
             label="AA"
             sx={{
               bgcolor: EV_COLORS.primary,
-              color: "#020617",
+              color:"#020617",
               fontWeight: 600,
               borderRadius: 999,
               px: 0.5,
@@ -567,15 +554,15 @@ function ShellAppBar({ isDark, toggleMode }) {
             variant="outlined"
             size="small"
             sx={{
-              textTransform: "none",
+              textTransform:"none",
               borderRadius: 999,
-              borderColor: isDark ? "#1f2937" : "#e5e7eb",
-              color: isDark ? "#e5e7eb" : "#374151",
+              borderColor: isDark ?"#1f2937" :"#e5e7eb",
+              color: isDark ?"#e5e7eb" :"#374151",
               fontSize: 11,
             }}
             onClick={toggleMode}
           >
-            {isDark ? "Light mode" : "Dark mode"}
+            {isDark ?"Light mode" :"Dark mode"}
           </Button>
         </Box>
       </Toolbar>

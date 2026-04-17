@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
     Box,
     Card,
@@ -11,14 +11,14 @@ import {
     Grid,
     Snackbar,
     Alert
-} from "@mui/material";
-import { useNavigate, useParams } from "react-router-dom";
+} from"@mui/material";
+import { useNavigate, useParams } from"react-router-dom";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 
 const EV_COLORS = {
-    primary: "#03cd8c",
+    primary:"#03cd8c",
 };
 
 export default function ZonePricingDetail() {
@@ -27,11 +27,11 @@ export default function ZonePricingDetail() {
     const [snackbarOpen, setSnackbarOpen] = useState(false);
 
     const [pricing, setPricing] = useState({
-        baseFare: "5000",
-        perKm: "2000",
-        perMin: "200",
-        minFare: "7000",
-        surgeMultiplier: "1.0",
+        baseFare:"5000",
+        perKm:"2000",
+        perMin:"200",
+        minFare:"7000",
+        surgeMultiplier:"1.0",
     });
 
     const handleChange = (field) => (event) => {
@@ -106,7 +106,7 @@ export default function ZonePricingDetail() {
                 </Box>
             </Box>
 
-            <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+            <Card elevation={1} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.5)" }}>
                 <CardContent className="p-6">
                     <Typography variant="subtitle1" className="font-semibold mb-4">
                         Tariff Configuration

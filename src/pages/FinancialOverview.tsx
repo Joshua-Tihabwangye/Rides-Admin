@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from"react";
 import {
   Box,
   Card,
@@ -17,7 +17,7 @@ import {
   Paper,
   ToggleButton,
   ToggleButtonGroup,
-} from "@mui/material";
+} from"@mui/material";
 import {
   PieChart,
   Pie,
@@ -30,21 +30,21 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-} from "recharts";
-import { useNavigate } from "react-router-dom";
-import DownloadIcon from "@mui/icons-material/Download";
-import TableChartIcon from "@mui/icons-material/TableChart";
-import ShowChartIcon from "@mui/icons-material/ShowChart";
-import PeriodSelector from "../components/PeriodSelector";
-import dayjs from "dayjs";
+} from"recharts";
+import { useNavigate } from"react-router-dom";
+import DownloadIcon from"@mui/icons-material/Download";
+import TableChartIcon from"@mui/icons-material/TableChart";
+import ShowChartIcon from"@mui/icons-material/ShowChart";
+import PeriodSelector from"../components/PeriodSelector";
+import dayjs from"dayjs";
 
 // I1 – Financial Overview (Light/Dark, EVzone themed)
 // Route suggestion: /admin/finance
 // High-level financial KPIs and simple breakdowns by service and region.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 export default function FinancialOverviewPage() {
@@ -92,26 +92,26 @@ export default function FinancialOverviewPage() {
 
   const kpis = useMemo(() => [
     {
-      label: "Gross bookings",
+      label:"Gross bookings",
       value: `$${(128420 * multiplier).toLocaleString()}`,
-      subtitle: "+12% vs last period",
+      subtitle:"+12% vs last period",
     },
     {
-      label: "EVzone net revenue",
+      label:"EVzone net revenue",
       value: `$${(24680 * multiplier).toLocaleString()}`,
-      subtitle: "Net after fees & incentives",
+      subtitle:"Net after fees & incentives",
     },
     {
-      label: "Payouts (scheduled)",
+      label:"Payouts (scheduled)",
       value: `$${(79320 * multiplier).toLocaleString()}`,
-      subtitle: "Next 7 days",
+      subtitle:"Next 7 days",
     },
   ], [multiplier]);
 
   const serviceRevenueData = useMemo(() => [
-    { name: "Rides", value: 82000 * multiplier, color: "#03cd8c" },
-    { name: "Deliveries", value: 32000 * multiplier, color: "#f77f00" },
-    { name: "Rental", value: 14420 * multiplier, color: "#3b82f6" },
+    { name:"Rides", value: 82000 * multiplier, color:"#03cd8c" },
+    { name:"Deliveries", value: 32000 * multiplier, color:"#f77f00" },
+    { name:"Rental", value: 14420 * multiplier, color:"#3b82f6" },
   ], [multiplier]);
 
   // Line chart data for region revenue over time
@@ -180,8 +180,8 @@ export default function FinancialOverviewPage() {
             elevation={2}
             sx={{
               borderRadius: 2,
-              border: "1px solid rgba(148,163,184,0.3)",
-              background: "linear-gradient(145deg, #ffffff, #f9fafb)",
+              border:"1px solid rgba(148,163,184,0.3)",
+              
             }}
           >
             <CardContent className="p-3 flex flex-col gap-1">
@@ -217,8 +217,8 @@ export default function FinancialOverviewPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.3)",
-            bgcolor: "background.paper"
+            border:"1px solid rgba(148,163,184,0.3)",
+            bgcolor:"background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2 h-[350px]">
@@ -246,8 +246,8 @@ export default function FinancialOverviewPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#f8fafc" }}
-                  itemStyle={{ color: "#f8fafc" }}
+                  contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11, color:"#f8fafc" }}
+                  itemStyle={{ color:"#f8fafc" }}
                   formatter={(value) => `$${value.toLocaleString()}`}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
@@ -262,8 +262,8 @@ export default function FinancialOverviewPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border: "1px solid rgba(148,163,184,0.3)",
-            bgcolor: "background.paper"
+            border:"1px solid rgba(148,163,184,0.3)",
+            bgcolor:"background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2" sx={{ height: regionViewMode === 'chart' ? 350 : 'auto' }}>
@@ -352,8 +352,8 @@ export default function FinancialOverviewPage() {
                       tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                     />
                     <Tooltip
-                      contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#f8fafc" }}
-                      labelStyle={{ color: "#f8fafc" }}
+                      contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11, color:"#f8fafc" }}
+                      labelStyle={{ color:"#f8fafc" }}
                       formatter={(value) => [`$${value.toLocaleString()}`, '']}
                     />
                     <Legend 

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -9,7 +9,7 @@ import {
   Chip,
   Button,
   Divider,
-} from "@mui/material";
+} from"@mui/material";
 
 // Invoice Template Preview – shared lightweight screen
 // In a real app this could be a modal or side panel launched from I3.
@@ -19,8 +19,8 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Finance · Invoice template".
-//    - Title "Invoice Template Preview" visible.
+//    - Header shows EVZONE ADMIN and subtitle"Finance · Invoice template".
+//    - Title"Invoice Template Preview" visible.
 //    - Form on the left to edit header text, footer text and show/hide EV
 //      logo and tax breakdown.
 //    - On the right, a sample invoice preview card shows company, invoice
@@ -31,14 +31,14 @@ import {
 // 3) Editing fields
 //    - Changing header/footer text updates the preview instantly.
 // 4) Save
-//    - Clicking "Save template" saves to local list and downloads a JSON file.
+//    - Clicking"Save template" saves to local list and downloads a JSON file.
 import IconButton from '@mui/material/IconButton';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminInvoiceTemplateLayout({ children }) {
@@ -73,8 +73,8 @@ function AdminInvoiceTemplateLayout({ children }) {
 
 export default function InvoiceTemplatePreviewPage() {
   const [template, setTemplate] = useState({
-    header: "EVzone Mobility – Official Receipt",
-    footer: "Thank you for choosing EVzone. For support: support@evzone.com",
+    header:"EVzone Mobility – Official Receipt",
+    footer:"Thank you for choosing EVzone. For support: support@evzone.com",
     showLogo: true,
     showTaxBreakdown: true,
   });
@@ -107,7 +107,7 @@ export default function InvoiceTemplatePreviewPage() {
   };
 
   const downloadDraft = (draft) => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(draft.data, null, 2));
+    const dataStr ="data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(draft.data, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", `invoice_template_${draft.id}.json`);
@@ -125,14 +125,14 @@ export default function InvoiceTemplatePreviewPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Template settings
             </Typography>
@@ -144,7 +144,7 @@ export default function InvoiceTemplatePreviewPage() {
               fullWidth
               value={template.header}
               onChange={handleFieldChange("header")}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             />
 
             <TextField
@@ -156,25 +156,25 @@ export default function InvoiceTemplatePreviewPage() {
               maxRows={4}
               value={template.footer}
               onChange={handleFieldChange("footer")}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             />
 
-            <Box className="flex flex-wrap gap-2 text-[12px] text-slate-700 mt-1">
+            <Box className="flex flex-wrap gap-2 text-[12px] text-slate-500 mt-1">
               <Chip
                 size="small"
-                label={template.showLogo ? "Logo: shown" : "Logo: hidden"}
+                label={template.showLogo ?"Logo: shown" :"Logo: hidden"}
                 onClick={handleToggle("showLogo")}
-                sx={{ fontSize: 10, height: 22, cursor: "pointer" }}
+                sx={{ fontSize: 10, height: 22, cursor:"pointer" }}
               />
               <Chip
                 size="small"
                 label={
                   template.showTaxBreakdown
-                    ? "Tax breakdown: shown"
-                    : "Tax breakdown: hidden"
+                    ?"Tax breakdown: shown"
+                    :"Tax breakdown: hidden"
                 }
                 onClick={handleToggle("showTaxBreakdown")}
-                sx={{ fontSize: 10, height: 22, cursor: "pointer" }}
+                sx={{ fontSize: 10, height: 22, cursor:"pointer" }}
               />
             </Box>
 
@@ -183,11 +183,10 @@ export default function InvoiceTemplatePreviewPage() {
                 variant="contained"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 12,
-                  bgcolor: EV_COLORS.primary,
-                  "&:hover": { bgcolor: "#0fb589" },
+                  bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                 }}
                 onClick={handleSave}
               >
@@ -203,8 +202,8 @@ export default function InvoiceTemplatePreviewPage() {
           sx={{
             flex: 1.2,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "#ffffff",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -214,7 +213,7 @@ export default function InvoiceTemplatePreviewPage() {
             >
               Live preview (sample invoice)
             </Typography>
-            <Box className="border border-slate-200 rounded-md p-3 text-[12px] text-slate-800">
+            <Box className="border border-slate-200 rounded-md p-3 text-[12px]">
               {template.showLogo && (
                 <Box className="mb-2 flex items-center gap-2">
                   <Box
@@ -265,7 +264,7 @@ export default function InvoiceTemplatePreviewPage() {
               </Box>
 
               {template.showTaxBreakdown && (
-                <Box className="mt-2 text-[11px] text-slate-600">
+                <Box className="mt-2 text-[11px] text-slate-500">
                   <div>Subtotal: $9.00</div>
                   <div>VAT (18%): $1.62</div>
                   <div className="font-semibold text-[12px] mt-1">
@@ -275,7 +274,7 @@ export default function InvoiceTemplatePreviewPage() {
               )}
 
               {!template.showTaxBreakdown && (
-                <Box className="mt-2 text-[11px] text-slate-600">
+                <Box className="mt-2 text-[11px] text-slate-500">
                   <div className="font-semibold text-[12px] mt-1">
                     Total: $10.62 (tax included)
                   </div>
@@ -300,14 +299,14 @@ export default function InvoiceTemplatePreviewPage() {
           elevation={1}
           sx={{
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Saved Templates
             </Typography>
@@ -337,7 +336,7 @@ export default function InvoiceTemplatePreviewPage() {
                     <IconButton
                       size="small"
                       onClick={() => deleteDraft(draft.id)}
-                      sx={{ color: "error.main" }}
+                      sx={{ color:"error.main" }}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -365,7 +364,7 @@ function TableHeaderRow() {
 
 function LineItemRow({ label, qty, price, total }) {
   return (
-    <Box className="grid grid-cols-4 gap-2 text-[12px] text-slate-800">
+    <Box className="grid grid-cols-4 gap-2 text-[12px]">
       <span>{label}</span>
       <span className="text-right">{qty}</span>
       <span className="text-right">{price}</span>

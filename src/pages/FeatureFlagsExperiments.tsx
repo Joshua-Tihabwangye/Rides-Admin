@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -20,8 +20,8 @@ import {
   MenuItem,
   Snackbar,
   Alert
-} from "@mui/material";
-import { useNavigate } from "react-router-dom";
+} from"@mui/material";
+import { useNavigate } from"react-router-dom";
 
 // K1 – Feature Flags & Experiments (Light/Dark, EVzone themed)
 // Route suggestion: /admin/system/flags
@@ -30,7 +30,7 @@ import { useNavigate } from "react-router-dom";
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "System · Feature flags".
+//    - Header shows EVZONE ADMIN and subtitle"System · Feature flags".
 //    - Left card lists flags with columns: Name, Key, Status, Type.
 //    - Right card shows an editor for the selected flag: name, key, module,
 //      status, type and targeting segment.
@@ -39,15 +39,15 @@ import { useNavigate } from "react-router-dom";
 // 3) Select flag
 //    - Clicking a row selects it and updates the editor fields.
 // 4) Edit & save
-//    - Change Name/Status/Segment and click "Save flag"; expect a console
+//    - Change Name/Status/Segment and click"Save flag"; expect a console
 //      log and an AuditLog-style entry.
 // 5) New flag
-//    - Click "+ New flag"; editor clears to defaults; saving logs creation
+//    - Click"+ New flag"; editor clears to defaults; saving logs creation
 //      for a new flag (demo only, no global persistence beyond the table).
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminFlagsLayout({ children }) {
@@ -83,30 +83,30 @@ function AdminFlagsLayout({ children }) {
 const INITIAL_FLAGS = [
   {
     id: 1,
-    name: "New rides home screen",
-    key: "rides.home.v2",
-    module: "Rides",
-    status: "On",
-    type: "Feature",
-    segment: "All users",
+    name:"New rides home screen",
+    key:"rides.home.v2",
+    module:"Rides",
+    status:"On",
+    type:"Feature",
+    segment:"All users",
   },
   {
     id: 2,
-    name: "Delivery price experiment",
-    key: "delivery.pricing.ab",
-    module: "Deliveries",
-    status: "Running",
-    type: "Experiment",
-    segment: "10% random",
+    name:"Delivery price experiment",
+    key:"delivery.pricing.ab",
+    module:"Deliveries",
+    status:"Running",
+    type:"Experiment",
+    segment:"10% random",
   },
   {
     id: 3,
-    name: "EV-only banner",
-    key: "global.evOnlyBanner",
-    module: "Global",
-    status: "Off",
-    type: "Feature",
-    segment: "All users",
+    name:"EV-only banner",
+    key:"global.evOnlyBanner",
+    module:"Global",
+    status:"Off",
+    type:"Feature",
+    segment:"All users",
   },
 ];
 
@@ -140,12 +140,12 @@ export default function FeatureFlagsExperimentsPage() {
   const handleNewFlag = () => {
     const draft = {
       id: null,
-      name: "",
-      key: "",
-      module: "Global",
-      status: "Off",
-      type: "Feature",
-      segment: "All users",
+      name:"",
+      key:"",
+      module:"Global",
+      status:"Off",
+      type:"Feature",
+      segment:"All users",
     };
     setSelectedId(null);
     setEditing(draft);
@@ -166,17 +166,17 @@ export default function FeatureFlagsExperimentsPage() {
       setSelectedId(nextId);
       console.log("Feature flag created:", newFlag);
       console.log("AuditLog:", {
-        event: "FLAG_CREATED",
+        event:"FLAG_CREATED",
         flagId: nextId,
         key: newFlag.key,
         at: new Date().toISOString(),
-        actor: "Admin (simulated)",
+        actor:"Admin (simulated)",
       });
     } else {
       setFlags((prev) => prev.map((f) => (f.id === editing.id ? { ...editing } : f)));
       console.log("Feature flag updated:", editing);
       console.log("AuditLog:", {
-        event: "FLAG_UPDATED",
+        event:"FLAG_UPDATED",
         flagId: editing.id,
       });
     }
@@ -193,15 +193,15 @@ export default function FeatureFlagsExperimentsPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Box className="flex items-center justify-between gap-2">
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900"
+                className="font-semibold"
               >
                 Flags & experiments
               </Typography>
@@ -209,7 +209,7 @@ export default function FeatureFlagsExperimentsPage() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 11,
                 }}
@@ -223,7 +223,7 @@ export default function FeatureFlagsExperimentsPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
                     <TableCell>Name</TableCell>
                     <TableCell>Key</TableCell>
                     <TableCell>Status</TableCell>
@@ -235,7 +235,7 @@ export default function FeatureFlagsExperimentsPage() {
                     <TableRow
                       key={flag.id}
                       hover
-                      sx={{ cursor: "pointer" }}
+                      sx={{ cursor:"pointer" }}
                       selected={flag.id === selectedId}
                       onClick={() => handleRowClick(flag)}
                     >
@@ -265,14 +265,14 @@ export default function FeatureFlagsExperimentsPage() {
           sx={{
             flex: 1.3,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #e0f2fe, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Flag editor
             </Typography>
@@ -285,7 +285,7 @@ export default function FeatureFlagsExperimentsPage() {
                   fullWidth
                   value={editing.name}
                   onChange={handleFieldChange("name")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 />
               </FieldWithLabel>
               <FieldWithLabel label="Key">
@@ -294,7 +294,7 @@ export default function FeatureFlagsExperimentsPage() {
                   fullWidth
                   value={editing.key}
                   onChange={handleFieldChange("key")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 />
               </FieldWithLabel>
               <FieldWithLabel label="Module">
@@ -303,7 +303,7 @@ export default function FeatureFlagsExperimentsPage() {
                   fullWidth
                   value={editing.module}
                   onChange={handleFieldChange("module")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="Global">Global</MenuItem>
                   <MenuItem value="Rides">Rides</MenuItem>
@@ -317,7 +317,7 @@ export default function FeatureFlagsExperimentsPage() {
                   fullWidth
                   value={editing.status}
                   onChange={handleFieldChange("status")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="On">On</MenuItem>
                   <MenuItem value="Off">Off</MenuItem>
@@ -330,7 +330,7 @@ export default function FeatureFlagsExperimentsPage() {
                   fullWidth
                   value={editing.type}
                   onChange={handleFieldChange("type")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="Feature">Feature</MenuItem>
                   <MenuItem value="Experiment">Experiment</MenuItem>
@@ -342,7 +342,7 @@ export default function FeatureFlagsExperimentsPage() {
                   fullWidth
                   value={editing.segment}
                   onChange={handleFieldChange("segment")}
-                  sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+                  sx={{"& .MuiOutlinedInput-root": {  } }}
                 >
                   <MenuItem value="All users">All users</MenuItem>
                   <MenuItem value="Beta users">Beta users</MenuItem>
@@ -352,12 +352,12 @@ export default function FeatureFlagsExperimentsPage() {
             </Box>
 
             <Box className="flex items-center justify-end gap-2 mt-2">
-              {editing.type === "Experiment" && editing.status !== "Off" && (
+              {editing.type ==="Experiment" && editing.status !=="Off" && (
                 <Button
                   variant="outlined"
                   size="small"
                   sx={{
-                    textTransform: "none",
+                    textTransform:"none",
                     borderRadius: 999,
                     fontSize: 12,
                   }}
@@ -370,11 +370,10 @@ export default function FeatureFlagsExperimentsPage() {
                 variant="contained"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 12,
-                  bgcolor: EV_COLORS.primary,
-                  "&:hover": { bgcolor: "#0fb589" },
+                  bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                 }}
                 onClick={handleSave}
               >
@@ -389,9 +388,9 @@ export default function FeatureFlagsExperimentsPage() {
         open={snackbarOpen}
         autoHideDuration={4000}
         onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{ vertical:"bottom", horizontal:"right" }}
       >
-        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: "100%" }}>
+        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width:"100%" }}>
           Feature flag saved successfully
         </Alert>
       </Snackbar>

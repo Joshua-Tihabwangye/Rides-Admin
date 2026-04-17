@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -10,7 +10,7 @@ import {
   Divider,
   Snackbar,
   Alert
-} from "@mui/material";
+} from"@mui/material";
 
 // K2 – Integrations (Light/Dark, EVzone themed)
 // Route suggestion: /admin/system/integrations
@@ -20,21 +20,21 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "System · Integrations".
-//    - Title "Integrations" with short description.
+//    - Header shows EVZONE ADMIN and subtitle"System · Integrations".
+//    - Title"Integrations" with short description.
 //    - A grid of integration status cards (Payments, SMS, Maps, Analytics)
 //      is visible, each with a status chip and last error/last sync text.
 // 2) Theme toggle
 //    - Toggle Light/Dark; status cards update colours but preserve their
 //      contents.
 // 3) Action buttons
-//    - Clicking "View details" logs a message with the integration id.
-//    - Clicking "Reconnect" or "Refresh" logs a message plus an AuditLog
+//    - Clicking"View details" logs a message with the integration id.
+//    - Clicking"Reconnect" or"Refresh" logs a message plus an AuditLog
 //      style entry (simulated) indicating an integration update.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminIntegrationsLayout({ children }) {
@@ -69,42 +69,42 @@ function AdminIntegrationsLayout({ children }) {
 
 const INITIAL_INTEGRATIONS = [
   {
-    id: "payments",
-    name: "Payments gateway",
-    provider: "ExamplePay",
-    status: "Connected",
-    lastError: "None",
-    lastSync: "2025-11-25 17:40",
+    id:"payments",
+    name:"Payments gateway",
+    provider:"ExamplePay",
+    status:"Connected",
+    lastError:"None",
+    lastSync:"2025-11-25 17:40",
   },
   {
-    id: "sms",
-    name: "SMS provider",
-    provider: "ExampleSMS",
-    status: "Degraded",
-    lastError: "High latency on delivery receipts",
-    lastSync: "2025-11-25 17:35",
+    id:"sms",
+    name:"SMS provider",
+    provider:"ExampleSMS",
+    status:"Degraded",
+    lastError:"High latency on delivery receipts",
+    lastSync:"2025-11-25 17:35",
   },
   {
-    id: "maps",
-    name: "Maps",
-    provider: "MapBox",
-    status: "Connected",
-    lastError: "None",
-    lastSync: "2025-11-25 17:39",
+    id:"maps",
+    name:"Maps",
+    provider:"MapBox",
+    status:"Connected",
+    lastError:"None",
+    lastSync:"2025-11-25 17:39",
   },
   {
-    id: "analytics",
-    name: "Analytics",
-    provider: "ExampleAnalytics",
-    status: "Error",
-    lastError: "Auth token expired",
-    lastSync: "2025-11-25 17:20",
+    id:"analytics",
+    name:"Analytics",
+    provider:"ExampleAnalytics",
+    status:"Error",
+    lastError:"Auth token expired",
+    lastSync:"2025-11-25 17:20",
   },
 ];
 
 export default function IntegrationsPage() {
   const [integrations, setIntegrations] = useState(INITIAL_INTEGRATIONS);
-  const [feedback, setFeedback] = useState({ open: false, message: "", severity: "info" });
+  const [feedback, setFeedback] = useState({ open: false, message:"", severity:"info" });
 
   const handleViewDetails = (integration) => {
     console.log("View integration details:", integration.id);
@@ -114,13 +114,13 @@ export default function IntegrationsPage() {
     console.log(`Integration action ${action} on`, integration.id);
 
     // Simulate action effect
-    if (action === "reconnect" || action === "refresh") {
+    if (action ==="reconnect" || action ==="refresh") {
       setIntegrations(prev => prev.map(item => {
         if (item.id === integration.id) {
           return {
             ...item,
-            status: "Connected",
-            lastError: "None",
+            status:"Connected",
+            lastError:"None",
             lastSync: new Date().toLocaleString()
           };
         }
@@ -130,17 +130,17 @@ export default function IntegrationsPage() {
       setFeedback({
         open: true,
         message: `Successfully ${action}ed ${integration.name}. Status is now Connected.`,
-        severity: "success"
+        severity:"success"
       });
     }
 
     console.log("AuditLog:", {
-      event: "INTEGRATION_ACTION",
+      event:"INTEGRATION_ACTION",
       integrationId: integration.id,
       provider: integration.provider,
       action,
       at: new Date().toISOString(),
-      actor: "Admin (simulated)",
+      actor:"Admin (simulated)",
     });
   };
 
@@ -151,12 +151,12 @@ export default function IntegrationsPage() {
         open={feedback.open}
         autoHideDuration={4000}
         onClose={() => setFeedback({ ...feedback, open: false })}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{ vertical:"bottom", horizontal:"right" }}
       >
         <Alert
           onClose={() => setFeedback({ ...feedback, open: false })}
           severity={feedback.severity}
-          sx={{ width: "100%" }}
+          sx={{ width:"100%" }}
         >
           {feedback.message}
         </Alert>
@@ -178,19 +178,19 @@ export default function IntegrationsPage() {
 
 function StatusCard({ integration, onViewDetails, onAction }) {
   const statusColor =
-    integration.status === "Connected"
-      ? "#22c55e"
-      : integration.status === "Degraded"
-        ? "#f97316"
-        : "#ef4444";
+    integration.status ==="Connected"
+      ?"#22c55e"
+      : integration.status ==="Degraded"
+        ?"#f97316"
+        :"#ef4444";
 
   return (
     <Card
       elevation={1}
       sx={{
         borderRadius: 8,
-        border: "1px solid rgba(148,163,184,0.5)",
-        background: "linear-gradient(145deg, #ffffff, #f9fafb)",
+        border:"1px solid rgba(148,163,184,0.5)",
+        
       }}
     >
       <CardContent className="p-4 flex flex-col gap-2">
@@ -198,7 +198,7 @@ function StatusCard({ integration, onViewDetails, onAction }) {
           <Box>
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               {integration.name}
             </Typography>
@@ -223,12 +223,12 @@ function StatusCard({ integration, onViewDetails, onAction }) {
 
         <Divider className="!my-1" />
 
-        <Box className="flex flex-col gap-1 text-[11px] text-slate-600">
+        <Box className="flex flex-col gap-1 text-[11px] text-slate-500">
           <Typography variant="caption">
             Last sync: {integration.lastSync}
           </Typography>
           <Typography variant="caption">
-            Last error: {integration.lastError || "None"}
+            Last error: {integration.lastError ||"None"}
           </Typography>
         </Box>
 
@@ -237,11 +237,11 @@ function StatusCard({ integration, onViewDetails, onAction }) {
             variant="text"
             size="small"
             sx={{
-              textTransform: "none",
+              textTransform:"none",
               fontSize: 11,
-              minWidth: "auto",
+              minWidth:"auto",
               padding: 0,
-              color: "#4b5563",
+              color:"#4b5563",
             }}
             onClick={onViewDetails}
           >
@@ -252,7 +252,7 @@ function StatusCard({ integration, onViewDetails, onAction }) {
               variant="outlined"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 11,
               }}
@@ -264,11 +264,10 @@ function StatusCard({ integration, onViewDetails, onAction }) {
               variant="contained"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 11,
-                bgcolor: EV_COLORS.primary,
-                "&:hover": { bgcolor: "#0fb589" },
+                bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
               }}
               onClick={() => onAction("reconnect")}
             >

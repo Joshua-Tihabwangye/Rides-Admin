@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -18,17 +18,17 @@ import {
   TableCell,
   TableContainer,
   Paper,
-} from "@mui/material";
+} from"@mui/material";
 
 // H3 – Policy & Rule Management (Light/Dark, EVzone themed)
 // Route suggestion: /admin/policies
-// Central place to define rules like "IF 3 low ratings in 5 trips, THEN
+// Central place to define rules like"IF 3 low ratings in 5 trips, THEN
 // require retraining". Uses a generic RuleBuilder pattern similar to F4.
 //
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Policy & Rule Management".
+//    - Header shows EVZONE ADMIN and subtitle"Policy & Rule Management".
 //    - Left card lists a few sample rules with type (Safety/Risk/Pricing).
 //    - Right side shows a rule editor with Event, Condition, Window and
 //      Action fields.
@@ -38,15 +38,15 @@ import {
 //    - Clicking a rule in the table selects it and updates the editor fields
 //      (demo initial mapping).
 // 4) Edit rule
-//    - Change fields in the rule builder and click "Save rule"; expect a
+//    - Change fields in the rule builder and click"Save rule"; expect a
 //      console log with the new rule definition.
 // 5) New rule
-//    - Click "+ New rule"; editor should clear to a default, and the next
-//      "Save rule" logs a new rule (for now, no persistence in the list).
+//    - Click"+ New rule"; editor should clear to a default, and the next
+//"Save rule" logs a new rule (for now, no persistence in the list).
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminPolicyLayout({ children }) {
@@ -65,7 +65,7 @@ function AdminPolicyLayout({ children }) {
           <Typography
             variant="caption"
             className={`text-[11px] ${
-              isDark ? "text-slate-400" : "text-slate-600"
+              isDark ?"text-slate-400" :"text-slate-600"
             }`}
           >
             Define automation rules for safety, risk and pricing – the same
@@ -83,26 +83,25 @@ function AdminPolicyLayout({ children }) {
 
 const SAMPLE_RULES = [
   {
-    id: "RULE-LOW-RATING",
-    name: "Low rating streak",
-    type: "Safety",
-    scope: "Drivers",
-    description: "IF rating < 3.0 in 5 trips, THEN require retraining.",
+    id:"RULE-LOW-RATING",
+    name:"Low rating streak",
+    type:"Safety",
+    scope:"Drivers",
+    description:"IF rating < 3.0 in 5 trips, THEN require retraining.",
   },
   {
-    id: "RULE-FRAUD-REFUND",
-    name: "Refund abuse",
-    type: "Risk",
-    scope: "Riders",
-    description: "IF >3 refunds in 7 days, THEN limit cash trips.",
+    id:"RULE-FRAUD-REFUND",
+    name:"Refund abuse",
+    type:"Risk",
+    scope:"Riders",
+    description:"IF >3 refunds in 7 days, THEN limit cash trips.",
   },
   {
-    id: "RULE-CANCEL-DRIVER",
-    name: "Driver cancellations",
-    type: "Safety",
-    scope: "Drivers",
-    description:
-      "IF cancellation rate > 10% over 7 days, THEN flag for review.",
+    id:"RULE-CANCEL-DRIVER",
+    name:"Driver cancellations",
+    type:"Safety",
+    scope:"Drivers",
+    description:"IF cancellation rate > 10% over 7 days, THEN flag for review.",
   },
 ];
 
@@ -127,14 +126,14 @@ function RuleBuilder({ rule, onChange, onSave }) {
       elevation={1}
       sx={{
         borderRadius: 8,
-        border: "1px solid rgba(148,163,184,0.5)",
-        background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+        border:"1px solid rgba(148,163,184,0.5)",
+        
       }}
     >
       <CardContent className="p-4 flex flex-col gap-3">
         <Typography
           variant="subtitle2"
-          className="font-semibold text-slate-900"
+          className="font-semibold"
         >
           Rule builder
         </Typography>
@@ -159,7 +158,7 @@ function RuleBuilder({ rule, onChange, onSave }) {
               value={rule.event}
               onChange={handleChange("event")}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             >
               <MenuItem value="Low rating">
                 Low rating on trip
@@ -183,7 +182,7 @@ function RuleBuilder({ rule, onChange, onSave }) {
               value={rule.appliesTo}
               onChange={handleChange("appliesTo")}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             >
               <MenuItem value="Riders">Riders</MenuItem>
               <MenuItem value="Drivers">Drivers</MenuItem>
@@ -204,9 +203,7 @@ function RuleBuilder({ rule, onChange, onSave }) {
               value={rule.count}
               onChange={handleNumberChange("count")}
               inputProps={{ min: 1 }}
-              sx={{
-                "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
-                "& .MuiInputBase-input": { fontSize: 12 },
+              sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
               }}
             />
           </Box>
@@ -223,7 +220,7 @@ function RuleBuilder({ rule, onChange, onSave }) {
               value={rule.window}
               onChange={handleChange("window")}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             >
               <MenuItem value="24h">Last 24h</MenuItem>
               <MenuItem value="7d">Last 7 days</MenuItem>
@@ -243,7 +240,7 @@ function RuleBuilder({ rule, onChange, onSave }) {
               value={rule.action}
               onChange={handleChange("action")}
               fullWidth
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" } }}
+              sx={{"& .MuiOutlinedInput-root": {  } }}
             >
               <MenuItem value="Require retraining">
                 Require retraining
@@ -263,18 +260,17 @@ function RuleBuilder({ rule, onChange, onSave }) {
             className="text-[11px] text-slate-500"
           >
             IF {rule.event} happens {rule.count} times for {rule.appliesTo} in
-            {" "}
+            {""}
             {rule.window}, THEN {rule.action}.
           </Typography>
           <Button
             variant="contained"
             size="small"
             sx={{
-              textTransform: "none",
+              textTransform:"none",
               borderRadius: 999,
               fontSize: 12,
-              bgcolor: EV_COLORS.primary,
-              "&:hover": { bgcolor: "#0fb589" },
+              bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
             }}
             onClick={handleSave}
           >
@@ -290,39 +286,39 @@ export default function PolicyRuleManagementPage() {
   const [rules] = useState(SAMPLE_RULES);
   const [selectedRuleId, setSelectedRuleId] = useState(SAMPLE_RULES[0].id);
   const [editingRule, setEditingRule] = useState({
-    event: "Low rating",
-    appliesTo: "Drivers",
+    event:"Low rating",
+    appliesTo:"Drivers",
     count: 3,
-    window: "7d",
-    action: "Require retraining",
+    window:"7d",
+    action:"Require retraining",
   });
 
   const handleRuleRowClick = (rule) => {
     setSelectedRuleId(rule.id);
     // Demo mapping of rule list to builder (would come from backend in real app)
-    if (rule.id === "RULE-LOW-RATING") {
+    if (rule.id ==="RULE-LOW-RATING") {
       setEditingRule({
-        event: "Low rating",
-        appliesTo: "Drivers",
+        event:"Low rating",
+        appliesTo:"Drivers",
         count: 3,
-        window: "7d",
-        action: "Require retraining",
+        window:"7d",
+        action:"Require retraining",
       });
-    } else if (rule.id === "RULE-FRAUD-REFUND") {
+    } else if (rule.id ==="RULE-FRAUD-REFUND") {
       setEditingRule({
-        event: "Refund requested",
-        appliesTo: "Riders",
+        event:"Refund requested",
+        appliesTo:"Riders",
         count: 3,
-        window: "7d",
-        action: "Limit features",
+        window:"7d",
+        action:"Limit features",
       });
-    } else if (rule.id === "RULE-CANCEL-DRIVER") {
+    } else if (rule.id ==="RULE-CANCEL-DRIVER") {
       setEditingRule({
-        event: "Cancellation",
-        appliesTo: "Drivers",
+        event:"Cancellation",
+        appliesTo:"Drivers",
         count: 5,
-        window: "7d",
-        action: "Notify Safety desk",
+        window:"7d",
+        action:"Notify Safety desk",
       });
     }
   };
@@ -334,11 +330,11 @@ export default function PolicyRuleManagementPage() {
   const handleNewRule = () => {
     setSelectedRuleId("NEW-RULE");
     setEditingRule({
-      event: "Low rating",
-      appliesTo: "Riders",
+      event:"Low rating",
+      appliesTo:"Riders",
       count: 1,
-      window: "24h",
-      action: "Notify Safety desk",
+      window:"24h",
+      action:"Notify Safety desk",
     });
   };
 
@@ -358,15 +354,15 @@ export default function PolicyRuleManagementPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Box className="flex items-center justify-between gap-2">
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900"
+                className="font-semibold"
               >
                 Rules
               </Typography>
@@ -374,7 +370,7 @@ export default function PolicyRuleManagementPage() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 11,
                 }}
@@ -388,7 +384,7 @@ export default function PolicyRuleManagementPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
                     <TableCell>Rule</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Scope</TableCell>
@@ -399,7 +395,7 @@ export default function PolicyRuleManagementPage() {
                     <TableRow
                       key={rule.id}
                       hover
-                      sx={{ cursor: "pointer" }}
+                      sx={{ cursor:"pointer" }}
                       selected={rule.id === selectedRuleId}
                       onClick={() => handleRuleRowClick(rule)}
                     >

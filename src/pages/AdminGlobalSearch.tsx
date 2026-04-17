@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from"react";
 import {
   Box,
   Card,
@@ -21,19 +21,19 @@ import {
   MenuItem,
   TextField,
   InputAdornment,
-} from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { getRiders, getDrivers } from "../lib/peopleStore";
+} from"@mui/material";
+import SearchIcon from"@mui/icons-material/Search";
+import { useNavigate, useSearchParams } from"react-router-dom";
+import { getRiders, getDrivers } from"../lib/peopleStore";
 
 // B1 – Global Search (v2, with Trips + Incidents, tabs, and filters)
 // Route: /admin/search
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
-  trips: "#3b82f6",
-  incidents: "#ef4444",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
+  trips:"#3b82f6",
+  incidents:"#ef4444",
 };
 
 // Companies data stored in localStorage for consistency across pages
@@ -42,43 +42,43 @@ const COMPANIES_KEY = 'evzone_admin_companies';
 const seedCompanies = [
   {
     id: 1,
-    name: "GreenMove Fleet",
-    regions: "Kampala, Entebbe",
-    type: "Fleet Partner",
+    name:"GreenMove Fleet",
+    regions:"Kampala, Entebbe",
+    type:"Fleet Partner",
     drivers: 12,
     vehicles: 12,
-    commission: "12%",
-    status: "Active",
+    commission:"12%",
+    status:"Active",
   },
   {
     id: 2,
-    name: "City Cabs Co.",
-    regions: "Kigali",
-    type: "Taxi Fleet",
+    name:"City Cabs Co.",
+    regions:"Kigali",
+    type:"Taxi Fleet",
     drivers: 45,
     vehicles: 40,
-    commission: "15%",
-    status: "Active",
+    commission:"15%",
+    status:"Active",
   },
   {
     id: 3,
-    name: "Blue Delivery",
-    regions: "Nairobi",
-    type: "Logistics",
+    name:"Blue Delivery",
+    regions:"Nairobi",
+    type:"Logistics",
     drivers: 120,
     vehicles: 115,
-    commission: "10%",
-    status: "Suspended",
+    commission:"10%",
+    status:"Suspended",
   },
   {
     id: 4,
-    name: "Swift Riders",
-    regions: "Lagos",
-    type: "Fleet Partner",
+    name:"Swift Riders",
+    regions:"Lagos",
+    type:"Fleet Partner",
     drivers: 78,
     vehicles: 65,
-    commission: "14%",
-    status: "Inactive",
+    commission:"14%",
+    status:"Inactive",
   },
 ];
 
@@ -95,8 +95,8 @@ function getCompanies() {
 // Trips and Incidents are derived from riders and drivers data
 function generateTrips(riders, drivers) {
   const trips = [];
-  const statuses = ["Completed", "In Progress", "Cancelled"];
-  const cities = ["Kampala", "Lagos", "Nairobi", "Kigali", "Accra"];
+  const statuses = ["Completed","In Progress","Cancelled"];
+  const cities = ["Kampala","Lagos","Nairobi","Kigali","Accra"];
   
   riders.forEach((rider, idx) => {
     if (rider.trips > 0) {
@@ -104,7 +104,7 @@ function generateTrips(riders, drivers) {
       trips.push({
         id: `TRP-${String(rider.id).padStart(3, '0')}`,
         rider: rider.name,
-        driver: driver?.name || "Unassigned",
+        driver: driver?.name ||"Unassigned",
         route: `${rider.city} CBD → ${cities[(idx + 1) % cities.length]}`,
         status: statuses[idx % statuses.length],
         date: new Date(Date.now() - idx * 86400000).toISOString().split('T')[0],
@@ -117,18 +117,18 @@ function generateTrips(riders, drivers) {
 
 function generateIncidents(riders, drivers) {
   const incidents = [];
-  const types = ["Accident", "Harassment", "Lost Item", "Vehicle Issue", "Payment Dispute"];
-  const severities = ["High", "Medium", "Low"];
+  const types = ["Accident","Harassment","Lost Item","Vehicle Issue","Payment Dispute"];
+  const severities = ["High","Medium","Low"];
   
   // Generate incidents for high-risk users
   [...riders, ...drivers].forEach((user, idx) => {
-    if (user.risk === "High" || idx % 5 === 0) {
+    if (user.risk ==="High" || idx % 5 === 0) {
       incidents.push({
         id: `INC-${String(user.id).padStart(3, '0')}`,
         type: types[idx % types.length],
         user: user.name,
         city: user.city,
-        severity: user.risk === "High" ? "High" : severities[idx % severities.length],
+        severity: user.risk ==="High" ?"High" : severities[idx % severities.length],
         date: new Date(Date.now() - idx * 86400000).toISOString().split('T')[0],
       });
     }
@@ -139,7 +139,7 @@ function generateIncidents(riders, drivers) {
 export default function AdminGlobalSearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const queryParam = searchParams.get("query") || "";
+  const queryParam = searchParams.get("query") ||"";
 
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState(queryParam);
@@ -213,32 +213,32 @@ export default function AdminGlobalSearchPage() {
   const filteredIncidents = filterByRegion(filterBySearch(allIncidents, ['user', 'type', 'city', 'id']));
 
   const tabs = [
-    { label: "All", count: filteredRiders.length + filteredDrivers.length + filteredCompanies.length + filteredTrips.length + filteredIncidents.length },
-    { label: "Riders", count: filteredRiders.length },
-    { label: "Drivers", count: filteredDrivers.length },
-    { label: "Companies", count: filteredCompanies.length },
-    { label: "Trips", count: filteredTrips.length },
-    { label: "Incidents", count: filteredIncidents.length },
+    { label:"All", count: filteredRiders.length + filteredDrivers.length + filteredCompanies.length + filteredTrips.length + filteredIncidents.length },
+    { label:"Riders", count: filteredRiders.length },
+    { label:"Drivers", count: filteredDrivers.length },
+    { label:"Companies", count: filteredCompanies.length },
+    { label:"Trips", count: filteredTrips.length },
+    { label:"Incidents", count: filteredIncidents.length },
   ];
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case "active":
-      case "completed":
-        return "success";
-      case "pending":
-      case "in progress":
-        return "warning";
-      case "suspended":
-      case "cancelled":
-      case "high":
-        return "error";
-      case "medium":
-        return "warning";
-      case "low":
-        return "info";
+      case"active":
+      case"completed":
+        return"success";
+      case"pending":
+      case"in progress":
+        return"warning";
+      case"suspended":
+      case"cancelled":
+      case"high":
+        return"error";
+      case"medium":
+        return"warning";
+      case"low":
+        return"info";
       default:
-        return "default";
+        return"default";
     }
   };
 
@@ -250,7 +250,7 @@ export default function AdminGlobalSearchPage() {
         borderRadius: 2,
         cursor: 'pointer',
         border: `1px solid ${color}44`,
-        bgcolor: "background.paper",
+        bgcolor:"background.paper",
         transition: 'transform 0.2s, box-shadow 0.2s',
         '&:hover': {
           transform: 'translateY(-2px)',
@@ -270,7 +270,7 @@ export default function AdminGlobalSearchPage() {
           {items.slice(0, 2).map((item, idx) => (
             <Box key={idx} className="flex flex-col rounded-md px-2 py-1 hover:bg-black/5">
               <span className="font-medium">{item.name || item.id}</span>
-              <span className="text-[11px] text-slate-600">
+              <span className="text-[11px] text-slate-500">
                 {item.city || item.route || item.type} · {item.phone || item.vehicle || (item.drivers ? `${item.drivers} drivers` : '') || item.rider || item.user}
               </span>
               <Chip 
@@ -295,7 +295,7 @@ export default function AdminGlobalSearchPage() {
     <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
       {renderEntityPanel("Riders", EV_COLORS.primary, filteredRiders, () => navigate('/admin/riders'))}
       {renderEntityPanel("Drivers", EV_COLORS.secondary, filteredDrivers, () => navigate('/admin/drivers'))}
-      {renderEntityPanel("Companies", "#94a3b8", filteredCompanies, () => navigate('/admin/companies'))}
+      {renderEntityPanel("Companies","#94a3b8", filteredCompanies, () => navigate('/admin/companies'))}
       {renderEntityPanel("Trips", EV_COLORS.trips, filteredTrips, () => navigate('/admin/ops'))}
       {renderEntityPanel("Incidents", EV_COLORS.incidents, filteredIncidents, () => navigate('/admin/risk'))}
     </Box>
@@ -531,8 +531,7 @@ export default function AdminGlobalSearchPage() {
                 </InputAdornment>
               ),
             }}
-            sx={{
-              "& .MuiOutlinedInput-root": { borderRadius: 2 },
+            sx={{"& .MuiOutlinedInput-root": { borderRadius: 2 },
             }}
           />
         </CardContent>

@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -19,63 +19,63 @@ import {
   InputAdornment,
   Select,
   MenuItem,
-} from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import { ArrowBack } from "@mui/icons-material";
+} from"@mui/material";
+import SearchIcon from"@mui/icons-material/Search";
+import { ArrowBack } from"@mui/icons-material";
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 const ALL_ZONES = [
   {
-    id: "UG-Z1",
-    name: "Kampala Central",
-    city: "Kampala",
-    country: "Uganda",
-    services: "Ride, Delivery, Rental",
-    specialPricing: "Peak evening surcharge",
+    id:"UG-Z1",
+    name:"Kampala Central",
+    city:"Kampala",
+    country:"Uganda",
+    services:"Ride, Delivery, Rental",
+    specialPricing:"Peak evening surcharge",
   },
   {
-    id: "UG-Z2",
-    name: "Airport / Entebbe",
-    city: "Entebbe",
-    country: "Uganda",
-    services: "Ride, Delivery",
-    specialPricing: "Airport pickup fee",
+    id:"UG-Z2",
+    name:"Airport / Entebbe",
+    city:"Entebbe",
+    country:"Uganda",
+    services:"Ride, Delivery",
+    specialPricing:"Airport pickup fee",
   },
   {
-    id: "KE-Z1",
-    name: "Nairobi CBD",
-    city: "Nairobi",
-    country: "Kenya",
-    services: "Ride, Delivery, Rental",
-    specialPricing: "Standard",
+    id:"KE-Z1",
+    name:"Nairobi CBD",
+    city:"Nairobi",
+    country:"Kenya",
+    services:"Ride, Delivery, Rental",
+    specialPricing:"Standard",
   },
   {
-    id: "KE-Z2",
-    name: "Westlands",
-    city: "Nairobi",
-    country: "Kenya",
-    services: "Ride, Delivery",
-    specialPricing: "Night surcharge",
+    id:"KE-Z2",
+    name:"Westlands",
+    city:"Nairobi",
+    country:"Kenya",
+    services:"Ride, Delivery",
+    specialPricing:"Night surcharge",
   },
   {
-    id: "RW-Z1",
-    name: "Kigali Central",
-    city: "Kigali",
-    country: "Rwanda",
-    services: "Ride, Delivery",
-    specialPricing: "Standard",
+    id:"RW-Z1",
+    name:"Kigali Central",
+    city:"Kigali",
+    country:"Rwanda",
+    services:"Ride, Delivery",
+    specialPricing:"Standard",
   },
   {
-    id: "NG-Z1",
-    name: "Lagos Mainland",
-    city: "Lagos",
-    country: "Nigeria",
-    services: "Ride, Delivery, Rental",
-    specialPricing: "Peak hours surcharge",
+    id:"NG-Z1",
+    name:"Lagos Mainland",
+    city:"Lagos",
+    country:"Nigeria",
+    services:"Ride, Delivery, Rental",
+    specialPricing:"Peak hours surcharge",
   },
 ];
 
@@ -88,7 +88,7 @@ export default function ZonesList() {
     const matchesSearch =
       zone.name.toLowerCase().includes(search.toLowerCase()) ||
       zone.city.toLowerCase().includes(search.toLowerCase());
-    const matchesCountry = countryFilter === "All" || zone.country === countryFilter;
+    const matchesCountry = countryFilter ==="All" || zone.country === countryFilter;
     return matchesSearch && matchesCountry;
   });
 
@@ -100,12 +100,12 @@ export default function ZonesList() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
+      <Box sx={{ mb: 3, display:"flex", alignItems:"center", gap: 2 }}>
         <Button
           size="small"
           startIcon={<ArrowBack />}
           onClick={() => navigate("/admin/pricing")}
-          sx={{ textTransform: "none" }}
+          sx={{ textTransform:"none" }}
         >
           Back to Pricing
         </Button>
@@ -121,7 +121,7 @@ export default function ZonesList() {
 
       {/* Filters */}
       <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", p: 2 }}>
+        <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <TextField
             size="small"
             placeholder="Search zones..."
@@ -134,7 +134,7 @@ export default function ZonesList() {
                 </InputAdornment>
               ),
             }}
-            sx={{ width: 300, "& .MuiOutlinedInput-root": { borderRadius: 8 } }}
+            sx={{ width: 300,"& .MuiOutlinedInput-root": { borderRadius: 8 } }}
           />
           <Select
             size="small"
@@ -171,9 +171,9 @@ export default function ZonesList() {
                   key={zone.id}
                   hover
                   onClick={() => handleRowClick(zone.id)}
-                  sx={{ cursor: "pointer" }}
+                  sx={{ cursor:"pointer" }}
                 >
-                  <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{zone.id}</TableCell>
+                  <TableCell sx={{ fontFamily:"monospace", fontSize: 12 }}>{zone.id}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{zone.name}</TableCell>
                   <TableCell>{zone.city}</TableCell>
                   <TableCell>
@@ -185,7 +185,7 @@ export default function ZonesList() {
               ))}
               {filteredZones.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 3, color:"text.secondary" }}>
                     No zones found.
                   </TableCell>
                 </TableRow>

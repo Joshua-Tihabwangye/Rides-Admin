@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from"react";
 import {
   Box,
   Card,
@@ -22,17 +22,17 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-} from "@mui/material";
+} from"@mui/material";
 
 // D3 – Roles & Permissions (Light/Dark, EVzone themed, with editable RoleMatrix)
 // Route suggestion: /admin/roles
-// Shows list of roles and a RoleMatrix editor. "New role" opens a popup
+// Shows list of roles and a RoleMatrix editor."New role" opens a popup
 // dialog. Non–Super Admin roles have editable matrices and description.
 //
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle "Roles & Permissions".
+//    - Header shows EVZONE ADMIN and subtitle"Roles & Permissions".
 //    - Left card lists roles (Super Admin, Mobility Admin, Finance Admin,
 //      Read-only Analyst) with scope and #admins.
 //    - Right side shows selected role card and a RoleMatrix below it.
@@ -44,9 +44,9 @@ import {
 //      matrix toggles it between ✓ and - and logs the change. For Super Admin,
 //      the matrix is view-only (no changes).
 // 4) Create new role
-//    - Click "+ New role"; a dialog should open with Role name, Scope and
+//    - Click"+ New role"; a dialog should open with Role name, Scope and
 //      Description fields.
-//    - Fill in values and click "Create role"; the new role should appear in
+//    - Fill in values and click"Create role"; the new role should appear in
 //      the roles list and become selected. Its matrix should be editable.
 // 5) Edit description
 //    - For non–Super Admin roles, the description field in the right-side
@@ -57,8 +57,8 @@ import {
 //      state must remain stable.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 function AdminRolesLayout({ children }) {
@@ -90,17 +90,10 @@ function AdminRolesLayout({ children }) {
   );
 }
 
-const RESOURCES = [
-  "Riders",
-  "Drivers",
-  "Companies",
-  "Agents",
-  "Payouts",
-  "Roles & RBAC",
-  "System flags",
+const RESOURCES = ["Riders","Drivers","Companies","Agents","Payouts","Roles & RBAC","System flags",
 ];
 
-const PERMISSIONS = ["View", "Edit", "Suspend/Block", "Configure"];
+const PERMISSIONS = ["View","Edit","Suspend/Block","Configure"];
 
 function buildDefaultMatrix(roleName) {
   const base = {};
@@ -108,7 +101,7 @@ function buildDefaultMatrix(roleName) {
     base[res] = {};
     PERMISSIONS.forEach((perm) => {
       // Simple rule: Super Admin gets all, others view-only.
-      base[res][perm] = roleName === "Super Admin" ? true : perm === "View";
+      base[res][perm] = roleName ==="Super Admin" ? true : perm ==="View";
     });
   });
   return base;
@@ -142,14 +135,14 @@ function RoleMatrix({ roleName, editable = false }) {
       elevation={0}
       sx={{
         borderRadius: 8,
-        border: "1px solid rgba(148,163,184,0.6)",
-        background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+        border:"1px solid rgba(148,163,184,0.6)",
+        
       }}
     >
       <CardContent className="p-3 flex flex-col gap-2">
         <Typography
           variant="subtitle2"
-          className="font-semibold text-slate-900 mb-1"
+          className="font-semibold mb-1"
         >
           Role matrix – {roleName}
         </Typography>
@@ -175,7 +168,7 @@ function RoleMatrix({ roleName, editable = false }) {
                       align="center"
                       onClick={() => toggleCell(res, perm)}
                       sx={{
-                        cursor: editable ? "pointer" : "default",
+                        cursor: editable ?"pointer" :"default",
                         transition: 'all 0.15s ease',
                         '&:hover': editable ? {
                           bgcolor: 'action.hover',
@@ -185,16 +178,16 @@ function RoleMatrix({ roleName, editable = false }) {
                     >
                       <Chip
                         size="small"
-                        label={matrix[res][perm] ? "✓" : "-"}
+                        label={matrix[res][perm] ?"✓" :"-"}
                         sx={{
                           fontSize: 10,
                           height: 20,
                           bgcolor: matrix[res][perm]
-                            ? "#dcfce7"
-                            : "#f9fafb",
+                            ?"#dcfce7"
+                            :"#f9fafb",
                           color: matrix[res][perm]
-                            ? "#166534"
-                            : "#6b7280",
+                            ?"#166534"
+                            :"#6b7280",
                           transition: 'all 0.15s ease',
                           '&:hover': editable ? {
                             boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
@@ -216,31 +209,31 @@ function RoleMatrix({ roleName, editable = false }) {
 const INITIAL_ROLES = [
   {
     id: 1,
-    name: "Super Admin",
-    scope: "Global",
+    name:"Super Admin",
+    scope:"Global",
     admins: 3,
-    description: "Full access to all modules and RBAC.",
+    description:"Full access to all modules and RBAC.",
   },
   {
     id: 2,
-    name: "Mobility Admin",
-    scope: "Rides & Logistics",
+    name:"Mobility Admin",
+    scope:"Rides & Logistics",
     admins: 5,
-    description: "Config and operations for Rides & Logistics only.",
+    description:"Config and operations for Rides & Logistics only.",
   },
   {
     id: 3,
-    name: "Finance Admin",
-    scope: "Finance & payouts",
+    name:"Finance Admin",
+    scope:"Finance & payouts",
     admins: 2,
-    description: "Payouts, statements and adjustments.",
+    description:"Payouts, statements and adjustments.",
   },
   {
     id: 4,
-    name: "Read-only Analyst",
-    scope: "All modules (read-only)",
+    name:"Read-only Analyst",
+    scope:"All modules (read-only)",
     admins: 4,
-    description: "Reporting only, no write actions.",
+    description:"Reporting only, no write actions.",
   },
 ];
 
@@ -249,9 +242,9 @@ export default function RolesPermissionsPage() {
   const [selectedRoleId, setSelectedRoleId] = useState(INITIAL_ROLES[0].id);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newRole, setNewRole] = useState({
-    name: "",
-    scope: "",
-    description: "",
+    name:"",
+    scope:"",
+    description:"",
   });
 
   const selectedRole =
@@ -269,9 +262,9 @@ export default function RolesPermissionsPage() {
   const handleCreateRole = () => {
     const name = newRole.name.trim();
     if (!name) return;
-    const scope = newRole.scope.trim() || "Custom";
+    const scope = newRole.scope.trim() ||"Custom";
     const description =
-      newRole.description.trim() || "Custom role created from the Admin UI.";
+      newRole.description.trim() ||"Custom role created from the Admin UI.";
     const nextId = roles.length
       ? Math.max(...roles.map((r) => r.id)) + 1
       : 1;
@@ -285,7 +278,7 @@ export default function RolesPermissionsPage() {
     const updated = [...roles, roleToAdd];
     setRoles(updated);
     setSelectedRoleId(nextId);
-    setNewRole({ name: "", scope: "", description: "" });
+    setNewRole({ name:"", scope:"", description:"" });
     setCreateDialogOpen(false);
     console.log("Created new role:", roleToAdd);
   };
@@ -308,15 +301,15 @@ export default function RolesPermissionsPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Box className="flex items-center justify-between gap-2">
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900"
+                className="font-semibold"
               >
                 Roles
               </Typography>
@@ -324,7 +317,7 @@ export default function RolesPermissionsPage() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform: "none",
+                  textTransform:"none",
                   borderRadius: 999,
                   fontSize: 11,
                 }}
@@ -338,7 +331,7 @@ export default function RolesPermissionsPage() {
             <TableContainer component={Paper} elevation={0}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f3f4f6" }}>
+                  <TableRow sx={{ backgroundColor:"#f3f4f6" }}>
                     <TableCell>Role</TableCell>
                     <TableCell>Scope</TableCell>
                     <TableCell align="right">Admins</TableCell>
@@ -349,7 +342,7 @@ export default function RolesPermissionsPage() {
                     <TableRow
                       key={role.id}
                       hover
-                      sx={{ cursor: "pointer" }}
+                      sx={{ cursor:"pointer" }}
                       selected={role.id === selectedRoleId}
                       onClick={() => setSelectedRoleId(role.id)}
                     >
@@ -378,8 +371,8 @@ export default function RolesPermissionsPage() {
             elevation={1}
             sx={{
               borderRadius: 8,
-              border: "1px solid rgba(148,163,184,0.5)",
-              background: "linear-gradient(145deg, #eef2ff, #ffffff)",
+              border:"1px solid rgba(148,163,184,0.5)",
+              
             }}
           >
             <CardContent className="p-4 flex flex-col gap-3">
@@ -387,7 +380,7 @@ export default function RolesPermissionsPage() {
                 <Box className="flex-1 min-w-0">
                   <Typography
                     variant="subtitle2"
-                    className="font-semibold text-slate-900"
+                    className="font-semibold"
                   >
                     {selectedRole.name}
                   </Typography>
@@ -401,11 +394,10 @@ export default function RolesPermissionsPage() {
                     label="Description"
                     value={selectedRole.description}
                     onChange={handleDescriptionChange}
-                    disabled={selectedRole.name === "Super Admin"}
+                    disabled={selectedRole.name ==="Super Admin"}
                     fullWidth
                     sx={{
-                      mt: 1,
-                      "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
+                      mt: 1,"& .MuiOutlinedInput-root": {  },
                     }}
                   />
                 </Box>
@@ -422,8 +414,7 @@ export default function RolesPermissionsPage() {
                     value={selectedRoleId}
                     onChange={handleRoleChange}
                     sx={{
-                      minWidth: 180,
-                      "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
+                      minWidth: 180,"& .MuiOutlinedInput-root": {  },
                     }}
                   >
                     {roles.map((role) => (
@@ -439,7 +430,7 @@ export default function RolesPermissionsPage() {
 
           <RoleMatrix
             roleName={selectedRole.name}
-            editable={selectedRole.name !== "Super Admin"}
+            editable={selectedRole.name !=="Super Admin"}
           />
         </Box>
       </Box>
@@ -491,7 +482,7 @@ export default function RolesPermissionsPage() {
           <Button
             onClick={() => setCreateDialogOpen(false)}
             size="small"
-            sx={{ textTransform: "none", fontSize: 12 }}
+            sx={{ textTransform:"none", fontSize: 12 }}
           >
             Cancel
           </Button>
@@ -500,11 +491,10 @@ export default function RolesPermissionsPage() {
             size="small"
             variant="contained"
             sx={{
-              textTransform: "none",
+              textTransform:"none",
               fontSize: 12,
               borderRadius: 999,
-              bgcolor: EV_COLORS.primary,
-              "&:hover": { bgcolor: "#0fb589" },
+              bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
             }}
           >
             Create role

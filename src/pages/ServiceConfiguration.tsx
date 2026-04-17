@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -13,7 +13,7 @@ import {
   Switch,
   Snackbar,
   Alert
-} from "@mui/material";
+} from"@mui/material";
 
 // F1 – Service Configuration (Light/Dark, EVzone themed)
 // Route suggestion: /admin/services
@@ -21,8 +21,8 @@ import {
 // Rental, School shuttle, Tours, EMS, etc.)
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 const INITIAL_SERVICE_CONFIG = {
@@ -97,9 +97,9 @@ function AdminServicesLayout({ children }) {
 export default function ServiceConfigurationPage() {
   const [serviceConfig, setServiceConfig] = useState(INITIAL_SERVICE_CONFIG);
   const countries = Object.keys(serviceConfig);
-  const [country, setCountry] = useState(countries[0] || "Uganda");
+  const [country, setCountry] = useState(countries[0] ||"Uganda");
   const cities = Object.keys(serviceConfig[country] || {});
-  const [city, setCity] = useState(cities[0] || "Kampala");
+  const [city, setCity] = useState(cities[0] ||"Kampala");
   const [showSuccess, setShowSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -147,8 +147,8 @@ export default function ServiceConfigurationPage() {
         elevation={1}
         sx={{
           borderRadius: 8,
-          border: "1px solid rgba(148,163,184,0.5)",
-          background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+          border:"1px solid rgba(148,163,184,0.5)",
+          
         }}
       >
         <CardContent className="p-4 flex flex-col gap-3">
@@ -166,8 +166,7 @@ export default function ServiceConfigurationPage() {
                 value={country}
                 onChange={handleCountryChange}
                 sx={{
-                  minWidth: 160,
-                  "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
+                  minWidth: 160,"& .MuiOutlinedInput-root": {  },
                 }}
               >
                 {countries.map((c) => (
@@ -189,10 +188,10 @@ export default function ServiceConfigurationPage() {
                   sx={{
                     fontSize: 10,
                     height: 22,
-                    bgcolor: c === city ? "#ecfdf5" : "#f9fafb",
-                    borderColor: c === city ? "#bbf7d0" : "#e5e7eb",
+                    bgcolor: c === city ?"#ecfdf5" :"#f9fafb",
+                    borderColor: c === city ?"#bbf7d0" :"#e5e7eb",
                     borderWidth: 1,
-                    borderStyle: "solid",
+                    borderStyle:"solid",
                   }}
                 />
               ))}
@@ -254,11 +253,10 @@ export default function ServiceConfigurationPage() {
               size="small"
               disabled={saving}
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 2,
                 fontSize: 12,
-                bgcolor: EV_COLORS.primary,
-                "&:hover": { bgcolor: "#0fb589" },
+                bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
               }}
               onClick={handleSave}
             >
@@ -283,15 +281,15 @@ function ServiceToggle({ label, description, checked, onChange }) {
       elevation={0}
       sx={{
         borderRadius: 8,
-        border: "1px solid rgba(148,163,184,0.5)",
-        background: "#ffffff",
+        border:"1px solid rgba(148,163,184,0.5)",
+        
       }}
     >
       <CardContent className="p-3 flex items-start justify-between gap-3">
         <Box className="flex flex-col">
           <Typography
             variant="body2"
-            className="text-[13px] font-medium text-slate-900"
+            className="text-[13px] font-medium"
           >
             {label}
           </Typography>

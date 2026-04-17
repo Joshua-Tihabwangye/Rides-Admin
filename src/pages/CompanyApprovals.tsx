@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -20,77 +20,77 @@ import {
   IconButton,
   Menu,
   MenuItem,
-} from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import BlockIcon from "@mui/icons-material/Block";
-import RestoreIcon from "@mui/icons-material/Restore";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import StatusBadge from "../components/StatusBadge";
+} from"@mui/material";
+import SearchIcon from"@mui/icons-material/Search";
+import CheckCircleIcon from"@mui/icons-material/CheckCircle";
+import BlockIcon from"@mui/icons-material/Block";
+import RestoreIcon from"@mui/icons-material/Restore";
+import MoreVertIcon from"@mui/icons-material/MoreVert";
+import StatusBadge from"../components/StatusBadge";
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 // Sample companies with different statuses
 const SAMPLE_COMPANIES = [
   {
     id: 1,
-    name: "GreenMove Fleet",
-    regions: "Kampala, Entebbe",
-    type: "Fleet Partner",
+    name:"GreenMove Fleet",
+    regions:"Kampala, Entebbe",
+    type:"Fleet Partner",
     drivers: 12,
     vehicles: 12,
-    commission: "12%",
-    status: "pending",
-    appliedDate: "2024-01-15",
+    commission:"12%",
+    status:"pending",
+    appliedDate:"2024-01-15",
   },
   {
     id: 2,
-    name: "City Cabs Co.",
-    regions: "Kigali",
-    type: "Taxi Fleet",
+    name:"City Cabs Co.",
+    regions:"Kigali",
+    type:"Taxi Fleet",
     drivers: 45,
     vehicles: 40,
-    commission: "15%",
-    status: "pending",
-    appliedDate: "2024-01-20",
+    commission:"15%",
+    status:"pending",
+    appliedDate:"2024-01-20",
   },
   {
     id: 3,
-    name: "Blue Delivery",
-    regions: "Nairobi",
-    type: "Logistics",
+    name:"Blue Delivery",
+    regions:"Nairobi",
+    type:"Logistics",
     drivers: 120,
     vehicles: 115,
-    commission: "10%",
-    status: "suspended",
-    appliedDate: "2023-12-10",
-    suspendedDate: "2024-01-05",
+    commission:"10%",
+    status:"suspended",
+    appliedDate:"2023-12-10",
+    suspendedDate:"2024-01-05",
   },
   {
     id: 4,
-    name: "Sunrise Logistics",
-    regions: "Accra",
-    type: "Logistics",
+    name:"Sunrise Logistics",
+    regions:"Accra",
+    type:"Logistics",
     drivers: 85,
     vehicles: 80,
-    commission: "11%",
-    status: "pending",
-    appliedDate: "2024-01-22",
+    commission:"11%",
+    status:"pending",
+    appliedDate:"2024-01-22",
   },
   {
     id: 5,
-    name: "FastTrack Transport",
-    regions: "Lagos",
-    type: "Fleet Partner",
+    name:"FastTrack Transport",
+    regions:"Lagos",
+    type:"Fleet Partner",
     drivers: 200,
     vehicles: 195,
-    commission: "13%",
-    status: "suspended",
-    appliedDate: "2023-11-15",
-    suspendedDate: "2024-01-10",
+    commission:"13%",
+    status:"suspended",
+    appliedDate:"2023-11-15",
+    suspendedDate:"2024-01-10",
   },
 ];
 
@@ -113,16 +113,16 @@ export default function CompanyApprovals() {
     setSelectedCompany(null);
   };
 
-  const handleAction = (action: "approve" | "suspend" | "recall", companyId: number) => {
+  const handleAction = (action:"approve" |"suspend" |"recall", companyId: number) => {
     setCompanies((prev) =>
       prev.map((company) => {
         if (company.id === companyId) {
-          if (action === "approve") {
-            return { ...company, status: "active" as const };
-          } else if (action === "suspend") {
-            return { ...company, status: "suspended" as const, suspendedDate: new Date().toISOString().split("T")[0] };
-          } else if (action === "recall") {
-            return { ...company, status: "active" as const, suspendedDate: undefined };
+          if (action ==="approve") {
+            return { ...company, status:"active" as const };
+          } else if (action ==="suspend") {
+            return { ...company, status:"suspended" as const, suspendedDate: new Date().toISOString().split("T")[0] };
+          } else if (action ==="recall") {
+            return { ...company, status:"active" as const, suspendedDate: undefined };
           }
         }
         return company;
@@ -135,10 +135,10 @@ export default function CompanyApprovals() {
     return companies.filter((company) => {
       const matchesSearch = company.name.toLowerCase().includes(search.toLowerCase());
       const matchesTab =
-        activeTab === "All" ||
-        (activeTab === "Pending" && company.status === "pending") ||
-        (activeTab === "Suspended" && company.status === "suspended") ||
-        (activeTab === "Active" && company.status === "active");
+        activeTab ==="All" ||
+        (activeTab ==="Pending" && company.status ==="pending") ||
+        (activeTab ==="Suspended" && company.status ==="suspended") ||
+        (activeTab ==="Active" && company.status ==="active");
       return matchesSearch && matchesTab;
     });
   }, [companies, search, activeTab]);
@@ -149,7 +149,7 @@ export default function CompanyApprovals() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <Box sx={{ mb: 3, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
             Company Approvals
@@ -161,7 +161,7 @@ export default function CompanyApprovals() {
         <Button
           variant="outlined"
           onClick={() => navigate("/admin/companies")}
-          sx={{ textTransform: "none", borderRadius: 2 }}
+          sx={{ textTransform:"none", borderRadius: 2 }}
         >
           View All Companies
         </Button>
@@ -169,7 +169,7 @@ export default function CompanyApprovals() {
 
       {/* Filters */}
       <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", p: 2 }}>
+        <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <TextField
             size="small"
             placeholder="Search companies..."
@@ -182,17 +182,17 @@ export default function CompanyApprovals() {
                 </InputAdornment>
               ),
             }}
-            sx={{ width: 300, "& .MuiOutlinedInput-root": { borderRadius: 8 } }}
+            sx={{ width: 300,"& .MuiOutlinedInput-root": { borderRadius: 8 } }}
           />
-          <Box sx={{ display: "flex", gap: 1 }}>
-            {["All", "Pending", "Suspended", "Active"].map((status) => (
+          <Box sx={{ display:"flex", gap: 1 }}>
+            {["All","Pending","Suspended","Active"].map((status) => (
               <Chip
                 key={status}
                 label={status}
                 onClick={() => setActiveTab(status)}
-                color={activeTab === status ? "primary" : "default"}
+                color={activeTab === status ?"primary" :"default"}
                 sx={{ borderRadius: 2, height: 32 }}
-                variant={activeTab === status ? "filled" : "outlined"}
+                variant={activeTab === status ?"filled" :"outlined"}
               />
             ))}
           </Box>
@@ -222,7 +222,7 @@ export default function CompanyApprovals() {
                   key={company.id}
                   hover
                   onClick={() => handleRowClick(company.id)}
-                  sx={{ cursor: "pointer" }}
+                  sx={{ cursor:"pointer" }}
                 >
                   <TableCell sx={{ fontWeight: 600 }}>{company.name}</TableCell>
                   <TableCell>{company.regions}</TableCell>
@@ -233,11 +233,11 @@ export default function CompanyApprovals() {
                   <TableCell>
                     <StatusBadge
                       status={
-                        company.status === "pending"
-                          ? "under_review"
-                          : company.status === "suspended"
-                            ? "suspended"
-                            : "approved"
+                        company.status ==="pending"
+                          ?"under_review"
+                          : company.status ==="suspended"
+                            ?"suspended"
+                            :"approved"
                       }
                     />
                   </TableCell>
@@ -246,7 +246,7 @@ export default function CompanyApprovals() {
                     <IconButton
                       size="small"
                       onClick={(e) => handleMenuOpen(e, company.id)}
-                      sx={{ color: "text.secondary" }}
+                      sx={{ color:"text.secondary" }}
                     >
                       <MoreVertIcon fontSize="small" />
                     </IconButton>
@@ -255,7 +255,7 @@ export default function CompanyApprovals() {
               ))}
               {filteredCompanies.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 3, color:"text.secondary" }}>
                     No companies found.
                   </TableCell>
                 </TableRow>
@@ -270,12 +270,12 @@ export default function CompanyApprovals() {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        anchorOrigin={{ vertical:"bottom", horizontal:"right" }}
+        transformOrigin={{ vertical:"top", horizontal:"right" }}
       >
         {selectedCompany && (
           <>
-            {companies.find((c) => c.id === selectedCompany)?.status === "pending" && (
+            {companies.find((c) => c.id === selectedCompany)?.status ==="pending" && (
               <MenuItem
                 onClick={() => handleAction("approve", selectedCompany)}
                 sx={{ color: EV_COLORS.primary }}
@@ -284,7 +284,7 @@ export default function CompanyApprovals() {
                 Approve
               </MenuItem>
             )}
-            {companies.find((c) => c.id === selectedCompany)?.status !== "suspended" && (
+            {companies.find((c) => c.id === selectedCompany)?.status !=="suspended" && (
               <MenuItem
                 onClick={() => handleAction("suspend", selectedCompany)}
                 sx={{ color: EV_COLORS.secondary }}
@@ -293,7 +293,7 @@ export default function CompanyApprovals() {
                 Suspend
               </MenuItem>
             )}
-            {companies.find((c) => c.id === selectedCompany)?.status === "suspended" && (
+            {companies.find((c) => c.id === selectedCompany)?.status ==="suspended" && (
               <MenuItem
                 onClick={() => handleAction("recall", selectedCompany)}
                 sx={{ color: EV_COLORS.primary }}

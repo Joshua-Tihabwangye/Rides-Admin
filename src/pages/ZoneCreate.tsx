@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
     Box,
     Card,
@@ -14,29 +14,23 @@ import {
     Checkbox,
     ListItemText,
     OutlinedInput,
-} from "@mui/material";
-import { useNavigate } from "react-router-dom";
+} from"@mui/material";
+import { useNavigate } from"react-router-dom";
 
 const EV_COLORS = {
-    primary: "#03cd8c",
-    secondary: "#f77f00",
+    primary:"#03cd8c",
+    secondary:"#f77f00",
 };
 
-const SERVICES = [
-    "Ride",
-    "Delivery",
-    "Rental",
-    "School Shuttle",
-    "EMS / Ambulance",
-    "Tours",
+const SERVICES = ["Ride","Delivery","Rental","School Shuttle","EMS / Ambulance","Tours",
 ];
 
 export default function ZoneCreate() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        name: "",
-        country: "Uganda",
-        city: "",
+        name:"",
+        country:"Uganda",
+        city:"",
         services: [],
     });
 
@@ -46,7 +40,7 @@ export default function ZoneCreate() {
         } = event;
         setFormData((prev) => ({
             ...prev,
-            [field]: typeof value === "string" ? value.split(",") : value,
+            [field]: typeof value ==="string" ? value.split(",") : value,
         }));
     };
 
@@ -67,11 +61,11 @@ export default function ZoneCreate() {
                 elevation={1}
                 sx={{
                     borderRadius: 4,
-                    border: "1px solid rgba(148,163,184,0.5)",
+                    border:"1px solid rgba(148,163,184,0.5)",
                 }}
             >
                 <CardContent className="p-6 flex flex-col gap-4">
-                    <Typography variant="h6" className="font-semibold text-slate-900">
+                    <Typography variant="h6" className="font-semibold">
                         Create New Zone
                     </Typography>
                     <Typography variant="caption" className="text-slate-500 mb-2">
@@ -114,7 +108,7 @@ export default function ZoneCreate() {
                             value={formData.services}
                             onChange={handleChange("services")}
                             input={<OutlinedInput label="Services" />}
-                            renderValue={(selected) => selected.join(", ")}
+                            renderValue={(selected) => selected.join(",")}
                         >
                             {SERVICES.map((name) => (
                                 <MenuItem key={name} value={name}>
@@ -129,7 +123,7 @@ export default function ZoneCreate() {
                         <Button
                             variant="outlined"
                             onClick={() => navigate("/admin/pricing")}
-                            sx={{ textTransform: "none", borderRadius: 2 }}
+                            sx={{ textTransform:"none", borderRadius: 2 }}
                         >
                             Cancel
                         </Button>
@@ -137,10 +131,9 @@ export default function ZoneCreate() {
                             variant="contained"
                             onClick={handleSubmit}
                             sx={{
-                                textTransform: "none",
+                                textTransform:"none",
                                 borderRadius: 2,
-                                bgcolor: EV_COLORS.primary,
-                                "&:hover": { bgcolor: "#0fb589" },
+                                bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                             }}
                         >
                             Create Zone

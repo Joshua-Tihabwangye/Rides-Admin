@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -21,51 +21,51 @@ import {
   MenuItem,
   Snackbar,
   Alert,
-} from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import StatusBadge from "../components/StatusBadge";
+} from"@mui/material";
+import SearchIcon from"@mui/icons-material/Search";
+import MoreVertIcon from"@mui/icons-material/MoreVert";
+import StatusBadge from"../components/StatusBadge";
 
 const INITIAL_COMPANIES = [
   {
     id: 1,
-    name: "GreenMove Fleet",
-    regions: "Kampala, Entebbe",
-    type: "Fleet Partner",
+    name:"GreenMove Fleet",
+    regions:"Kampala, Entebbe",
+    type:"Fleet Partner",
     drivers: 12,
     vehicles: 12,
-    commission: "12%",
-    status: "Active",
+    commission:"12%",
+    status:"Active",
   },
   {
     id: 2,
-    name: "City Cabs Co.",
-    regions: "Kigali",
-    type: "Taxi Fleet",
+    name:"City Cabs Co.",
+    regions:"Kigali",
+    type:"Taxi Fleet",
     drivers: 45,
     vehicles: 40,
-    commission: "15%",
-    status: "Active",
+    commission:"15%",
+    status:"Active",
   },
   {
     id: 3,
-    name: "Blue Delivery",
-    regions: "Nairobi",
-    type: "Logistics",
+    name:"Blue Delivery",
+    regions:"Nairobi",
+    type:"Logistics",
     drivers: 120,
     vehicles: 115,
-    commission: "10%",
-    status: "Suspended",
+    commission:"10%",
+    status:"Suspended",
   },
   {
     id: 4,
-    name: "Swift Riders",
-    regions: "Lagos",
-    type: "Fleet Partner",
+    name:"Swift Riders",
+    regions:"Lagos",
+    type:"Fleet Partner",
     drivers: 78,
     vehicles: 65,
-    commission: "14%",
-    status: "Inactive",
+    commission:"14%",
+    status:"Inactive",
   },
 ];
 
@@ -113,27 +113,27 @@ export default function CompanyList() {
   const filteredCompanies = companies.filter((company) => {
     const matchesSearch = company.name.toLowerCase().includes(search.toLowerCase());
     const matchesTab =
-      activeTab === "All" ||
-      (activeTab === "Active" && company.status === "Active") ||
-      (activeTab === "Inactive" && company.status === "Inactive") ||
-      (activeTab === "Pending" && company.status === "Pending") ||
-      (activeTab === "Suspended" && company.status === "Suspended");
+      activeTab ==="All" ||
+      (activeTab ==="Active" && company.status ==="Active") ||
+      (activeTab ==="Inactive" && company.status ==="Inactive") ||
+      (activeTab ==="Pending" && company.status ==="Pending") ||
+      (activeTab ==="Suspended" && company.status ==="Suspended");
     return matchesSearch && matchesTab;
   });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Active": return "success";
-      case "Inactive": return "default";
-      case "Pending": return "warning";
-      case "Suspended": return "error";
-      default: return "default";
+      case"Active": return"success";
+      case"Inactive": return"default";
+      case"Pending": return"warning";
+      case"Suspended": return"error";
+      default: return"default";
     }
   };
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <Box sx={{ mb: 3, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
             Companies & Fleets
@@ -145,7 +145,7 @@ export default function CompanyList() {
         <Button
           variant="contained"
           onClick={() => navigate("/admin/companies/approvals")}
-          sx={{ textTransform: "none", borderRadius: 2 }}
+          sx={{ textTransform:"none", borderRadius: 2 }}
         >
           Company Approvals
         </Button>
@@ -153,7 +153,7 @@ export default function CompanyList() {
 
       {/* Filters */}
       <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", p: 2 }}>
+        <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <TextField
             size="small"
             placeholder="Search companies..."
@@ -166,17 +166,17 @@ export default function CompanyList() {
                 </InputAdornment>
               ),
             }}
-            sx={{ width: 300, "& .MuiOutlinedInput-root": { borderRadius: 8 } }}
+            sx={{ width: 300,"& .MuiOutlinedInput-root": { borderRadius: 8 } }}
           />
-          <Box sx={{ display: "flex", gap: 1 }}>
-            {["All", "Active", "Inactive", "Pending", "Suspended"].map((status) => (
+          <Box sx={{ display:"flex", gap: 1 }}>
+            {["All","Active","Inactive","Pending","Suspended"].map((status) => (
               <Chip
                 key={status}
                 label={status}
                 onClick={() => setActiveTab(status)}
-                color={activeTab === status ? "primary" : "default"}
+                color={activeTab === status ?"primary" :"default"}
                 sx={{ borderRadius: 2, height: 32 }}
-                variant={activeTab === status ? "filled" : "outlined"}
+                variant={activeTab === status ?"filled" :"outlined"}
               />
             ))}
           </Box>
@@ -205,7 +205,7 @@ export default function CompanyList() {
                   key={company.id}
                   hover
                   onClick={() => handleRowClick(company.id)}
-                  sx={{ cursor: "pointer" }}
+                  sx={{ cursor:"pointer" }}
                 >
                   <TableCell sx={{ fontWeight: 600 }}>{company.name}</TableCell>
                   <TableCell>{company.regions}</TableCell>

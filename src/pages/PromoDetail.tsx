@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useState, useMemo } from"react";
+import { useParams, useNavigate } from"react-router-dom";
 import {
     Box,
     Card,
@@ -10,12 +10,12 @@ import {
     Grid,
     Chip,
     Divider,
-} from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import GroupIcon from "@mui/icons-material/Group";
-import LocalOfferIcon from "@mui/icons-material/LocalOffer";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+} from"@mui/material";
+import ArrowBackIcon from"@mui/icons-material/ArrowBack";
+import TrendingUpIcon from"@mui/icons-material/TrendingUp";
+import GroupIcon from"@mui/icons-material/Group";
+import LocalOfferIcon from"@mui/icons-material/LocalOffer";
+import AttachMoneyIcon from"@mui/icons-material/AttachMoney";
 import {
     BarChart,
     Bar,
@@ -30,26 +30,25 @@ import {
     PieChart,
     Pie,
     Cell,
-} from "recharts";
+} from"recharts";
 
 const EV_COLORS = {
-    primary: "#03cd8c",
-    secondary: "#f77f00",
-    blue: "#3b82f6",
-    red: "#ef4444",
+    primary:"#03cd8c",
+    secondary:"#f77f00",
+    blue:"#3b82f6",
+    red:"#ef4444",
 };
 
 // Sample promo data
-const PROMO_DATA = {
-    "PROMO-NEW-UG": {
-        id: "PROMO-NEW-UG",
-        name: "Welcome rides Uganda",
-        type: "Rider Promotion",
-        segment: "New riders",
-        reward: "50% off first 3 rides",
-        status: "Active",
-        startDate: "2025-01-01",
-        endDate: "2025-03-31",
+const PROMO_DATA = {"PROMO-NEW-UG": {
+        id:"PROMO-NEW-UG",
+        name:"Welcome rides Uganda",
+        type:"Rider Promotion",
+        segment:"New riders",
+        reward:"50% off first 3 rides",
+        status:"Active",
+        startDate:"2025-01-01",
+        endDate:"2025-03-31",
         budget: 50000,
         spent: 32450,
         redemptions: 1245,
@@ -57,29 +56,28 @@ const PROMO_DATA = {
         avgDiscount: 26.10,
         conversionRate: 68.5,
         dailyData: [
-            { day: "Week 1", redemptions: 180, spend: 4680 },
-            { day: "Week 2", redemptions: 220, spend: 5720 },
-            { day: "Week 3", redemptions: 195, spend: 5070 },
-            { day: "Week 4", redemptions: 250, spend: 6500 },
-            { day: "Week 5", redemptions: 200, spend: 5200 },
-            { day: "Week 6", redemptions: 200, spend: 5280 },
+            { day:"Week 1", redemptions: 180, spend: 4680 },
+            { day:"Week 2", redemptions: 220, spend: 5720 },
+            { day:"Week 3", redemptions: 195, spend: 5070 },
+            { day:"Week 4", redemptions: 250, spend: 6500 },
+            { day:"Week 5", redemptions: 200, spend: 5200 },
+            { day:"Week 6", redemptions: 200, spend: 5280 },
         ],
         regionBreakdown: [
-            { name: "Kampala", value: 650, color: EV_COLORS.primary },
-            { name: "Entebbe", value: 280, color: EV_COLORS.secondary },
-            { name: "Jinja", value: 180, color: EV_COLORS.blue },
-            { name: "Other", value: 135, color: "#94a3b8" },
+            { name:"Kampala", value: 650, color: EV_COLORS.primary },
+            { name:"Entebbe", value: 280, color: EV_COLORS.secondary },
+            { name:"Jinja", value: 180, color: EV_COLORS.blue },
+            { name:"Other", value: 135, color:"#94a3b8" },
         ],
-    },
-    "PROMO-OFFPEAK": {
-        id: "PROMO-OFFPEAK",
-        name: "Off-peak discount",
-        type: "Rider Promotion",
-        segment: "All riders",
-        reward: "10% off rides 10am–3pm",
-        status: "Active",
-        startDate: "2025-01-15",
-        endDate: "2025-06-30",
+    },"PROMO-OFFPEAK": {
+        id:"PROMO-OFFPEAK",
+        name:"Off-peak discount",
+        type:"Rider Promotion",
+        segment:"All riders",
+        reward:"10% off rides 10am–3pm",
+        status:"Active",
+        startDate:"2025-01-15",
+        endDate:"2025-06-30",
         budget: 30000,
         spent: 8750,
         redemptions: 875,
@@ -87,29 +85,28 @@ const PROMO_DATA = {
         avgDiscount: 10.00,
         conversionRate: 42.3,
         dailyData: [
-            { day: "Week 1", redemptions: 120, spend: 1200 },
-            { day: "Week 2", redemptions: 145, spend: 1450 },
-            { day: "Week 3", redemptions: 160, spend: 1600 },
-            { day: "Week 4", redemptions: 180, spend: 1800 },
-            { day: "Week 5", redemptions: 135, spend: 1350 },
-            { day: "Week 6", redemptions: 135, spend: 1350 },
+            { day:"Week 1", redemptions: 120, spend: 1200 },
+            { day:"Week 2", redemptions: 145, spend: 1450 },
+            { day:"Week 3", redemptions: 160, spend: 1600 },
+            { day:"Week 4", redemptions: 180, spend: 1800 },
+            { day:"Week 5", redemptions: 135, spend: 1350 },
+            { day:"Week 6", redemptions: 135, spend: 1350 },
         ],
         regionBreakdown: [
-            { name: "Kampala", value: 420, color: EV_COLORS.primary },
-            { name: "Nairobi", value: 250, color: EV_COLORS.secondary },
-            { name: "Lagos", value: 130, color: EV_COLORS.blue },
-            { name: "Other", value: 75, color: "#94a3b8" },
+            { name:"Kampala", value: 420, color: EV_COLORS.primary },
+            { name:"Nairobi", value: 250, color: EV_COLORS.secondary },
+            { name:"Lagos", value: 130, color: EV_COLORS.blue },
+            { name:"Other", value: 75, color:"#94a3b8" },
         ],
-    },
-    "INCENTIVE-PEAK": {
-        id: "INCENTIVE-PEAK",
-        name: "Peak hours bonus",
-        type: "Driver Incentive",
-        segment: "Active drivers",
-        reward: "Bonus after 10 peak trips",
-        status: "Active",
-        startDate: "2025-01-01",
-        endDate: "2025-12-31",
+    },"INCENTIVE-PEAK": {
+        id:"INCENTIVE-PEAK",
+        name:"Peak hours bonus",
+        type:"Driver Incentive",
+        segment:"Active drivers",
+        reward:"Bonus after 10 peak trips",
+        status:"Active",
+        startDate:"2025-01-01",
+        endDate:"2025-12-31",
         budget: 100000,
         spent: 45200,
         redemptions: 452,
@@ -117,29 +114,28 @@ const PROMO_DATA = {
         avgDiscount: 100.00,
         conversionRate: 78.2,
         dailyData: [
-            { day: "Week 1", redemptions: 65, spend: 6500 },
-            { day: "Week 2", redemptions: 78, spend: 7800 },
-            { day: "Week 3", redemptions: 82, spend: 8200 },
-            { day: "Week 4", redemptions: 75, spend: 7500 },
-            { day: "Week 5", redemptions: 80, spend: 8000 },
-            { day: "Week 6", redemptions: 72, spend: 7200 },
+            { day:"Week 1", redemptions: 65, spend: 6500 },
+            { day:"Week 2", redemptions: 78, spend: 7800 },
+            { day:"Week 3", redemptions: 82, spend: 8200 },
+            { day:"Week 4", redemptions: 75, spend: 7500 },
+            { day:"Week 5", redemptions: 80, spend: 8000 },
+            { day:"Week 6", redemptions: 72, spend: 7200 },
         ],
         regionBreakdown: [
-            { name: "Kampala", value: 180, color: EV_COLORS.primary },
-            { name: "Lagos", value: 145, color: EV_COLORS.secondary },
-            { name: "Nairobi", value: 85, color: EV_COLORS.blue },
-            { name: "Other", value: 42, color: "#94a3b8" },
+            { name:"Kampala", value: 180, color: EV_COLORS.primary },
+            { name:"Lagos", value: 145, color: EV_COLORS.secondary },
+            { name:"Nairobi", value: 85, color: EV_COLORS.blue },
+            { name:"Other", value: 42, color:"#94a3b8" },
         ],
-    },
-    "INCENTIVE-EV": {
-        id: "INCENTIVE-EV",
-        name: "EV utilisation boost",
-        type: "Driver Incentive",
-        segment: "EV drivers",
-        reward: "Extra bonus for 95% EV-only hours",
-        status: "Active",
-        startDate: "2025-01-01",
-        endDate: "2025-12-31",
+    },"INCENTIVE-EV": {
+        id:"INCENTIVE-EV",
+        name:"EV utilisation boost",
+        type:"Driver Incentive",
+        segment:"EV drivers",
+        reward:"Extra bonus for 95% EV-only hours",
+        status:"Active",
+        startDate:"2025-01-01",
+        endDate:"2025-12-31",
         budget: 75000,
         spent: 28500,
         redemptions: 285,
@@ -147,18 +143,18 @@ const PROMO_DATA = {
         avgDiscount: 100.00,
         conversionRate: 85.4,
         dailyData: [
-            { day: "Week 1", redemptions: 42, spend: 4200 },
-            { day: "Week 2", redemptions: 48, spend: 4800 },
-            { day: "Week 3", redemptions: 52, spend: 5200 },
-            { day: "Week 4", redemptions: 45, spend: 4500 },
-            { day: "Week 5", redemptions: 50, spend: 5000 },
-            { day: "Week 6", redemptions: 48, spend: 4800 },
+            { day:"Week 1", redemptions: 42, spend: 4200 },
+            { day:"Week 2", redemptions: 48, spend: 4800 },
+            { day:"Week 3", redemptions: 52, spend: 5200 },
+            { day:"Week 4", redemptions: 45, spend: 4500 },
+            { day:"Week 5", redemptions: 50, spend: 5000 },
+            { day:"Week 6", redemptions: 48, spend: 4800 },
         ],
         regionBreakdown: [
-            { name: "Kampala", value: 120, color: EV_COLORS.primary },
-            { name: "Kigali", value: 85, color: EV_COLORS.secondary },
-            { name: "Nairobi", value: 50, color: EV_COLORS.blue },
-            { name: "Other", value: 30, color: "#94a3b8" },
+            { name:"Kampala", value: 120, color: EV_COLORS.primary },
+            { name:"Kigali", value: 85, color: EV_COLORS.secondary },
+            { name:"Nairobi", value: 50, color: EV_COLORS.blue },
+            { name:"Other", value: 30, color:"#94a3b8" },
         ],
     },
 };
@@ -184,7 +180,7 @@ export default function PromoDetail() {
                 <Button
                     startIcon={<ArrowBackIcon />}
                     onClick={() => navigate("/admin/promos")}
-                    sx={{ textTransform: "none", color: "text.secondary" }}
+                    sx={{ textTransform:"none", color:"text.secondary" }}
                 >
                     Back to Promotions
                 </Button>
@@ -200,15 +196,15 @@ export default function PromoDetail() {
                     label={promo.status}
                     size="small"
                     sx={{
-                        bgcolor: promo.status === "Active" ? "#ecfdf5" : "#fee2e2",
-                        color: promo.status === "Active" ? "#059669" : "#dc2626",
+                        bgcolor: promo.status ==="Active" ?"#ecfdf5" :"#fee2e2",
+                        color: promo.status ==="Active" ?"#059669" :"#dc2626",
                         fontWeight: 600,
                     }}
                 />
             </Box>
 
             {/* Summary Card */}
-            <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+            <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                 <CardContent sx={{ p: 3 }}>
                     <Typography variant="subtitle2" fontWeight={700} color="text.primary" sx={{ mb: 2 }}>
                         Campaign Summary
@@ -253,7 +249,7 @@ export default function PromoDetail() {
             {/* Overview Stats */}
             <Grid container spacing={3}>
                 <Grid item xs={12} sm={6} md={3}>
-                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                         <CardContent className="flex items-center gap-4">
                             <Box sx={{ p: 2, bgcolor: EV_COLORS.primary, borderRadius: 2, color: 'white' }}>
                                 <LocalOfferIcon />
@@ -270,7 +266,7 @@ export default function PromoDetail() {
                     </Card>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                         <CardContent className="flex items-center gap-4">
                             <Box sx={{ p: 2, bgcolor: EV_COLORS.secondary, borderRadius: 2, color: 'white' }}>
                                 <GroupIcon />
@@ -287,7 +283,7 @@ export default function PromoDetail() {
                     </Card>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                         <CardContent className="flex items-center gap-4">
                             <Box sx={{ p: 2, bgcolor: EV_COLORS.blue, borderRadius: 2, color: 'white' }}>
                                 <AttachMoneyIcon />
@@ -307,7 +303,7 @@ export default function PromoDetail() {
                     </Card>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                         <CardContent className="flex items-center gap-4">
                             <Box sx={{ p: 2, bgcolor: '#8b5cf6', borderRadius: 2, color: 'white' }}>
                                 <TrendingUpIcon />
@@ -329,7 +325,7 @@ export default function PromoDetail() {
             <Grid container spacing={3}>
                 {/* Redemptions Over Time */}
                 <Grid item xs={12} lg={8}>
-                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper", height: "100%" }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper", height:"100%" }}>
                         <CardContent>
                             <Typography variant="h6" fontWeight={700} color="text.primary" gutterBottom>
                                 Redemptions & Spend Over Time
@@ -365,7 +361,7 @@ export default function PromoDetail() {
 
                 {/* Region Breakdown */}
                 <Grid item xs={12} lg={4}>
-                    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper", height: "100%" }}>
+                    <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper", height:"100%" }}>
                         <CardContent>
                             <Typography variant="h6" fontWeight={700} color="text.primary" gutterBottom>
                                 Redemptions by Region
@@ -414,7 +410,7 @@ export default function PromoDetail() {
             </Grid>
 
             {/* Actions */}
-            <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+            <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
                 <CardContent sx={{ p: 3 }}>
                     <Typography variant="subtitle2" fontWeight={700} color="text.primary" sx={{ mb: 2 }}>
                         Campaign Actions

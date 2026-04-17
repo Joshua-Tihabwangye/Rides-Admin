@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useState } from"react";
 import {
   Box,
   Card,
@@ -13,7 +13,7 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
-} from "@mui/material";
+} from"@mui/material";
 
 // A3 – Admin Welcome & Responsibility Notice (Light/Dark)
 // Route suggestion: /admin/onboarding/welcome
@@ -24,50 +24,50 @@ import {
 //    - Page shows a welcome heading, description, and 4 responsibility items
 //      with small green bullet icons.
 //    - Acknowledgement checkbox should be unchecked.
-//    - "Continue to onboarding" button must be disabled.
+//    -"Continue to onboarding" button must be disabled.
 // 2) Acknowledge responsibilities
 //    - Tick the acknowledgement checkbox.
-//    - Expect the "Continue to onboarding" button to become enabled.
-//    - Clicking the button should log "Admin responsibility notice acknowledged"
+//    - Expect the"Continue to onboarding" button to become enabled.
+//    - Clicking the button should log"Admin responsibility notice acknowledged"
 //      to the console (until real navigation is wired).
 // 3) Theme toggle
 //    - Click the theme toggle in the top-right.
 //    - Expect the UI to switch between light and dark palettes.
 //    - Content and checkbox state must be preserved while switching theme.
 // 4) Policy centre button
-//    - Click "View policy centre".
+//    - Click"View policy centre".
 //    - Expect a placeholder console log, with no errors (you will replace this
 //      with navigation to the policy / rule management pages later).
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 const bulletPoints = [
   {
-    title: "High-impact workspace",
-    body: "Changes here flow to riders, drivers, companies, and agents in real time.",
+    title:"High-impact workspace",
+    body:"Changes here flow to riders, drivers, companies, and agents in real time.",
   },
   {
-    title: "Full audit logging",
-    body: "Every admin action is recorded with timestamp, actor, and before/after values.",
+    title:"Full audit logging",
+    body:"Every admin action is recorded with timestamp, actor, and before/after values.",
   },
   {
-    title: "Policy-first operations",
-    body: "Follow EVzone's governance, privacy, and safety policies for every decision.",
+    title:"Policy-first operations",
+    body:"Follow EVzone's governance, privacy, and safety policies for every decision.",
   },
   {
-    title: "Production vs staging",
-    body: "Test risky changes in staging before rolling out to live regions.",
+    title:"Production vs staging",
+    body:"Test risky changes in staging before rolling out to live regions.",
   },
 ];
 
 export default function AdminWelcomeNoticePage() {
   const [acknowledged, setAcknowledged] = useState(false);
-  const [mode, setMode] = useState("light"); // "light" | "dark"
+  const [mode, setMode] = useState("light"); //"light" |"dark"
 
-  const isDark = mode === "dark";
+  const isDark = mode ==="dark";
 
   const handleContinue = () => {
     if (!acknowledged) return;
@@ -76,12 +76,12 @@ export default function AdminWelcomeNoticePage() {
   };
 
   const toggleMode = () => {
-    setMode((prev) => (prev === "light" ? "dark" : "light"));
+    setMode((prev) => (prev ==="light" ?"dark" :"light"));
   };
 
   return (
     <Box
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ? "bg-slate-950 text-slate-50" : "bg-slate-50 text-slate-900"
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${isDark ?"bg-slate-950 text-slate-50" :"bg-slate-50"
         }`}
       sx={{
         background: isDark
@@ -93,7 +93,7 @@ export default function AdminWelcomeNoticePage() {
       <Box className="w-full flex items-center justify-between px-4 py-3 sm:px-6">
         <Typography
           variant="subtitle2"
-          className={`tracking-[0.25em] uppercase text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"
+          className={`tracking-[0.25em] uppercase text-[11px] ${isDark ?"text-slate-400" :"text-slate-500"
             }`}
         >
           EVZONE
@@ -103,12 +103,12 @@ export default function AdminWelcomeNoticePage() {
             size="small"
             label="Admin onboarding"
             sx={{
-              bgcolor: isDark ? "rgba(15,23,42,0.9)" : "#ffffff",
-              border: isDark ? "1px solid #1f2937" : "1px solid #e5e7eb",
-              color: isDark ? "#e5e7eb" : "#4b5563",
-              fontSize: "10px",
+              bgcolor: isDark ?"rgba(15,23,42,0.9)" :"#ffffff",
+              border: isDark ?"1px solid #1f2937" :"1px solid #e5e7eb",
+              color: isDark ?"#e5e7eb" :"#4b5563",
+              fontSize:"10px",
               letterSpacing: 0.8,
-              textTransform: "uppercase",
+              textTransform:"uppercase",
             }}
           />
           <Button
@@ -116,17 +116,17 @@ export default function AdminWelcomeNoticePage() {
             size="small"
             onClick={toggleMode}
             sx={{
-              textTransform: "none",
+              textTransform:"none",
               borderRadius: 999,
-              borderColor: isDark ? "#1f2937" : "#e5e7eb",
-              color: isDark ? "#e5e7eb" : "#374151",
+              borderColor: isDark ?"#1f2937" :"#e5e7eb",
+              color: isDark ?"#e5e7eb" :"#374151",
               px: 1.8,
               py: 0.4,
               fontSize: 11,
-              minWidth: "auto",
+              minWidth:"auto",
             }}
           >
-            {isDark ? "Dark" : "Light"}
+            {isDark ?"Dark" :"Light"}
           </Button>
         </Box>
       </Box>
@@ -136,15 +136,15 @@ export default function AdminWelcomeNoticePage() {
         <Card
           elevation={10}
           sx={{
-            width: "100%",
+            width:"100%",
             maxWidth: 560,
             borderRadius: 2,
             border: isDark
-              ? "1px solid rgba(30,64,175,0.4)"
-              : "1px solid rgba(148,163,184,0.5)",
+              ?"1px solid rgba(30,64,175,0.4)"
+              :"1px solid rgba(148,163,184,0.5)",
             background: isDark
-              ? "linear-gradient(145deg, rgba(15,23,42,0.96), rgba(15,23,42,0.98))"
-              : "linear-gradient(145deg, #ffffff, #f9fafb)",
+              ?"linear-gradient(145deg, rgba(15,23,42,0.96), rgba(15,23,42,0.98))"
+              :"linear-gradient(145deg, #ffffff, #f9fafb)",
           }}
         >
           <CardContent className="p-5 sm:p-7 flex flex-col gap-6">
@@ -153,14 +153,14 @@ export default function AdminWelcomeNoticePage() {
               <Box className="flex-1 min-w-0">
                 <Typography
                   variant="h6"
-                  className={`font-semibold tracking-tight mb-1 ${isDark ? "text-slate-50" : "text-slate-900"
+                  className={`font-semibold tracking-tight mb-1 ${isDark ?"text-slate-50" :""
                     }`}
                 >
                   Welcome to the EVzone Admin Portal
                 </Typography>
                 <Typography
                   variant="body2"
-                  className={`text-xs sm:text-sm ${isDark ? "text-slate-400" : "text-slate-600"
+                  className={`text-xs sm:text-sm ${isDark ?"text-slate-400" :"text-slate-600"
                     }`}
                 >
                   You are signing into the EVzone HQ console. This space controls pricing,
@@ -174,16 +174,16 @@ export default function AdminWelcomeNoticePage() {
                   label="Internal use only"
                   size="small"
                   sx={{
-                    bgcolor: isDark ? "rgba(15,23,42,0.9)" : "#f9fafb",
-                    border: isDark ? "1px solid #334155" : "1px solid #e5e7eb",
-                    color: isDark ? "#e5e7eb" : "#4b5563",
-                    fontSize: "10px",
-                    textTransform: "uppercase",
+                    bgcolor: isDark ?"rgba(15,23,42,0.9)" :"#f9fafb",
+                    border: isDark ?"1px solid #334155" :"1px solid #e5e7eb",
+                    color: isDark ?"#e5e7eb" :"#4b5563",
+                    fontSize:"10px",
+                    textTransform:"uppercase",
                   }}
                 />
                 <Typography
                   variant="caption"
-                  className={`text-[10px] max-w-[160px] text-right ${isDark ? "text-slate-500" : "text-slate-500"
+                  className={`text-[10px] max-w-[160px] text-right ${isDark ?"text-slate-500" :"text-slate-500"
                     }`}
                 >
                   Do not share screenshots or credentials outside EVzone.
@@ -204,10 +204,10 @@ export default function AdminWelcomeNoticePage() {
                   size="small"
                   label="Logged & monitored"
                   sx={{
-                    bgcolor: "rgba(248,250,252,0.05)",
-                    border: "1px solid #1f2937",
-                    color: "#9ca3af",
-                    fontSize: "10px",
+                    bgcolor:"rgba(248,250,252,0.05)",
+                    border:"1px solid #1f2937",
+                    color:"#9ca3af",
+                    fontSize:"10px",
                   }}
                 />
               </Box>
@@ -217,9 +217,8 @@ export default function AdminWelcomeNoticePage() {
                   <ListItem
                     key={item.title}
                     className="rounded-xl px-2 py-1.5"
-                    sx={{
-                      "&:hover": {
-                        backgroundColor: "rgba(15,23,42,0.9)",
+                    sx={{"&:hover": {
+                        backgroundColor:"rgba(15,23,42,0.9)",
                       },
                     }}
                   >
@@ -230,9 +229,9 @@ export default function AdminWelcomeNoticePage() {
                         sx={{
                           width: 10,
                           height: 10,
-                          borderRadius: "999px",
+                          borderRadius:"999px",
                           bgcolor: EV_COLORS.primary,
-                          boxShadow: "0 0 0 3px rgba(3,205,140,0.25)",
+                          boxShadow:"0 0 0 3px rgba(3,205,140,0.25)",
                         }}
                       />
                     </ListItemIcon>
@@ -267,15 +266,14 @@ export default function AdminWelcomeNoticePage() {
                     checked={acknowledged}
                     onChange={(e) => setAcknowledged(e.target.checked)}
                     sx={{
-                      color: "#64748b",
-                      "&.Mui-checked": { color: EV_COLORS.primary },
+                      color:"#64748b","&.Mui-checked": { color: EV_COLORS.primary },
                     }}
                   />
                 }
                 label={
                   <Typography
                     variant="body2"
-                    className={`text-[11px] sm:text-xs ${isDark ? "text-slate-300" : "text-slate-600"
+                    className={`text-[11px] sm:text-xs ${isDark ?"text-slate-300" :"text-slate-600"
                       }`}
                   >
                     I understand that my actions in this portal are audited and I will
@@ -289,12 +287,11 @@ export default function AdminWelcomeNoticePage() {
                   variant="outlined"
                   size="small"
                   sx={{
-                    textTransform: "none",
+                    textTransform:"none",
                     borderRadius: 2,
-                    borderColor: "#1f2937",
-                    color: "#e5e7eb",
-                    px: 2.5,
-                    "&:hover": { borderColor: EV_COLORS.secondary },
+                    borderColor:"#1f2937",
+                    color:"#e5e7eb",
+                    px: 2.5,"&:hover": { borderColor: EV_COLORS.secondary },
                   }}
                   onClick={() => {
                     // TODO: open policies modal or route to /admin/policies
@@ -309,12 +306,11 @@ export default function AdminWelcomeNoticePage() {
                   size="small"
                   disabled={!acknowledged}
                   sx={{
-                    textTransform: "none",
+                    textTransform:"none",
                     borderRadius: 2,
                     px: 3,
-                    bgcolor: acknowledged ? EV_COLORS.primary : "#1f2937",
-                    "&:hover": {
-                      bgcolor: acknowledged ? "#0fb589" : "#020617",
+                    bgcolor: acknowledged ? EV_COLORS.primary :"#1f2937","&:hover": {
+                      bgcolor: acknowledged ?"#0fb589" :"#020617",
                     },
                   }}
                   onClick={handleContinue}
@@ -326,7 +322,7 @@ export default function AdminWelcomeNoticePage() {
 
             <Typography
               variant="caption"
-              className={`text-[10px] mt-1 ${isDark ? "text-slate-500" : "text-slate-500"
+              className={`text-[10px] mt-1 ${isDark ?"text-slate-500" :"text-slate-500"
                 }`}
             >
               Tip: New admins typically start in read-only mode. Write access to critical

@@ -1,17 +1,17 @@
 // @ts-nocheck
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from"react";
+import { useNavigate } from"react-router-dom";
 
 // Forgot Password - Step 1: Enter email to request reset link
 
 const EV = {
-  green: "#03CD8C",
-  orange: "#F77F00",
-  dark: "#0f172a",
-  grayBorder: "#e2e8f0",
-  grayText: "#64748b",
-  lightGray: "#f8fafc",
-  white: "#ffffff",
+  green:"#03CD8C",
+  orange:"#F77F00",
+  dark:"#0f172a",
+  grayBorder:"#e2e8f0",
+  grayText:"#64748b",
+  lightGray:"#f8fafc",
+  white:"#ffffff",
 };
 
 const MailIcon = () => (
@@ -75,7 +75,7 @@ export default function ForgotPassword() {
               <strong style={{ color: EV.dark }}>{email}</strong>
             </p>
             <p style={styles.helpText}>
-              Didn't receive the email? Check your spam folder or{" "}
+              Didn't receive the email? Check your spam folder or{""}
               <a
                 href="#"
                 onClick={(e) => {
@@ -121,8 +121,8 @@ export default function ForgotPassword() {
               <input
                 style={{
                   ...styles.input,
-                  borderColor: emailErr ? "#fca5a5" : EV.grayBorder,
-                  backgroundColor: emailErr ? "#fef2f2" : EV.white,
+                  borderColor: emailErr ?"#fca5a5" : EV.grayBorder,
+                  backgroundColor: emailErr ?"#fef2f2" : EV.white,
                 }}
                 type="email"
                 value={email}
@@ -139,11 +139,11 @@ export default function ForgotPassword() {
               style={{
                 ...styles.submitButton,
                 opacity: isLoading ? 0.7 : 1,
-                cursor: isLoading ? "wait" : "pointer",
+                cursor: isLoading ?"wait" :"pointer",
               }}
               disabled={isLoading}
             >
-              {isLoading ? "Sending..." : "Send reset link"}
+              {isLoading ?"Sending..." :"Send reset link"}
             </button>
           </form>
 
@@ -163,23 +163,23 @@ export default function ForgotPassword() {
 
 const styles = {
   page: {
-    minHeight: "100vh",
+    minHeight:"100vh",
     background: `linear-gradient(135deg, ${EV.lightGray} 0%, ${EV.white} 100%)`,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
     padding: 24,
   },
   container: {
-    width: "100%",
+    width:"100%",
     maxWidth: 440,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
+    display:"flex",
+    flexDirection:"column",
+    alignItems:"center",
   },
   logoContainer: {
-    display: "flex",
-    alignItems: "center",
+    display:"flex",
+    alignItems:"center",
     gap: 8,
     marginBottom: 32,
   },
@@ -195,16 +195,16 @@ const styles = {
     color: EV.dark,
   },
   card: {
-    width: "100%",
+    width:"100%",
     background: EV.white,
     borderRadius: 16,
     padding: 40,
-    boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-    textAlign: "center",
+    boxShadow:"0 4px 24px rgba(0,0,0,0.06)",
+    textAlign:"center",
   },
   iconWrapper: {
-    display: "flex",
-    justifyContent: "center",
+    display:"flex",
+    justifyContent:"center",
     marginBottom: 20,
   },
   title: {
@@ -215,27 +215,27 @@ const styles = {
     letterSpacing: -0.5,
   },
   subtitle: {
-    margin: "12px 0 0",
+    margin:"12px 0 0",
     fontSize: 15,
     color: EV.grayText,
     lineHeight: 1.6,
   },
   helpText: {
-    margin: "20px 0",
+    margin:"20px 0",
     fontSize: 14,
     color: EV.grayText,
     lineHeight: 1.6,
   },
   form: {
-    display: "flex",
-    flexDirection: "column",
+    display:"flex",
+    flexDirection:"column",
     gap: 20,
     marginTop: 28,
-    textAlign: "left",
+    textAlign:"left",
   },
   fieldGroup: {
-    display: "flex",
-    flexDirection: "column",
+    display:"flex",
+    flexDirection:"column",
     gap: 6,
   },
   label: {
@@ -244,66 +244,66 @@ const styles = {
     color: EV.dark,
   },
   input: {
-    padding: "14px 16px",
+    padding:"14px 16px",
     borderRadius: 10,
     border: `1px solid ${EV.grayBorder}`,
     fontSize: 15,
-    outline: "none",
-    transition: "all 0.2s ease",
-    width: "100%",
-    boxSizing: "border-box",
+    outline:"none",
+    transition:"all 0.2s ease",
+    width:"100%",
+    boxSizing:"border-box",
   },
   errorText: {
     fontSize: 13,
-    color: "#dc2626",
+    color:"#dc2626",
     marginTop: 4,
   },
   submitButton: {
-    padding: "14px 20px",
+    padding:"14px 20px",
     borderRadius: 10,
-    border: "none",
+    border:"none",
     background: EV.green,
     color: EV.white,
     fontSize: 15,
     fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.2s ease",
+    cursor:"pointer",
+    transition:"all 0.2s ease",
   },
   secondaryButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
     gap: 8,
-    padding: "14px 20px",
+    padding:"14px 20px",
     borderRadius: 10,
     border: `1px solid ${EV.grayBorder}`,
     background: EV.white,
     color: EV.dark,
     fontSize: 15,
     fontWeight: 500,
-    cursor: "pointer",
-    width: "100%",
+    cursor:"pointer",
+    width:"100%",
     marginTop: 16,
   },
   backButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
     gap: 8,
-    padding: "12px 20px",
+    padding:"12px 20px",
     borderRadius: 10,
-    border: "none",
-    background: "transparent",
+    border:"none",
+    background:"transparent",
     color: EV.grayText,
     fontSize: 14,
     fontWeight: 500,
-    cursor: "pointer",
-    width: "100%",
+    cursor:"pointer",
+    width:"100%",
     marginTop: 16,
   },
   link: {
     color: EV.green,
-    textDecoration: "none",
+    textDecoration:"none",
     fontWeight: 500,
   },
   footer: {

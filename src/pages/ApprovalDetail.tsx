@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -12,7 +12,7 @@ import {
   TextField,
   Snackbar,
   Alert
-} from "@mui/material";
+} from"@mui/material";
 
 // E2 – Approval Detail (Light/Dark, EVzone themed)
 // Route suggestion: /admin/approvals/:approvalId
@@ -21,13 +21,13 @@ import {
 // Manual test cases:
 // 1) Initial render
 //    - Light mode by default.
-//    - Header shows EVZONE ADMIN, subtitle "Approvals · Detail" and
+//    - Header shows EVZONE ADMIN, subtitle"Approvals · Detail" and
 //      Light/Dark toggle.
-//    - Title: "Approval Detail" with short description.
+//    - Title:"Approval Detail" with short description.
 //    - Case header card shows ID, entity, type, severity, age, region.
 //    - Two main sections: Summary & context, and Decision panel.
 // 2) Back button
-//    - Click "← Back to approvals"; expect a console log placeholder.
+//    - Click"← Back to approvals"; expect a console log placeholder.
 // 3) Theme toggle
 //    - Switch to Dark and back; layout & content remain stable.
 // 4) Decision actions
@@ -37,23 +37,20 @@ import {
 //    - Editing the internal notes textarea updates local state without errors.
 
 const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+  primary:"#03cd8c",
+  secondary:"#f77f00",
 };
 
 const SAMPLE_CASE = {
-  id: "APP-003",
-  type: "Driver escalation",
-  entity: "Michael Driver",
-  severity: "High",
-  age: "4h",
-  region: "West Africa",
-  summary:
-    "Driver flagged by risk rules due to high cancellations and fare disputes.",
-  details:
-    "System detected a pattern of cancellations after long wait times and multiple fare dispute tickets for this driver.",
-  context:
-    "Driver has completed 215 trips in the last 30 days with 4.2 average rating. Cancellation rate is 7.4% vs fleet average of 3.1%.",
+  id:"APP-003",
+  type:"Driver escalation",
+  entity:"Michael Driver",
+  severity:"High",
+  age:"4h",
+  region:"West Africa",
+  summary:"Driver flagged by risk rules due to high cancellations and fare disputes.",
+  details:"System detected a pattern of cancellations after long wait times and multiple fare dispute tickets for this driver.",
+  context:"Driver has completed 215 trips in the last 30 days with 4.2 average rating. Cancellation rate is 7.4% vs fleet average of 3.1%.",
 };
 
 function AdminApprovalDetailLayout({ children }) {
@@ -88,7 +85,7 @@ function AdminApprovalDetailLayout({ children }) {
 export default function ApprovalDetailPage() {
   const navigate = useNavigate();
   const [notes, setNotes] = useState("");
-  const [snackbar, setSnackbar] = useState({ open: false, msg: "" });
+  const [snackbar, setSnackbar] = useState({ open: false, msg:"" });
   const approval = SAMPLE_CASE;
 
   const handleDecision = (action) => {
@@ -101,7 +98,7 @@ export default function ApprovalDetailPage() {
   };
 
   const handleSaveNote = () => {
-    setSnackbar({ open: true, msg: "Note saved internally." });
+    setSnackbar({ open: true, msg:"Note saved internally." });
   };
 
   return (
@@ -111,8 +108,8 @@ export default function ApprovalDetailPage() {
         elevation={1}
         sx={{
           borderRadius: 8,
-          border: "1px solid rgba(148,163,184,0.5)",
-          background: "linear-gradient(145deg, #ffffff, #f9fafb)",
+          border:"1px solid rgba(148,163,184,0.5)",
+          
         }}
       >
         <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -125,7 +122,7 @@ export default function ApprovalDetailPage() {
             </Typography>
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               {approval.entity}
             </Typography>
@@ -144,11 +141,11 @@ export default function ApprovalDetailPage() {
                 fontSize: 10,
                 height: 22,
                 bgcolor:
-                  approval.severity === "High"
-                    ? "#fee2e2"
-                    : approval.severity === "Medium"
-                      ? "#fef3c7"
-                      : "#e0f2fe",
+                  approval.severity ==="High"
+                    ?"#fee2e2"
+                    : approval.severity ==="Medium"
+                      ?"#fef3c7"
+                      :"#e0f2fe",
               }}
             />
             <Chip
@@ -172,21 +169,21 @@ export default function ApprovalDetailPage() {
           sx={{
             flex: 2,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #f9fafb, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Box>
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900 mb-1"
+                className="font-semibold mb-1"
               >
                 Summary
               </Typography>
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800"
+                className="text-[12px]"
               >
                 {approval.summary}
               </Typography>
@@ -197,19 +194,19 @@ export default function ApprovalDetailPage() {
             <Box>
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900 mb-1"
+                className="font-semibold mb-1"
               >
                 System context
               </Typography>
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800"
+                className="text-[12px]"
               >
                 {approval.details}
               </Typography>
               <Typography
                 variant="body2"
-                className="text-[12px] text-slate-800 mt-1"
+                className="text-[12px] mt-1"
               >
                 {approval.context}
               </Typography>
@@ -218,7 +215,7 @@ export default function ApprovalDetailPage() {
             <Box>
               <Typography
                 variant="subtitle2"
-                className="font-semibold text-slate-900 mb-1"
+                className="font-semibold mb-1"
               >
                 Internal notes
               </Typography>
@@ -231,9 +228,7 @@ export default function ApprovalDetailPage() {
                 placeholder="Add notes for audit trail (only visible to Admins)…"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                sx={{
-                  "& .MuiOutlinedInput-root": { bgcolor: "#ffffff" },
-                  "& .MuiInputBase-input": { fontSize: 12 },
+                sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
                 }}
               />
               <Button
@@ -254,20 +249,20 @@ export default function ApprovalDetailPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #eff6ff, #ffffff)",
+            border:"1px solid rgba(148,163,184,0.5)",
+            
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Typography
               variant="subtitle2"
-              className="font-semibold text-slate-900"
+              className="font-semibold"
             >
               Decision
             </Typography>
             <Typography
               variant="caption"
-              className="text-[11px] text-slate-600"
+              className="text-[11px] text-slate-500"
             >
               Choose an action. All decisions are logged with notes in the audit
               trail.
@@ -278,11 +273,10 @@ export default function ApprovalDetailPage() {
               variant="contained"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                bgcolor: EV_COLORS.primary,
-                "&:hover": { bgcolor: "#0fb589" },
+                bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
               }}
               onClick={() => handleDecision("Approve")}
             >
@@ -293,11 +287,11 @@ export default function ApprovalDetailPage() {
               variant="outlined"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                borderColor: "#f97316",
-                color: "#92400e",
+                borderColor:"#f97316",
+                color:"#92400e",
               }}
               onClick={() => handleDecision("Reject")}
             >
@@ -308,10 +302,10 @@ export default function ApprovalDetailPage() {
               variant="text"
               size="small"
               sx={{
-                textTransform: "none",
+                textTransform:"none",
                 borderRadius: 999,
                 fontSize: 12,
-                color: "#4b5563",
+                color:"#4b5563",
               }}
               onClick={() => handleDecision("Request more info")}
             >

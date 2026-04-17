@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from"react";
 import {
   Box,
   Button,
@@ -20,14 +20,14 @@ import {
   MenuItem,
   FormControl,
   Select,
-} from "@mui/material";
-import { useNavigate, useLocation } from "react-router-dom";
-import StatusBadge from "../components/StatusBadge";
-import SearchIcon from "@mui/icons-material/Search";
-import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
-import AddIcon from "@mui/icons-material/Add";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import { getRiders, RiderRecord, createRider } from "../lib/peopleStore";
+} from"@mui/material";
+import { useNavigate, useLocation } from"react-router-dom";
+import StatusBadge from"../components/StatusBadge";
+import SearchIcon from"@mui/icons-material/Search";
+import TwoWheelerIcon from"@mui/icons-material/TwoWheeler";
+import AddIcon from"@mui/icons-material/Add";
+import MoreVertIcon from"@mui/icons-material/MoreVert";
+import { getRiders, RiderRecord, createRider } from"../lib/peopleStore";
 
 export default function RiderManagement() {
   const navigate = useNavigate();
@@ -52,12 +52,12 @@ export default function RiderManagement() {
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
-    const bikeRiders = riders.filter(r => r.vehicleType === "Bike");
+    const bikeRiders = riders.filter(r => r.vehicleType ==="Bike");
     return {
       all: bikeRiders.length,
-      active: bikeRiders.filter(r => r.primaryStatus === "approved").length,
-      pending: bikeRiders.filter(r => r.primaryStatus === "under_review").length,
-      suspended: bikeRiders.filter(r => r.primaryStatus === "suspended").length,
+      active: bikeRiders.filter(r => r.primaryStatus ==="approved").length,
+      pending: bikeRiders.filter(r => r.primaryStatus ==="under_review").length,
+      suspended: bikeRiders.filter(r => r.primaryStatus ==="suspended").length,
     };
   }, [riders]);
 
@@ -73,23 +73,23 @@ export default function RiderManagement() {
       rider.phone.includes(search) ||
       `RDR-${rider.id}`.toLowerCase().includes(search.toLowerCase());
     const matchesTab =
-      activeTab === "All" ||
-      (activeTab === "Active/Verified" && rider.primaryStatus === "approved") ||
-      (activeTab === "Pending review" && rider.primaryStatus === "under_review") ||
-      (activeTab === "Suspended" && rider.primaryStatus === "suspended");
+      activeTab ==="All" ||
+      (activeTab ==="Active/Verified" && rider.primaryStatus ==="approved") ||
+      (activeTab ==="Pending review" && rider.primaryStatus ==="under_review") ||
+      (activeTab ==="Suspended" && rider.primaryStatus ==="suspended");
     // Only show bike riders
-    const matchesVehicle = rider.vehicleType === "Bike";
+    const matchesVehicle = rider.vehicleType ==="Bike";
     
     // City filter
-    const matchesCity = cityFilter === "all" || rider.city === cityFilter;
+    const matchesCity = cityFilter ==="all" || rider.city === cityFilter;
     
     // Account filter
-    const matchesAccount = accountFilter === "all" || 
-      (accountFilter === "active" && rider.activityStatus === "active") ||
-      (accountFilter === "inactive" && rider.activityStatus === "inactive");
+    const matchesAccount = accountFilter ==="all" || 
+      (accountFilter ==="active" && rider.activityStatus ==="active") ||
+      (accountFilter ==="inactive" && rider.activityStatus ==="inactive");
     
     // Risk filter
-    const matchesRisk = riskFilter === "all" || rider.risk.toLowerCase() === riskFilter;
+    const matchesRisk = riskFilter ==="all" || rider.risk.toLowerCase() === riskFilter;
     
     return matchesSearch && matchesTab && matchesVehicle && matchesCity && matchesAccount && matchesRisk;
   });
@@ -112,13 +112,13 @@ export default function RiderManagement() {
   const handleActionSelect = (action: string) => {
     if (selectedRiderId) {
       switch (action) {
-        case "view":
+        case"view":
           navigate(`/admin/riders/${selectedRiderId}`);
           break;
-        case "suspend":
+        case"suspend":
           // Handle suspend action
           break;
-        case "contact":
+        case"contact":
           // Handle contact action
           break;
       }
@@ -143,15 +143,15 @@ export default function RiderManagement() {
   };
 
   const tabs = [
-    { label: "All", count: tabCounts.all },
-    { label: "Active/Verified", count: tabCounts.active },
-    { label: "Pending review", count: tabCounts.pending },
-    { label: "Suspended", count: tabCounts.suspended },
+    { label:"All", count: tabCounts.all },
+    { label:"Active/Verified", count: tabCounts.active },
+    { label:"Pending review", count: tabCounts.pending },
+    { label:"Suspended", count: tabCounts.suspended },
   ];
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <Box sx={{ mb: 3, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
             Rider Management
@@ -164,7 +164,7 @@ export default function RiderManagement() {
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          sx={{ textTransform: "none", borderRadius: 999 }}
+          sx={{ textTransform:"none", borderRadius: 999 }}
           onClick={() => navigate('/admin/riders/new')}
         >
           Create rider
@@ -173,7 +173,7 @@ export default function RiderManagement() {
 
       {/* Dropdown Filters Row */}
       <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", p: 2 }}>
+        <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             Filters:
           </Typography>
@@ -223,7 +223,7 @@ export default function RiderManagement() {
 
       {/* Search and Tabs */}
       <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", p: 2 }}>
+        <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <TextField
             size="small"
             placeholder="Search riders by name, phone, or ID..."
@@ -236,17 +236,17 @@ export default function RiderManagement() {
                 </InputAdornment>
               ),
             }}
-            sx={{ width: 300, "& .MuiOutlinedInput-root": { borderRadius: 8 } }}
+            sx={{ width: 300,"& .MuiOutlinedInput-root": { borderRadius: 8 } }}
           />
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box sx={{ display:"flex", gap: 1 }}>
             {tabs.map((tab) => (
               <Chip
                 key={tab.label}
                 label={`${tab.label} (${tab.count})`}
                 onClick={() => setActiveTab(tab.label)}
-                color={activeTab === tab.label ? "primary" : "default"}
+                color={activeTab === tab.label ?"primary" :"default"}
                 sx={{ borderRadius: 2, height: 32 }}
-                variant={activeTab === tab.label ? "filled" : "outlined"}
+                variant={activeTab === tab.label ?"filled" :"outlined"}
               />
             ))}
           </Box>
@@ -280,12 +280,12 @@ export default function RiderManagement() {
                   key={rider.id}
                   hover
                   onClick={() => handleRowClick(rider.id)}
-                  sx={{ cursor: "pointer" }}
+                  sx={{ cursor:"pointer" }}
                 >
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: 'text.secondary' }}>
                     RDR-{rider.id}
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 1 }}>
+                  <TableCell sx={{ fontWeight: 600, display:"flex", alignItems:"center", gap: 1 }}>
                     <TwoWheelerIcon fontSize="small" color="success" />
                     {rider.name}
                   </TableCell>
@@ -301,14 +301,14 @@ export default function RiderManagement() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge
-                      status={rider.activityStatus === "active" ? "active" : "inactive"}
+                      status={rider.activityStatus ==="active" ?"active" :"inactive"}
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
                       label={rider.risk}
-                      color={rider.risk === "Low" ? "success" : rider.risk === "Medium" ? "warning" : "error"}
+                      color={rider.risk ==="Low" ?"success" : rider.risk ==="Medium" ?"warning" :"error"}
                       sx={{ fontSize: 10, height: 20 }}
                     />
                   </TableCell>

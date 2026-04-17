@@ -1,21 +1,21 @@
 // @ts-nocheck
-import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { signIn } from "../auth/auth";
+import React, { useEffect, useState } from"react";
+import { useLocation, useNavigate } from"react-router-dom";
+import { signIn } from"../auth/auth";
 
 // Professional Auth page for EVzone Admin Portal
 // Clean, enterprise style with real SSO provider icons
 // ✅ Hover added for Google, Microsoft, Apple, EVzone buttons (inline style friendly)
 
 const EV = {
-  green: "#03CD8C",
-  orange: "#F77F00",
-  wheat: "#FCE7C6",
-  dark: "#0f172a",
-  grayBorder: "#e2e8f0",
-  grayText: "#64748b",
-  lightGray: "#f8fafc",
-  white: "#ffffff",
+  green:"#03CD8C",
+  orange:"#F77F00",
+  wheat:"#FCE7C6",
+  dark:"#0f172a",
+  grayBorder:"#e2e8f0",
+  grayText:"#64748b",
+  lightGray:"#f8fafc",
+  white:"#ffffff",
 };
 
 const track = (e, p = {}) => console.debug("[track]", e, { ...p, ts: Date.now() });
@@ -73,7 +73,7 @@ const EVzoneIcon = () => (
 export default function AuthSignIn() {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state && location.state.from ? location.state.from : "/admin/home";
+  const from = location.state && location.state.from ? location.state.from :"/admin/home";
 
   const [email, setEmail] = useState("");
   const [emailErr, setEmailErr] = useState("");
@@ -88,7 +88,7 @@ export default function AuthSignIn() {
   const [hoveredBtn, setHoveredBtn] = useState(null);
 
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth < 980 : false
+    typeof window !=="undefined" ? window.innerWidth < 980 : false
   );
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function AuthSignIn() {
     /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(val).toLowerCase());
 
   const onEmailBlur = () => {
-    setEmailErr(email && !validateEmail(email) ? "Please enter a valid email address" : "");
+    setEmailErr(email && !validateEmail(email) ?"Please enter a valid email address" :"");
   };
 
   const login = async (e) => {
@@ -129,7 +129,7 @@ export default function AuthSignIn() {
       return;
     }
 
-    signIn({ name: "Admin", email, role: "Admin (simulated)" });
+    signIn({ name:"Admin", email, role:"Admin (simulated)" });
     track("auth_login", { email, remember });
     navigate(from, { replace: true });
   };
@@ -147,15 +147,15 @@ export default function AuthSignIn() {
   const hoverStyles = {
     big: {
       background: EV.lightGray,
-      borderColor: "#cbd5e1",
-      transform: "translateY(-1px)",
-      boxShadow: "0 10px 25px rgba(15, 23, 42, 0.08)",
+      borderColor:"#cbd5e1",
+      transform:"translateY(-1px)",
+      boxShadow:"0 10px 25px rgba(15, 23, 42, 0.08)",
     },
     small: {
       background: EV.lightGray,
-      borderColor: "#cbd5e1",
-      transform: "translateY(-1px)",
-      boxShadow: "0 10px 20px rgba(15, 23, 42, 0.08)",
+      borderColor:"#cbd5e1",
+      transform:"translateY(-1px)",
+      boxShadow:"0 10px 20px rgba(15, 23, 42, 0.08)",
     },
   };
 
@@ -168,7 +168,7 @@ export default function AuthSignIn() {
           <div style={styles.heroCenter}>
             <div style={{ ...styles.roundel, background: EV.orange }}>
               <div style={styles.centerFull}>
-                <div style={{ position: "relative", width: 240, height: 240 }}>{trolleySvg()}</div>
+                <div style={{ position:"relative", width: 240, height: 240 }}>{trolleySvg()}</div>
               </div>
               {iconRing()}
             </div>
@@ -214,8 +214,8 @@ export default function AuthSignIn() {
             <button
               style={{
                 ...styles.ssoButton,
-                ...(hoveredBtn === "google" ? hoverStyles.big : {}),
-                ...(isLoading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
+                ...(hoveredBtn ==="google" ? hoverStyles.big : {}),
+                ...(isLoading ? { opacity: 0.6, cursor:"not-allowed" } : {}),
               }}
               onMouseEnter={() => setHoveredBtn("google")}
               onMouseLeave={() => setHoveredBtn(null)}
@@ -230,8 +230,8 @@ export default function AuthSignIn() {
             <button
               style={{
                 ...styles.ssoButton,
-                ...(hoveredBtn === "microsoft" ? hoverStyles.big : {}),
-                ...(isLoading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
+                ...(hoveredBtn ==="microsoft" ? hoverStyles.big : {}),
+                ...(isLoading ? { opacity: 0.6, cursor:"not-allowed" } : {}),
               }}
               onMouseEnter={() => setHoveredBtn("microsoft")}
               onMouseLeave={() => setHoveredBtn(null)}
@@ -247,8 +247,8 @@ export default function AuthSignIn() {
               <button
                 style={{
                   ...styles.ssoButtonSmall,
-                  ...(hoveredBtn === "apple" ? hoverStyles.small : {}),
-                  ...(isLoading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
+                  ...(hoveredBtn ==="apple" ? hoverStyles.small : {}),
+                  ...(isLoading ? { opacity: 0.6, cursor:"not-allowed" } : {}),
                 }}
                 onMouseEnter={() => setHoveredBtn("apple")}
                 onMouseLeave={() => setHoveredBtn(null)}
@@ -263,8 +263,8 @@ export default function AuthSignIn() {
               <button
                 style={{
                   ...styles.ssoButtonSmall,
-                  ...(hoveredBtn === "evzone" ? hoverStyles.small : {}),
-                  ...(isLoading ? { opacity: 0.6, cursor: "not-allowed" } : {}),
+                  ...(hoveredBtn ==="evzone" ? hoverStyles.small : {}),
+                  ...(isLoading ? { opacity: 0.6, cursor:"not-allowed" } : {}),
                 }}
                 onMouseEnter={() => setHoveredBtn("evzone")}
                 onMouseLeave={() => setHoveredBtn(null)}
@@ -291,8 +291,8 @@ export default function AuthSignIn() {
               <input
                 style={{
                   ...styles.input,
-                  borderColor: emailErr ? "#fca5a5" : EV.grayBorder,
-                  backgroundColor: emailErr ? "#fef2f2" : EV.white,
+                  borderColor: emailErr ?"#fca5a5" : EV.grayBorder,
+                  backgroundColor: emailErr ?"#fef2f2" : EV.white,
                 }}
                 type="email"
                 value={email}
@@ -325,7 +325,7 @@ export default function AuthSignIn() {
               <div style={styles.passwordWrapper}>
                 <input
                   style={{ ...styles.input, paddingRight: 48 }}
-                  type={showPwd ? "text" : "password"}
+                  type={showPwd ?"text" :"password"}
                   value={pwd}
                   onChange={(e) => setPwd(e.target.value)}
                   onKeyUp={(e) =>
@@ -339,7 +339,7 @@ export default function AuthSignIn() {
                   type="button"
                   onClick={() => setShowPwd((s) => !s)}
                   style={styles.eyeButton}
-                  aria-label={showPwd ? "Hide password" : "Show password"}
+                  aria-label={showPwd ?"Hide password" :"Show password"}
                 >
                   {showPwd ? eyeOffSvg() : eyeOpenSvg()}
                 </button>
@@ -366,11 +366,11 @@ export default function AuthSignIn() {
               style={{
                 ...styles.submitButton,
                 opacity: isLoading ? 0.7 : 1,
-                cursor: isLoading ? "wait" : "pointer",
+                cursor: isLoading ?"wait" :"pointer",
               }}
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              {isLoading ?"Signing in..." :"Sign in"}
             </button>
           </form>
 
@@ -434,7 +434,7 @@ function eyeOffSvg() {
 }
 
 function iconRing() {
-  const icons = ["🚗", "🚕", "🚙", "🚌", "🚎", "🚐", "🚚", "🚛", "🛵", "🚲", "🚦", "📦"];
+  const icons = ["🚗","🚕","🚙","🚌","🚎","🚐","🚚","🚛","🛵","🚲","🚦","📦"];
   const size = 72;
   const font = 30;
   const r = 260;
@@ -442,7 +442,7 @@ function iconRing() {
   const cy = 280;
 
   return (
-    <div style={{ position: "absolute", inset: 0 }}>
+    <div style={{ position:"absolute", inset: 0 }}>
       {icons.map((ic, i) => {
         const angle = (i / icons.length) * Math.PI * 2;
         const x = cx + Math.cos(angle) * r - size / 2;
@@ -451,7 +451,7 @@ function iconRing() {
           <div
             key={i}
             style={{
-              position: "absolute",
+              position:"absolute",
               left: x,
               top: y,
               width: size,
@@ -459,9 +459,9 @@ function iconRing() {
               borderRadius: 9999,
               background: EV.white,
               color: EV.orange,
-              display: "grid",
-              placeItems: "center",
-              boxShadow: "0 6px 20px rgba(0,0,0,.12)",
+              display:"grid",
+              placeItems:"center",
+              boxShadow:"0 6px 20px rgba(0,0,0,.12)",
               fontSize: font,
             }}
           >
@@ -476,51 +476,51 @@ function iconRing() {
 // Styles
 const styles = {
   page: {
-    display: "flex",
-    minHeight: "100vh",
+    display:"flex",
+    minHeight:"100vh",
     background: EV.white,
   },
   heroWrap: {
     flex: 1,
-    position: "relative",
-    overflow: "hidden",
+    position:"relative",
+    overflow:"hidden",
   },
   heroGradient: {
-    position: "absolute",
+    position:"absolute",
     inset: 0,
     background: `radial-gradient(1400px 800px at -10% -20%, ${EV.wheat}, transparent 60%)`,
   },
   heroCenter: {
-    position: "absolute",
+    position:"absolute",
     inset: 0,
-    display: "grid",
-    placeItems: "center",
+    display:"grid",
+    placeItems:"center",
   },
   roundel: {
     width: 560,
     height: 560,
     borderRadius: 9999,
-    position: "relative",
-    boxShadow: "0 10px 40px rgba(0,0,0,.15)",
+    position:"relative",
+    boxShadow:"0 10px 40px rgba(0,0,0,.15)",
   },
   centerFull: {
-    position: "absolute",
+    position:"absolute",
     inset: 0,
-    display: "grid",
-    placeItems: "center",
+    display:"grid",
+    placeItems:"center",
   },
   heroFooter: {
-    position: "absolute",
+    position:"absolute",
     bottom: 32,
     left: 32,
-    background: "rgba(255,255,255,.95)",
-    padding: "12px 20px",
+    background:"rgba(255,255,255,.95)",
+    padding:"12px 20px",
     borderRadius: 12,
-    boxShadow: "0 4px 12px rgba(0,0,0,.08)",
+    boxShadow:"0 4px 12px rgba(0,0,0,.08)",
   },
   heroFooterContent: {
-    display: "flex",
-    alignItems: "center",
+    display:"flex",
+    alignItems:"center",
     gap: 8,
   },
   heroFooterBrand: {
@@ -534,21 +534,21 @@ const styles = {
   },
   formCol: {
     flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    padding: "24px 48px",
+    display:"flex",
+    flexDirection:"column",
+    padding:"24px 48px",
     maxWidth: 560,
     minWidth: 400,
   },
   topBar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+    display:"flex",
+    justifyContent:"space-between",
+    alignItems:"center",
     marginBottom: 24,
   },
   logoContainer: {
-    display: "flex",
-    alignItems: "center",
+    display:"flex",
+    alignItems:"center",
     gap: 8,
   },
   logoDot: {
@@ -563,20 +563,20 @@ const styles = {
     color: EV.dark,
   },
   langSelect: {
-    padding: "8px 12px",
+    padding:"8px 12px",
     borderRadius: 8,
     border: `1px solid ${EV.grayBorder}`,
     fontSize: 13,
     color: EV.grayText,
     background: EV.white,
-    cursor: "pointer",
-    outline: "none",
+    cursor:"pointer",
+    outline:"none",
   },
   formContainer: {
     flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
+    display:"flex",
+    flexDirection:"column",
+    justifyContent:"center",
     maxWidth: 420,
   },
   headerSection: {
@@ -590,57 +590,57 @@ const styles = {
     letterSpacing: -0.5,
   },
   subtitle: {
-    margin: "8px 0 0",
+    margin:"8px 0 0",
     fontSize: 15,
     color: EV.grayText,
     lineHeight: 1.5,
   },
   ssoSection: {
-    display: "flex",
-    flexDirection: "column",
+    display:"flex",
+    flexDirection:"column",
     gap: 12,
     marginBottom: 24,
   },
   ssoButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
     gap: 12,
-    padding: "12px 16px",
+    padding:"12px 16px",
     borderRadius: 10,
     border: `1px solid ${EV.grayBorder}`,
     background: EV.white,
-    cursor: "pointer",
+    cursor:"pointer",
     fontSize: 14,
     fontWeight: 500,
     color: EV.dark,
-    transition: "all 0.2s ease",
-    willChange: "transform, box-shadow",
+    transition:"all 0.2s ease",
+    willChange:"transform, box-shadow",
   },
   ssoRow: {
-    display: "flex",
+    display:"flex",
     gap: 12,
   },
   ssoButtonSmall: {
     flex: 1,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
     gap: 8,
-    padding: "10px 12px",
+    padding:"10px 12px",
     borderRadius: 10,
     border: `1px solid ${EV.grayBorder}`,
     background: EV.white,
-    cursor: "pointer",
+    cursor:"pointer",
     fontSize: 13,
     fontWeight: 500,
     color: EV.dark,
-    transition: "all 0.2s ease",
-    willChange: "transform, box-shadow",
+    transition:"all 0.2s ease",
+    willChange:"transform, box-shadow",
   },
   divider: {
-    display: "flex",
-    alignItems: "center",
+    display:"flex",
+    alignItems:"center",
     gap: 16,
     marginBottom: 24,
   },
@@ -652,22 +652,22 @@ const styles = {
   dividerText: {
     fontSize: 13,
     color: EV.grayText,
-    whiteSpace: "nowrap",
+    whiteSpace:"nowrap",
   },
   form: {
-    display: "flex",
-    flexDirection: "column",
+    display:"flex",
+    flexDirection:"column",
     gap: 20,
   },
   fieldGroup: {
-    display: "flex",
-    flexDirection: "column",
+    display:"flex",
+    flexDirection:"column",
     gap: 6,
   },
   labelRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+    display:"flex",
+    justifyContent:"space-between",
+    alignItems:"center",
   },
   label: {
     fontSize: 14,
@@ -677,78 +677,78 @@ const styles = {
   forgotLink: {
     fontSize: 13,
     color: EV.green,
-    textDecoration: "none",
+    textDecoration:"none",
     fontWeight: 500,
   },
   input: {
-    padding: "12px 14px",
+    padding:"12px 14px",
     borderRadius: 10,
     border: `1px solid ${EV.grayBorder}`,
     fontSize: 15,
-    outline: "none",
-    transition: "all 0.2s ease",
-    width: "100%",
-    boxSizing: "border-box",
+    outline:"none",
+    transition:"all 0.2s ease",
+    width:"100%",
+    boxSizing:"border-box",
   },
   passwordWrapper: {
-    position: "relative",
+    position:"relative",
   },
   eyeButton: {
-    position: "absolute",
+    position:"absolute",
     right: 12,
-    top: "50%",
-    transform: "translateY(-50%)",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
+    top:"50%",
+    transform:"translateY(-50%)",
+    background:"none",
+    border:"none",
+    cursor:"pointer",
     padding: 4,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display:"flex",
+    alignItems:"center",
+    justifyContent:"center",
   },
   errorText: {
     fontSize: 13,
-    color: "#dc2626",
+    color:"#dc2626",
     marginTop: 4,
   },
   warningText: {
     fontSize: 13,
-    color: "#d97706",
+    color:"#d97706",
     marginTop: 4,
   },
   rememberRow: {
-    display: "flex",
-    alignItems: "center",
+    display:"flex",
+    alignItems:"center",
   },
   checkboxLabel: {
-    display: "flex",
-    alignItems: "center",
+    display:"flex",
+    alignItems:"center",
     gap: 8,
     fontSize: 14,
     color: EV.grayText,
-    cursor: "pointer",
+    cursor:"pointer",
   },
   checkbox: {
     width: 18,
     height: 18,
     accentColor: EV.green,
-    cursor: "pointer",
+    cursor:"pointer",
   },
   submitButton: {
-    padding: "14px 20px",
+    padding:"14px 20px",
     borderRadius: 10,
-    border: "none",
+    border:"none",
     background: EV.green,
     color: EV.white,
     fontSize: 15,
     fontWeight: 600,
-    cursor: "pointer",
-    transition: "all 0.2s ease",
+    cursor:"pointer",
+    transition:"all 0.2s ease",
     marginTop: 8,
   },
   footerSection: {
     marginTop: 32,
-    textAlign: "center",
+    textAlign:"center",
   },
   footerText: {
     fontSize: 12,
@@ -758,7 +758,7 @@ const styles = {
   },
   footerLink: {
     color: EV.green,
-    textDecoration: "none",
+    textDecoration:"none",
     fontWeight: 500,
   },
   helpText: {
