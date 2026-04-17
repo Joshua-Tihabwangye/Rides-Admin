@@ -96,9 +96,6 @@ export default function ForgotPassword() {
             </button>
           </div>
 
-          <p style={styles.footer}>
-            Need help? <a href="#" style={styles.link}>Contact Support</a>
-          </p>
         </div>
       </div>
     );
@@ -159,9 +156,6 @@ export default function ForgotPassword() {
           </button>
         </div>
 
-        <p style={styles.footer}>
-          Remember your password? <a href="#" onClick={(e) => { e.preventDefault(); navigate("/admin/login"); }} style={styles.link}>Sign in</a>
-        </p>
       </div>
     </div>
   );

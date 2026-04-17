@@ -728,50 +728,7 @@ export default function AdminShell() {
             <Outlet />
           </Box>
 
-          {/* Footer */}
-          <Box component="footer" sx={{ mt: 4, py: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Box className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              {NAV.map(section => (
-                <Box key={section.id}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, fontSize: 12, color: 'text.secondary' }}>
-                    {section.label}
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {section.items.map(item => (
-                      <MuiLink
-                        key={item.to}
-                        component={NavLink}
-                        to={item.to}
-                        color="text.secondary"
-                        underline="hover"
-                        sx={{ fontSize: 11 }}
-                      >
-                        {item.label}
-                      </MuiLink>
-                    ))}
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-            <Divider sx={{ mb: 2, opacity: 0.5 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                © 2024 EV-ZONE. All rights reserved.
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 3 }}>
-                {['Privacy Policy', 'Terms of Service', 'Help Center'].map((text) => (
-                  <Typography
-                    key={text}
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ cursor: 'pointer', '&:hover': { color: EV_COLORS.primary } }}
-                  >
-                    {text}
-                  </Typography>
-                ))}
-              </Box>
-            </Box>
-          </Box>
+
         </Box>
       </Box>
     </Box>

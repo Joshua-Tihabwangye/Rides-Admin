@@ -374,23 +374,7 @@ export default function AuthSignIn() {
             </button>
           </form>
 
-          {/* Footer */}
-          <div style={styles.footerSection}>
-            <p style={styles.footerText}>
-              Protected by enterprise-grade security. By signing in, you agree to our{" "}
-              <a href="#" style={styles.footerLink}>
-                Terms of Service
-              </a>{" "}
-              and{" "}
-              <a href="#" style={styles.footerLink}>
-                Privacy Policy
-              </a>
-              .
-            </p>
-            <p style={styles.helpText}>
-              Need help? <a href="#" style={styles.footerLink}>Contact Support</a>
-            </p>
-          </div>
+
         </div>
       </div>
     </div>
