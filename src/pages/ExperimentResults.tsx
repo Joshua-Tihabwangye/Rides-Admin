@@ -351,15 +351,15 @@ export default function ExperimentResults() {
                                                 {v.name}
                                             </Typography>
                                             <Box className="flex justify-between text-sm">
-                                                <span className="text-slate-500">Users</span>
+                                                <span style={{ color: "var(--ev-text-secondary, #64748b)" }} >Users</span>
                                                 <span>{v.users.toLocaleString()}</span>
                                             </Box>
                                             <Box className="flex justify-between text-sm">
-                                                <span className="text-slate-500">Revenue</span>
+                                                <span style={{ color: "var(--ev-text-secondary, #64748b)" }} >Revenue</span>
                                                 <span>${v.revenue.toLocaleString()}</span>
                                             </Box>
                                             <Box className="flex justify-between text-sm font-semibold mt-1">
-                                                <span className="text-slate-500">Conv. Rate</span>
+                                                <span style={{ color: "var(--ev-text-secondary, #64748b)" }} >Conv. Rate</span>
                                                 <span className={v.name.includes("Variant") || v.name.includes("New") ?"text-green-600" :""}>
                                                     {v.conversion}%
                                                 </span>

@@ -196,7 +196,7 @@ export default function PromoDetail() {
                     label={promo.status}
                     size="small"
                     sx={{
-                        bgcolor: promo.status ==="Active" ?"#ecfdf5" :"#fee2e2",
+                        bgcolor: promo.status ==="Active" ?"#03cd8c15" :"#ef444420",
                         color: promo.status ==="Active" ?"#059669" :"#dc2626",
                         fontWeight: 600,
                     }}

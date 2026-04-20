@@ -114,10 +114,10 @@ function RuleBuilder({ contextLabel }) {
   const [rule, setRule] = useState({
     audience:"New riders",
     trigger:"Trip completed",
-    minTrips: 1,
+    minTrips: "",
     window:"7d",
     rewardType:"Percent discount",
-    rewardValue:"10",
+    rewardValue:"",
   });
 
   const handleChange = (field) => (event) => {
@@ -125,7 +125,7 @@ function RuleBuilder({ contextLabel }) {
   };
 
   const handleNumberChange = (field) => (event) => {
-    const value = Number(event.target.value || 0);
+    const value = event.target.value;
     setRule((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -240,6 +240,7 @@ function RuleBuilder({ contextLabel }) {
               value={rule.minTrips}
               onChange={handleNumberChange("minTrips")}
               inputProps={{ min: 1 }}
+              placeholder="e.g. 1"
               sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
               }}
             />

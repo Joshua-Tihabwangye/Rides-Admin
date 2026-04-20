@@ -141,7 +141,7 @@ export default function RiskFraudCenterPage() {
 
           <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
             <Box className="flex flex-col gap-1">
-              <span className="text-slate-500">Type</span>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Type</Typography>
               <TextField
                 select
                 size="small"
@@ -158,7 +158,7 @@ export default function RiskFraudCenterPage() {
               </TextField>
             </Box>
             <Box className="flex flex-col gap-1">
-              <span className="text-slate-500">Severity</span>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Severity</Typography>
               <TextField
                 select
                 size="small"
@@ -175,7 +175,7 @@ export default function RiskFraudCenterPage() {
               </TextField>
             </Box>
             <Box className="flex flex-col gap-1">
-              <span className="text-slate-500">Age</span>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Age</Typography>
               <TextField
                 select
                 size="small"
@@ -192,7 +192,7 @@ export default function RiskFraudCenterPage() {
               </TextField>
             </Box>
             <Box className="flex flex-col gap-1">
-              <span className="text-slate-500">Region</span>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Region</Typography>
               <TextField
                 select
                 size="small"
@@ -267,10 +267,16 @@ export default function RiskFraudCenterPage() {
                         height: 22,
                         bgcolor:
                           riskCase.severity ==="High"
-                            ?"#fee2e2"
+                            ?"#ef444420"
                             : riskCase.severity ==="Medium"
-                              ?"#fef3c7"
-                              :"#e0f2fe",
+                              ?"#eab30820"
+                              :"#3b82f620",
+                        color:
+                          riskCase.severity ==="High"
+                            ?"#ef4444"
+                            : riskCase.severity ==="Medium"
+                              ?"#eab308"
+                              :"#3b82f6",
                       }}
                     />
                     <Chip

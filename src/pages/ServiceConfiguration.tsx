@@ -178,7 +178,7 @@ export default function ServiceConfigurationPage() {
             </Box>
 
             <Box className="flex flex-wrap items-center gap-1 text-[11px]">
-              <span className="text-slate-500">Cities:</span>
+              <Typography variant="caption" color="text.secondary" component="span">Cities:</Typography>
               {cities.map((c) => (
                 <Chip
                   key={c}

@@ -112,7 +112,7 @@ function RuleBuilder({ rule, onChange, onSave }) {
   };
 
   const handleNumberChange = (field) => (event) => {
-    const value = Number(event.target.value || 0);
+    const value = event.target.value;
     onChange({ ...rule, [field]: value });
   };
 
@@ -202,6 +202,7 @@ function RuleBuilder({ rule, onChange, onSave }) {
               type="number"
               value={rule.count}
               onChange={handleNumberChange("count")}
+              placeholder="e.g. 3"
               inputProps={{ min: 1 }}
               sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
               }}
@@ -288,7 +289,7 @@ export default function PolicyRuleManagementPage() {
   const [editingRule, setEditingRule] = useState({
     event:"Low rating",
     appliesTo:"Drivers",
-    count: 3,
+    count: "",
     window:"7d",
     action:"Require retraining",
   });
@@ -300,7 +301,7 @@ export default function PolicyRuleManagementPage() {
       setEditingRule({
         event:"Low rating",
         appliesTo:"Drivers",
-        count: 3,
+        count: "",
         window:"7d",
         action:"Require retraining",
       });
@@ -308,7 +309,7 @@ export default function PolicyRuleManagementPage() {
       setEditingRule({
         event:"Refund requested",
         appliesTo:"Riders",
-        count: 3,
+        count: "",
         window:"7d",
         action:"Limit features",
       });
@@ -316,7 +317,7 @@ export default function PolicyRuleManagementPage() {
       setEditingRule({
         event:"Cancellation",
         appliesTo:"Drivers",
-        count: 5,
+        count: "",
         window:"7d",
         action:"Notify Safety desk",
       });
@@ -332,7 +333,7 @@ export default function PolicyRuleManagementPage() {
     setEditingRule({
       event:"Low rating",
       appliesTo:"Riders",
-      count: 1,
+      count: "",
       window:"24h",
       action:"Notify Safety desk",
     });
