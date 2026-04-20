@@ -270,7 +270,7 @@ export default function AdminGlobalSearchPage() {
           {items.slice(0, 2).map((item, idx) => (
             <Box key={idx} className="flex flex-col rounded-md px-2 py-1 hover:bg-black/5">
               <span className="font-medium">{item.name || item.id}</span>
-              <span className="text-[11px] text-slate-500">
+              <span style={{ color: "var(--ev-text-secondary, #64748b)" }} className="text-[11px] ">
                 {item.city || item.route || item.type} · {item.phone || item.vehicle || (item.drivers ? `${item.drivers} drivers` : '') || item.rider || item.user}
               </span>
               <Chip 

@@ -242,7 +242,7 @@ export default function PricingRulesPage() {
             </Typography>
             <Box className="mt-2 flex-1 rounded-lg border border-dashed border-slate-600 bg-slate-900/60 flex flex-col items-center justify-center text-[11px] text-slate-400">
               <span>Map / geofence editor goes here</span>
-              <span className="mt-1 text-[10px] text-slate-500">
+              <span style={{ color: "var(--ev-text-secondary, #64748b)" }} className="mt-1 text-[10px] ">
                 Click"Add zone" to start drawing a new polygon in your real
                 implementation.
               </span>

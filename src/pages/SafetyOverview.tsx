@@ -502,7 +502,7 @@ export default function SafetyOverviewDashboardPage() {
                         </Button>
                       </Box>
                     </Box>
-                    <span className="text-[11px] text-slate-500">
+                    <span style={{ color: "var(--ev-text-secondary, #64748b)" }} className="text-[11px] ">
                       {u.city} · {u.reason}
                     </span>
                   </Box>

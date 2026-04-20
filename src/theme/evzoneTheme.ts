@@ -84,6 +84,81 @@ export function makeEvzoneTheme(mode: ColorMode) {
           },
         },
       },
+      MuiInputLabel: {
+        styleOverrides: {
+          root: {
+            color: isDark ? '#cbd5e1' : undefined,
+            '&.Mui-focused': {
+              color: EV_COLORS.primary,
+            },
+          },
+        },
+      },
+      MuiFormLabel: {
+        styleOverrides: {
+          root: {
+            color: isDark ? '#cbd5e1' : undefined,
+          },
+        },
+      },
+      MuiFormControlLabel: {
+        styleOverrides: {
+          label: {
+            color: isDark ? '#f1f5f9' : undefined,
+          },
+        },
+      },
+      MuiOutlinedInput: {
+        styleOverrides: {
+          root: {
+            color: isDark ? '#f1f5f9' : undefined,
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: isDark ? '#334155' : undefined,
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: isDark ? '#475569' : undefined,
+            },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+              borderColor: EV_COLORS.primary,
+            },
+          },
+          input: {
+            color: isDark ? '#f1f5f9' : undefined,
+            '&::placeholder': {
+              color: isDark ? '#64748b' : undefined,
+              opacity: 1,
+            },
+          },
+        },
+      },
+      MuiSelect: {
+        styleOverrides: {
+          icon: {
+            color: isDark ? '#94a3b8' : undefined,
+          },
+        },
+      },
+      MuiChip: {
+        styleOverrides: {
+          root: {
+            color: isDark ? '#f1f5f9' : undefined,
+          },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            color: isDark ? '#f1f5f9' : undefined,
+          },
+        },
+      },
+      MuiSwitch: {
+        styleOverrides: {
+          track: {
+            backgroundColor: isDark ? '#475569' : undefined,
+          },
+        },
+      },
       MuiCssBaseline: {
         styleOverrides: {
           ':root': {
@@ -102,6 +177,25 @@ export function makeEvzoneTheme(mode: ColorMode) {
               ? 'rgba(11,18,32,0.95)'
               : 'rgba(255,255,255,0.95)',
           },
+          // Native select and option elements for dark mode
+          ...(isDark ? {
+            'select': {
+              color: '#f1f5f9 !important',
+              backgroundColor: '#0b1220 !important',
+              borderColor: '#334155 !important',
+            },
+            'option': {
+              color: '#f1f5f9 !important',
+              backgroundColor: '#0b1220 !important',
+            },
+            'select option': {
+              color: '#f1f5f9 !important',
+              backgroundColor: '#0b1220 !important',
+            },
+            'input': {
+              colorScheme: 'dark',
+            },
+          } : {}),
         },
       },
     },

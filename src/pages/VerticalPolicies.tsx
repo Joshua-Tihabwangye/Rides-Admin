@@ -78,23 +78,23 @@ export default function VerticalPoliciesPage() {
   const [policies, setPolicies] = useState({
     rental: {
       allowNonEvException: false,
-      maxVehicleAgeYears: 6,
-      minDriverRating: 4.2,
+      maxVehicleAgeYears: "",
+      minDriverRating: "",
     },
     school: {
       requireBackgroundCheck: true,
-      minTrainingModules: 3,
-      maxKidsPerVehicle: 24,
+      minTrainingModules: "",
+      maxKidsPerVehicle: "",
     },
     ems: {
       allowNonEvForAmbulance: true,
-      responseTimeTargetMin: 8,
+      responseTimeTargetMin: "",
       requireMedicalPartnerApproval: true,
     },
     tours: {
-      minDriverRating: 4.5,
+      minDriverRating: "",
       requireLocalGuide: false,
-      maxDailyDrivingHours: 10,
+      maxDailyDrivingHours: "",
     },
   });
 
@@ -111,7 +111,7 @@ export default function VerticalPoliciesPage() {
   };
 
   const handleNumberChange = (vertical, field) => (event) => {
-    const value = Number(event.target.value || 0);
+    const value = event.target.value;
     setPolicies((prev) => ({
       ...prev,
       [vertical]: { ...prev[vertical], [field]: value },
@@ -176,12 +176,14 @@ export default function VerticalPoliciesPage() {
                 label="Max vehicle age (years)"
                 value={rental.maxVehicleAgeYears}
                 onChange={handleNumberChange("rental","maxVehicleAgeYears")}
+                placeholder="e.g. 6"
               />
               <NumberField
                 label="Min driver rating"
                 value={rental.minDriverRating}
                 step="0.1"
                 onChange={handleNumberChange("rental","minDriverRating")}
+                placeholder="e.g. 4.2"
               />
             </Box>
           </CardContent>
@@ -235,11 +237,13 @@ export default function VerticalPoliciesPage() {
                 label="Min training modules"
                 value={school.minTrainingModules}
                 onChange={handleNumberChange("school","minTrainingModules")}
+                placeholder="e.g. 3"
               />
               <NumberField
                 label="Max kids per vehicle"
                 value={school.maxKidsPerVehicle}
                 onChange={handleNumberChange("school","maxKidsPerVehicle")}
+                placeholder="e.g. 24"
               />
             </Box>
           </CardContent>
@@ -311,6 +315,7 @@ export default function VerticalPoliciesPage() {
                 label="Response time target (minutes)"
                 value={ems.responseTimeTargetMin}
                 onChange={handleNumberChange("ems","responseTimeTargetMin")}
+                placeholder="e.g. 8"
               />
             </Box>
           </CardContent>
@@ -347,11 +352,13 @@ export default function VerticalPoliciesPage() {
                 value={tours.minDriverRating}
                 step="0.1"
                 onChange={handleNumberChange("tours","minDriverRating")}
+                placeholder="e.g. 4.5"
               />
               <NumberField
                 label="Max daily driving hours"
                 value={tours.maxDailyDrivingHours}
                 onChange={handleNumberChange("tours","maxDailyDrivingHours")}
+                placeholder="e.g. 10"
               />
             </Box>
 
@@ -412,7 +419,7 @@ export default function VerticalPoliciesPage() {
   );
 }
 
-function NumberField({ label, value, onChange, step ="1" }) {
+function NumberField({ label, value, onChange, step ="1", placeholder = "" }) {
   return (
     <Box className="flex flex-col gap-1">
       <Typography
@@ -427,6 +434,7 @@ function NumberField({ label, value, onChange, step ="1" }) {
         value={value}
         onChange={onChange}
         type="number"
+        placeholder={placeholder}
         inputProps={{ step }}
         sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
         }}
