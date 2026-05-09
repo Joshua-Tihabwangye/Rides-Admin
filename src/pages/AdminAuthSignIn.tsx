@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useState } from"react";
 import { useLocation, useNavigate } from"react-router-dom";
-import { signIn } from"../auth/auth";
+import { loginWithCredentials } from"../auth/auth";
 
 // Professional Auth page for EVzone Admin Portal
 // Clean, enterprise style with real SSO provider icons
@@ -129,9 +129,15 @@ export default function AuthSignIn() {
       return;
     }
 
-    signIn({ name:"Admin", email, role:"Admin (simulated)" });
-    track("auth_login", { email, remember });
-    navigate(from, { replace: true });
+    try {
+      await loginWithCredentials({ email, password: pwd });
+      track("auth_login", { email, remember });
+      navigate(from, { replace: true });
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "Login failed. Please try again.");
+      setIsLoading(false);
+      return;
+    }
   };
 
   const sso = (provider) => {

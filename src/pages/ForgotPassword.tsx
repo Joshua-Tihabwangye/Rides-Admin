@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState } from"react";
 import { useNavigate } from"react-router-dom";
+import { requestPasswordReset } from "../auth/auth";
 
 // Forgot Password - Step 1: Enter email to request reset link
 
@@ -50,10 +51,14 @@ export default function ForgotPassword() {
     }
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setIsSubmitted(true);
+    try {
+      await requestPasswordReset(email);
+      setIsSubmitted(true);
+    } catch (error) {
+      setEmailErr(error instanceof Error ? error.message : "Unable to send reset email");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
