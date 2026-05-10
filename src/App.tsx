@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import RequireAuth from './auth/RequireAuth'
 import AdminShell from './layout/AdminShell'
+import AdminBackendBootstrap from './components/AdminBackendBootstrap'
 
 // Pages (attached)
 import AdminAuthSignIn from './pages/AdminAuthSignIn'
@@ -60,6 +61,7 @@ import Settings from './pages/Settings'
 export default function App() {
   return (
     <BrowserRouter>
+      <AdminBackendBootstrap />
       <Routes>
         <Route path="/" element={<Navigate to="/admin/login" replace />} />
 
