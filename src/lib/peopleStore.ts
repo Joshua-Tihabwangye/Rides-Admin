@@ -1,3 +1,12 @@
+import {
+  createAdminDriver as createAdminDriverRemote,
+  createAdminRider as createAdminRiderRemote,
+  isAdminBackendEnabled,
+  patchAdminDriver,
+  patchAdminRider,
+  syncAdminReferenceData,
+} from "../services/api/adminApi"
+
 export type PrimaryStatus = 'approved' | 'under_review' | 'suspended'
 export type ActivityStatus = 'active' | 'inactive'
 
@@ -5,6 +14,7 @@ export type RiskLevel = 'Low' | 'Medium' | 'High'
 
 export type RiderRecord = {
   id: number
+  backendId?: string
   name: string
   phone: string
   city: string
@@ -19,6 +29,7 @@ export type RiderRecord = {
 
 export type DriverRecord = {
   id: number
+  backendId?: string
   name: string
   phone: string
   city: string
@@ -151,6 +162,24 @@ export function upsertRider(record: RiderRecord) {
   if (idx >= 0) riders[idx] = record
   else riders.push(record)
   writeToStorage(RIDERS_KEY, riders)
+
+  if (isAdminBackendEnabled()) {
+    void (async () => {
+      try {
+        if (record.backendId) {
+          await patchAdminRider(record.backendId, {
+            fullName: record.name,
+            phone: record.phone,
+            city: record.city,
+            status: record.primaryStatus === "suspended" ? "deleted" : "active",
+          })
+        }
+        await syncAdminReferenceData()
+      } catch (error) {
+        console.warn("Admin rider sync failed. Keeping local store state.", error)
+      }
+    })()
+  }
 }
 
 export function createRider(partial: Omit<RiderRecord, 'id' | 'vehicle' | 'vehicleType'> & Partial<Pick<RiderRecord, 'vehicle' | 'vehicleType'>>): RiderRecord {
@@ -168,6 +197,23 @@ export function createRider(partial: Omit<RiderRecord, 'id' | 'vehicle' | 'vehic
   }
   riders.push(record)
   writeToStorage(RIDERS_KEY, riders)
+
+  if (isAdminBackendEnabled()) {
+    void (async () => {
+      try {
+        await createAdminRiderRemote({
+          email: `${partial.name.toLowerCase().replace(/\\s+/g, ".")}@example.com`,
+          phone: partial.phone,
+          fullName: partial.name,
+          city: partial.city,
+        })
+        await syncAdminReferenceData()
+      } catch (error) {
+        console.warn("Admin rider create sync failed. Keeping local store state.", error)
+      }
+    })()
+  }
+
   return record
 }
 
@@ -185,6 +231,57 @@ export function upsertDriver(record: DriverRecord) {
   if (idx >= 0) drivers[idx] = record
   else drivers.push(record)
   writeToStorage(DRIVERS_KEY, drivers)
+
+  if (isAdminBackendEnabled()) {
+    void (async () => {
+      try {
+        if (record.backendId) {
+          await patchAdminDriver(record.backendId, {
+            fullName: record.name,
+            phone: record.phone,
+            city: record.city,
+            status: record.primaryStatus === "suspended" ? "deleted" : "active",
+          })
+        }
+        await syncAdminReferenceData()
+      } catch (error) {
+        console.warn("Admin driver sync failed. Keeping local store state.", error)
+      }
+    })()
+  }
+}
+
+export function createDriver(partial: Omit<DriverRecord, 'id' | 'vehicle' | 'vehicleType'> & Partial<Pick<DriverRecord, 'vehicle' | 'vehicleType'>>): DriverRecord {
+  const drivers = getDrivers()
+  const nextId = drivers.length ? Math.max(...drivers.map((d) => d.id)) + 1 : 200
+  const { vehicle = 'EV Car', vehicleType = 'Car', ...rest } = partial
+
+  const record: DriverRecord = {
+    id: nextId,
+    vehicle,
+    vehicleType,
+    ...rest
+  }
+  drivers.push(record)
+  writeToStorage(DRIVERS_KEY, drivers)
+
+  if (isAdminBackendEnabled()) {
+    void (async () => {
+      try {
+        await createAdminDriverRemote({
+          email: `${partial.name.toLowerCase().replace(/\\s+/g, ".")}@example.com`,
+          phone: partial.phone,
+          fullName: partial.name,
+          city: partial.city,
+        })
+        await syncAdminReferenceData()
+      } catch (error) {
+        console.warn("Admin driver create sync failed. Keeping local store state.", error)
+      }
+    })()
+  }
+
+  return record
 }
 
 

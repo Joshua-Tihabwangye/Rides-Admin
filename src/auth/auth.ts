@@ -1,5 +1,10 @@
 import { backendForgotPassword, backendLogin, isBackendAuthEnabled } from "../services/api/authApi"
 import { ApiRequestError } from "../services/api/httpClient"
+import {
+  clearAdminBackendTokens,
+  saveAdminBackendTokens,
+  syncAdminReferenceData,
+} from "../services/api/adminApi"
 
 export type AuthUser = {
   name: string
@@ -33,6 +38,7 @@ export function signIn(user: AuthUser) {
 
 export function signOut() {
   localStorage.removeItem(STORAGE_KEY)
+  clearAdminBackendTokens()
 }
 
 export function isAuthed() {
@@ -49,13 +55,17 @@ export async function loginWithCredentials(credentials: { email: string; passwor
         password: credentials.password,
       })
 
+      saveAdminBackendTokens(backend.accessToken, backend.refreshToken)
       const authUser: AuthUser = {
-        name: "Admin",
+        name: backend.user.email.split("@")[0] || "Admin",
         email: backend.user.email,
-        role: "Admin (simulated)",
+        role: backend.user.roles?.includes("super_admin") ? "Super Admin" : "Admin",
       }
 
       signIn(authUser)
+      void syncAdminReferenceData().catch((error) => {
+        console.warn("Admin backend bootstrap sync failed. Keeping current local store.", error)
+      })
       return authUser
     } catch (error) {
       if (!shouldFallbackToLocal(error)) {
