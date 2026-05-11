@@ -10,19 +10,50 @@ const DRIVERS_KEY = "evzone_admin_drivers";
 const AUDIT_KEY = "evzone_admin_audit_events";
 
 type AdminRiderResponse = {
-  riderId: string;
-  fullName: string;
-  phone: string;
-  city: string;
-  status: "active" | "deleted";
+  id: string;
+  userId: string;
+  riderId?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  country?: string;
+  preferredCurrency?: string;
+  preferences?: Record<string, any>;
+  rating?: number;
+  totalTrips?: number;
+  status: 'active' | 'deleted' | 'suspended';
+  roles: string[];
+  user?: unknown; // nested user object if needed, but we mainly need above
 };
 
 type AdminDriverResponse = {
-  driverId: string;
-  fullName: string;
-  phone: string;
-  city: string;
-  status: "active" | "deleted";
+  id: string;
+  userId: string;
+  driverId?: string;
+  fleetId?: string;
+  branchId?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  country?: string;
+  driverLicenseNumber?: string;
+  serviceMode?: string;
+  preferences?: Record<string, any>;
+  checkpoints?: Record<string, any>;
+  status?: string;
+  onboardingStatus?: string;
+  currentLocation?: { lat: number; lng: number } | null;
+  lastLocationAt?: Date | null;
+  rating?: number;
+  totalTrips?: number;
+  roles: string[];
+  user?: unknown;
 };
 
 type AuditLogResponse = {
@@ -502,13 +533,13 @@ export async function getAdminSystemOverview(): Promise<AdminSystemOverview> {
 }
 
 // Single rider detail
-export async function getAdminRider(riderId: string) {
-  return request<AdminRiderResponse & { userId: string; status: string; roles: string[] }>(`/admin/riders/${riderId}`);
+export async function getAdminRider(riderId: string): Promise<AdminRiderResponse> {
+  return request<AdminRiderResponse>(`/admin/riders/${riderId}`);
 }
 
 // Single driver detail
-export async function getAdminDriver(driverId: string) {
-  return request<AdminDriverResponse & { userId: string; roles: string[]; status: string }>(`/admin/drivers/${driverId}`);
+export async function getAdminDriver(driverId: string): Promise<AdminDriverResponse> {
+  return request<AdminDriverResponse>(`/admin/drivers/${driverId}`);
 }
 
 // Single company
