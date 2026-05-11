@@ -59,6 +59,202 @@ type AdminUpdateUserInput = Partial<{
   status: "active" | "deleted";
 }>;
 
+// Company (Fleet Partner)
+type AdminCompanyResponse = {
+  id: string;
+  companyName: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  registrationNumber: string | null;
+  taxId: string | null;
+  status: "pending" | "approved" | "suspended";
+  verticals: Record<string, boolean>;
+};
+
+type AdminCreateCompanyInput = {
+  companyName: string;
+  contactEmail: string;
+  contactPhone?: string;
+  registrationNumber?: string;
+  taxId?: string;
+  verticals?: Record<string, boolean>;
+};
+
+type AdminUpdateCompanyInput = Partial<{
+  companyName: string;
+  contactEmail: string;
+  contactPhone: string;
+  registrationNumber: string;
+  taxId: string;
+  status: "pending" | "approved" | "suspended";
+  verticals: Record<string, boolean>;
+}>;
+
+// Approval
+type AdminApprovalResponse = {
+  id: string;
+  entityType: "company" | "driver" | "vehicle" | "document";
+  entityId: string;
+  status: "pending" | "approved" | "rejected";
+  requestedBy: string;
+  reviewedBy: string | null;
+  notes: string | null;
+  createdAt: number;
+  reviewedAt: number | null;
+};
+
+type ReviewApprovalInput = {
+  decision: "approved" | "rejected";
+  notes?: string;
+};
+
+// Analytics
+type AdminOperationsAnalytics = {
+  period: "day" | "week" | "month" | "quarter" | "year";
+  trips: {
+    total: number;
+    completed: number;
+    active: number;
+  };
+  dispatches: {
+    total: number;
+    pending: number;
+  };
+  drivers: {
+    total: number;
+    online: number;
+  };
+};
+
+type AdminFinanceAnalytics = {
+  period: "day" | "week" | "month" | "quarter" | "year";
+  grossEarnings: number;
+  earningsCount: number;
+  payoutsPending: number;
+  walletExposure: number;
+  currency: string;
+};
+
+type AnalyticsQuery = {
+  period?: "day" | "week" | "month" | "quarter" | "year";
+};
+
+// Pricing
+type AdminPricingResponse = {
+  id: string;
+  name: string;
+  service: string;
+  status: "active" | "inactive";
+  pricingRules: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type AdminCreatePricingInput = {
+  name: string;
+  service: string;
+  pricingRules: Record<string, unknown>;
+};
+
+type AdminUpdatePricingInput = Partial<{
+  name: string;
+  service: string;
+  status: "active" | "inactive";
+  pricingRules: Record<string, unknown>;
+}>;
+
+// Promo
+type AdminPromoResponse = {
+  id: string;
+  code: string;
+  description: string;
+  discountType: "percent" | "flat";
+  discountValue: number;
+  status: "draft" | "active" | "expired";
+  createdAt: number;
+  updatedAt: number;
+};
+
+type AdminCreatePromoInput = {
+  code: string;
+  description: string;
+  discountType: "percent" | "flat";
+  discountValue: number;
+};
+
+type AdminUpdatePromoInput = Partial<{
+  description: string;
+  discountType: "percent" | "flat";
+  discountValue: number;
+  status: "draft" | "active" | "expired";
+}>;
+
+// Service
+type AdminServiceResponse = {
+  id: string;
+  key: string;
+  name: string;
+  enabled: boolean;
+  configuration: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type AdminCreateServiceInput = {
+  key: string;
+  name: string;
+  enabled?: boolean;
+  configuration?: Record<string, unknown>;
+};
+
+type AdminUpdateServiceInput = Partial<{
+  name: string;
+  enabled: boolean;
+  configuration: Record<string, unknown>;
+}>;
+
+// Risk
+type AdminRiskCaseResponse = {
+  id: string;
+  type: string;
+  severity: "low" | "medium" | "high" | "critical";
+  status: "open" | "monitoring" | "resolved";
+  subjectType: "rider" | "driver" | "fleet" | "trip";
+  subjectId: string;
+  notes: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+// Safety Incident (admin view)
+type AdminSafetyIncidentResponse = {
+  id: string;
+  tripId: string;
+  type: string;
+  severity: "low" | "medium" | "high";
+  status: "open" | "resolved";
+  actor: "driver" | "rider";
+  location: { lat: number; lng: number } | null;
+  createdAt: number;
+  resolvedAt: number | null;
+};
+
+// System Overview
+type AdminSystemOverview = {
+  totals: {
+    users: number;
+    riders: number;
+    drivers: number;
+    companies: number;
+    trips: number;
+  };
+  queues: {
+    approvals: number;
+    riskCases: number;
+    safetyIncidents: number;
+  };
+};
+
 export function isAdminBackendEnabled(): boolean {
   return getBackendEnabled();
 }
@@ -189,7 +385,161 @@ export async function patchAdminFeatureFlag(
   });
 }
 
-export async function syncAdminReferenceData(): Promise<void> {
+// Companies
+export async function listAdminCompanies(): Promise<AdminCompanyResponse[]> {
+  return request<AdminCompanyResponse[]>("/admin/companies");
+}
+
+export async function createAdminCompany(input: AdminCreateCompanyInput) {
+  return request<{ companyId: string }>("/admin/companies", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminCompany(companyId: string, input: AdminUpdateCompanyInput) {
+  return request<AdminCompanyResponse>(`/admin/companies/${companyId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// Approvals
+export async function listAdminApprovals(): Promise<AdminApprovalResponse[]> {
+  return request<AdminApprovalResponse[]>("/admin/approvals");
+}
+
+export async function reviewAdminApproval(approvalId: string, input: ReviewApprovalInput) {
+  return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// Analytics
+export async function getAdminOperationsAnalytics(query: AnalyticsQuery = {}) {
+  const params = new URLSearchParams();
+  if (query.period) params.append("period", query.period);
+  return request<AdminOperationsAnalytics>(`/admin/analytics/operations?${params}`);
+}
+
+export async function getAdminFinanceAnalytics(query: AnalyticsQuery = {}) {
+  const params = new URLSearchParams();
+  if (query.period) params.append("period", query.period);
+  return request<AdminFinanceAnalytics>(`/admin/analytics/finance?${params}`);
+}
+
+// Safety Incidents
+export async function listAdminSafetyIncidents(): Promise<AdminSafetyIncidentResponse[]> {
+  return request<AdminSafetyIncidentResponse[]>("/admin/safety/incidents");
+}
+
+// Risk Cases
+export async function listAdminRiskCases(): Promise<AdminRiskCaseResponse[]> {
+  return request<AdminRiskCaseResponse[]>("/admin/risk/cases");
+}
+
+// Pricing
+export async function listAdminPricing(): Promise<AdminPricingResponse[]> {
+  return request<AdminPricingResponse[]>("/admin/pricing");
+}
+
+export async function createAdminPricing(input: AdminCreatePricingInput) {
+  return request<{ pricingId: string }>("/admin/pricing", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminPricing(pricingId: string, input: AdminUpdatePricingInput) {
+  return request<AdminPricingResponse>(`/admin/pricing/${pricingId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// Promos
+export async function listAdminPromos(): Promise<AdminPromoResponse[]> {
+  return request<AdminPromoResponse[]>("/admin/promos");
+}
+
+export async function createAdminPromo(input: AdminCreatePromoInput) {
+  return request<{ promoId: string }>("/admin/promos", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminPromo(promoId: string, input: AdminUpdatePromoInput) {
+  return request<AdminPromoResponse>(`/admin/promos/${promoId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// Services
+export async function listAdminServices(): Promise<AdminServiceResponse[]> {
+  return request<AdminServiceResponse[]>("/admin/services");
+}
+
+export async function createAdminService(input: AdminCreateServiceInput) {
+  return request<{ serviceId: string }>("/admin/services", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminService(serviceId: string, input: AdminUpdateServiceInput) {
+  return request<AdminServiceResponse>(`/admin/services/${serviceId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// System Overview
+export async function getAdminSystemOverview(): Promise<AdminSystemOverview> {
+  return request<AdminSystemOverview>("/admin/system/overview");
+}
+
+// Single rider detail
+export async function getAdminRider(riderId: string) {
+  return request<AdminRiderResponse & { userId: string; status: string; roles: string[] }>(`/admin/riders/${riderId}`);
+}
+
+// Single driver detail
+export async function getAdminDriver(driverId: string) {
+  return request<AdminDriverResponse & { userId: string; roles: string[]; status: string }>(`/admin/drivers/${driverId}`);
+}
+
+// Single company
+export async function getAdminCompany(companyId: string) {
+  return request<AdminCompanyResponse>(`/admin/companies/${companyId}`);
+}
+
+// Single approval
+export async function getAdminApproval(approvalId: string) {
+  return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}`);
+}
+
+// Single pricing config
+export async function getAdminPricing(pricingId: string) {
+  return request<AdminPricingResponse>(`/admin/pricing/${pricingId}`);
+}
+
+// Single promo
+export async function getAdminPromo(promoId: string) {
+  return request<AdminPromoResponse>(`/admin/promos/${promoId}`);
+}
+
+// Single service config
+export async function getAdminService(serviceId: string) {
+  return request<AdminServiceResponse>(`/admin/services/${serviceId}`);
+}
+
+// Single risk case
+export async function getAdminRiskCase(riskCaseId: string) {
+  return request<AdminRiskCaseResponse>(`/admin/risk/cases/${riskCaseId}`);
+}
   if (typeof window === "undefined" || !getBackendEnabled() || !readAdminBackendAccessToken()) {
     return;
   }
