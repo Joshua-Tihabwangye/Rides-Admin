@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useMemo, useState } from"react";
+import React, { useState, useEffect, useMemo } from"react";
 import { useNavigate } from"react-router-dom";
 import {
   Box,
@@ -9,21 +8,75 @@ import {
   TextField,
   Chip,
   Divider,
+  CircularProgress,
+  Alert,
 } from"@mui/material";
-
-// H2 – Risk & Fraud Center (Light/Dark, EVzone themed)
-// Route suggestion: /admin/risk
-// Central view for fraud alerts, suspicious behaviours and triage workflow.
+import { listAdminRiskCases } from"../services/api/adminApi";
+import type { AdminRiskCaseResponse } from"../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
   secondary:"#f77f00",
 };
 
-function AdminRiskLayout({ children }) {
+export default function RiskFraudCenterPage() {
+  const navigate = useNavigate();
+  const [typeFilter, setTypeFilter] = useState<string>("All");
+  const [severityFilter, setSeverityFilter] = useState<string>("All");
+  const [cases, setCases] = useState<AdminRiskCaseResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchCases = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminRiskCases();
+      setCases(data);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load risk cases');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCases();
+  }, []);
+
+  const handleCaseClick = (riskCase: AdminRiskCaseResponse) => {
+    navigate(`/admin/risk/${riskCase.id}`);
+  };
+
+  const filteredCases = useMemo(() => {
+    return cases.filter((c) => {
+      const matchesType =
+        typeFilter === "All" ||
+        (typeFilter === "Account" && c.type.toLowerCase().includes("account")) ||
+        (typeFilter === "Payment" && c.type.toLowerCase().includes("payment")) ||
+        (typeFilter === "Device" && c.type.toLowerCase().includes("device"));
+
+      const matchesSeverity =
+        severityFilter === "All" || c.severity.toLowerCase() === severityFilter.toLowerCase();
+
+      return matchesType && matchesSeverity;
+    });
+  }, [cases, typeFilter, severityFilter]);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
+
   return (
     <Box>
-      {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
           <Typography
@@ -42,89 +95,12 @@ function AdminRiskLayout({ children }) {
         </Box>
       </Box>
 
-      <Box className="flex-1 flex flex-col gap-3">
-        {children}
-      </Box>
-    </Box>
-  );
-}
-
-const SAMPLE_RISK_CASES = [
-  {
-    id:"RISK-101",
-    type:"Account abuse",
-    actorType:"Rider",
-    actorName:"John Okello",
-    severity:"High",
-    age:"1h",
-    region:"East Africa",
-    summary:"Multiple refund disputes across 3 drivers in 24 hours.",
-  },
-  {
-    id:"RISK-102",
-    type:"Payment fraud",
-    actorType:"Driver",
-    actorName:"Michael Driver",
-    severity:"Medium",
-    age:"3h",
-    region:"West Africa",
-    summary:"Unusual pattern of short trips with identical card tokens.",
-  },
-  {
-    id:"RISK-103",
-    type:"Device sharing",
-    actorType:"Rider",
-    actorName:"Samuel K.",
-    severity:"Low",
-    age:"Today",
-    region:"West Africa",
-    summary:"Multiple accounts logging in from the same device/IMEI.",
-  },
-];
-
-export default function RiskFraudCenterPage() {
-  const navigate = useNavigate();
-  const [typeFilter, setTypeFilter] = useState<string>("All");
-  const [severityFilter, setSeverityFilter] = useState<string>("All");
-  const [ageFilter, setAgeFilter] = useState<string>("All");
-  const [regionFilter, setRegionFilter] = useState<string>("All");
-
-  const handleCaseClick = (riskCase) => {
-    navigate(`/admin/risk/${riskCase.id}`);
-  };
-
-  const filteredCases = useMemo(() => {
-    return SAMPLE_RISK_CASES.filter((c) => {
-      const matchesType =
-        typeFilter ==="All" ||
-        (typeFilter ==="Account" && c.type.toLowerCase().includes("account")) ||
-        (typeFilter ==="Payment" && c.type.toLowerCase().includes("payment")) ||
-        (typeFilter ==="Device" && c.type.toLowerCase().includes("device"));
-
-      const matchesSeverity =
-        severityFilter ==="All" || c.severity.toLowerCase() === severityFilter.toLowerCase();
-
-      const matchesAge =
-        ageFilter ==="All" ||
-        (ageFilter ==="<1h" && c.age ==="1h") ||
-        (ageFilter ==="Today" && c.age ==="Today") ||
-        (ageFilter ===">24h" && c.age ===">24h");
-
-      const matchesRegion = regionFilter ==="All" || c.region === regionFilter;
-
-      return matchesType && matchesSeverity && matchesAge && matchesRegion;
-    });
-  }, [typeFilter, severityFilter, ageFilter, regionFilter]);
-
-  return (
-    <AdminRiskLayout>
       {/* Filters row */}
       <Card
         elevation={1}
         sx={{
           borderRadius: 8,
-          border:"1px solid rgba(148,163,184,0.5)",
-          
+          border: "1px solid rgba(148,163,184,0.5)",
         }}
       >
         <CardContent className="p-3 flex flex-col gap-3">
@@ -133,8 +109,7 @@ export default function RiskFraudCenterPage() {
             className="text-[11px]"
             color="text.secondary"
           >
-            Filter suspicious activity by type, severity, age and region. Data is simulated on
-            the frontend only.
+            Filter suspicious activity by type, severity, age and region. Data is from backend.
           </Typography>
 
           <Divider className="!my-1" />
@@ -148,9 +123,9 @@ export default function RiskFraudCenterPage() {
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
                 SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor:"background.paper" }}
+                sx={{ fontSize: 12, bgcolor: "background.paper" }}
               >
-                {["All","Account","Payment","Device"].map((v) => (
+                {["All", "Account", "Payment", "Device"].map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
@@ -165,43 +140,9 @@ export default function RiskFraudCenterPage() {
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value)}
                 SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor:"background.paper" }}
+                sx={{ fontSize: 12, bgcolor: "background.paper" }}
               >
                 {["All","Low","Medium","High"].map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </TextField>
-            </Box>
-            <Box className="flex flex-col gap-1">
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Age</Typography>
-              <TextField
-                select
-                size="small"
-                value={ageFilter}
-                onChange={(e) => setAgeFilter(e.target.value)}
-                SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor:"background.paper" }}
-              >
-                {["All","<1h","Today",">24h"].map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </TextField>
-            </Box>
-            <Box className="flex flex-col gap-1">
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Region</Typography>
-              <TextField
-                select
-                size="small"
-                value={regionFilter}
-                onChange={(e) => setRegionFilter(e.target.value)}
-                SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor:"background.paper" }}
-              >
-                {["All","East Africa","West Africa"].map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
@@ -221,11 +162,10 @@ export default function RiskFraudCenterPage() {
             onClick={() => handleCaseClick(riskCase)}
             sx={{
               borderRadius: 8,
-              border:"1px solid rgba(148,163,184,0.6)",
-              background: 'linear-gradient(145deg, #ef444410, #eab30810)',
-              transition:"transform 0.15s ease, box-shadow 0.15s ease",
-              cursor:"pointer","&:hover": {
-                transform:"translateY(-3px)",
+              border: "1px solid rgba(148,163,184,0.6)",
+              cursor: "pointer",
+              "&:hover": {
+                transform: "translateY(-3px)",
                 boxShadow: 4,
               },
             }}
@@ -243,13 +183,13 @@ export default function RiskFraudCenterPage() {
                     variant="subtitle2"
                     className="font-semibold"
                   >
-                    {riskCase.actorName}
+                    {riskCase.subjectId}
                   </Typography>
                   <Typography
                     variant="caption"
                     className="text-[11px] text-slate-500"
                   >
-                    {riskCase.actorType} · {riskCase.region}
+                    {riskCase.subjectType} · {riskCase.type}
                   </Typography>
                 </Box>
                 <Box className="flex flex-col items-end gap-1">
@@ -266,22 +206,22 @@ export default function RiskFraudCenterPage() {
                         fontSize: 10,
                         height: 22,
                         bgcolor:
-                          riskCase.severity ==="High"
-                            ?"#ef444420"
-                            : riskCase.severity ==="Medium"
-                              ?"#eab30820"
-                              :"#3b82f620",
+                          riskCase.severity === "High"
+                            ? "#ef444420"
+                            : riskCase.severity === "Medium"
+                              ? "#eab30820"
+                              : "#3b82f620",
                         color:
-                          riskCase.severity ==="High"
-                            ?"#ef4444"
-                            : riskCase.severity ==="Medium"
-                              ?"#eab308"
-                              :"#3b82f6",
+                          riskCase.severity === "High"
+                            ? "#ef4444"
+                            : riskCase.severity === "Medium"
+                              ? "#eab308"
+                              : "#3b82f6",
                       }}
                     />
                     <Chip
                       size="small"
-                      label={riskCase.age}
+                      label={new Date(riskCase.createdAt).toLocaleDateString()}
                       sx={{ fontSize: 10, height: 22 }}
                     />
                   </Box>
@@ -292,27 +232,12 @@ export default function RiskFraudCenterPage() {
                 variant="body2"
                 className="text-[12px]"
               >
-                {riskCase.summary}
+                {riskCase.notes || "No additional notes."}
               </Typography>
-
-              <Box className="flex items-center justify-between mt-1">
-                <Typography
-                  variant="caption"
-                  className="text-[11px] text-slate-500"
-                >
-                  Risk engine score: 82 (sample)
-                </Typography>
-                <Typography
-                  variant="caption"
-                  className="text-[11px] text-blue-600 cursor-pointer hover:underline"
-                >
-                  View details →
-                </Typography>
-              </Box>
             </CardContent>
           </Card>
         ))}
       </Box>
-    </AdminRiskLayout>
+    </Box>
   );
 }

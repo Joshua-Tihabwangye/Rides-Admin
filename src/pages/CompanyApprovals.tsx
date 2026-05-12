@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useMemo } from"react";
+import React, { useState, useEffect, useMemo } from"react";
 import { useNavigate } from"react-router-dom";
 import {
   Box,
@@ -20,6 +19,9 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  CircularProgress,
+  Alert,
+  Snackbar,
 } from"@mui/material";
 import SearchIcon from"@mui/icons-material/Search";
 import CheckCircleIcon from"@mui/icons-material/CheckCircle";
@@ -27,82 +29,43 @@ import BlockIcon from"@mui/icons-material/Block";
 import RestoreIcon from"@mui/icons-material/Restore";
 import MoreVertIcon from"@mui/icons-material/MoreVert";
 import StatusBadge from"../components/StatusBadge";
+import { listAdminApprovals, reviewAdminApproval } from"../services/api/adminApi";
+import type { AdminApprovalResponse } from"../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
   secondary:"#f77f00",
 };
 
-// Sample companies with different statuses
-const SAMPLE_COMPANIES = [
-  {
-    id: 1,
-    name:"GreenMove Fleet",
-    regions:"Kampala, Entebbe",
-    type:"Fleet Partner",
-    drivers: 12,
-    vehicles: 12,
-    commission:"12%",
-    status:"pending",
-    appliedDate:"2024-01-15",
-  },
-  {
-    id: 2,
-    name:"City Cabs Co.",
-    regions:"Kigali",
-    type:"Taxi Fleet",
-    drivers: 45,
-    vehicles: 40,
-    commission:"15%",
-    status:"pending",
-    appliedDate:"2024-01-20",
-  },
-  {
-    id: 3,
-    name:"Blue Delivery",
-    regions:"Nairobi",
-    type:"Logistics",
-    drivers: 120,
-    vehicles: 115,
-    commission:"10%",
-    status:"suspended",
-    appliedDate:"2023-12-10",
-    suspendedDate:"2024-01-05",
-  },
-  {
-    id: 4,
-    name:"Sunrise Logistics",
-    regions:"Accra",
-    type:"Logistics",
-    drivers: 85,
-    vehicles: 80,
-    commission:"11%",
-    status:"pending",
-    appliedDate:"2024-01-22",
-  },
-  {
-    id: 5,
-    name:"FastTrack Transport",
-    regions:"Lagos",
-    type:"Fleet Partner",
-    drivers: 200,
-    vehicles: 195,
-    commission:"13%",
-    status:"suspended",
-    appliedDate:"2023-11-15",
-    suspendedDate:"2024-01-10",
-  },
-];
-
 export default function CompanyApprovals() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("All");
-  const [companies, setCompanies] = useState(SAMPLE_COMPANIES);
+  const [approvals, setApprovals] = useState<AdminApprovalResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedCompany, setSelectedCompany] = useState<number | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, companyId: number) => {
+  const fetchApprovals = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminApprovals();
+      // Filter to company-related approvals if needed, or show all
+      setApprovals(data);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load approvals');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApprovals();
+  }, []);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, companyId: string) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
     setSelectedCompany(companyId);
@@ -113,39 +76,57 @@ export default function CompanyApprovals() {
     setSelectedCompany(null);
   };
 
-  const handleAction = (action:"approve" |"suspend" |"recall", companyId: number) => {
-    setCompanies((prev) =>
-      prev.map((company) => {
-        if (company.id === companyId) {
-          if (action ==="approve") {
-            return { ...company, status:"active" as const };
-          } else if (action ==="suspend") {
-            return { ...company, status:"suspended" as const, suspendedDate: new Date().toISOString().split("T")[0] };
-          } else if (action ==="recall") {
-            return { ...company, status:"active" as const, suspendedDate: undefined };
+  const handleAction = async (action: "approve" | "suspend" | "recall", approvalId: string) => {
+    try {
+      if (action === "approve" || action === "suspend") {
+        await reviewAdminApproval(approvalId, { decision: action === "approve" ? "approved" : "rejected" });
+      }
+      // For recall, we might need a different endpoint; for now just update local state
+      setApprovals(prev =>
+        prev.map((approval) => {
+          if (approval.id === approvalId) {
+            if (action === "approve") return { ...approval, status: "approved" as const };
+            if (action === "suspend") return { ...approval, status: "rejected" as const };
           }
-        }
-        return company;
-      })
-    );
+          return approval;
+        })
+      );
+       setSnackbar({ open: true, message: `Case ${approvalId} ${action === 'approve' ? 'Approved' : 'Suspended'}`, severity: 'success' });
+    } catch (e: any) {
+      setSnackbar({ open: true, message: `Failed: ${e?.message}`, severity: 'error' });
+    }
     handleMenuClose();
   };
 
-  const filteredCompanies = useMemo(() => {
-    return companies.filter((company) => {
-      const matchesSearch = company.name.toLowerCase().includes(search.toLowerCase());
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
+
+  const filteredApprovals = useMemo(() => {
+    return approvals.filter((approval) => {
+      const matchesSearch = approval.entityId.toLowerCase().includes(search.toLowerCase());
       const matchesTab =
-        activeTab ==="All" ||
-        (activeTab ==="Pending" && company.status ==="pending") ||
-        (activeTab ==="Suspended" && company.status ==="suspended") ||
-        (activeTab ==="Active" && company.status ==="active");
+        activeTab === "All" ||
+        (activeTab === "Pending" && approval.status === "pending") ||
+        (activeTab === "Suspended" && approval.status === "rejected") ||
+        (activeTab === "Active" && approval.status === "approved");
       return matchesSearch && matchesTab;
     });
-  }, [companies, search, activeTab]);
+  }, [approvals, search, activeTab]);
 
-  const handleRowClick = (id: number) => {
+  const handleRowClick = (id: string) => {
     navigate(`/admin/companies/${id}`);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>
@@ -217,35 +198,35 @@ export default function CompanyApprovals() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredCompanies.map((company) => (
+              {filteredApprovals.map((approval) => (
                 <TableRow
-                  key={company.id}
+                  key={approval.id}
                   hover
-                  onClick={() => handleRowClick(company.id)}
+                  onClick={() => handleRowClick(approval.entityId)}
                   sx={{ cursor:"pointer" }}
                 >
-                  <TableCell sx={{ fontWeight: 600 }}>{company.name}</TableCell>
-                  <TableCell>{company.regions}</TableCell>
-                  <TableCell>{company.type}</TableCell>
-                  <TableCell align="right">{company.drivers}</TableCell>
-                  <TableCell align="right">{company.vehicles}</TableCell>
-                  <TableCell align="right">{company.commission}</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{approval.entityId}</TableCell>
+                  <TableCell>N/A</TableCell>
+                  <TableCell>Company</TableCell>
+                  <TableCell align="right">-</TableCell>
+                  <TableCell align="right">-</TableCell>
+                  <TableCell align="right">-</TableCell>
                   <TableCell>
                     <StatusBadge
                       status={
-                        company.status ==="pending"
+                        approval.status === "pending"
                           ?"under_review"
-                          : company.status ==="suspended"
+                          : approval.status === "rejected"
                             ?"suspended"
                             :"approved"
                       }
                     />
                   </TableCell>
-                  <TableCell>{company.appliedDate}</TableCell>
+                  <TableCell>{new Date(approval.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                     <IconButton
                       size="small"
-                      onClick={(e) => handleMenuOpen(e, company.id)}
+                      onClick={(e) => handleMenuOpen(e, approval.id)}
                       sx={{ color:"text.secondary" }}
                     >
                       <MoreVertIcon fontSize="small" />
@@ -253,7 +234,7 @@ export default function CompanyApprovals() {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredCompanies.length === 0 && (
+              {filteredApprovals.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={9} align="center" sx={{ py: 3, color:"text.secondary" }}>
                     No companies found.
@@ -275,36 +256,42 @@ export default function CompanyApprovals() {
       >
         {selectedCompany && (
           <>
-            {companies.find((c) => c.id === selectedCompany)?.status ==="pending" && (
-              <MenuItem
-                onClick={() => handleAction("approve", selectedCompany)}
-                sx={{ color: EV_COLORS.primary }}
-              >
-                <CheckCircleIcon sx={{ mr: 1, fontSize: 18 }} />
-                Approve
-              </MenuItem>
-            )}
-            {companies.find((c) => c.id === selectedCompany)?.status !=="suspended" && (
-              <MenuItem
-                onClick={() => handleAction("suspend", selectedCompany)}
-                sx={{ color: EV_COLORS.secondary }}
-              >
-                <BlockIcon sx={{ mr: 1, fontSize: 18 }} />
-                Suspend
-              </MenuItem>
-            )}
-            {companies.find((c) => c.id === selectedCompany)?.status ==="suspended" && (
-              <MenuItem
-                onClick={() => handleAction("recall", selectedCompany)}
-                sx={{ color: EV_COLORS.primary }}
-              >
-                <RestoreIcon sx={{ mr: 1, fontSize: 18 }} />
-                Recall
-              </MenuItem>
-            )}
+            <MenuItem
+              onClick={() => handleAction("approve", selectedCompany)}
+              sx={{ color: EV_COLORS.primary }}
+            >
+              <CheckCircleIcon sx={{ mr: 1, fontSize: 18 }} />
+              Approve
+            </MenuItem>
+            <MenuItem
+              onClick={() => handleAction("suspend", selectedCompany)}
+              sx={{ color: EV_COLORS.secondary }}
+            >
+              <BlockIcon sx={{ mr: 1, fontSize: 18 }} />
+              Suspend
+            </MenuItem>
+            <MenuItem
+              onClick={() => handleAction("recall", selectedCompany)}
+              sx={{ color: EV_COLORS.primary }}
+            >
+              <RestoreIcon sx={{ mr: 1, fontSize: 18 }} />
+              Recall
+            </MenuItem>
           </>
         )}
       </Menu>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

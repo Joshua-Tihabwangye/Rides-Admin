@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState, useMemo } from"react";
+import React, { useState, useEffect, useMemo } from"react";
 import {
   Box,
   Card,
@@ -17,6 +16,8 @@ import {
   Paper,
   ToggleButton,
   ToggleButtonGroup,
+  CircularProgress,
+  Alert,
 } from"@mui/material";
 import {
   PieChart,
@@ -36,11 +37,8 @@ import DownloadIcon from"@mui/icons-material/Download";
 import TableChartIcon from"@mui/icons-material/TableChart";
 import ShowChartIcon from"@mui/icons-material/ShowChart";
 import PeriodSelector from"../components/PeriodSelector";
-import dayjs from"dayjs";
-
-// I1 – Financial Overview (Light/Dark, EVzone themed)
-// Route suggestion: /admin/finance
-// High-level financial KPIs and simple breakdowns by service and region.
+import { getAdminFinanceAnalytics } from"../services/api/adminApi";
+import type { AdminFinanceAnalytics } from"../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
@@ -52,27 +50,34 @@ export default function FinancialOverviewPage() {
   const [period, setPeriod] = useState("week");
   const [customRange, setCustomRange] = useState([null, null]);
   const [regionViewMode, setRegionViewMode] = useState<'table' | 'chart'>('table');
+  const [analytics, setAnalytics] = useState<AdminFinanceAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data update simulation
-  // Simple multiplier based on period to simulate data changing
-  let multiplier = 1;
-  if (period === 'today') multiplier = 0.2;
-  else if (period === 'week' || period === '7days') multiplier = 1;
-  else if (period === 'month' || period === 'thisMonth') multiplier = 4;
-  else if (period === 'thisYear') multiplier = 48;
-  else if (period === 'custom') multiplier = 2.5;
+  const fetchAnalytics = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getAdminFinanceAnalytics({ period: period as any });
+      setAnalytics(data);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load financial analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [period]);
 
   const handleExport = () => {
+    if (!analytics) return;
     const csvContent = [
-      ['Metric', 'Value', 'Subtitle'],
-      ...kpis.map(k => [k.label, k.value.replace(/,/g, ''), k.subtitle]),
-      [],
-      ['Service', 'Revenue'],
-      ...serviceRevenueData.map(s => [s.name, s.value]),
-      [],
-      ['Region', 'Gross', 'Net'],
-      ['East Africa', 74000 * multiplier, 14200 * multiplier],
-      ['West Africa', 54420 * multiplier, 10480 * multiplier]
+      ['Metric', 'Value'],
+      ['Gross bookings', analytics.grossEarnings.toString()],
+      ['Payouts (scheduled)', analytics.payoutsPending.toString()],
+      ['Currency', analytics.currency],
     ].map(e => e.join(",")).join("\n");
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -90,31 +95,33 @@ export default function FinancialOverviewPage() {
     navigate(`/admin/reports?region=${encodeURIComponent(region)}&tab=financials`);
   };
 
-  const kpis = useMemo(() => [
-    {
-      label:"Gross bookings",
-      value: `$${(128420 * multiplier).toLocaleString()}`,
-      subtitle:"+12% vs last period",
-    },
-    {
-      label:"EVzone net revenue",
-      value: `$${(24680 * multiplier).toLocaleString()}`,
-      subtitle:"Net after fees & incentives",
-    },
-    {
-      label:"Payouts (scheduled)",
-      value: `$${(79320 * multiplier).toLocaleString()}`,
-      subtitle:"Next 7 days",
-    },
-  ], [multiplier]);
+  const kpis = useMemo(() => {
+    if (!analytics) return [];
+    return [
+      {
+        label: "Gross bookings",
+        value: `$${analytics.grossEarnings.toLocaleString()}`,
+        subtitle: "+12% vs last period",
+      },
+      {
+        label: "EVzone net revenue",
+        value: `$${analytics.earningsCount.toLocaleString()}`,
+        subtitle: "Net after fees & incentives",
+      },
+      {
+        label: "Payouts (scheduled)",
+        value: `$${analytics.payoutsPending.toLocaleString()}`,
+        subtitle: "Next 7 days",
+      },
+    ];
+  }, [analytics]);
 
   const serviceRevenueData = useMemo(() => [
-    { name:"Rides", value: 82000 * multiplier, color:"#03cd8c" },
-    { name:"Deliveries", value: 32000 * multiplier, color:"#f77f00" },
-    { name:"Rental", value: 14420 * multiplier, color:"#3b82f6" },
-  ], [multiplier]);
+    { name: "Rides", value: 82000, color: "#03cd8c" },
+    { name: "Deliveries", value: 32000, color: "#f77f00" },
+    { name: "Rental", value: 14420, color: "#3b82f6" },
+  ], []);
 
-  // Line chart data for region revenue over time
   const regionLineData = useMemo(() => {
     const baseData = [
       { month: 'Jan', eastAfrica: 45000, westAfrica: 32000 },
@@ -124,16 +131,34 @@ export default function FinancialOverviewPage() {
       { month: 'May', eastAfrica: 67000, westAfrica: 48000 },
       { month: 'Jun', eastAfrica: 74000, westAfrica: 54420 },
     ];
+    let multiplier = 1;
+    if (period === 'today') multiplier = 0.2;
+    else if (period === 'week' || period === '7days') multiplier = 1;
+    else if (period === 'month' || period === 'thisMonth') multiplier = 4;
+    else if (period === 'thisYear') multiplier = 48;
+    else if (period === 'custom') multiplier = 2.5;
+
     return baseData.map(d => ({
       ...d,
       eastAfrica: Math.round(d.eastAfrica * multiplier / 4),
       westAfrica: Math.round(d.westAfrica * multiplier / 4),
     }));
-  }, [multiplier]);
+  }, [period]);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>
-      {/* Title & date */}
       <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
           <Typography
@@ -180,8 +205,7 @@ export default function FinancialOverviewPage() {
             elevation={2}
             sx={{
               borderRadius: 2,
-              border:"1px solid rgba(148,163,184,0.3)",
-              
+              border: "1px solid rgba(148,163,184,0.3)",
             }}
           >
             <CardContent className="p-3 flex flex-col gap-1">
@@ -217,8 +241,8 @@ export default function FinancialOverviewPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.3)",
-            bgcolor:"background.paper"
+            border: "1px solid rgba(148,163,184,0.3)",
+            bgcolor: "background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2 h-[350px]">
@@ -246,8 +270,8 @@ export default function FinancialOverviewPage() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11, color:"#f8fafc" }}
-                  itemStyle={{ color:"#f8fafc" }}
+                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#f8fafc" }}
+                  itemStyle={{ color: "#f8fafc" }}
                   formatter={(value) => `$${value.toLocaleString()}`}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
@@ -262,8 +286,8 @@ export default function FinancialOverviewPage() {
           sx={{
             flex: 1,
             borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.3)",
-            bgcolor:"background.paper"
+            border: "1px solid rgba(148,163,184,0.3)",
+            bgcolor: "background.paper"
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2" sx={{ height: regionViewMode === 'chart' ? 350 : 'auto' }}>
@@ -307,7 +331,7 @@ export default function FinancialOverviewPage() {
               </ToggleButtonGroup>
             </Box>
             <Divider className="!my-1" />
-            
+
             {regionViewMode === 'table' ? (
               <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
                 <Table size="small">
@@ -325,8 +349,8 @@ export default function FinancialOverviewPage() {
                       onClick={() => handleRegionClick('East Africa')}
                     >
                       <TableCell>East Africa</TableCell>
-                      <TableCell align="right">${(74000 * multiplier).toLocaleString()}</TableCell>
-                      <TableCell align="right">${(14200 * multiplier).toLocaleString()}</TableCell>
+                      <TableCell align="right">${(74000).toLocaleString()}</TableCell>
+                      <TableCell align="right">${(14200).toLocaleString()}</TableCell>
                     </TableRow>
                     <TableRow
                       hover
@@ -334,8 +358,8 @@ export default function FinancialOverviewPage() {
                       onClick={() => handleRegionClick('West Africa')}
                     >
                       <TableCell>West Africa</TableCell>
-                      <TableCell align="right">${(54420 * multiplier).toLocaleString()}</TableCell>
-                      <TableCell align="right">${(10480 * multiplier).toLocaleString()}</TableCell>
+                      <TableCell align="right">${(54420).toLocaleString()}</TableCell>
+                      <TableCell align="right">${(10480).toLocaleString()}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -346,34 +370,34 @@ export default function FinancialOverviewPage() {
                   <LineChart data={regionLineData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#94a3b8" />
-                    <YAxis 
-                      tick={{ fontSize: 11 }} 
-                      stroke="#94a3b8" 
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      stroke="#94a3b8"
                       tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
                     />
                     <Tooltip
-                      contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11, color:"#f8fafc" }}
-                      labelStyle={{ color:"#f8fafc" }}
+                      contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#f8fafc" }}
+                      labelStyle={{ color: "#f8fafc" }}
                       formatter={(value) => [`$${value.toLocaleString()}`, '']}
                     />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36} 
+                    <Legend
+                      verticalAlign="bottom"
+                      height={36}
                       wrapperStyle={{ fontSize: '11px' }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="eastAfrica" 
-                      stroke={EV_COLORS.primary} 
-                      strokeWidth={2} 
+                    <Line
+                      type="monotone"
+                      dataKey="eastAfrica"
+                      stroke={EV_COLORS.primary}
+                      strokeWidth={2}
                       name="East Africa"
                       dot={{ fill: EV_COLORS.primary, strokeWidth: 2 }}
                     />
-                    <Line 
-                      type="monotone" 
-                      dataKey="westAfrica" 
-                      stroke={EV_COLORS.secondary} 
-                      strokeWidth={2} 
+                    <Line
+                      type="monotone"
+                      dataKey="westAfrica"
+                      stroke={EV_COLORS.secondary}
+                      strokeWidth={2}
                       name="West Africa"
                       dot={{ fill: EV_COLORS.secondary, strokeWidth: 2 }}
                     />

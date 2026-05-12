@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState } from"react";
+import React, { useState, useEffect } from"react";
 import { useNavigate } from"react-router-dom";
 import {
   Box,
@@ -19,84 +18,69 @@ import {
   InputAdornment,
   Select,
   MenuItem,
+  CircularProgress,
+  Alert,
 } from"@mui/material";
 import SearchIcon from"@mui/icons-material/Search";
 import { ArrowBack } from"@mui/icons-material";
+import { listAdminPricingZones } from"../services/api/adminApi";
+import type { AdminPricingZoneResponse } from"../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
   secondary:"#f77f00",
 };
 
-const ALL_ZONES = [
-  {
-    id:"UG-Z1",
-    name:"Kampala Central",
-    city:"Kampala",
-    country:"Uganda",
-    services:"Ride, Delivery, Rental",
-    specialPricing:"Peak evening surcharge",
-  },
-  {
-    id:"UG-Z2",
-    name:"Airport / Entebbe",
-    city:"Entebbe",
-    country:"Uganda",
-    services:"Ride, Delivery",
-    specialPricing:"Airport pickup fee",
-  },
-  {
-    id:"KE-Z1",
-    name:"Nairobi CBD",
-    city:"Nairobi",
-    country:"Kenya",
-    services:"Ride, Delivery, Rental",
-    specialPricing:"Standard",
-  },
-  {
-    id:"KE-Z2",
-    name:"Westlands",
-    city:"Nairobi",
-    country:"Kenya",
-    services:"Ride, Delivery",
-    specialPricing:"Night surcharge",
-  },
-  {
-    id:"RW-Z1",
-    name:"Kigali Central",
-    city:"Kigali",
-    country:"Rwanda",
-    services:"Ride, Delivery",
-    specialPricing:"Standard",
-  },
-  {
-    id:"NG-Z1",
-    name:"Lagos Mainland",
-    city:"Lagos",
-    country:"Nigeria",
-    services:"Ride, Delivery, Rental",
-    specialPricing:"Peak hours surcharge",
-  },
-];
-
 export default function ZonesList() {
   const navigate = useNavigate();
+  const [zones, setZones] = useState<AdminPricingZoneResponse[]>([]);
   const [search, setSearch] = useState("");
   const [countryFilter, setCountryFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredZones = ALL_ZONES.filter((zone) => {
+  const fetchZones = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminPricingZones();
+      setZones(data);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load zones');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchZones();
+  }, []);
+
+  const filteredZones = zones.filter((zone) => {
     const matchesSearch =
       zone.name.toLowerCase().includes(search.toLowerCase()) ||
-      zone.city.toLowerCase().includes(search.toLowerCase());
-    const matchesCountry = countryFilter ==="All" || zone.country === countryFilter;
+      (zone.city || "").toLowerCase().includes(search.toLowerCase());
+    const matchesCountry = countryFilter === "All" || zone.country === countryFilter;
     return matchesSearch && matchesCountry;
   });
 
-  const countries = ["All", ...Array.from(new Set(ALL_ZONES.map((z) => z.country)))];
+  const countries = ["All", ...Array.from(new Set(zones.map((z) => z.country || "").filter(Boolean)))];
 
   const handleRowClick = (zoneId: string) => {
     navigate(`/admin/pricing/detail/${zoneId}`);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>
@@ -162,7 +146,7 @@ export default function ZonesList() {
                 <TableCell>City</TableCell>
                 <TableCell>Country</TableCell>
                 <TableCell>Services</TableCell>
-                <TableCell>Special Pricing</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -175,12 +159,19 @@ export default function ZonesList() {
                 >
                   <TableCell sx={{ fontFamily:"monospace", fontSize: 12 }}>{zone.id}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{zone.name}</TableCell>
-                  <TableCell>{zone.city}</TableCell>
+                  <TableCell>{zone.city || "N/A"}</TableCell>
                   <TableCell>
-                    <Chip label={zone.country} size="small" sx={{ fontSize: 10 }} />
+                    <Chip label={zone.country || "N/A"} size="small" sx={{ fontSize: 10 }} />
                   </TableCell>
-                  <TableCell>{zone.services}</TableCell>
-                  <TableCell>{zone.specialPricing}</TableCell>
+                  <TableCell>{zone.services ? Object.keys(zone.services).join(", ") : "N/A"}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={zone.status}
+                      size="small"
+                      color={zone.status === "active" ? "success" : "default"}
+                      sx={{ fontSize: 10 }}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
               {filteredZones.length === 0 && (

@@ -1,5 +1,5 @@
-// @ts-nocheck
-import React, { useMemo, useState } from"react";
+import React, { useState, useEffect, useMemo } from"react";
+import { useNavigate } from"react-router-dom";
 import {
   Box,
   Card,
@@ -8,8 +8,9 @@ import {
   Chip,
   Button,
   Divider,
+  CircularProgress,
+  Alert,
 } from"@mui/material";
-import { useNavigate } from"react-router-dom";
 import {
   LineChart,
   Line,
@@ -24,17 +25,37 @@ import {
 } from"recharts";
 import PeriodSelector, { PeriodOption } from '../components/PeriodSelector';
 import dayjs from 'dayjs';
+import { getAdminOperationsAnalytics } from '../services/api/adminApi';
+import type { AdminOperationsAnalytics } from '../services/api/adminApi';
 
 const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
+  primary: "#03cd8c",
+  secondary: "#f77f00",
 };
-
-
 
 export default function OperationsDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodOption>('today');
+  const [analytics, setAnalytics] = useState<AdminOperationsAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAnalytics = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getAdminOperationsAnalytics({ period });
+      setAnalytics(data);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [period]);
 
   const handlePeriodChange = (newPeriod: PeriodOption, range?: any) => {
     setPeriod(newPeriod);
@@ -51,61 +72,36 @@ export default function OperationsDashboardPage() {
             ? 'this month'
             : 'custom range';
 
-  const periodMultiplier: Record<PeriodOption, number> = {
-    today: 0.15,
-    '7days': 0.5,
-    '30days': 1,
-    thisMonth: 1.2,
-    custom: 0.8,
-  };
-
   const kpis = useMemo(() => {
-    const m = periodMultiplier[period] ?? 1;
-    const tripsValue = (261 * m).toLocaleString(undefined, { maximumFractionDigits: 0 });
-    const tripsChange = m >= 1 ? '-6%' : '-6%';
-    const completionRate = (95.1 - (1 - m) * 0.5).toFixed(1);
-    const avgWaitTime = (6.7 + (1 - m) * 0.3).toFixed(1);
-    const onlineDrivers = Math.round(62 * m);
-    const utilisation = Math.round(13 * m);
-    
+    if (!analytics) return [];
     return [
       {
         label: 'Trips (Rides + Deliveries)',
-        value: tripsValue,
-        subtitle: `${tripsChange} vs prev`,
-        status: 'Watch',
+        value: analytics.trips.total.toLocaleString(),
+        subtitle: `${analytics.trips.completed} completed, ${analytics.trips.active} active`,
+        status: 'Monitor',
         description: 'Total completed trip volume = rides + deliveries in the selected period.',
-        explanation: `${tripsChange} vs prev means Compared to the previous comparable period usually yesterday or previous week same day/time, trips are down 6%.`,
       },
       {
-        label: 'Completion rate',
-        value: `${completionRate}%`,
-        subtitle: `Target ≥ 95%`,
-        status: parseFloat(completionRate) >= 95 ? 'On target' : 'Below target',
-        description: '% of initiated requests that complete successfully.',
-        explanation: 'Target ≥ 95% means Your business has decided anything below 95% is unacceptable. On target 95.1% passes the threshold but it\'s close to the line',
-      },
-      {
-        label: 'Avg wait time',
-        value: `${avgWaitTime} min`,
-        subtitle: 'SLA ≤ 7.0m',
-        status: parseFloat(avgWaitTime) <= 7 ? 'On target' : 'Above SLA',
-        description: 'Average time from request → pickup/driver arrival or request → match, depending on definition.',
-        explanation: 'SLA ≤ 7.0m means Your operational promise is average should stay under 7 minutes. On target means 6.7 is within SLA but close to breach.',
+        label: 'Dispatches',
+        value: analytics.dispatches.total.toLocaleString(),
+        subtitle: `${analytics.dispatches.pending} pending`,
+        status: 'Monitor',
+        description: 'Total dispatches created.',
       },
       {
         label: 'Online drivers',
-        value: onlineDrivers.toLocaleString(),
-        subtitle: `${utilisation}% utilisation`,
+        value: analytics.drivers.online.toString(),
+        subtitle: `${analytics.drivers.total} total`,
         status: 'Monitor',
         description: 'Number of drivers currently online/available.',
-        explanation: `${utilisation}% utilisation. This likely means active/engaged drivers ÷ online drivers or online ÷ total registered.`,
       },
     ];
-  }, [period]);
+  }, [analytics]);
 
+  // Mock chart data since backend doesn't provide time-series breakdown
   const demandSupplyData = useMemo(() => {
-    const m = periodMultiplier[period] ?? 1;
+    const multiplier = period === 'today' ? 0.15 : period === '7days' ? 0.5 : period === '30days' ? 1 : period === 'thisMonth' ? 1.2 : 0.8;
     const base = [
       { time: '6AM', demand: 45, supply: 60 },
       { time: '8AM', demand: 156, supply: 140 },
@@ -119,24 +115,35 @@ export default function OperationsDashboardPage() {
     ];
     return base.map((row) => ({
       ...row,
-      demand: Math.round(row.demand * m),
-      supply: Math.round(row.supply * m),
+      demand: Math.round(row.demand * multiplier),
+      supply: Math.round(row.supply * multiplier),
     }));
   }, [period]);
 
   const serviceMixData = useMemo(() => {
-    const m = periodMultiplier[period] ?? 1;
+    const multiplier = period === 'today' ? 0.15 : period === '7days' ? 0.5 : period === '30days' ? 1 : period === 'thisMonth' ? 1.2 : 0.8;
     return [
-      { region: 'Kampala', rides: Math.round(840 * m), deliveries: Math.round(420 * m) },
-      { region: 'Nairobi', rides: Math.round(650 * m), deliveries: Math.round(380 * m) },
-      { region: 'Lagos', rides: Math.round(920 * m), deliveries: Math.round(510 * m) },
-      { region: 'Accra', rides: Math.round(480 * m), deliveries: Math.round(220 * m) },
+      { region: 'Kampala', rides: Math.round(840 * multiplier), deliveries: Math.round(420 * multiplier) },
+      { region: 'Nairobi', rides: Math.round(650 * multiplier), deliveries: Math.round(380 * multiplier) },
+      { region: 'Lagos', rides: Math.round(920 * multiplier), deliveries: Math.round(510 * multiplier) },
+      { region: 'Accra', rides: Math.round(480 * multiplier), deliveries: Math.round(220 * multiplier) },
     ];
   }, [period]);
 
+  if (loading && !analytics) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
+
   return (
     <Box>
-      {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
           <Typography
@@ -165,14 +172,13 @@ export default function OperationsDashboardPage() {
             if (status === 'Below target' || status === 'Above SLA') return '#ef4444';
             return '#94a3b8';
           };
-          
+
           return (
             <Card
               key={kpi.label}
               elevation={1}
               sx={{
-                border:"1px solid rgba(148,163,184,0.5)",
-                
+                border: "1px solid rgba(148,163,184,0.5)",
               }}
             >
               <CardContent className="p-3 flex flex-col gap-1">
@@ -210,7 +216,6 @@ export default function OperationsDashboardPage() {
                 <Typography
                   variant="caption"
                   className="text-[10px] text-slate-500 mt-1"
-                  title={kpi.explanation}
                 >
                   {kpi.description}
                 </Typography>
@@ -226,9 +231,9 @@ export default function OperationsDashboardPage() {
           elevation={1}
           sx={{
             flex: 2,
-            border:"1px solid rgba(148,163,184,0.5)",
-            background:"linear-gradient(145deg, #0b1120, #020617)",
-            color:"#e5e7eb",
+            border: "1px solid rgba(148,163,184,0.5)",
+            background: "linear-gradient(145deg, #0b1120, #020617)",
+            color: "#e5e7eb",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2 h-[350px]">
@@ -245,8 +250,8 @@ export default function OperationsDashboardPage() {
                 sx={{
                   fontSize: 10,
                   height: 22,
-                  bgcolor:"#020617",
-                  color:"#e5e7eb",
+                  bgcolor: "#020617",
+                  color: "#e5e7eb",
                 }}
               />
             </Box>
@@ -256,8 +261,8 @@ export default function OperationsDashboardPage() {
                 <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} />
                 <YAxis stroke="#94a3b8" fontSize={11} />
                 <Tooltip
-                  contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11 }}
-                  labelStyle={{ color:"#e5e7eb" }}
+                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
+                  labelStyle={{ color: "#e5e7eb" }}
                 />
                 <Legend />
                 <Line type="monotone" dataKey="demand" stroke="#f77f00" strokeWidth={2} name="Demand (Trips)" />
@@ -272,8 +277,7 @@ export default function OperationsDashboardPage() {
           elevation={1}
           sx={{
             flex: 1,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
@@ -376,8 +380,7 @@ export default function OperationsDashboardPage() {
           elevation={1}
           sx={{
             flex: 1,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2 h-[300px]">
@@ -394,7 +397,7 @@ export default function OperationsDashboardPage() {
                 <XAxis type="number" fontSize={11} />
                 <YAxis dataKey="region" type="category" fontSize={11} width={60} />
                 <Tooltip
-                  contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11, color: "#e5e7eb" }}
+                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#e5e7eb" }}
                 />
                 <Legend />
                 <Bar dataKey="rides" fill="#03cd8c" name="Rides" stackId="mix" radius={[0, 4, 4, 0]} />
@@ -409,8 +412,7 @@ export default function OperationsDashboardPage() {
           elevation={1}
           sx={{
             flex: 1,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-2">
