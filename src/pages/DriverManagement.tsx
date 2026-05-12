@@ -6,20 +6,22 @@ import {
   Typography,
   TextField,
   Chip,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableContainer,
-  Paper,
-  InputAdornment,
   Button,
   IconButton,
   Menu,
   MenuItem,
   FormControl,
   Select,
+  CircularProgress,
+  Alert,
+  InputAdornment,
+  TableContainer,
+  Paper,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
 } from"@mui/material";
 import { useNavigate, useLocation } from"react-router-dom";
 import StatusBadge from"../components/StatusBadge";
@@ -27,7 +29,24 @@ import SearchIcon from"@mui/icons-material/Search";
 import DirectionsCarIcon from"@mui/icons-material/DirectionsCar";
 import AddIcon from"@mui/icons-material/Add";
 import MoreVertIcon from"@mui/icons-material/MoreVert";
-import { getDrivers, DriverRecord } from"../lib/peopleStore";
+import { listAdminDrivers, patchAdminDriver } from"../services/api/adminApi";
+import type { AdminDriverResponse } from"../services/api/adminApi";
+
+// UI-only record shape
+type DriverRecord = {
+  id: number; // display numeric index
+  backendId: string;
+  name: string;
+  phone: string;
+  city: string;
+  vehicle: string;
+  vehicleType: 'Bike' | 'Car';
+  trips: number;
+  spend: string;
+  risk: 'Low' | 'Medium' | 'High';
+  primaryStatus: 'approved' | 'under_review' | 'suspended';
+  activityStatus: 'active' | 'inactive';
+};
 
 export default function DriverManagement() {
   const navigate = useNavigate();
@@ -35,28 +54,62 @@ export default function DriverManagement() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [drivers, setDrivers] = useState<DriverRecord[]>([]);
-  
-  // New filter states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filters
   const [cityFilter, setCityFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all");
-  
-  // Action menu state
+
+  // Action menu
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
 
+  const fetchDrivers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminDrivers();
+      // Map backend driver to UI record
+      const mapped: DriverRecord[] = data.map((driver, index) => {
+        const primaryStatus: DriverRecord['primaryStatus'] = driver.status === 'active' ? 'approved' : 'suspended';
+        const activityStatus: DriverRecord['activityStatus'] = driver.status === 'active' ? 'active' : 'inactive';
+        return {
+          id: index + 201,
+          backendId: driver.driverId || driver.userId,
+          name: driver.fullName,
+          phone: driver.phone,
+          city: driver.city,
+          vehicle: "EV Car",
+          vehicleType: "Car",
+          trips: driver.totalTrips || 0,
+          spend: "$0",
+          risk: "Low",
+          primaryStatus,
+          activityStatus,
+        };
+      });
+      setDrivers(mapped);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load drivers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setDrivers(getDrivers());
+    fetchDrivers();
   }, [location.key]);
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
-    const carDrivers = drivers.filter(d => d.vehicleType ==="Car");
+    const carDrivers = drivers.filter(d => d.vehicleType === "Car");
     return {
       all: carDrivers.length,
-      active: carDrivers.filter(d => d.primaryStatus ==="approved").length,
-      pending: carDrivers.filter(d => d.primaryStatus ==="under_review").length,
-      suspended: carDrivers.filter(d => d.primaryStatus ==="suspended").length,
+      active: carDrivers.filter(d => d.primaryStatus === "approved").length,
+      pending: carDrivers.filter(d => d.primaryStatus === "under_review").length,
+      suspended: carDrivers.filter(d => d.primaryStatus === "suspended").length,
     };
   }, [drivers]);
 
@@ -72,29 +125,29 @@ export default function DriverManagement() {
       driver.phone.includes(search) ||
       `DRV-${driver.id}`.toLowerCase().includes(search.toLowerCase());
     const matchesTab =
-      activeTab ==="All" ||
-      (activeTab ==="Active/Verified" && driver.primaryStatus ==="approved") ||
-      (activeTab ==="Pending review" && driver.primaryStatus ==="under_review") ||
-      (activeTab ==="Suspended" && driver.primaryStatus ==="suspended");
+      activeTab === "All" ||
+      (activeTab === "Active/Verified" && driver.primaryStatus === "approved") ||
+      (activeTab === "Pending review" && driver.primaryStatus === "under_review") ||
+      (activeTab === "Suspended" && driver.primaryStatus === "suspended");
     // Only show car drivers
-    const matchesVehicle = driver.vehicleType ==="Car";
-    
+    const matchesVehicle = driver.vehicleType === "Car";
+
     // City filter
-    const matchesCity = cityFilter ==="all" || driver.city === cityFilter;
-    
+    const matchesCity = cityFilter === "all" || driver.city === cityFilter;
+
     // Account filter
-    const matchesAccount = accountFilter ==="all" || 
-      (accountFilter ==="active" && driver.activityStatus ==="active") ||
-      (accountFilter ==="inactive" && driver.activityStatus ==="inactive");
-    
+    const matchesAccount = accountFilter === "all" ||
+      (accountFilter === "active" && driver.activityStatus === "active") ||
+      (accountFilter === "inactive" && driver.activityStatus === "inactive");
+
     // Risk filter
-    const matchesRisk = riskFilter ==="all" || driver.risk.toLowerCase() === riskFilter;
-    
+    const matchesRisk = riskFilter === "all" || driver.risk.toLowerCase() === riskFilter;
+
     return matchesSearch && matchesTab && matchesVehicle && matchesCity && matchesAccount && matchesRisk;
   });
 
-  const handleRowClick = (id: number) => {
-    navigate(`/admin/drivers/${id}`);
+  const handleRowClick = (backendId: string) => {
+    navigate(`/admin/drivers/${backendId}`);
   };
 
   const handleActionClick = (event: React.MouseEvent<HTMLElement>, driverId: number) => {
@@ -108,24 +161,29 @@ export default function DriverManagement() {
     setSelectedDriverId(null);
   };
 
-  const handleActionSelect = (action: string) => {
-    if (selectedDriverId) {
-      switch (action) {
-        case"view":
-          navigate(`/admin/drivers/${selectedDriverId}`);
-          break;
-        case"suspend":
-          // Handle suspend action
-          break;
-        case"contact":
-          // Handle contact action
-          break;
+  const handleActionSelect = async (action: string) => {
+    if (selectedDriverId !== null) {
+      const driver = drivers.find(d => d.id === selectedDriverId);
+      if (!driver) return;
+      if (action === "view") {
+        navigate(`/admin/drivers/${driver.backendId}`);
+      } else if (action === "suspend") {
+        // Toggle suspend: patch status to 'deleted' or 'active'
+        try {
+          const newStatus = driver.primaryStatus === 'suspended' ? 'active' : 'deleted';
+          await patchAdminDriver(driver.backendId, { status: newStatus });
+          fetchDrivers();
+        } catch (e) {
+          setError("Failed to update status");
+        }
+      } else if (action === "contact") {
+        // TODO: implement contact action (e.g., copy phone or open mail)
       }
     }
     handleActionClose();
   };
 
-  // Generate mock last trip and last active dates
+  // Mock last trip/last active - these would come from backend in real implementation
   const getLastTrip = (driverId: number) => {
     const daysAgo = (driverId % 7) + 1;
     const date = new Date();
@@ -142,11 +200,23 @@ export default function DriverManagement() {
   };
 
   const tabs = [
-    { label:"All", count: tabCounts.all },
-    { label:"Active/Verified", count: tabCounts.active },
-    { label:"Pending review", count: tabCounts.pending },
-    { label:"Suspended", count: tabCounts.suspended },
+    { label: "All", count: tabCounts.all },
+    { label: "Active/Verified", count: tabCounts.active },
+    { label: "Pending review", count: tabCounts.pending },
+    { label: "Suspended", count: tabCounts.suspended },
   ];
+
+  if (loading && drivers.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>
@@ -159,7 +229,6 @@ export default function DriverManagement() {
             Manage driver accounts, view trip history, and monitor risk profiles.
           </Typography>
         </Box>
-        {/* Create Driver Button */}
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -170,13 +239,13 @@ export default function DriverManagement() {
         </Button>
       </Box>
 
-      {/* Dropdown Filters Row */}
+      {/* Filters */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             Filters:
           </Typography>
-          
+
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <Select
               value={cityFilter}
@@ -278,7 +347,7 @@ export default function DriverManagement() {
                 <TableRow
                   key={driver.id}
                   hover
-                  onClick={() => handleRowClick(driver.id)}
+                  onClick={() => handleRowClick(driver.backendId)}
                   sx={{ cursor:"pointer" }}
                 >
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: 'text.secondary' }}>
@@ -300,14 +369,14 @@ export default function DriverManagement() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge
-                      status={driver.activityStatus ==="active" ?"active" :"inactive"}
+                      status={driver.activityStatus === "active" ? "active" : "inactive"}
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
                       label={driver.risk}
-                      color={driver.risk ==="Low" ?"success" : driver.risk ==="Medium" ?"warning" :"error"}
+                      color={driver.risk === "Low" ? "success" : driver.risk === "Medium" ? "warning" : "error"}
                       sx={{ fontSize: 10, height: 20 }}
                     />
                   </TableCell>
@@ -335,7 +404,7 @@ export default function DriverManagement() {
         <MenuItem onClick={() => handleActionSelect("view")}>View Details</MenuItem>
         <MenuItem onClick={() => handleActionSelect("contact")}>Contact Driver</MenuItem>
         <MenuItem onClick={() => handleActionSelect("suspend")} sx={{ color: 'error.main' }}>
-          Suspend Account
+          {selectedDriverId !== null && drivers.find(d => d.id === selectedDriverId)?.primaryStatus === 'suspended' ? 'Activate' : 'Suspend Account'}
         </MenuItem>
       </Menu>
     </Box>

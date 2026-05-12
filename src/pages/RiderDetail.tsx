@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs } from '@mui/material'
+import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs, CircularProgress, Alert } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EmailIcon from '@mui/icons-material/Email'
 import PhoneIcon from '@mui/icons-material/Phone'
@@ -9,7 +9,8 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import StatusBadge from '../components/StatusBadge'
 import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel'
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler'
-import { getRider, upsertRider, PrimaryStatus, ActivityStatus } from '../lib/peopleStore'
+import { getAdminRider, patchAdminRider } from '../services/api/adminApi'
+import type { AdminRiderResponse } from '../services/api/adminApi'
 
 interface TabPanelProps {
     children?: React.ReactNode
@@ -37,49 +38,89 @@ function CustomTabPanel(props: TabPanelProps) {
 }
 
 export default function RiderDetail() {
-    const { id } = useParams()
+    const { id } = useParams() // id is backend user ID (string)
     const navigate = useNavigate()
     const [tabValue, setTabValue] = useState(0)
-    const [primaryStatus, setPrimaryStatus] = useState<PrimaryStatus>('under_review')
-    const [activityStatus, setActivityStatus] = useState<ActivityStatus>('inactive')
-    const numericId = id ? parseInt(id, 10) : NaN
+    const [primaryStatus, setPrimaryStatus] = useState<'approved' | 'under_review' | 'suspended'>('under_review')
+    const [activityStatus, setActivityStatus] = useState<'active' | 'inactive'>('inactive')
+    const [rider, setRider] = useState<AdminRiderResponse | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        if (!Number.isNaN(numericId)) {
-            const rider = getRider(numericId)
-            if (rider) {
-                setPrimaryStatus(rider.primaryStatus)
-                setActivityStatus(rider.activityStatus)
+        if (!id) return
+        const loadRider = async () => {
+            setLoading(true)
+            try {
+                const data = await getAdminRider(id as string)
+                setRider(data)
+                const mappedPrimary: 'approved' | 'under_review' | 'suspended' = data.status === 'active' ? 'approved' : 'suspended'
+                setPrimaryStatus(mappedPrimary)
+                setActivityStatus(data.status === 'active' ? 'active' : 'inactive')
+            } catch (e: any) {
+                setError(e?.message ?? 'Failed to load rider')
+            } finally {
+                setLoading(false)
             }
         }
-    }, [numericId])
+        loadRider()
+    }, [id])
 
-    const handleStatusUpdate = (newStatus: ReviewStatus) => {
-        const mapped: PrimaryStatus =
+    const handleStatusUpdate = async (newStatus: ReviewStatus) => {
+        if (!rider) return
+        const mapped: 'approved' | 'under_review' | 'suspended' =
             newStatus === 'approved'
                 ? 'approved'
                 : newStatus === 'rejected'
                     ? 'suspended'
                     : 'under_review'
         setPrimaryStatus(mapped)
-        if (!Number.isNaN(numericId)) {
-            const existing = getRider(numericId)
-            if (existing) {
-                upsertRider({ ...existing, primaryStatus: mapped })
+        try {
+            const backendStatus = mapped === 'approved' ? 'active' : mapped === 'suspended' ? 'deleted' : 'active' // adjust as needed
+            await patchAdminRider(rider.userId, { status: backendStatus })
+            // Refetch rider
+            if (id) {
+                const updated = await getAdminRider(id as string)
+                setRider(updated)
             }
+        } catch (e) {
+            // handle error
         }
     }
 
-    const toggleActivity = () => {
-        const next: ActivityStatus = activityStatus === 'active' ? 'inactive' : 'active'
+    const toggleActivity = async () => {
+        if (!rider) return
+        const next: 'active' | 'inactive' = activityStatus === 'active' ? 'inactive' : 'active'
         setActivityStatus(next)
-        if (!Number.isNaN(numericId)) {
-            const existing = getRider(numericId)
-            if (existing) {
-                upsertRider({ ...existing, activityStatus: next })
+        try {
+            const backendStatus = next === 'active' ? 'active' : 'deleted' // or 'suspended'?
+            await patchAdminRider(rider.userId, { status: backendStatus })
+            if (id) {
+                const updated = await getAdminRider(id as string)
+                setRider(updated)
             }
+        } catch (e) {
+            // handle
         }
     }
+
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+                <CircularProgress />
+            </Box>
+        )
+    }
+
+    if (error || !rider) {
+        return <Alert severity="error">{error || 'Rider not found'}</Alert>
+    }
+
+    const displayName = rider.fullName || `${rider.firstName || ''} ${rider.lastName || ''}`.trim() || 'Unknown'
+    const phone = rider.phone || '+250 788 000 000'
+    const city = rider.city || 'Unknown'
+    const trips = rider.totalTrips ?? 0
+    const rating = rider.rating?.toFixed(1) || 'N/A'
 
     return (
         <Box>
@@ -114,15 +155,15 @@ export default function RiderDetail() {
                             <Box sx={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <EmailIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">rider.{id}@example.com</Typography>
+                                    <Typography variant="body2">{rider.email || `rider.${id}@example.com`}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <PhoneIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">+250 788 123 456</Typography>
+                                    <Typography variant="body2">{phone}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <LocationOnIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">Kigali, Rwanda</Typography>
+                                    <Typography variant="body2">{city}</Typography>
                                 </Box>
                             </Box>
 
@@ -130,11 +171,11 @@ export default function RiderDetail() {
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                 <Typography variant="body2" color="text.secondary">Total Trips</Typography>
-                                <Typography variant="body2" fontWeight={600}>42</Typography>
+                                <Typography variant="body2" fontWeight={600}>{trips}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                 <Typography variant="body2" color="text.secondary">Rating</Typography>
-                                <Typography variant="body2" fontWeight={600}>4.8 ★</Typography>
+                                <Typography variant="body2" fontWeight={600}>{rating} ★</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="body2" color="text.secondary">Join Date</Typography>
@@ -171,27 +212,14 @@ export default function RiderDetail() {
 
                         <CardContent>
                             <CustomTabPanel value={tabValue} index={0}>
-                                {/* Mock Trip List */}
-                                {[1, 2, 3].map((trip) => (
-                                    <Box key={trip} sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                            <Typography variant="subtitle2">Trip #{2000 + trip}</Typography>
-                                            <StatusBadge status="completed" label="Completed" />
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontSize: 13 }}>
-                                            <DirectionsCarIcon fontSize="small" />
-                                            Standard Ride • $12.50 • 4.2 km
-                                        </Box>
-                                    </Box>
-                                ))}
+                                {/* Placeholder: fetch trips from backend */}
+                                <Typography color="text.secondary">Trip history not yet integrated.</Typography>
                             </CustomTabPanel>
-
                             <CustomTabPanel value={tabValue} index={1}>
-                                <Typography color="text.secondary">No payment history available.</Typography>
+                                <Typography color="text.secondary">Payment history not yet integrated.</Typography>
                             </CustomTabPanel>
-
                             <CustomTabPanel value={tabValue} index={2}>
-                                <Typography color="text.secondary">No documents uploaded.</Typography>
+                                <Typography color="text.secondary">Document management not yet integrated.</Typography>
                             </CustomTabPanel>
                         </CardContent>
                     </Card>

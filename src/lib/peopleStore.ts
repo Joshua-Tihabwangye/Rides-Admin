@@ -273,6 +273,7 @@ export function createDriver(partial: Omit<DriverRecord, 'id' | 'vehicle' | 'veh
           phone: partial.phone,
           fullName: partial.name,
           city: partial.city,
+          vehicleType,
         })
         await syncAdminReferenceData()
       } catch (error) {

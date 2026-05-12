@@ -20,6 +20,8 @@ import {
   MenuItem,
   FormControl,
   Select,
+  CircularProgress,
+  Alert,
 } from"@mui/material";
 import { useNavigate, useLocation } from"react-router-dom";
 import StatusBadge from"../components/StatusBadge";
@@ -27,37 +29,89 @@ import SearchIcon from"@mui/icons-material/Search";
 import TwoWheelerIcon from"@mui/icons-material/TwoWheeler";
 import AddIcon from"@mui/icons-material/Add";
 import MoreVertIcon from"@mui/icons-material/MoreVert";
-import { getRiders, RiderRecord, createRider } from"../lib/peopleStore";
+import { listAdminRiders, createAdminRider, getRider as getAdminRider, patchAdminRider } from"../services/api/adminApi";
+import type { AdminRiderResponse } from"../services/api/adminApi";
+
+// UI-only record shape
+type RiderRecord = {
+  id: number; // display numeric index
+  backendId: string;
+  name: string;
+  phone: string;
+  city: string;
+  vehicle: string;
+  vehicleType: 'Bike' | 'Car';
+  trips: number;
+  spend: string;
+  risk: 'Low' | 'Medium' | 'High';
+  primaryStatus: 'approved' | 'under_review' | 'suspended';
+  activityStatus: 'active' | 'inactive';
+};
 
 export default function RiderManagement() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [riders, setRiders] = useState<RiderRecord[]>([]);
-  
-  // New filter states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filters
   const [cityFilter, setCityFilter] = useState("all");
   const [accountFilter, setAccountFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all");
-  
-  // Action menu state
+
+  // Action menu
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRiderId, setSelectedRiderId] = useState<number | null>(null);
 
   const location = useLocation();
 
+  const fetchRiders = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminRiders();
+      // Map backend rider to UI record
+      const mapped: RiderRecord[] = data.map((rider, index) => {
+        const primaryStatus: RiderRecord['primaryStatus'] = rider.status === 'active' ? 'approved' : 'suspended';
+        const activityStatus: RiderRecord['activityStatus'] = rider.status === 'active' ? 'active' : 'inactive';
+        const name = rider.fullName || `${rider.firstName || ''} ${rider.lastName || ''}`.trim() || 'Unknown';
+        return {
+          id: index + 101,
+          backendId: rider.riderId || rider.userId,
+          name,
+          phone: rider.phone || '',
+          city: rider.city || '',
+          vehicle: "EV Bike",
+          vehicleType: "Bike",
+          trips: 0,
+          spend: "$0",
+          risk: "Low",
+          primaryStatus,
+          activityStatus,
+        };
+      });
+      setRiders(mapped);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load riders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setRiders(getRiders());
+    fetchRiders();
   }, [location.key]);
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
-    const bikeRiders = riders.filter(r => r.vehicleType ==="Bike");
+    const bikeRiders = riders.filter(r => r.vehicleType === "Bike");
     return {
       all: bikeRiders.length,
-      active: bikeRiders.filter(r => r.primaryStatus ==="approved").length,
-      pending: bikeRiders.filter(r => r.primaryStatus ==="under_review").length,
-      suspended: bikeRiders.filter(r => r.primaryStatus ==="suspended").length,
+      active: bikeRiders.filter(r => r.primaryStatus === "approved").length,
+      pending: bikeRiders.filter(r => r.primaryStatus === "under_review").length,
+      suspended: bikeRiders.filter(r => r.primaryStatus === "suspended").length,
     };
   }, [riders]);
 
@@ -73,29 +127,21 @@ export default function RiderManagement() {
       rider.phone.includes(search) ||
       `RDR-${rider.id}`.toLowerCase().includes(search.toLowerCase());
     const matchesTab =
-      activeTab ==="All" ||
-      (activeTab ==="Active/Verified" && rider.primaryStatus ==="approved") ||
-      (activeTab ==="Pending review" && rider.primaryStatus ==="under_review") ||
-      (activeTab ==="Suspended" && rider.primaryStatus ==="suspended");
-    // Only show bike riders
-    const matchesVehicle = rider.vehicleType ==="Bike";
-    
-    // City filter
-    const matchesCity = cityFilter ==="all" || rider.city === cityFilter;
-    
-    // Account filter
-    const matchesAccount = accountFilter ==="all" || 
-      (accountFilter ==="active" && rider.activityStatus ==="active") ||
-      (accountFilter ==="inactive" && rider.activityStatus ==="inactive");
-    
-    // Risk filter
-    const matchesRisk = riskFilter ==="all" || rider.risk.toLowerCase() === riskFilter;
-    
+      activeTab === "All" ||
+      (activeTab === "Active/Verified" && rider.primaryStatus === "approved") ||
+      (activeTab === "Pending review" && rider.primaryStatus === "under_review") ||
+      (activeTab === "Suspended" && rider.primaryStatus === "suspended");
+    const matchesVehicle = rider.vehicleType === "Bike";
+    const matchesCity = cityFilter === "all" || rider.city === cityFilter;
+    const matchesAccount = accountFilter === "all" ||
+      (accountFilter === "active" && rider.activityStatus === "active") ||
+      (accountFilter === "inactive" && rider.activityStatus === "inactive");
+    const matchesRisk = riskFilter === "all" || rider.risk.toLowerCase() === riskFilter;
     return matchesSearch && matchesTab && matchesVehicle && matchesCity && matchesAccount && matchesRisk;
   });
 
-  const handleRowClick = (id: number) => {
-    navigate(`/admin/riders/${id}`);
+  const handleRowClick = (backendId: string) => {
+    navigate(`/admin/riders/${backendId}`);
   };
 
   const handleActionClick = (event: React.MouseEvent<HTMLElement>, riderId: number) => {
@@ -109,24 +155,29 @@ export default function RiderManagement() {
     setSelectedRiderId(null);
   };
 
-  const handleActionSelect = (action: string) => {
-    if (selectedRiderId) {
-      switch (action) {
-        case"view":
-          navigate(`/admin/riders/${selectedRiderId}`);
-          break;
-        case"suspend":
-          // Handle suspend action
-          break;
-        case"contact":
-          // Handle contact action
-          break;
+  const handleActionSelect = async (action: string) => {
+    if (selectedRiderId !== null) {
+      const rider = riders.find(r => r.id === selectedRiderId);
+      if (!rider) return;
+      if (action === "view") {
+        navigate(`/admin/riders/${rider.backendId}`);
+      } else if (action === "suspend") {
+        // Toggle suspend: patch status to 'deleted' or 'active'
+        try {
+          const newStatus = rider.primaryStatus === 'suspended' ? 'active' : 'deleted';
+          await patchAdminRider(rider.backendId, { status: newStatus });
+          fetchRiders();
+        } catch (e) {
+          setError("Failed to update status");
+        }
+      } else if (action === "contact") {
+        // TODO: implement contact action (e.g., copy phone or open mail)
       }
     }
     handleActionClose();
   };
 
-  // Generate mock last trip and last active dates
+  // Mock last trip/last active - these would come from backend in real implementation
   const getLastTrip = (riderId: number) => {
     const daysAgo = (riderId % 7) + 1;
     const date = new Date();
@@ -142,12 +193,29 @@ export default function RiderManagement() {
     return `${Math.floor(hoursAgo / 24)}d ago`;
   };
 
+  const handleCreateRider = async (e: React.MouseEvent) => {
+    // For demo, just navigate to create page; real creation uses form
+    navigate('/admin/riders/new');
+  };
+
   const tabs = [
-    { label:"All", count: tabCounts.all },
-    { label:"Active/Verified", count: tabCounts.active },
-    { label:"Pending review", count: tabCounts.pending },
-    { label:"Suspended", count: tabCounts.suspended },
+    { label: "All", count: tabCounts.all },
+    { label: "Active/Verified", count: tabCounts.active },
+    { label: "Pending review", count: tabCounts.pending },
+    { label: "Suspended", count: tabCounts.suspended },
   ];
+
+  if (loading && riders.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>
@@ -160,24 +228,22 @@ export default function RiderManagement() {
             Manage rider accounts, view trip history, and monitor risk profiles.
           </Typography>
         </Box>
-        {/* Create Rider Button */}
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           sx={{ textTransform:"none", borderRadius: 999 }}
-          onClick={() => navigate('/admin/riders/new')}
+          onClick={handleCreateRider}
         >
           Create rider
         </Button>
       </Box>
 
-      {/* Dropdown Filters Row */}
+      {/* Filters */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             Filters:
           </Typography>
-          
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <Select
               value={cityFilter}
@@ -191,7 +257,6 @@ export default function RiderManagement() {
               ))}
             </Select>
           </FormControl>
-
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <Select
               value={accountFilter}
@@ -204,7 +269,6 @@ export default function RiderManagement() {
               <MenuItem value="inactive">Inactive</MenuItem>
             </Select>
           </FormControl>
-
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <Select
               value={riskFilter}
@@ -279,7 +343,7 @@ export default function RiderManagement() {
                 <TableRow
                   key={rider.id}
                   hover
-                  onClick={() => handleRowClick(rider.id)}
+                  onClick={() => handleRowClick(rider.backendId)}
                   sx={{ cursor:"pointer" }}
                 >
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: 'text.secondary' }}>
@@ -301,14 +365,14 @@ export default function RiderManagement() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge
-                      status={rider.activityStatus ==="active" ?"active" :"inactive"}
+                      status={rider.activityStatus === "active" ? "active" : "inactive"}
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
                       label={rider.risk}
-                      color={rider.risk ==="Low" ?"success" : rider.risk ==="Medium" ?"warning" :"error"}
+                      color={rider.risk === "Low" ? "success" : rider.risk === "Medium" ? "warning" : "error"}
                       sx={{ fontSize: 10, height: 20 }}
                     />
                   </TableCell>
@@ -336,7 +400,7 @@ export default function RiderManagement() {
         <MenuItem onClick={() => handleActionSelect("view")}>View Details</MenuItem>
         <MenuItem onClick={() => handleActionSelect("contact")}>Contact Rider</MenuItem>
         <MenuItem onClick={() => handleActionSelect("suspend")} sx={{ color: 'error.main' }}>
-          Suspend Account
+          {selectedRiderId !== null && riders.find(r => r.id === selectedRiderId)?.primaryStatus === 'suspended' ? 'Activate' : 'Suspend Account'}
         </MenuItem>
       </Menu>
     </Box>

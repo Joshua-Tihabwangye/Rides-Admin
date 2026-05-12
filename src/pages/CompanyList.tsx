@@ -1,4 +1,4 @@
-import React, { useState } from"react";
+import React, { useState, useEffect } from"react";
 import { useNavigate } from"react-router-dom";
 import {
   Box,
@@ -21,68 +21,68 @@ import {
   MenuItem,
   Snackbar,
   Alert,
+  CircularProgress,
 } from"@mui/material";
 import SearchIcon from"@mui/icons-material/Search";
 import MoreVertIcon from"@mui/icons-material/MoreVert";
 import StatusBadge from"../components/StatusBadge";
+import { listAdminCompanies, patchAdminCompany } from"../services/api/adminApi";
+import type { AdminCompanyResponse } from"../services/api/adminApi";
 
-const INITIAL_COMPANIES = [
-  {
-    id: 1,
-    name:"GreenMove Fleet",
-    regions:"Kampala, Entebbe",
-    type:"Fleet Partner",
-    drivers: 12,
-    vehicles: 12,
-    commission:"12%",
-    status:"Active",
-  },
-  {
-    id: 2,
-    name:"City Cabs Co.",
-    regions:"Kigali",
-    type:"Taxi Fleet",
-    drivers: 45,
-    vehicles: 40,
-    commission:"15%",
-    status:"Active",
-  },
-  {
-    id: 3,
-    name:"Blue Delivery",
-    regions:"Nairobi",
-    type:"Logistics",
-    drivers: 120,
-    vehicles: 115,
-    commission:"10%",
-    status:"Suspended",
-  },
-  {
-    id: 4,
-    name:"Swift Riders",
-    regions:"Lagos",
-    type:"Fleet Partner",
-    drivers: 78,
-    vehicles: 65,
-    commission:"14%",
-    status:"Inactive",
-  },
-];
+type CompanyRecord = {
+  id: string;
+  name: string;
+  regions: string;
+  type: string;
+  drivers: number;
+  vehicles: number;
+  commission: string;
+  status: "Active" | "Inactive" | "Pending" | "Suspended";
+};
 
 export default function CompanyList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("All");
-  const [companies, setCompanies] = useState(INITIAL_COMPANIES);
+  const [companies, setCompanies] = useState<CompanyRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
 
-  const handleRowClick = (id: number) => {
+  const fetchCompanies = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminCompanies();
+      const mapped: CompanyRecord[] = data.map((company) => ({
+        id: company.id,
+        name: company.companyName,
+        regions: "Multiple regions", // backend doesn't provide regions directly, could be derived
+        type: "Fleet Partner",
+        drivers: 0, // TODO: fetch from backend if needed
+        vehicles: 0,
+        commission: "N/A",
+        status: company.status === "active" ? "Active" : company.status === "suspended" ? "Suspended" : "Inactive",
+      }));
+      setCompanies(mapped);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load companies');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
+
+  const handleRowClick = (id: string) => {
     navigate(`/admin/companies/${id}`);
   };
 
-  const handleActionClick = (event: React.MouseEvent<HTMLElement>, companyId: number) => {
+  const handleActionClick = (event: React.MouseEvent<HTMLElement>, companyId: string) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
     setSelectedCompanyId(companyId);
@@ -93,19 +93,29 @@ export default function CompanyList() {
     setSelectedCompanyId(null);
   };
 
-  const handleStatusChange = (newStatus: string) => {
+  const handleStatusChange = async (newStatus: string) => {
     if (selectedCompanyId) {
-      setCompanies(prev => prev.map(company => 
-        company.id === selectedCompanyId 
-          ? { ...company, status: newStatus }
-          : company
-      ));
-      const companyName = companies.find(c => c.id === selectedCompanyId)?.name;
-      setSnackbar({ 
-        open: true, 
-        message: `${companyName} status changed to ${newStatus}`,
-        severity: 'success'
-      });
+      try {
+        const backendStatus = newStatus === "Active" ? "active" : newStatus === "Suspended" ? "suspended" : "inactive";
+        await patchAdminCompany(selectedCompanyId, { status: backendStatus });
+        setCompanies(prev => prev.map(company => 
+          company.id === selectedCompanyId 
+            ? { ...company, status: newStatus as CompanyRecord['status'] }
+            : company
+        ));
+        const companyName = companies.find(c => c.id === selectedCompanyId)?.name;
+        setSnackbar({ 
+          open: true, 
+          message: `${companyName} status changed to ${newStatus}`,
+          severity: 'success'
+        });
+      } catch (e: any) {
+        setSnackbar({ 
+          open: true, 
+          message: `Failed to update status: ${e?.message}`,
+          severity: 'error'
+        });
+      }
     }
     handleActionClose();
   };
@@ -113,23 +123,35 @@ export default function CompanyList() {
   const filteredCompanies = companies.filter((company) => {
     const matchesSearch = company.name.toLowerCase().includes(search.toLowerCase());
     const matchesTab =
-      activeTab ==="All" ||
-      (activeTab ==="Active" && company.status ==="Active") ||
-      (activeTab ==="Inactive" && company.status ==="Inactive") ||
-      (activeTab ==="Pending" && company.status ==="Pending") ||
-      (activeTab ==="Suspended" && company.status ==="Suspended");
+      activeTab === "All" ||
+      (activeTab === "Active" && company.status === "Active") ||
+      (activeTab === "Inactive" && company.status === "Inactive") ||
+      (activeTab === "Pending" && company.status === "Pending") ||
+      (activeTab === "Suspended" && company.status === "Suspended");
     return matchesSearch && matchesTab;
   });
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case"Active": return"success";
-      case"Inactive": return"default";
-      case"Pending": return"warning";
-      case"Suspended": return"error";
-      default: return"default";
+      case "Active": return "success";
+      case "Inactive": return "default";
+      case "Pending": return "warning";
+      case "Suspended": return "error";
+      default: return "default";
     }
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>

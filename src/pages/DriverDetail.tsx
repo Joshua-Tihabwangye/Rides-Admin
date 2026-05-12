@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs, Chip, IconButton } from '@mui/material'
+import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs, CircularProgress, Alert } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EmailIcon from '@mui/icons-material/Email'
 import PhoneIcon from '@mui/icons-material/Phone'
-import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
-import UploadFileIcon from '@mui/icons-material/UploadFile'
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import StatusBadge from '../components/StatusBadge'
 import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel'
-import { getDriver, upsertDriver, DriverRecord, PrimaryStatus, ActivityStatus } from '../lib/peopleStore'
+import { getAdminDriver, patchAdminDriver } from '../services/api/adminApi'
+import type { AdminDriverResponse } from '../services/api/adminApi'
 
 interface TabPanelProps {
     children?: React.ReactNode
@@ -37,55 +36,89 @@ function CustomTabPanel(props: TabPanelProps) {
 }
 
 export default function DriverDetail() {
-    const { id } = useParams()
+    const { id } = useParams() // id is backend driver ID (string)
     const navigate = useNavigate()
     const [tabValue, setTabValue] = useState(0)
-    const [driver, setDriver] = useState<DriverRecord | undefined>(undefined)
-    const [licenseFile, setLicenseFile] = useState<File | null>(null)
-    const [insuranceFile, setInsuranceFile] = useState<File | null>(null)
-
-    const numericId = id ? parseInt(id, 10) : NaN
+    const [primaryStatus, setPrimaryStatus] = useState<'approved' | 'under_review' | 'suspended'>('under_review')
+    const [activityStatus, setActivityStatus] = useState<'active' | 'inactive'>('inactive')
+    const [driver, setDriver] = useState<AdminDriverResponse | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        if (!Number.isNaN(numericId)) {
-            const found = getDriver(numericId)
-            setDriver(found)
+        if (!id) return
+        const loadDriver = async () => {
+            setLoading(true)
+            try {
+                const data = await getAdminDriver(id as string)
+                setDriver(data)
+                const mappedPrimary: 'approved' | 'under_review' | 'suspended' = data.status === 'active' ? 'approved' : 'suspended'
+                setPrimaryStatus(mappedPrimary)
+                setActivityStatus(data.status === 'active' ? 'active' : 'inactive')
+            } catch (e: any) {
+                setError(e?.message ?? 'Failed to load driver')
+            } finally {
+                setLoading(false)
+            }
         }
-    }, [numericId])
+        loadDriver()
+    }, [id])
 
-    const handleStatusUpdate = (newStatus: ReviewStatus) => {
+    const handleStatusUpdate = async (newStatus: ReviewStatus) => {
         if (!driver) return
-
-        const mapped: PrimaryStatus =
+        const mapped: 'approved' | 'under_review' | 'suspended' =
             newStatus === 'approved'
                 ? 'approved'
                 : newStatus === 'rejected'
                     ? 'suspended'
-                    : 'under_review' // Default to under_review or keep mapping simple
-
-        const updated = { ...driver, primaryStatus: mapped }
-        setDriver(updated)
-        upsertDriver(updated)
-    }
-
-    const toggleActivity = () => {
-        if (!driver) return
-        const next: ActivityStatus = driver.activityStatus === 'active' ? 'inactive' : 'active'
-        const updated = { ...driver, activityStatus: next }
-        setDriver(updated)
-        upsertDriver(updated)
-    }
-
-    const handleFileUpload = (type: 'license' | 'insurance') => (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files && event.target.files[0]) {
-            if (type === 'license') setLicenseFile(event.target.files[0])
-            else setInsuranceFile(event.target.files[0])
+                    : 'under_review'
+        setPrimaryStatus(mapped)
+        try {
+            const backendStatus = mapped === 'approved' ? 'active' : mapped === 'suspended' ? 'deleted' : 'active'
+            await patchAdminDriver(driver.driverId || driver.userId, { status: backendStatus })
+            // Refetch driver
+            if (id) {
+                const updated = await getAdminDriver(id as string)
+                setDriver(updated)
+            }
+        } catch (e) {
+            // handle error
         }
     }
 
-    if (!driver) {
-        return <Box p={3}>Driver not found</Box>
+    const toggleActivity = async () => {
+        if (!driver) return
+        const next: 'active' | 'inactive' = activityStatus === 'active' ? 'inactive' : 'active'
+        setActivityStatus(next)
+        try {
+            const backendStatus = next === 'active' ? 'active' : 'deleted'
+            await patchAdminDriver(driver.driverId || driver.userId, { status: backendStatus })
+            if (id) {
+                const updated = await getAdminDriver(id as string)
+                setDriver(updated)
+            }
+        } catch (e) {
+            // handle
+        }
     }
+
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+                <CircularProgress />
+            </Box>
+        )
+    }
+
+    if (error || !driver) {
+        return <Alert severity="error">{error || 'Driver not found'}</Alert>
+    }
+
+    const displayName = driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || 'Unknown'
+    const phone = driver.phone || '+256 700 000 000'
+    const city = driver.city || 'Unknown'
+    const trips = driver.totalTrips ?? 0
+    const rating = driver.rating?.toFixed(1) || 'N/A'
 
     return (
         <Box>
@@ -110,25 +143,25 @@ export default function DriverDetail() {
                                 <DirectionsCarIcon fontSize="large" />
                             </Avatar>
                             <Typography variant="h6" fontWeight={700} gutterBottom>
-                                {driver.name}
+                                Driver #{id}
                             </Typography>
                             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
-                                <StatusBadge status={driver.primaryStatus} />
-                                <StatusBadge status={driver.activityStatus === 'active' ? 'active' : 'inactive'} />
+                                <StatusBadge status={primaryStatus} />
+                                <StatusBadge status={activityStatus === 'active' ? 'active' : 'inactive'} />
                             </Box>
 
                             <Box sx={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
-                                    <VerifiedUserIcon color="primary" fontSize="small" />
-                                    <Typography variant="body2" fontWeight={600}>Identity Verified</Typography>
+                                    <PhoneIcon color="action" fontSize="small" />
+                                    <Typography variant="body2">{phone}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <EmailIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">driver.{driver.id}@evzone.app</Typography>
+                                    <Typography variant="body2">{driver.email || `driver.${id}@example.com`}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
-                                    <PhoneIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">{driver.phone}</Typography>
+                                    <DirectionsCarIcon color="action" fontSize="small" />
+                                    <Typography variant="body2">{city}</Typography>
                                 </Box>
                             </Box>
 
@@ -136,15 +169,15 @@ export default function DriverDetail() {
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                 <Typography variant="body2" color="text.secondary">Vehicle</Typography>
-                                <Typography variant="body2" fontWeight={600}>{driver.vehicle.split('.')[0] || 'Unknown'}</Typography>
+                                <Typography variant="body2" fontWeight={600}>EV Car</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                <Typography variant="body2" color="text.secondary">Plate</Typography>
-                                <Typography variant="body2" fontWeight={600}>{driver.vehicle.split('·')[1]?.trim() || 'N/A'}</Typography>
+                                <Typography variant="body2" color="text.secondary">Total Trips</Typography>
+                                <Typography variant="body2" fontWeight={600}>{trips}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography variant="body2" color="text.secondary">Total Trips</Typography>
-                                <Typography variant="body2" fontWeight={600}>{driver.trips}</Typography>
+                                <Typography variant="body2" color="text.secondary">Rating</Typography>
+                                <Typography variant="body2" fontWeight={600}>{rating} ★</Typography>
                             </Box>
                         </CardContent>
                     </Card>
@@ -153,7 +186,7 @@ export default function DriverDetail() {
                 {/* Right Column: Review & Content */}
                 <Grid item xs={12} md={8}>
 
-                    <ReviewActionPanel status={driver.primaryStatus} onUpdateStatus={handleStatusUpdate} />
+                    <ReviewActionPanel status={primaryStatus} onUpdateStatus={handleStatusUpdate} />
 
                     <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
                         <Button
@@ -162,7 +195,7 @@ export default function DriverDetail() {
                             onClick={toggleActivity}
                             sx={{ textTransform: 'none', borderRadius: 999 }}
                         >
-                            Set as {driver.activityStatus === 'active' ? 'In-active' : 'Active'}
+                            Set as {activityStatus === 'active' ? 'In-active' : 'Active'}
                         </Button>
                     </Box>
 
@@ -179,33 +212,24 @@ export default function DriverDetail() {
                             <CustomTabPanel value={tabValue} index={0}>
                                 <Typography variant="subtitle2" gutterBottom>Driver License</Typography>
                                 <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, mb: 2, border: '1px dashed grey', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body2">{licenseFile ? licenseFile.name : 'No file chosen'}</Typography>
-                                    <Button component="label" variant="text" startIcon={<UploadFileIcon />}>
-                                        Upload
-                                        <input type="file" hidden onChange={handleFileUpload('license')} />
-                                    </Button>
+                                    <Typography variant="body2">No file chosen</Typography>
                                 </Box>
-
                                 <Typography variant="subtitle2" gutterBottom>Insurance</Typography>
                                 <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1px dashed grey', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body2">{insuranceFile ? insuranceFile.name : 'No file chosen'}</Typography>
-                                    <Button component="label" variant="text" startIcon={<UploadFileIcon />}>
-                                        Upload
-                                        <input type="file" hidden onChange={handleFileUpload('insurance')} />
-                                    </Button>
+                                    <Typography variant="body2">No file chosen</Typography>
                                 </Box>
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={1}>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <Typography variant="h6">{driver.vehicle}</Typography>
+                                    <Typography variant="h6">EV Car</Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        Vehicle status is compliant. Last inspection was 2 weeks ago.
+                                        Vehicle status is compliant.
                                     </Typography>
                                     <Grid container spacing={2}>
                                         <Grid item xs={6}>
                                             <Typography variant="caption" color="text.secondary">Make/Model</Typography>
-                                            <Typography variant="body2">Toyota RAV4 EV</Typography>
+                                            <Typography variant="body2">EV Vehicle</Typography>
                                         </Grid>
                                         <Grid item xs={6}>
                                             <Typography variant="caption" color="text.secondary">Year</Typography>
@@ -213,7 +237,7 @@ export default function DriverDetail() {
                                         </Grid>
                                         <Grid item xs={6}>
                                             <Typography variant="caption" color="text.secondary">Color</Typography>
-                                            <Typography variant="body2">Silver</Typography>
+                                            <Typography variant="body2">White</Typography>
                                         </Grid>
                                         <Grid item xs={6}>
                                             <Typography variant="caption" color="text.secondary">Capacity</Typography>
@@ -236,7 +260,7 @@ export default function DriverDetail() {
                                         </Box>
                                     </Box>
                                 ))}
-                                {driver.trips === 0 && <Typography color="text.secondary">No trips completed yet.</Typography>}
+                                {trips === 0 && <Typography color="text.secondary">No trips completed yet.</Typography>}
                             </CustomTabPanel>
                         </CardContent>
                     </Card>

@@ -9,185 +9,466 @@ const RIDERS_KEY = "evzone_admin_riders";
 const DRIVERS_KEY = "evzone_admin_drivers";
 const AUDIT_KEY = "evzone_admin_audit_events";
 
-type AdminRiderResponse = {
-  riderId: string;
-  fullName: string;
-  phone: string;
-  city: string;
-  status: "active" | "deleted";
-};
-
-type AdminDriverResponse = {
-  driverId: string;
-  fullName: string;
-  phone: string;
-  city: string;
-  status: "active" | "deleted";
-};
-
-type AuditLogResponse = {
+export type AdminRiderResponse = {
   id: string;
-  action: string;
-  createdAt: number;
-  actorId: string;
-  resource: string;
-  resourceId?: string;
-};
-
-type AdminFeatureFlagResponse = {
-  id: string;
-  key: string;
-  enabled: boolean;
-  scope: "global" | "rider" | "driver" | "fleet" | "admin";
-  description?: string;
-};
-
-type AdminCreateUserInput = {
-  email: string;
-  phone?: string;
+  userId: string;
+  riderId?: string;
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
+  email?: string;
+  phone?: string;
   city?: string;
   country?: string;
+  preferredCurrency?: string;
+  preferences?: Record<string, any>;
+  rating?: number;
+  totalTrips?: number;
+  status: 'active' | 'deleted' | 'suspended';
+  roles: string[];
+  user?: unknown; // nested user object if needed, but we mainly need above
 };
 
-type AdminUpdateUserInput = Partial<{
+export type AdminDriverResponse = {
+  driverId: string;
+  userId: string;
   fullName: string;
-  email: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   phone: string;
   city: string;
-  country: string;
-  status: "active" | "deleted";
-}>;
+  status: 'active' | 'deleted' | 'suspended';
+  vehicleType: 'Bike' | 'Car';
+  totalTrips?: number;
+  licensePlate?: string;
+  model?: string;
+  rating?: number;
+  roles?: string[];
+};
 
-export function isAdminBackendEnabled(): boolean {
-  return getBackendEnabled();
+export type AdminAuditEventResponse = {
+  id: string;
+  actorId: string;
+  action: string;
+  resource: string;
+  resourceId: string;
+  createdAt: number;
+  metadata?: Record<string, any>;
+};
+
+// Auth helpers for admin backend tokens
+export function readAdminBackendAccessToken(): string | null {
+  try {
+    return localStorage.getItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
 
-export function readAdminBackendAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
+export function writeAdminBackendAccessToken(token: string): void {
+  localStorage.setItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY, token);
 }
 
 export function readAdminBackendRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY);
+  try {
+    return localStorage.getItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
 
-export function saveAdminBackendTokens(accessToken: string, refreshToken: string): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY, accessToken);
-  window.localStorage.setItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY, refreshToken);
+export function writeAdminBackendRefreshToken(token: string): void {
+  localStorage.setItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY, token);
 }
 
 export function clearAdminBackendTokens(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
-  window.localStorage.removeItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY);
+  try {
+    localStorage.removeItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+  } catch {
+    // no-op
+  }
 }
 
-function clearAdminSession(): void {
-  if (typeof window === "undefined") return;
-  clearAdminBackendTokens();
-  window.localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+// Generic storage helpers (localStorage wrappers)
+function readStorage<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
-async function refreshAdminTokens(refreshToken: string): Promise<TokenRefreshResult> {
-  const payload = await request<{ accessToken: string; refreshToken: string }>("/auth/refresh", {
-    method: "POST",
-    body: { refreshToken },
-    retryOnUnauthorized: false,
-  });
-
-  return {
-    accessToken: payload.accessToken,
-    refreshToken: payload.refreshToken,
-  };
+function writeStorage<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // no-op
+  }
 }
 
-configureHttpClientAuth({
-  getAccessToken: readAdminBackendAccessToken,
-  getRefreshToken: readAdminBackendRefreshToken,
-  setTokens: saveAdminBackendTokens,
-  clearSession: clearAdminSession,
-  refresh: refreshAdminTokens,
-  onUnauthorized: () => {
-    if (typeof window === "undefined") return;
-    if (window.location.pathname !== "/admin/login") {
-      window.location.assign("/admin/login");
-    }
-  },
-});
-
-export function createAdminSocket(): Socket {
-  return io(`${API_BASE_URL}/admin`, {
-    path: "/socket.io",
-    transports: ["websocket"],
-    autoConnect: false,
-    withCredentials: false,
-    auth: {
-      token: readAdminBackendAccessToken(),
-    },
-  });
-}
-
-function writeStorage(key: string, value: unknown) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
-}
+// ── Admin Users ──────────────────────────────────────────────────────────
 
 export async function listAdminRiders(): Promise<AdminRiderResponse[]> {
-  return request<AdminRiderResponse[]>("/admin/riders");
+  return request<AdminRiderResponse[]>("/admin/riders", { method: "GET" });
 }
 
-export async function listAdminDrivers(): Promise<AdminDriverResponse[]> {
-  return request<AdminDriverResponse[]>("/admin/drivers");
+export async function getAdminRider(riderId: string): Promise<AdminRiderResponse> {
+  return request<AdminRiderResponse>(`/admin/riders/${riderId}`, { method: "GET" });
 }
 
-export async function createAdminRider(input: AdminCreateUserInput) {
-  return request<{ riderId: string }>("/admin/riders", {
+// Alias for legacy import name
+export { getAdminRider as getRider };
+
+export async function createAdminRider(input: AdminCreateUserInput): Promise<{ userId: string }> {
+  return request<{ userId: string }>("/admin/riders", {
     method: "POST",
     body: input,
   });
 }
 
-export async function patchAdminRider(riderId: string, input: AdminUpdateUserInput) {
-  return request(`/admin/riders/${riderId}`, {
+export async function patchAdminRider(userId: string, input: AdminUpdateUserInput) {
+  return request<AdminRiderResponse>(`/admin/riders/${userId}`, {
     method: "PATCH",
     body: input,
   });
 }
 
-export async function createAdminDriver(input: AdminCreateUserInput) {
+export async function listAdminDrivers(): Promise<AdminDriverResponse[]> {
+  return request<AdminDriverResponse[]>("/admin/drivers", { method: "GET" });
+}
+
+export async function getAdminDriver(driverId: string): Promise<AdminDriverResponse> {
+  return request<AdminDriverResponse>(`/admin/drivers/${driverId}`, { method: "GET" });
+}
+
+export async function createAdminDriver(input: AdminCreateDriverInput): Promise<{ driverId: string }> {
   return request<{ driverId: string }>("/admin/drivers", {
     method: "POST",
     body: input,
   });
 }
 
-export async function patchAdminDriver(driverId: string, input: AdminUpdateUserInput) {
-  return request(`/admin/drivers/${driverId}`, {
+export async function patchAdminDriver(driverId: string, input: AdminUpdateDriverInput) {
+  return request<AdminDriverResponse>(`/admin/drivers/${driverId}`, {
     method: "PATCH",
     body: input,
   });
 }
 
-export async function listAdminAuditEvents(): Promise<AuditLogResponse[]> {
-  return request<AuditLogResponse[]>("/admin/system/audit-log");
+// ── Roles ─────────────────────────────────────────────────────────────────
+
+export type AdminRoleResponse = {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+  createdAt: number;
+};
+
+export type AdminCreateRoleInput = {
+  name: string;
+  description?: string;
+  permissions: string[];
+};
+
+export type AdminUpdateRoleInput = Partial<{
+  name: string;
+  description: string;
+  permissions: string[];
+}>;
+
+export async function listAdminRoles(): Promise<AdminRoleResponse[]> {
+  return request<AdminRoleResponse[]>("/admin/roles", { method: "GET" });
 }
 
+export async function getAdminRole(roleId: string): Promise<AdminRoleResponse> {
+  return request<AdminRoleResponse>(`/admin/roles/${roleId}`, { method: "GET" });
+}
+
+export async function createAdminRole(input: AdminCreateRoleInput) {
+  return request<{ roleId: string }>("/admin/roles", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminRole(roleId: string, input: AdminUpdateRoleInput) {
+  return request<AdminRoleResponse>(`/admin/roles/${roleId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// ── Pricing Zone (Geofence) ───────────────────────────────────────────────
+
+export type AdminPricingZoneResponse = {
+  id: string;
+  name: string;
+  city?: string;
+  country?: string;
+  status: "active" | "inactive";
+  boundaries: {
+    type: "Polygon";
+    coordinates: number[][][]; // [ [ [lng, lat], ... ] ]
+  };
+  services?: any[];
+  pricingRules?: Record<string, any> | Record<string, any>[];
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type AdminUpdatePricingZoneInput = Partial<{
+  name: string;
+  city: string;
+  country: string;
+  status: "active" | "inactive";
+  boundaries: { type: "Polygon"; coordinates: number[][][] };
+  services: any[];
+  pricingRules: Record<string, any> | Record<string, any>[];
+}>;
+
+export async function getAdminPricingZone(zoneId: string): Promise<AdminPricingZoneResponse> {
+  return request<AdminPricingZoneResponse>(`/admin/pricing-zones/${zoneId}`);
+}
+
+export async function listAdminPricingZones(): Promise<AdminPricingZoneResponse[]> {
+  return request<AdminPricingZoneResponse[]>("/admin/pricing-zones");
+}
+
+export async function createAdminPricingZone(input: Partial<AdminPricingZoneResponse>) {
+  return request<{ zoneId: string }>("/admin/pricing-zones", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminPricingZone(zoneId: string, input: AdminUpdatePricingZoneInput) {
+  return request<AdminPricingZoneResponse>(`/admin/pricing-zones/${zoneId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// ── Services ────────────────────────────────────────────────────────────────
+
+export type AdminServiceResponse = {
+  id: string;
+  key: string;
+  name: string;
+  enabled: boolean;
+  description?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type AdminUpdateServiceInput = Partial<{
+  name: string;
+  enabled: boolean;
+  description: string;
+}>;
+
+export async function listAdminServices(): Promise<AdminServiceResponse[]> {
+  return request<AdminServiceResponse[]>("/admin/services", { method: "GET" });
+}
+
+export async function patchAdminService(
+  serviceId: string,
+  input: AdminUpdateServiceInput
+): Promise<AdminServiceResponse> {
+  return request<AdminServiceResponse>(`/admin/services/${serviceId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// ── Feature Flags ───────────────────────────────────────────────────────────
+
+export type AdminFeatureFlagResponse = {
+  id: string;
+  key: string;
+  enabled: boolean;
+  scope: string;
+  description?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type AdminUpdateFeatureFlagInput = Partial<{
+  enabled: boolean;
+  scope: string;
+  description: string;
+}>;
+
 export async function listAdminFeatureFlags(): Promise<AdminFeatureFlagResponse[]> {
-  return request<AdminFeatureFlagResponse[]>("/admin/system/flags");
+  return request<AdminFeatureFlagResponse[]>("/admin/feature-flags", { method: "GET" });
 }
 
 export async function patchAdminFeatureFlag(
   flagKey: string,
-  input: Partial<Pick<AdminFeatureFlagResponse, "enabled" | "description">>,
-) {
-  return request<AdminFeatureFlagResponse>(`/admin/system/flags/${flagKey}`, {
+  input: AdminUpdateFeatureFlagInput
+): Promise<AdminFeatureFlagResponse> {
+  return request<AdminFeatureFlagResponse>(`/admin/feature-flags/${flagKey}`, {
     method: "PATCH",
     body: input,
   });
 }
+
+// ── Analytics ───────────────────────────────────────────────────────────────
+
+export type AdminAnalyticsPeriod = "today" | "7days" | "thisMonth" | "thisYear" | "custom";
+
+export type AdminFinanceAnalytics = {
+  grossEarnings: number;
+  earningsCount: number;
+  payoutsPending: number;
+  currency: string;
+};
+
+export type AdminOperationsAnalytics = {
+  trips: {
+    total: number;
+    completed: number;
+    active: number;
+  };
+  dispatches: {
+    total: number;
+    pending: number;
+  };
+  drivers: {
+    online: number;
+    total: number;
+  };
+};
+
+type AnalyticsQuery = {
+  period: AdminAnalyticsPeriod;
+  start?: string;
+  end?: string;
+};
+
+function toQueryString(input: Record<string, string | undefined>): string {
+  const search = new URLSearchParams();
+  Object.entries(input).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const raw = search.toString();
+  return raw ? `?${raw}` : "";
+}
+
+export async function getAdminFinanceAnalytics(
+  query: AnalyticsQuery
+): Promise<AdminFinanceAnalytics> {
+  return request<AdminFinanceAnalytics>(
+    `/admin/analytics/finance${toQueryString({
+      period: query.period,
+      start: query.start,
+      end: query.end,
+    })}`,
+    { method: "GET" }
+  );
+}
+
+export async function getAdminOperationsAnalytics(
+  query: AnalyticsQuery
+): Promise<AdminOperationsAnalytics> {
+  return request<AdminOperationsAnalytics>(
+    `/admin/analytics/operations${toQueryString({
+      period: query.period,
+      start: query.start,
+      end: query.end,
+    })}`,
+    { method: "GET" }
+  );
+}
+
+// ── Promotions ──────────────────────────────────────────────────────────────
+
+export type AdminPromoResponse = {
+  id: string;
+  code: string;
+  description?: string;
+  discountType: "percent" | "flat";
+  discountValue: number;
+  status?: "active" | "inactive";
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type AdminCreatePromoInput = {
+  code: string;
+  description?: string;
+  discountType: "percent" | "flat";
+  discountValue: number;
+};
+
+export type AdminUpdatePromoInput = Partial<AdminCreatePromoInput & {
+  status: "active" | "inactive";
+}>;
+
+export async function listAdminPromos(): Promise<AdminPromoResponse[]> {
+  return request<AdminPromoResponse[]>("/admin/promos", { method: "GET" });
+}
+
+export async function createAdminPromo(input: AdminCreatePromoInput): Promise<{ promoId: string }> {
+  return request<{ promoId: string }>("/admin/promos", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminPromo(
+  promoId: string,
+  input: AdminUpdatePromoInput
+): Promise<AdminPromoResponse> {
+  return request<AdminPromoResponse>(`/admin/promos/${promoId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// ── Risk Cases ──────────────────────────────────────────────────────────────
+
+export type AdminRiskCaseResponse = {
+  id: string;
+  subjectId: string;
+  subjectType: string;
+  type: string;
+  severity: "Low" | "Medium" | "High";
+  notes?: string;
+  createdAt: number;
+  status?: "open" | "under_review" | "resolved";
+};
+
+export async function listAdminRiskCases(): Promise<AdminRiskCaseResponse[]> {
+  return request<AdminRiskCaseResponse[]>("/admin/risk-cases", { method: "GET" });
+}
+
+export async function getAdminRiskCase(riskCaseId: string): Promise<AdminRiskCaseResponse> {
+  return request<AdminRiskCaseResponse>(`/admin/risk-cases/${riskCaseId}`, { method: "GET" });
+}
+
+// ── Admin Backend Token Helpers ────────────────────────────────────────────
+
+export function saveAdminBackendTokens(accessToken: string, refreshToken: string): void {
+  writeAdminBackendAccessToken(accessToken);
+  writeAdminBackendRefreshToken(refreshToken);
+}
+
+export function isAdminBackendEnabled(): boolean {
+  return getBackendEnabled();
+}
+
+// ── Audit Events ────────────────────────────────────────────────────────────
+
+export async function listAdminAuditEvents(): Promise<AdminAuditEventResponse[]> {
+  return request<AdminAuditEventResponse[]>("/admin/audit-events", { method: "GET" });
+}
+
+// ── Reference Data Sync ─────────────────────────────────────────────────────
 
 export async function syncAdminReferenceData(): Promise<void> {
   if (typeof window === "undefined" || !getBackendEnabled() || !readAdminBackendAccessToken()) {
@@ -202,7 +483,7 @@ export async function syncAdminReferenceData(): Promise<void> {
 
   writeStorage(RIDERS_KEY, riders.map((rider, index) => ({
     id: index + 101,
-    backendId: rider.riderId,
+    backendId: rider.riderId || rider.userId,
     name: rider.fullName,
     phone: rider.phone,
     city: rider.city,
@@ -237,4 +518,142 @@ export async function syncAdminReferenceData(): Promise<void> {
     resource: item.resource,
     resourceId: item.resourceId,
   })));
+}
+
+// ── Socket.io ───────────────────────────────────────────────────────────────
+
+export function createAdminSocket(): Socket {
+  const token = readAdminBackendAccessToken();
+  const socket = io(API_BASE_URL, {
+    path: `${API_BASE_URL}/socket.io`,
+    auth: token ? { token } : undefined,
+    autoConnect: false,
+  });
+  return socket;
+}
+
+// ── Input Types ─────────────────────────────────────────────────────────────
+
+export type AdminCreateUserInput = {
+  fullName: string;
+  email: string;
+  phone: string;
+  city?: string;
+  password?: string;
+};
+
+export type AdminUpdateUserInput = Partial<{
+  fullName: string;
+  email: string;
+  phone: string;
+  city: string;
+  status: 'active' | 'deleted' | 'suspended';
+  roles: string[];
+}>;
+
+export type AdminCreateDriverInput = {
+  fullName: string;
+  email: string;
+  phone: string;
+  city?: string;
+  licensePlate?: string;
+  model?: string;
+  vehicleType: 'Bike' | 'Car';
+};
+
+export type AdminUpdateDriverInput = Partial<{
+  fullName: string;
+  phone: string;
+  city: string;
+  status: 'active' | 'deleted' | 'suspended';
+  licensePlate: string;
+  model: string;
+  vehicleType: 'Bike' | 'Car';
+}>;
+
+// ── Approvals ───────────────────────────────────────────────────────────────
+
+export type AdminApprovalResponse = {
+  id: string;
+  entityId: string;
+  entityType: string;
+  status: "pending" | "approved" | "rejected";
+  requestedBy: string;
+  reviewedBy: string | null;
+  notes: string | null;
+  createdAt: number;
+  reviewedAt: number | null;
+};
+
+export type AdminReviewApprovalInput = {
+  decision: "approved" | "rejected";
+  notes?: string;
+};
+
+export async function listAdminApprovals(): Promise<AdminApprovalResponse[]> {
+  return request<AdminApprovalResponse[]>("/admin/approvals", { method: "GET" });
+}
+
+export async function getAdminApproval(approvalId: string): Promise<AdminApprovalResponse> {
+  return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}`, { method: "GET" });
+}
+
+export async function reviewAdminApproval(
+  approvalId: string,
+  input: AdminReviewApprovalInput
+): Promise<AdminApprovalResponse> {
+  return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}/review`, {
+    method: "POST",
+    body: input,
+  });
+}
+
+// ── Companies ───────────────────────────────────────────────────────────────
+
+export type AdminCompanyResponse = {
+  id: string;
+  companyName: string;
+  contactEmail: string;
+  contactPhone: string;
+  registrationNumber: string;
+  taxId: string;
+  status: "active" | "suspended" | "inactive";
+  verticals: {
+    ride: boolean;
+    delivery: boolean;
+    rental: boolean;
+    school: boolean;
+    ems: boolean;
+    tours: boolean;
+  };
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type AdminUpdateCompanyInput = Partial<{
+  companyName: string;
+  contactEmail: string;
+  contactPhone: string;
+  registrationNumber: string;
+  taxId: string;
+  status: "active" | "suspended" | "inactive";
+  verticals: AdminCompanyResponse["verticals"];
+}>;
+
+export async function listAdminCompanies(): Promise<AdminCompanyResponse[]> {
+  return request<AdminCompanyResponse[]>("/admin/companies", { method: "GET" });
+}
+
+export async function getAdminCompany(companyId: string): Promise<AdminCompanyResponse> {
+  return request<AdminCompanyResponse>(`/admin/companies/${companyId}`, { method: "GET" });
+}
+
+export async function patchAdminCompany(
+  companyId: string,
+  input: AdminUpdateCompanyInput
+): Promise<AdminCompanyResponse> {
+  return request<AdminCompanyResponse>(`/admin/companies/${companyId}`, {
+    method: "PATCH",
+    body: input,
+  });
 }

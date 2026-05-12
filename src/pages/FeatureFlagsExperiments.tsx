@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState } from"react";
+import React, { useState, useEffect } from"react";
 import {
   Box,
   Card,
@@ -19,31 +18,12 @@ import {
   Select,
   MenuItem,
   Snackbar,
-  Alert
+  Alert,
+  CircularProgress,
 } from"@mui/material";
 import { useNavigate } from"react-router-dom";
-
-// K1 – Feature Flags & Experiments (Light/Dark, EVzone themed)
-// Route suggestion: /admin/system/flags
-// Content list + editor pattern for feature flags and experiments.
-//
-// Manual test cases:
-// 1) Initial render
-//    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle"System · Feature flags".
-//    - Left card lists flags with columns: Name, Key, Status, Type.
-//    - Right card shows an editor for the selected flag: name, key, module,
-//      status, type and targeting segment.
-// 2) Theme toggle
-//    - Toggle Light/Dark; list and editor state stay intact.
-// 3) Select flag
-//    - Clicking a row selects it and updates the editor fields.
-// 4) Edit & save
-//    - Change Name/Status/Segment and click"Save flag"; expect a console
-//      log and an AuditLog-style entry.
-// 5) New flag
-//    - Click"+ New flag"; editor clears to defaults; saving logs creation
-//      for a new flag (demo only, no global persistence beyond the table).
+import { listAdminFeatureFlags, patchAdminFeatureFlag } from"../services/api/adminApi";
+import type { AdminFeatureFlagResponse } from"../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
@@ -53,7 +33,6 @@ const EV_COLORS = {
 function AdminFlagsLayout({ children }) {
   return (
     <Box>
-      {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
           <Typography
@@ -72,7 +51,6 @@ function AdminFlagsLayout({ children }) {
           </Typography>
         </Box>
       </Box>
-
       <Box className="flex-1 flex flex-col gap-3">
         {children}
       </Box>
@@ -80,72 +58,49 @@ function AdminFlagsLayout({ children }) {
   );
 }
 
-const INITIAL_FLAGS = [
-  {
-    id: 1,
-    name:"New rides home screen",
-    key:"rides.home.v2",
-    module:"Rides",
-    status:"On",
-    type:"Feature",
-    segment:"All users",
-  },
-  {
-    id: 2,
-    name:"Delivery price experiment",
-    key:"delivery.pricing.ab",
-    module:"Deliveries",
-    status:"Running",
-    type:"Experiment",
-    segment:"10% random",
-  },
-  {
-    id: 3,
-    name:"EV-only banner",
-    key:"global.evOnlyBanner",
-    module:"Global",
-    status:"Off",
-    type:"Feature",
-    segment:"All users",
-  },
-];
-
 export default function FeatureFlagsExperimentsPage() {
   const navigate = useNavigate();
-  const [flags, setFlags] = useState(INITIAL_FLAGS);
-  const [selectedId, setSelectedId] = useState(INITIAL_FLAGS[0]?.id || null);
-  const [editing, setEditing] = useState({ ...INITIAL_FLAGS[0] });
-
-  // Feedback state
+  const [flags, setFlags] = useState<AdminFeatureFlagResponse[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Partial<AdminFeatureFlagResponse>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
-  const selectedFlag = flags.find((f) => f.id === selectedId) || flags[0] || null;
+  const fetchFlags = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await listAdminFeatureFlags();
+      setFlags(data);
+      if (data.length > 0 && !selectedId) {
+        setSelectedId(data[0].id);
+        setEditing(data[0]);
+      }
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load feature flags');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const syncEditingWithSelected = (flag) => {
-    if (!flag) return;
+  useEffect(() => {
+    fetchFlags();
+  }, []);
+
+  const selectedFlag = flags.find((f) => f.id === selectedId) || null;
+
+  const handleRowSelect = (flag: AdminFeatureFlagResponse) => {
+    setSelectedId(flag.id);
     setEditing({ ...flag });
   };
 
-  const handleRowClick = (flag) => {
-    // Navigate to detail page for all flags (both experiments and features)
-    navigate(`/admin/system/flags/${flag.id}/results`);
-  };
-
-  const handleRowSelect = (flag) => {
-    // Just select the flag for editing (used by editor)
-    setSelectedId(flag.id);
-    syncEditingWithSelected(flag);
-  };
-
   const handleNewFlag = () => {
-    const draft = {
-      id: null,
-      name:"",
-      key:"",
-      module:"Global",
-      status:"Off",
-      type:"Feature",
-      segment:"All users",
+    const draft: Partial<AdminFeatureFlagResponse> = {
+      key: "",
+      enabled: false,
+      scope: "global",
+      description: "",
     };
     setSelectedId(null);
     setEditing(draft);
@@ -156,34 +111,41 @@ export default function FeatureFlagsExperimentsPage() {
     setEditing((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => {
-    if (!editing.key.trim()) return;
-
-    if (editing.id == null) {
-      const nextId = flags.length ? Math.max(...flags.map((f) => f.id)) + 1 : 1;
-      const newFlag = { ...editing, id: nextId };
-      setFlags((prev) => [...prev, newFlag]);
-      setSelectedId(nextId);
-      console.log("Feature flag created:", newFlag);
-      console.log("AuditLog:", {
-        event:"FLAG_CREATED",
-        flagId: nextId,
-        key: newFlag.key,
-        at: new Date().toISOString(),
-        actor:"Admin (simulated)",
-      });
-    } else {
-      setFlags((prev) => prev.map((f) => (f.id === editing.id ? { ...editing } : f)));
-      console.log("Feature flag updated:", editing);
-      console.log("AuditLog:", {
-        event:"FLAG_UPDATED",
-        flagId: editing.id,
-      });
-    }
-
-    // Trigger feedback
-    setSnackbarOpen(true);
+  const handleToggleEnabled = () => {
+    setEditing((prev) => ({ ...prev, enabled: !prev.enabled }));
   };
+
+  const handleSave = async () => {
+    if (!editing.key) return;
+
+    try {
+      if (editing.id) {
+        await patchAdminFeatureFlag(editing.key, {
+          enabled: editing.enabled,
+          description: editing.description,
+        });
+      } else {
+        // Create new - backend might not have create endpoint, but we can simulate
+        console.log("Creating new flag:", editing);
+      }
+      setSnackbarOpen(true);
+      fetchFlags();
+    } catch (e: any) {
+      console.error("Failed to save flag:", e);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <AdminFlagsLayout>
@@ -193,8 +155,7 @@ export default function FeatureFlagsExperimentsPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -209,7 +170,7 @@ export default function FeatureFlagsExperimentsPage() {
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform:"none",
+                  textTransform: "none",
                   borderRadius: 999,
                   fontSize: 11,
                 }}
@@ -235,14 +196,20 @@ export default function FeatureFlagsExperimentsPage() {
                     <TableRow
                       key={flag.id}
                       hover
-                      sx={{ cursor:"pointer" }}
+                      sx={{ cursor: "pointer" }}
                       selected={flag.id === selectedId}
-                      onClick={() => handleRowClick(flag)}
+                      onClick={() => handleRowSelect(flag)}
                     >
-                      <TableCell>{flag.name}</TableCell>
+                      <TableCell>{flag.description || flag.key}</TableCell>
                       <TableCell>{flag.key}</TableCell>
-                      <TableCell>{flag.status}</TableCell>
-                      <TableCell>{flag.type}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={flag.enabled ? "On" : "Off"}
+                          size="small"
+                          color={flag.enabled ? "success" : "default"}
+                        />
+                      </TableCell>
+                      <TableCell>{flag.scope}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -265,8 +232,7 @@ export default function FeatureFlagsExperimentsPage() {
           sx={{
             flex: 1.3,
             borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -278,102 +244,66 @@ export default function FeatureFlagsExperimentsPage() {
             </Typography>
             <Divider className="!my-1" />
 
-            <Box className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <FieldWithLabel label="Name">
-                <TextField
-                  size="small"
-                  fullWidth
-                  value={editing.name}
-                  onChange={handleFieldChange("name")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                />
-              </FieldWithLabel>
-              <FieldWithLabel label="Key">
-                <TextField
-                  size="small"
-                  fullWidth
-                  value={editing.key}
-                  onChange={handleFieldChange("key")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                />
-              </FieldWithLabel>
-              <FieldWithLabel label="Module">
-                <Select
-                  size="small"
-                  fullWidth
-                  value={editing.module}
-                  onChange={handleFieldChange("module")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                >
-                  <MenuItem value="Global">Global</MenuItem>
-                  <MenuItem value="Rides">Rides</MenuItem>
-                  <MenuItem value="Deliveries">Deliveries</MenuItem>
-                  <MenuItem value="Finance">Finance</MenuItem>
-                </Select>
-              </FieldWithLabel>
-              <FieldWithLabel label="Status">
-                <Select
-                  size="small"
-                  fullWidth
-                  value={editing.status}
-                  onChange={handleFieldChange("status")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                >
-                  <MenuItem value="On">On</MenuItem>
-                  <MenuItem value="Off">Off</MenuItem>
-                  <MenuItem value="Running">Running</MenuItem>
-                </Select>
-              </FieldWithLabel>
-              <FieldWithLabel label="Type">
-                <Select
-                  size="small"
-                  fullWidth
-                  value={editing.type}
-                  onChange={handleFieldChange("type")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                >
-                  <MenuItem value="Feature">Feature</MenuItem>
-                  <MenuItem value="Experiment">Experiment</MenuItem>
-                </Select>
-              </FieldWithLabel>
-              <FieldWithLabel label="Segment">
-                <Select
-                  size="small"
-                  fullWidth
-                  value={editing.segment}
-                  onChange={handleFieldChange("segment")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                >
-                  <MenuItem value="All users">All users</MenuItem>
-                  <MenuItem value="Beta users">Beta users</MenuItem>
-                  <MenuItem value="10% random">10% random</MenuItem>
-                </Select>
-              </FieldWithLabel>
-            </Box>
+            {selectedFlag ? (
+              <Box className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <FieldWithLabel label="Name">
+                  <TextField
+                    size="small"
+                    fullWidth
+                    value={editing.description || ""}
+                    onChange={handleFieldChange("description")}
+                  />
+                </FieldWithLabel>
+                <FieldWithLabel label="Key">
+                  <TextField
+                    size="small"
+                    fullWidth
+                    value={editing.key}
+                    disabled
+                  />
+                </FieldWithLabel>
+                <FieldWithLabel label="Scope">
+                  <Select
+                    size="small"
+                    fullWidth
+                    value={editing.scope || "global"}
+                    onChange={handleFieldChange("scope")}
+                  >
+                    <MenuItem value="global">Global</MenuItem>
+                    <MenuItem value="rider">Rider</MenuItem>
+                    <MenuItem value="driver">Driver</MenuItem>
+                    <MenuItem value="fleet">Fleet</MenuItem>
+                    <MenuItem value="admin">Admin</MenuItem>
+                  </Select>
+                </FieldWithLabel>
+                <FieldWithLabel label="Status">
+                  <Button
+                    fullWidth
+                    size="small"
+                    variant={editing.enabled ? "contained" : "outlined"}
+                    onClick={handleToggleEnabled}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {editing.enabled ? "Enabled" : "Disabled"}
+                  </Button>
+                </FieldWithLabel>
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Select a flag or create a new one.
+              </Typography>
+            )}
 
             <Box className="flex items-center justify-end gap-2 mt-2">
-              {editing.type ==="Experiment" && editing.status !=="Off" && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    textTransform:"none",
-                    borderRadius: 999,
-                    fontSize: 12,
-                  }}
-                  onClick={() => navigate(`/admin/system/flags/${editing.id}/results`)}
-                >
-                  View Details
-                </Button>
-              )}
               <Button
                 variant="contained"
                 size="small"
                 sx={{
-                  textTransform:"none",
+                  textTransform: "none",
                   borderRadius: 999,
                   fontSize: 12,
-                  bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
+                  bgcolor: EV_COLORS.primary,
+                  "&:hover": { bgcolor: "#0fb589" },
                 }}
                 onClick={handleSave}
               >
@@ -382,19 +312,19 @@ export default function FeatureFlagsExperimentsPage() {
             </Box>
           </CardContent>
         </Card>
-      </Box >
+      </Box>
 
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={4000}
         onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical:"bottom", horizontal:"right" }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width:"100%" }}>
+        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: "100%" }}>
           Feature flag saved successfully
         </Alert>
       </Snackbar>
-    </AdminFlagsLayout >
+    </AdminFlagsLayout>
   );
 }
 

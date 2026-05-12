@@ -1,6 +1,5 @@
-// @ts-nocheck
-import React, { useState } from"react";
-import { useNavigate } from"react-router-dom";
+import React, { useState, useEffect } from"react";
+import { useNavigate, useParams } from"react-router-dom";
 import {
   Box,
   Card,
@@ -11,52 +10,21 @@ import {
   Divider,
   TextField,
   Snackbar,
-  Alert
+  Alert,
+  CircularProgress,
 } from"@mui/material";
-
-// E2 – Approval Detail (Light/Dark, EVzone themed)
-// Route suggestion: /admin/approvals/:approvalId
-// Shows full detail for a single approval case with triage actions.
-//
-// Manual test cases:
-// 1) Initial render
-//    - Light mode by default.
-//    - Header shows EVZONE ADMIN, subtitle"Approvals · Detail" and
-//      Light/Dark toggle.
-//    - Title:"Approval Detail" with short description.
-//    - Case header card shows ID, entity, type, severity, age, region.
-//    - Two main sections: Summary & context, and Decision panel.
-// 2) Back button
-//    - Click"← Back to approvals"; expect a console log placeholder.
-// 3) Theme toggle
-//    - Switch to Dark and back; layout & content remain stable.
-// 4) Decision actions
-//    - Approve / Reject / Request more info buttons log corresponding action
-//      and include the case ID.
-// 5) Notes
-//    - Editing the internal notes textarea updates local state without errors.
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { getAdminApproval, reviewAdminApproval } from"../services/api/adminApi";
+import type { AdminApprovalResponse } from"../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
   secondary:"#f77f00",
 };
 
-const SAMPLE_CASE = {
-  id:"APP-003",
-  type:"Driver escalation",
-  entity:"Michael Driver",
-  severity:"High",
-  age:"4h",
-  region:"West Africa",
-  summary:"Driver flagged by risk rules due to high cancellations and fare disputes.",
-  details:"System detected a pattern of cancellations after long wait times and multiple fare dispute tickets for this driver.",
-  context:"Driver has completed 215 trips in the last 30 days with 4.2 average rating. Cancellation rate is 7.4% vs fleet average of 3.1%.",
-};
-
 function AdminApprovalDetailLayout({ children }) {
   return (
     <Box>
-      {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
           <Typography
@@ -74,7 +42,6 @@ function AdminApprovalDetailLayout({ children }) {
           </Typography>
         </Box>
       </Box>
-
       <Box className="flex-1 flex flex-col gap-3">
         {children}
       </Box>
@@ -83,22 +50,66 @@ function AdminApprovalDetailLayout({ children }) {
 }
 
 export default function ApprovalDetailPage() {
+  const { approvalId } = useParams();
   const navigate = useNavigate();
+  const [approval, setApproval] = useState<AdminApprovalResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
-  const [snackbar, setSnackbar] = useState({ open: false, msg:"" });
-  const approval = SAMPLE_CASE;
+  const [snackbar, setSnackbar] = useState<{ open: boolean; msg: string; severity: 'success' | 'error' }>({ open: false, msg: '', severity: 'success' });
 
-  const handleDecision = (action) => {
-    console.log(`Decision: ${action}`);
-    // Show feedback then navigate
-    setSnackbar({ open: true, msg: `Decision Recorded: ${action}` });
-    setTimeout(() => {
-      navigate('/admin/approvals');
-    }, 1000);
+  useEffect(() => {
+    if (!approvalId) return;
+    const loadApproval = async () => {
+      setLoading(true);
+      try {
+        const data = await getAdminApproval(approvalId as string);
+        setApproval(data);
+      } catch (e: any) {
+        setError(e?.message ?? 'Failed to load approval');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadApproval();
+  }, [approvalId]);
+
+  const handleDecision = async (action: "Approve" | "Reject" | "Request more info") => {
+    if (!approval) return;
+    try {
+      if (action === "Approve" || action === "Reject") {
+        await reviewAdminApproval(approval.id, { decision: action === "Approve" ? "approved" : "rejected" });
+      }
+      setSnackbar({ open: true, msg: `Decision Recorded: ${action}`, severity: 'success' });
+      setTimeout(() => {
+        navigate('/admin/approvals');
+      }, 1000);
+    } catch (e: any) {
+      setSnackbar({ open: true, msg: `Failed: ${e?.message}`, severity: 'error' });
+    }
   };
 
   const handleSaveNote = () => {
-    setSnackbar({ open: true, msg:"Note saved internally." });
+    setSnackbar({ open: true, msg:"Note saved internally.", severity: 'success' });
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error || !approval) {
+    return <Alert severity="error">{error || 'Approval not found'}</Alert>;
+  }
+
+  const getStatusLabel = (status: string) => {
+    if (status === "pending") return "Pending Review";
+    if (status === "approved") return "Approved";
+    if (status === "rejected") return "Rejected";
+    return status;
   };
 
   return (
@@ -108,8 +119,7 @@ export default function ApprovalDetailPage() {
         elevation={1}
         sx={{
           borderRadius: 8,
-          border:"1px solid rgba(148,163,184,0.5)",
-          
+          border: "1px solid rgba(148,163,184,0.5)",
         }}
       >
         <CardContent className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -124,38 +134,33 @@ export default function ApprovalDetailPage() {
               variant="subtitle2"
               className="font-semibold"
             >
-              {approval.entity}
+              {approval.entityId}
             </Typography>
             <Typography
               variant="caption"
               className="text-[11px] text-slate-500"
             >
-              {approval.type}
+              {approval.entityType}
             </Typography>
           </Box>
           <Box className="flex flex-wrap gap-1 items-center">
             <Chip
               size="small"
-              label={approval.severity}
+              label={getStatusLabel(approval.status)}
               sx={{
                 fontSize: 10,
                 height: 22,
                 bgcolor:
-                  approval.severity ==="High"
-                    ?"#fee2e2"
-                    : approval.severity ==="Medium"
-                      ?"#fef3c7"
-                      :"#e0f2fe",
+                  approval.status === "pending"
+                    ? "#fef3c7"
+                    : approval.status === "approved"
+                      ? "#dcfce7"
+                      : "#fee2e2",
               }}
             />
             <Chip
               size="small"
-              label={approval.age}
-              sx={{ fontSize: 10, height: 22 }}
-            />
-            <Chip
-              size="small"
-              label={approval.region}
+              label={new Date(approval.createdAt).toLocaleString()}
               sx={{ fontSize: 10, height: 22 }}
             />
           </Box>
@@ -169,8 +174,7 @@ export default function ApprovalDetailPage() {
           sx={{
             flex: 2,
             borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -185,7 +189,7 @@ export default function ApprovalDetailPage() {
                 variant="body2"
                 className="text-[12px]"
               >
-                {approval.summary}
+                {approval.notes || "No additional notes provided."}
               </Typography>
             </Box>
 
@@ -196,19 +200,14 @@ export default function ApprovalDetailPage() {
                 variant="subtitle2"
                 className="font-semibold mb-1"
               >
-                System context
+                Requested by
               </Typography>
               <Typography
                 variant="body2"
                 className="text-[12px]"
               >
-                {approval.details}
-              </Typography>
-              <Typography
-                variant="body2"
-                className="text-[12px] mt-1"
-              >
-                {approval.context}
+                {approval.requestedBy}
+                {approval.reviewedBy && ` · Reviewed by ${approval.reviewedBy}`}
               </Typography>
             </Box>
 
@@ -228,7 +227,7 @@ export default function ApprovalDetailPage() {
                 placeholder="Add notes for audit trail (only visible to Admins)…"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
+                sx={{"& .MuiOutlinedInput-root": { bgcolor: "background.paper" },"& .MuiInputBase-input": { fontSize: 12 },
                 }}
               />
               <Button
@@ -249,8 +248,7 @@ export default function ApprovalDetailPage() {
           sx={{
             flex: 1,
             borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
@@ -273,10 +271,11 @@ export default function ApprovalDetailPage() {
               variant="contained"
               size="small"
               sx={{
-                textTransform:"none",
+                textTransform: "none",
                 borderRadius: 999,
                 fontSize: 12,
-                bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
+                bgcolor: EV_COLORS.primary,
+                "&:hover": { bgcolor: "#0fb589" },
               }}
               onClick={() => handleDecision("Approve")}
             >
@@ -287,11 +286,11 @@ export default function ApprovalDetailPage() {
               variant="outlined"
               size="small"
               sx={{
-                textTransform:"none",
+                textTransform: "none",
                 borderRadius: 999,
                 fontSize: 12,
-                borderColor:"#f97316",
-                color:"#92400e",
+                borderColor: "#f97316",
+                color: "#92400e",
               }}
               onClick={() => handleDecision("Reject")}
             >
@@ -302,7 +301,7 @@ export default function ApprovalDetailPage() {
               variant="text"
               size="small"
               sx={{
-                textTransform:"none",
+                textTransform: "none",
                 borderRadius: 999,
                 fontSize: 12,
                 color: 'text.secondary',
@@ -314,13 +313,14 @@ export default function ApprovalDetailPage() {
           </CardContent>
         </Card>
       </Box>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={2000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity="success">{snackbar.msg}</Alert>
+        <Alert severity={snackbar.severity}>{snackbar.msg}</Alert>
       </Snackbar>
     </AdminApprovalDetailLayout>
   );
