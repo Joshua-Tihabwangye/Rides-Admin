@@ -4,8 +4,7 @@ import {
   GoogleMap,
   useJsApiLoader,
   Polygon,
-  type PolygonOptions,
-} from "@react-google-maps-api";
+} from "@react-google-maps/api";
 import {
   Box,
   Typography,
@@ -120,7 +119,7 @@ export default function ZoneMapView() {
     if (!id || !paths.length) return;
     setSaving(true);
     try {
-      const boundaries = {
+      const boundaries: { type: "Polygon"; coordinates: number[][][] } = {
         type: "Polygon",
         coordinates: [[...paths.map((p) => [p.lng, p.lat])]],
       };
@@ -154,7 +153,7 @@ export default function ZoneMapView() {
     return { lat: sum.lat / paths.length, lng: sum.lng / paths.length };
   };
 
-  const polygonOptions: PolygonOptions = {
+  const polygonOptions: google.maps.PolygonOptions = {
     editable: true,
     draggable: false,
     fillColor: EV_COLORS.primary,

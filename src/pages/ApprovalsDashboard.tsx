@@ -18,7 +18,8 @@ import {
   CircularProgress,
 } from"@mui/material";
 import PeriodSelector from"../components/PeriodSelector";
-import dayjs from"dayjs";
+import type { PeriodOption } from"../components/PeriodSelector";
+import dayjs, { type Dayjs } from"dayjs";
 import isBetween from"dayjs/plugin/isBetween";
 import { listAdminApprovals, reviewAdminApproval } from"../services/api/adminApi";
 import type { AdminApprovalResponse } from"../services/api/adminApi";
@@ -76,8 +77,8 @@ export default function ApprovalsDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({ type: 'All', severity: 'All', region: 'All' });
-  const [period, setPeriod] = useState("today");
-  const [customRange, setCustomRange] = useState([null, null]);
+  const [period, setPeriod] = useState<PeriodOption>("today");
+  const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [snackbar, setSnackbar] = useState<{ open: boolean; msg: string; severity: 'success' | 'error' }>({ open: false, msg: '', severity: 'success' });
 
   const fetchApprovals = async () => {
@@ -121,7 +122,7 @@ export default function ApprovalsDashboardPage() {
 
     if (period === 'today') {
       inPeriod = itemDate.isSame(now, 'day');
-    } else if (period === 'week' || period === '7days') {
+    } else if (period === '7days') {
       inPeriod = itemDate.isAfter(now.subtract(7, 'day'));
     } else if (period === 'thisMonth') {
       inPeriod = itemDate.isSame(now, 'month');

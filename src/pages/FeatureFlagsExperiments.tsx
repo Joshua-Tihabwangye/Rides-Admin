@@ -97,7 +97,6 @@ export default function FeatureFlagsExperimentsPage() {
 
   const handleNewFlag = () => {
     const draft: Partial<AdminFeatureFlagResponse> = {
-      id: null,
       key: "",
       enabled: false,
       scope: "global",

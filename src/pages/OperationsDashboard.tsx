@@ -66,10 +66,10 @@ export default function OperationsDashboardPage() {
       ? 'today'
       : period === '7days'
         ? 'last 7 days'
-        : period === '30days'
-          ? 'last 30 days'
-          : period === 'thisMonth'
-            ? 'this month'
+        : period === 'thisMonth'
+          ? 'this month'
+          : period === 'thisYear'
+            ? 'this year'
             : 'custom range';
 
   const kpis = useMemo(() => {
@@ -101,7 +101,7 @@ export default function OperationsDashboardPage() {
 
   // Mock chart data since backend doesn't provide time-series breakdown
   const demandSupplyData = useMemo(() => {
-    const multiplier = period === 'today' ? 0.15 : period === '7days' ? 0.5 : period === '30days' ? 1 : period === 'thisMonth' ? 1.2 : 0.8;
+    const multiplier = period === 'today' ? 0.15 : period === '7days' ? 0.5 : period === 'thisMonth' ? 1.2 : period === 'thisYear' ? 2.8 : 0.8;
     const base = [
       { time: '6AM', demand: 45, supply: 60 },
       { time: '8AM', demand: 156, supply: 140 },
@@ -121,7 +121,7 @@ export default function OperationsDashboardPage() {
   }, [period]);
 
   const serviceMixData = useMemo(() => {
-    const multiplier = period === 'today' ? 0.15 : period === '7days' ? 0.5 : period === '30days' ? 1 : period === 'thisMonth' ? 1.2 : 0.8;
+    const multiplier = period === 'today' ? 0.15 : period === '7days' ? 0.5 : period === 'thisMonth' ? 1.2 : period === 'thisYear' ? 2.8 : 0.8;
     return [
       { region: 'Kampala', rides: Math.round(840 * multiplier), deliveries: Math.round(420 * multiplier) },
       { region: 'Nairobi', rides: Math.round(650 * multiplier), deliveries: Math.round(380 * multiplier) },

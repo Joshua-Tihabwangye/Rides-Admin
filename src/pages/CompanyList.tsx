@@ -64,7 +64,7 @@ export default function CompanyList() {
         drivers: 0, // TODO: fetch from backend if needed
         vehicles: 0,
         commission: "N/A",
-        status: company.status === "approved" ? "Active" : company.status === "pending" ? "Pending" : company.status === "suspended" ? "Suspended" : "Inactive",
+        status: company.status === "active" ? "Active" : company.status === "suspended" ? "Suspended" : "Inactive",
       }));
       setCompanies(mapped);
     } catch (err: any) {
@@ -96,7 +96,7 @@ export default function CompanyList() {
   const handleStatusChange = async (newStatus: string) => {
     if (selectedCompanyId) {
       try {
-        const backendStatus = newStatus === "Active" ? "approved" : newStatus === "Suspended" ? "suspended" : "pending";
+        const backendStatus = newStatus === "Active" ? "active" : newStatus === "Suspended" ? "suspended" : "inactive";
         await patchAdminCompany(selectedCompanyId, { status: backendStatus });
         setCompanies(prev => prev.map(company => 
           company.id === selectedCompanyId 

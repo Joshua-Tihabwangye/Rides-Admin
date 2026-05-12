@@ -216,7 +216,7 @@ export type AdminPricingZoneResponse = {
     coordinates: number[][][]; // [ [ [lng, lat], ... ] ]
   };
   services?: any[];
-  pricingRules?: any[];
+  pricingRules?: Record<string, any> | Record<string, any>[];
   createdAt?: number;
   updatedAt?: number;
 };
@@ -228,7 +228,7 @@ export type AdminUpdatePricingZoneInput = Partial<{
   status: "active" | "inactive";
   boundaries: { type: "Polygon"; coordinates: number[][][] };
   services: any[];
-  pricingRules: any[];
+  pricingRules: Record<string, any> | Record<string, any>[];
 }>;
 
 export async function getAdminPricingZone(zoneId: string): Promise<AdminPricingZoneResponse> {
@@ -251,6 +251,204 @@ export async function patchAdminPricingZone(zoneId: string, input: AdminUpdatePr
     method: "PATCH",
     body: input,
   });
+}
+
+// ── Services ────────────────────────────────────────────────────────────────
+
+export type AdminServiceResponse = {
+  id: string;
+  key: string;
+  name: string;
+  enabled: boolean;
+  description?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type AdminUpdateServiceInput = Partial<{
+  name: string;
+  enabled: boolean;
+  description: string;
+}>;
+
+export async function listAdminServices(): Promise<AdminServiceResponse[]> {
+  return request<AdminServiceResponse[]>("/admin/services", { method: "GET" });
+}
+
+export async function patchAdminService(
+  serviceId: string,
+  input: AdminUpdateServiceInput
+): Promise<AdminServiceResponse> {
+  return request<AdminServiceResponse>(`/admin/services/${serviceId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// ── Feature Flags ───────────────────────────────────────────────────────────
+
+export type AdminFeatureFlagResponse = {
+  id: string;
+  key: string;
+  enabled: boolean;
+  scope: string;
+  description?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type AdminUpdateFeatureFlagInput = Partial<{
+  enabled: boolean;
+  scope: string;
+  description: string;
+}>;
+
+export async function listAdminFeatureFlags(): Promise<AdminFeatureFlagResponse[]> {
+  return request<AdminFeatureFlagResponse[]>("/admin/feature-flags", { method: "GET" });
+}
+
+export async function patchAdminFeatureFlag(
+  flagKey: string,
+  input: AdminUpdateFeatureFlagInput
+): Promise<AdminFeatureFlagResponse> {
+  return request<AdminFeatureFlagResponse>(`/admin/feature-flags/${flagKey}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// ── Analytics ───────────────────────────────────────────────────────────────
+
+export type AdminAnalyticsPeriod = "today" | "7days" | "thisMonth" | "thisYear" | "custom";
+
+export type AdminFinanceAnalytics = {
+  grossEarnings: number;
+  earningsCount: number;
+  payoutsPending: number;
+  currency: string;
+};
+
+export type AdminOperationsAnalytics = {
+  trips: {
+    total: number;
+    completed: number;
+    active: number;
+  };
+  dispatches: {
+    total: number;
+    pending: number;
+  };
+  drivers: {
+    online: number;
+    total: number;
+  };
+};
+
+type AnalyticsQuery = {
+  period: AdminAnalyticsPeriod;
+  start?: string;
+  end?: string;
+};
+
+function toQueryString(input: Record<string, string | undefined>): string {
+  const search = new URLSearchParams();
+  Object.entries(input).forEach(([key, value]) => {
+    if (value) search.set(key, value);
+  });
+  const raw = search.toString();
+  return raw ? `?${raw}` : "";
+}
+
+export async function getAdminFinanceAnalytics(
+  query: AnalyticsQuery
+): Promise<AdminFinanceAnalytics> {
+  return request<AdminFinanceAnalytics>(
+    `/admin/analytics/finance${toQueryString({
+      period: query.period,
+      start: query.start,
+      end: query.end,
+    })}`,
+    { method: "GET" }
+  );
+}
+
+export async function getAdminOperationsAnalytics(
+  query: AnalyticsQuery
+): Promise<AdminOperationsAnalytics> {
+  return request<AdminOperationsAnalytics>(
+    `/admin/analytics/operations${toQueryString({
+      period: query.period,
+      start: query.start,
+      end: query.end,
+    })}`,
+    { method: "GET" }
+  );
+}
+
+// ── Promotions ──────────────────────────────────────────────────────────────
+
+export type AdminPromoResponse = {
+  id: string;
+  code: string;
+  description?: string;
+  discountType: "percent" | "flat";
+  discountValue: number;
+  status?: "active" | "inactive";
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type AdminCreatePromoInput = {
+  code: string;
+  description?: string;
+  discountType: "percent" | "flat";
+  discountValue: number;
+};
+
+export type AdminUpdatePromoInput = Partial<AdminCreatePromoInput & {
+  status: "active" | "inactive";
+}>;
+
+export async function listAdminPromos(): Promise<AdminPromoResponse[]> {
+  return request<AdminPromoResponse[]>("/admin/promos", { method: "GET" });
+}
+
+export async function createAdminPromo(input: AdminCreatePromoInput): Promise<{ promoId: string }> {
+  return request<{ promoId: string }>("/admin/promos", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminPromo(
+  promoId: string,
+  input: AdminUpdatePromoInput
+): Promise<AdminPromoResponse> {
+  return request<AdminPromoResponse>(`/admin/promos/${promoId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+// ── Risk Cases ──────────────────────────────────────────────────────────────
+
+export type AdminRiskCaseResponse = {
+  id: string;
+  subjectId: string;
+  subjectType: string;
+  type: string;
+  severity: "Low" | "Medium" | "High";
+  notes?: string;
+  createdAt: number;
+  status?: "open" | "under_review" | "resolved";
+};
+
+export async function listAdminRiskCases(): Promise<AdminRiskCaseResponse[]> {
+  return request<AdminRiskCaseResponse[]>("/admin/risk-cases", { method: "GET" });
+}
+
+export async function getAdminRiskCase(riskCaseId: string): Promise<AdminRiskCaseResponse> {
+  return request<AdminRiskCaseResponse>(`/admin/risk-cases/${riskCaseId}`, { method: "GET" });
 }
 
 // ── Admin Backend Token Helpers ────────────────────────────────────────────
@@ -459,4 +657,3 @@ export async function patchAdminCompany(
     body: input,
   });
 }
-

@@ -37,6 +37,8 @@ import DownloadIcon from"@mui/icons-material/Download";
 import TableChartIcon from"@mui/icons-material/TableChart";
 import ShowChartIcon from"@mui/icons-material/ShowChart";
 import PeriodSelector from"../components/PeriodSelector";
+import type { PeriodOption } from"../components/PeriodSelector";
+import type { Dayjs } from"dayjs";
 import { getAdminFinanceAnalytics } from"../services/api/adminApi";
 import type { AdminFinanceAnalytics } from"../services/api/adminApi";
 
@@ -47,8 +49,8 @@ const EV_COLORS = {
 
 export default function FinancialOverviewPage() {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState("week");
-  const [customRange, setCustomRange] = useState([null, null]);
+  const [period, setPeriod] = useState<PeriodOption>("7days");
+  const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [regionViewMode, setRegionViewMode] = useState<'table' | 'chart'>('table');
   const [analytics, setAnalytics] = useState<AdminFinanceAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,8 +135,8 @@ export default function FinancialOverviewPage() {
     ];
     let multiplier = 1;
     if (period === 'today') multiplier = 0.2;
-    else if (period === 'week' || period === '7days') multiplier = 1;
-    else if (period === 'month' || period === 'thisMonth') multiplier = 4;
+    else if (period === '7days') multiplier = 1;
+    else if (period === 'thisMonth') multiplier = 4;
     else if (period === 'thisYear') multiplier = 48;
     else if (period === 'custom') multiplier = 2.5;
 
@@ -177,7 +179,7 @@ export default function FinancialOverviewPage() {
         </Box>
         <Box className="flex items-center gap-2">
           <PeriodSelector
-            period={period}
+            value={period}
             onChange={(newPeriod, range) => {
               setPeriod(newPeriod);
               if (range) setCustomRange([range.start, range.end]);

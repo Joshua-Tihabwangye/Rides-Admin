@@ -241,7 +241,7 @@ function RuleBuilder({ contextLabel, onSave }) {
   };
 
   const handlePreview = () => {
-    const previewText = `Rule Preview:\n\nIF ${rule.audience} ${rule.trigger === "Trip completed" ? "completes" : rule.trigger === "X trips in window" ? "completes" : "signs up"} ${rule.minTrips} ${rule.minTrips > 1 ? "trips" : "trip"} in ${rule.window},\nTHEN apply ${rule.rewardValue}${rule.rewardType === "Percent discount" ? "% discount" : rule.rewardType === "Fixed amount" ? " off" : " bonus payout"}.\n\nThis rule will be active for ${contextLabel.toLowerCase()}.`;
+    const previewText = `Rule Preview:\n\nIF ${rule.audience} ${rule.trigger === "Trip completed" ? "completes" : rule.trigger === "X trips in window" ? "completes" : "signs up"} ${rule.minTrips} ${Number(rule.minTrips) > 1 ? "trips" : "trip"} in ${rule.window},\nTHEN apply ${rule.rewardValue}${rule.rewardType === "Percent discount" ? "% discount" : rule.rewardType === "Fixed amount" ? " off" : " bonus payout"}.\n\nThis rule will be active for ${contextLabel.toLowerCase()}.`;
     alert(previewText);
   };
 
