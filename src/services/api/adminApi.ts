@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import { API_BASE_URL, getBackendEnabled } from "./config";
+import { SOCKET_BASE_URL, SOCKET_PATH, getBackendEnabled } from "./config";
 import { request, configureHttpClientAuth, type TokenRefreshResult } from "./httpClient";
 
 export const ADMIN_BACKEND_ACCESS_TOKEN_KEY = "admin_backend_access_token";
@@ -91,6 +91,33 @@ export function clearAdminBackendTokens(): void {
     // no-op
   }
 }
+
+async function refreshAdminBackendTokens(refreshToken: string): Promise<TokenRefreshResult> {
+  const payload = await request<{ accessToken: string; refreshToken: string }>("/auth/refresh", {
+    method: "POST",
+    body: { refreshToken },
+    retryOnUnauthorized: false,
+  });
+
+  return {
+    accessToken: payload.accessToken,
+    refreshToken: payload.refreshToken,
+  };
+}
+
+configureHttpClientAuth({
+  getAccessToken: readAdminBackendAccessToken,
+  getRefreshToken: readAdminBackendRefreshToken,
+  setTokens: saveAdminBackendTokens,
+  clearSession: clearAdminBackendTokens,
+  refresh: refreshAdminBackendTokens,
+  onUnauthorized: () => {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname !== "/admin/login") {
+      window.location.assign("/admin/login");
+    }
+  },
+});
 
 // Generic storage helpers (localStorage wrappers)
 function readStorage<T>(key: string): T | null {
@@ -304,14 +331,14 @@ export type AdminUpdateFeatureFlagInput = Partial<{
 }>;
 
 export async function listAdminFeatureFlags(): Promise<AdminFeatureFlagResponse[]> {
-  return request<AdminFeatureFlagResponse[]>("/admin/feature-flags", { method: "GET" });
+  return request<AdminFeatureFlagResponse[]>("/admin/system/flags", { method: "GET" });
 }
 
 export async function patchAdminFeatureFlag(
   flagKey: string,
   input: AdminUpdateFeatureFlagInput
 ): Promise<AdminFeatureFlagResponse> {
-  return request<AdminFeatureFlagResponse>(`/admin/feature-flags/${flagKey}`, {
+  return request<AdminFeatureFlagResponse>(`/admin/system/flags/${flagKey}`, {
     method: "PATCH",
     body: input,
   });
@@ -350,6 +377,21 @@ type AnalyticsQuery = {
   end?: string;
 };
 
+function mapPeriodToBackend(period: AdminAnalyticsPeriod): "day" | "week" | "month" | "year" {
+  switch (period) {
+    case "today":
+      return "day";
+    case "7days":
+      return "week";
+    case "thisYear":
+      return "year";
+    case "custom":
+    case "thisMonth":
+    default:
+      return "month";
+  }
+}
+
 function toQueryString(input: Record<string, string | undefined>): string {
   const search = new URLSearchParams();
   Object.entries(input).forEach(([key, value]) => {
@@ -364,9 +406,7 @@ export async function getAdminFinanceAnalytics(
 ): Promise<AdminFinanceAnalytics> {
   return request<AdminFinanceAnalytics>(
     `/admin/analytics/finance${toQueryString({
-      period: query.period,
-      start: query.start,
-      end: query.end,
+      period: mapPeriodToBackend(query.period),
     })}`,
     { method: "GET" }
   );
@@ -377,9 +417,7 @@ export async function getAdminOperationsAnalytics(
 ): Promise<AdminOperationsAnalytics> {
   return request<AdminOperationsAnalytics>(
     `/admin/analytics/operations${toQueryString({
-      period: query.period,
-      start: query.start,
-      end: query.end,
+      period: mapPeriodToBackend(query.period),
     })}`,
     { method: "GET" }
   );
@@ -444,11 +482,41 @@ export type AdminRiskCaseResponse = {
 };
 
 export async function listAdminRiskCases(): Promise<AdminRiskCaseResponse[]> {
-  return request<AdminRiskCaseResponse[]>("/admin/risk-cases", { method: "GET" });
+  return request<AdminRiskCaseResponse[]>("/admin/risk/cases", { method: "GET" });
 }
 
 export async function getAdminRiskCase(riskCaseId: string): Promise<AdminRiskCaseResponse> {
-  return request<AdminRiskCaseResponse>(`/admin/risk-cases/${riskCaseId}`, { method: "GET" });
+  return request<AdminRiskCaseResponse>(`/admin/risk/cases/${riskCaseId}`, { method: "GET" });
+}
+
+export type AdminRiderServiceResponse = {
+  id: string;
+  riderId: string;
+  driverId?: string;
+  serviceType: "rental" | "tour" | "ambulance";
+  status: string;
+  payload: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export async function listAdminRiderServices(query?: {
+  serviceType?: "rental" | "tour" | "ambulance";
+  status?: string;
+  riderId?: string;
+}): Promise<AdminRiderServiceResponse[]> {
+  return request<AdminRiderServiceResponse[]>(
+    `/admin/rider-services${toQueryString({
+      serviceType: query?.serviceType,
+      status: query?.status,
+      riderId: query?.riderId,
+    })}`,
+    { method: "GET" }
+  );
+}
+
+export async function getAdminRiderService(requestId: string): Promise<AdminRiderServiceResponse> {
+  return request<AdminRiderServiceResponse>(`/admin/rider-services/${requestId}`, { method: "GET" });
 }
 
 // ── Admin Backend Token Helpers ────────────────────────────────────────────
@@ -465,7 +533,7 @@ export function isAdminBackendEnabled(): boolean {
 // ── Audit Events ────────────────────────────────────────────────────────────
 
 export async function listAdminAuditEvents(): Promise<AdminAuditEventResponse[]> {
-  return request<AdminAuditEventResponse[]>("/admin/audit-events", { method: "GET" });
+  return request<AdminAuditEventResponse[]>("/admin/system/audit-log", { method: "GET" });
 }
 
 // ── Reference Data Sync ─────────────────────────────────────────────────────
@@ -524,10 +592,12 @@ export async function syncAdminReferenceData(): Promise<void> {
 
 export function createAdminSocket(): Socket {
   const token = readAdminBackendAccessToken();
-  const socket = io(API_BASE_URL, {
-    path: `${API_BASE_URL}/socket.io`,
+  const socket = io(`${SOCKET_BASE_URL}/admin`, {
+    path: SOCKET_PATH,
+    transports: ["websocket"],
     auth: token ? { token } : undefined,
     autoConnect: false,
+    withCredentials: false,
   });
   return socket;
 }
@@ -602,8 +672,8 @@ export async function reviewAdminApproval(
   approvalId: string,
   input: AdminReviewApprovalInput
 ): Promise<AdminApprovalResponse> {
-  return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}/review`, {
-    method: "POST",
+  return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}`, {
+    method: "PATCH",
     body: input,
   });
 }

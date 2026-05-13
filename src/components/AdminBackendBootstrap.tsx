@@ -44,11 +44,27 @@ export default function AdminBackendBootstrap() {
 
     const socket = createAdminSocket()
     socket.connect()
-    socket.on("admin.audit.updated", () => {
+    const syncFromRealtime = () => {
       void syncAdminReferenceData().catch(() => undefined)
+    }
+
+    const syncEvents = [
+      "audit.log.entry",
+      "admin.audit.updated",
+      "approval.updated",
+      "approval.reviewed",
+      "flag.changed",
+      "flag.created",
+    ]
+
+    syncEvents.forEach((eventName) => {
+      socket.on(eventName, syncFromRealtime)
     })
 
     return () => {
+      syncEvents.forEach((eventName) => {
+        socket.off(eventName, syncFromRealtime)
+      })
       socket.disconnect()
     }
   }, [adminBackendEnabled])

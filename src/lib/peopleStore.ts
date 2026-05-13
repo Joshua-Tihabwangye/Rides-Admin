@@ -149,7 +149,7 @@ function writeToStorage<T>(key: string, value: T) {
 }
 
 export function getRiders(): RiderRecord[] {
-  return readFromStorage<RiderRecord[]>(RIDERS_KEY, seedRiders)
+  return readFromStorage<RiderRecord[]>(RIDERS_KEY, isAdminBackendEnabled() ? [] : seedRiders)
 }
 
 export function getRider(id: number): RiderRecord | undefined {
@@ -176,7 +176,8 @@ export function upsertRider(record: RiderRecord) {
         }
         await syncAdminReferenceData()
       } catch (error) {
-        console.warn("Admin rider sync failed. Keeping local store state.", error)
+        console.warn("Admin rider sync failed. Re-syncing from backend.", error)
+        void syncAdminReferenceData().catch(() => undefined)
       }
     })()
   }
@@ -209,7 +210,8 @@ export function createRider(partial: Omit<RiderRecord, 'id' | 'vehicle' | 'vehic
         })
         await syncAdminReferenceData()
       } catch (error) {
-        console.warn("Admin rider create sync failed. Keeping local store state.", error)
+        console.warn("Admin rider create sync failed. Re-syncing from backend.", error)
+        void syncAdminReferenceData().catch(() => undefined)
       }
     })()
   }
@@ -218,7 +220,7 @@ export function createRider(partial: Omit<RiderRecord, 'id' | 'vehicle' | 'vehic
 }
 
 export function getDrivers(): DriverRecord[] {
-  return readFromStorage<DriverRecord[]>(DRIVERS_KEY, seedDrivers)
+  return readFromStorage<DriverRecord[]>(DRIVERS_KEY, isAdminBackendEnabled() ? [] : seedDrivers)
 }
 
 export function getDriver(id: number): DriverRecord | undefined {
@@ -245,7 +247,8 @@ export function upsertDriver(record: DriverRecord) {
         }
         await syncAdminReferenceData()
       } catch (error) {
-        console.warn("Admin driver sync failed. Keeping local store state.", error)
+        console.warn("Admin driver sync failed. Re-syncing from backend.", error)
+        void syncAdminReferenceData().catch(() => undefined)
       }
     })()
   }
@@ -277,7 +280,8 @@ export function createDriver(partial: Omit<DriverRecord, 'id' | 'vehicle' | 'veh
         })
         await syncAdminReferenceData()
       } catch (error) {
-        console.warn("Admin driver create sync failed. Keeping local store state.", error)
+        console.warn("Admin driver create sync failed. Re-syncing from backend.", error)
+        void syncAdminReferenceData().catch(() => undefined)
       }
     })()
   }
