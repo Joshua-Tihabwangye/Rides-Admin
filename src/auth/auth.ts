@@ -1,4 +1,9 @@
-import { backendForgotPassword, backendLogin, isBackendAuthEnabled } from "../services/api/authApi"
+import {
+  backendForgotPassword,
+  backendLogin,
+  isBackendAuthEnabled,
+  isOpenDevAuthEnabled,
+} from "../services/api/authApi"
 import {
   clearAdminBackendTokens,
   saveAdminBackendTokens,
@@ -36,8 +41,23 @@ export function isAuthed() {
   return !!getAuthUser()
 }
 
+function buildDevAuthUser(email: string): AuthUser {
+  const normalizedEmail = email.trim().toLowerCase()
+  return {
+    name: normalizedEmail.split("@")[0] || "Admin",
+    email: normalizedEmail,
+    role: "Admin",
+  }
+}
+
 export async function loginWithCredentials(credentials: { email: string; password: string }): Promise<AuthUser> {
   const normalizedEmail = credentials.email.trim().toLowerCase()
+
+  if (isOpenDevAuthEnabled()) {
+    const authUser = buildDevAuthUser(normalizedEmail)
+    signIn(authUser)
+    return authUser
+  }
 
   if (!isBackendAuthEnabled()) {
     throw new Error("Admin backend authentication is disabled.")
