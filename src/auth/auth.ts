@@ -2,7 +2,7 @@ import {
   backendForgotPassword,
   backendLogin,
   isBackendAuthEnabled,
-  isOpenDevAuthEnabled,
+  isOpenAuthEnabled,
 } from "../services/api/authApi"
 import {
   clearAdminBackendTokens,
@@ -53,7 +53,7 @@ function buildDevAuthUser(email: string): AuthUser {
 export async function loginWithCredentials(credentials: { email: string; password: string }): Promise<AuthUser> {
   const normalizedEmail = credentials.email.trim().toLowerCase()
 
-  if (isOpenDevAuthEnabled()) {
+  if (isOpenAuthEnabled()) {
     const authUser = buildDevAuthUser(normalizedEmail)
     signIn(authUser)
     return authUser

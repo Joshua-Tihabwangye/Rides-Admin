@@ -97,11 +97,10 @@ export default function AuthSignIn() {
     return () => window.removeEventListener("resize", onR);
   }, []);
 
-  const validateEmail = (val) =>
-    /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(val).toLowerCase());
+  const validateEmail = (val) => String(val).trim().length > 0;
 
   const onEmailBlur = () => {
-    setEmailErr(email && !validateEmail(email) ?"Please enter a valid email address" :"");
+    setEmailErr(email && !validateEmail(email) ? "Email is required" : "");
   };
 
   const login = async (e) => {
@@ -113,7 +112,7 @@ export default function AuthSignIn() {
       return;
     }
     if (!validateEmail(email)) {
-      setEmailErr("Please enter a valid email address");
+      setEmailErr("Email is required");
       return;
     }
 
@@ -300,7 +299,7 @@ export default function AuthSignIn() {
                   borderColor: emailErr ?"#fca5a5" : EV.grayBorder,
                   backgroundColor: emailErr ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
                 }}
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
