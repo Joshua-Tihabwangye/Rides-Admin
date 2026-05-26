@@ -1,4 +1,4 @@
-import { DEV_OPEN_AUTH, getBackendEnabled } from "./config";
+import { OPEN_AUTH, getBackendEnabled } from "./config";
 import { request } from "./httpClient";
 
 interface BackendAuthUser {
@@ -28,8 +28,8 @@ export function isBackendAuthEnabled(): boolean {
   return getBackendEnabled();
 }
 
-export function isOpenDevAuthEnabled(): boolean {
-  return DEV_OPEN_AUTH;
+export function isOpenAuthEnabled(): boolean {
+  return OPEN_AUTH;
 }
 
 export async function backendLogin(input: BackendLoginInput): Promise<BackendAuthResponse> {

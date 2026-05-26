@@ -19,8 +19,10 @@ function normalizeSocketBaseUrl(value: string | undefined, apiBaseUrl: string): 
 }
 
 export const USE_BACKEND = parseBooleanFlag(env.VITE_USE_BACKEND, true);
-export const DEV_OPEN_AUTH = import.meta.env.DEV
-  && parseBooleanFlag(env.VITE_DEV_OPEN_AUTH, true);
+export const OPEN_AUTH = parseBooleanFlag(
+  env.VITE_OPEN_AUTH,
+  parseBooleanFlag(env.VITE_DEV_OPEN_AUTH, true),
+);
 export const API_BASE_URL = normalizeBaseUrl(env.VITE_API_BASE_URL);
 export const SOCKET_BASE_URL = normalizeSocketBaseUrl(env.VITE_SOCKET_BASE_URL, API_BASE_URL);
 export const SOCKET_PATH = (env.VITE_SOCKET_PATH || "/socket.io").trim() || "/socket.io";
