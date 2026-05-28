@@ -18,7 +18,7 @@ import {
   Select,
   MenuItem,
 } from"@mui/material";
-import { clearAuditEvents, getAuditEvents } from"../lib/auditStore";
+import { isAdminBackendEnabled, listAdminAuditEvents } from "../services/api/adminApi";
 
 // K3 – Audit Log (Light/Dark, EVzone themed)
 // Route suggestion: /admin/system/audit-log
@@ -74,67 +74,41 @@ function AdminAuditLayout({ children }) {
   );
 }
 
-const SAMPLE_EVENTS = [
-  {
-    id:"EVT-001",
-    at:"2025-11-25 17:45",
-    actor:"Alex Admin",
-    module:"Training",
-    event:"TRAINING_MODULE_UPDATED",
-    detail:"Updated 'Driver onboarding 101'",
-  },
-  {
-    id:"EVT-002",
-    at:"2025-11-25 17:40",
-    actor:"Maria Mobility",
-    module:"Pricing",
-    event:"PRICING_RULE_SAVED",
-    detail:"Saved Kampala EV Car – Standard pricing",
-  },
-  {
-    id:"EVT-003",
-    at:"2025-11-25 17:35",
-    actor:"Felix Finance",
-    module:"Finance",
-    event:"REGION_TAX_CONFIG_UPDATED",
-    detail:"Updated VAT for Uganda",
-  },
-  {
-    id:"EVT-004",
-    at:"2025-11-25 17:30",
-    actor:"Alex Admin",
-    module:"System",
-    event:"FLAG_UPDATED",
-    detail:"Turned on rides.home.v2",
-  },
-  {
-    id:"EVT-005",
-    at:"2025-11-25 17:20",
-    actor:"RiskBot",
-    module:"Risk",
-    event:"RISK_ACTION_LOGGED",
-    detail:"Escalated RISK-101 to fraud desk",
-  },
-];
-
 export default function AuditLogPage() {
+  const backendMode = isAdminBackendEnabled();
   const [filters, setFilters] = useState({
     module:"All",
     actor:"All",
     range:"24h",
   });
 
-  const storedEvents = getAuditEvents();
-  const eventsForTable = storedEvents.length
-    ? storedEvents.map((evt, i) => ({
-        id: `LIVE-${i + 1}`,
-        at: typeof evt.at === 'string' ? new Date(evt.at).toLocaleString() : '',
-        actor: (evt.actor as string) || 'Admin (unknown)',
-        module: (evt.module as string) || 'System',
-        event: evt.event as string,
-        detail: JSON.stringify(evt, null, 0),
-      }))
-    : [];
+  const [backendEvents, setBackendEvents] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const load = async () => {
+      if (!backendMode) return;
+      try {
+        const items = await listAdminAuditEvents();
+        setBackendEvents(
+          items.map((item) => ({
+            id: item.id,
+            at: new Date(item.createdAt).toLocaleString(),
+            actor: item.actorId,
+            module: item.resource,
+            event: item.action,
+            detail: item.resourceId,
+          })),
+        );
+      } catch (error) {
+        console.warn("Failed to load backend audit events.", error);
+        setBackendEvents([]);
+      }
+    };
+
+    void load();
+  }, [backendMode]);
+
+  const eventsForTable = backendMode ? backendEvents : [];
   const handleFilterChange = (field) => (event) => {
     const value = event.target.value;
     const next = { ...filters, [field]: value };
@@ -188,23 +162,19 @@ export default function AuditLogPage() {
           </Box>
           <Box className="flex items-center justify-between mt-2">
             <Typography variant="caption" className="text-[11px] text-slate-500">
-              Showing {filteredEvents.length} event(s){storedEvents.length ?" from this session" :" (sample data)"}.
+              Showing {filteredEvents.length} event(s){
+                backendMode ? " from backend" : " (backend mode disabled)"
+              }.
             </Typography>
             <Button
               variant="outlined"
               size="small"
               sx={{ textTransform:"none", borderRadius: 999, fontSize: 11 }}
               onClick={() => {
-                clearAuditEvents();
-                // Clear sample events from localStorage
-                localStorage.removeItem('audit_events');
-                // Clear approval history if needed
-                localStorage.removeItem('approval_history');
-                // Force reload to show empty state
-                window.location.reload();
+                setBackendEvents([]);
               }}
             >
-              Clear audit log
+              {backendEvents.length > 0 ? "Clear view" : "Refresh needed"}
             </Button>
           </Box>
 

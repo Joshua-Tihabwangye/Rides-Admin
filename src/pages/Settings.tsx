@@ -16,6 +16,7 @@ import {
     InputLabel,
     Chip,
 } from '@mui/material'
+import { getAdminPortalSettings, patchAdminPortalSettings } from '../services/api/adminApi'
 
 const EV_COLORS = {
     primary: '#03cd8c',
@@ -31,23 +32,42 @@ export default function Settings() {
     })
     const [language, setLanguage] = useState('en')
     const [timezone, setTimezone] = useState('Africa/Kampala')
+    const [saving, setSaving] = useState(false)
+
+    React.useEffect(() => {
+        const load = async () => {
+            try {
+                const settings = await getAdminPortalSettings()
+                setNotifications(settings.notifications)
+                setLanguage(settings.language)
+                setTimezone(settings.timezone)
+            } catch (error) {
+                console.warn('Failed to load admin settings from backend.', error)
+            }
+        }
+        void load()
+    }, [])
 
     const handleNotificationChange = (key: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
         setNotifications((prev) => ({ ...prev, [key]: event.target.checked }))
     }
 
-    const handleSave = () => {
-        // Save settings to localStorage
-        localStorage.setItem('admin_settings', JSON.stringify({
-            notifications,
-            language,
-            timezone,
-            savedAt: new Date().toISOString(),
-        }));
-        
-        // Show success message and redirect
-        alert('Settings saved successfully!');
-        window.location.href = '/admin/home';
+    const handleSave = async () => {
+        setSaving(true)
+        try {
+            await patchAdminPortalSettings({
+                notifications,
+                language,
+                timezone,
+            })
+            alert('Settings saved successfully!')
+            window.location.href = '/admin/home'
+        } catch (error) {
+            console.error('Failed to save admin settings.', error)
+            alert('Failed to save settings. Please try again.')
+        } finally {
+            setSaving(false)
+        }
     }
 
     return (
@@ -329,6 +349,7 @@ export default function Settings() {
                 <Button
                     variant="contained"
                     onClick={handleSave}
+                    disabled={saving}
                     sx={{
                         textTransform: 'none',
                         borderRadius: 999,
@@ -337,7 +358,7 @@ export default function Settings() {
                         '&:hover': { bgcolor: '#0fb589' },
                     }}
                 >
-                    Save Settings
+                    {saving ? 'Saving...' : 'Save Settings'}
                 </Button>
             </Box>
         </Box>

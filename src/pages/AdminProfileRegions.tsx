@@ -12,6 +12,11 @@ import {
   FormControlLabel,
   Divider,
 } from"@mui/material";
+import {
+  getAdminMyProfile,
+  getAdminPortalSettings,
+  patchAdminProfileRegions,
+} from "../services/api/adminApi";
 
 // A5 – Admin Profile & Region Settings (v2, tighter card corners)
 // Route: /admin/profile
@@ -39,6 +44,30 @@ export default function AdminProfileRegionSettingsPage() {
   });
 
   const [limitAssignedOnly, setLimitAssignedOnly] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const [adminProfile, settings] = await Promise.all([
+          getAdminMyProfile(),
+          getAdminPortalSettings(),
+        ]);
+
+        setProfile((prev) => ({
+          ...prev,
+          name: [adminProfile.firstName, adminProfile.lastName].filter(Boolean).join(" ").trim() || prev.name,
+          phone: adminProfile.phone || prev.phone,
+        }));
+        setRegions(settings.regions);
+        setLimitAssignedOnly(settings.limitAssignedOnly);
+      } catch (error) {
+        console.warn("Failed to load admin profile/region settings from backend.", error);
+      }
+    };
+
+    void load();
+  }, []);
 
   const handleProfileChange = (field) => (event) => {
     setProfile((prev) => ({ ...prev, [field]: event.target.value }));
@@ -360,10 +389,23 @@ export default function AdminProfileRegionSettingsPage() {
       <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
         <Button
           variant="contained"
-          onClick={() => {
-            // Save profile changes
-            localStorage.setItem('admin_profile', JSON.stringify({ profile, regions, limitAssignedOnly }));
-            alert('Profile changes saved successfully!');
+          disabled={saving}
+          onClick={async () => {
+            setSaving(true);
+            try {
+              await patchAdminProfileRegions({
+                name: profile.name,
+                phone: profile.phone,
+                regions,
+                limitAssignedOnly,
+              });
+              alert('Profile changes saved successfully!');
+            } catch (error) {
+              console.error("Failed to save admin profile/region settings.", error);
+              alert("Failed to save profile changes. Please try again.");
+            } finally {
+              setSaving(false);
+            }
           }}
           sx={{
             textTransform: 'none',
@@ -373,7 +415,7 @@ export default function AdminProfileRegionSettingsPage() {
             '&:hover': { bgcolor: '#0fb589' },
           }}
         >
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </Button>
       </Box>
     </Box>

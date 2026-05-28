@@ -24,7 +24,7 @@ import {
 } from"@mui/material";
 import SearchIcon from"@mui/icons-material/Search";
 import { useNavigate, useSearchParams } from"react-router-dom";
-import { getRiders, getDrivers } from"../lib/peopleStore";
+import { isAdminBackendEnabled, listAdminCompanies, listAdminDrivers, listAdminRiders } from "../services/api/adminApi";
 
 // B1 – Global Search (v2, with Trips + Incidents, tabs, and filters)
 // Route: /admin/search
@@ -35,9 +35,6 @@ const EV_COLORS = {
   trips:"#3b82f6",
   incidents:"#ef4444",
 };
-
-// Companies data stored in localStorage for consistency across pages
-const COMPANIES_KEY = 'evzone_admin_companies';
 
 const seedCompanies = [
   {
@@ -81,16 +78,6 @@ const seedCompanies = [
     status:"Inactive",
   },
 ];
-
-function getCompanies() {
-  try {
-    const stored = localStorage.getItem(COMPANIES_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {}
-  return seedCompanies;
-}
 
 // Trips and Incidents are derived from riders and drivers data
 function generateTrips(riders, drivers) {
@@ -148,13 +135,77 @@ export default function AdminGlobalSearchPage() {
   const [regionFilter, setRegionFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [serviceFilter, setServiceFilter] = useState("all");
+  const backendMode = isAdminBackendEnabled();
 
   // Get data from stores
-  const allRiders = useMemo(() => getRiders(), []);
-  const allDrivers = useMemo(() => getDrivers(), []);
-  const allCompanies = useMemo(() => getCompanies(), []);
+  const [allRiders, setAllRiders] = useState(() => []);
+  const [allDrivers, setAllDrivers] = useState(() => []);
+  const [allCompanies, setAllCompanies] = useState(() => []);
   const allTrips = useMemo(() => generateTrips(allRiders, allDrivers), [allRiders, allDrivers]);
   const allIncidents = useMemo(() => generateIncidents(allRiders, allDrivers), [allRiders, allDrivers]);
+
+  React.useEffect(() => {
+    const loadData = async () => {
+      if (!backendMode) {
+        setAllRiders([]);
+        setAllDrivers([]);
+        setAllCompanies([]);
+        return;
+      }
+      try {
+        const [backendRiders, backendDrivers, backendCompanies] = await Promise.all([
+          listAdminRiders(),
+          listAdminDrivers(),
+          listAdminCompanies(),
+        ]);
+
+        setAllRiders(backendRiders.map((rider, idx) => ({
+          id: idx + 1,
+          name: rider.fullName || `${rider.firstName || ""} ${rider.lastName || ""}`.trim() || rider.email || "Rider",
+          city: rider.city || "Unknown",
+          phone: rider.phone || "-",
+          vehicle: "EV Rider",
+          vehicleType: "Bike",
+          trips: rider.totalTrips || 0,
+          spend: "$0",
+          risk: "Low",
+          primaryStatus: rider.status === "active" ? "approved" : "suspended",
+          activityStatus: rider.status === "active" ? "active" : "inactive",
+        })));
+
+        setAllDrivers(backendDrivers.map((driver, idx) => ({
+          id: idx + 1,
+          name: driver.fullName,
+          city: driver.city || "Unknown",
+          phone: driver.phone || "-",
+          vehicle: driver.model || "Fleet vehicle",
+          vehicleType: driver.vehicleType || "Car",
+          trips: driver.totalTrips || 0,
+          spend: "$0",
+          risk: "Low",
+          primaryStatus: driver.status === "active" ? "approved" : "suspended",
+          activityStatus: driver.status === "active" ? "active" : "inactive",
+        })));
+
+        setAllCompanies(backendCompanies.map((company, idx) => ({
+          id: idx + 1,
+          name: company.companyName,
+          regions: "Unknown",
+          type: "Fleet Partner",
+          drivers: 0,
+          vehicles: 0,
+          commission: "N/A",
+          status: company.status === "active" ? "Active" : company.status === "suspended" ? "Suspended" : "Inactive",
+        })));
+      } catch (error) {
+        console.warn("Failed to load backend global search datasets.", error);
+        setAllRiders([]);
+        setAllDrivers([]);
+        setAllCompanies([]);
+      }
+    };
+    void loadData();
+  }, [backendMode]);
 
   // Transform data to display format
   const riders = useMemo(() => allRiders.map(r => ({

@@ -16,7 +16,7 @@ import {
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
-import { upsertDriver, getDrivers, DriverRecord } from '../lib/peopleStore'
+import { createAdminDriver } from '../services/api/adminApi'
 
 export default function DriverCreate() {
     const navigate = useNavigate()
@@ -40,35 +40,25 @@ export default function DriverCreate() {
         setFormData({ ...formData, [field]: e.target.value })
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setSaving(true)
 
-        // Get next ID
-        const drivers = getDrivers()
-        const nextId = drivers.length ? Math.max(...drivers.map((d) => d.id)) + 1 : 300
-
-        // Create new driver record
-        const newDriver: DriverRecord = {
-            id: nextId,
-            name: formData.name || 'New Driver',
-            phone: formData.phone || '+000',
-            city: formData.city,
-            vehicle: `EV Car · ${formData.vehiclePlate || 'TBD'}`,
-            vehicleType: 'Car',
-            trips: 0,
-            spend: '$0',
-            risk: 'Low',
-            primaryStatus: 'under_review',
-            activityStatus: 'inactive'
-        }
-
-        upsertDriver(newDriver)
-
-        setTimeout(() => {
+        try {
+            const created = await createAdminDriver({
+                fullName: formData.name || 'New Driver',
+                phone: formData.phone || '+000',
+                city: formData.city,
+                email: formData.email || `${(formData.name || 'new.driver').toLowerCase().replace(/\s+/g, '.')}.${Date.now()}@example.com`,
+                vehicleType: 'Car',
+            })
             setSaving(false)
-            navigate(`/admin/drivers/${newDriver.id}`)
-        }, 600)
+            navigate(`/admin/drivers/${created.driverId}`)
+        } catch (error) {
+            console.error('Failed to create driver profile.', error)
+            setSaving(false)
+            alert('Failed to create driver profile. Please try again.')
+        }
     }
 
     return (
