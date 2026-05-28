@@ -2,6 +2,7 @@
 import React, { useState } from 'react'
 import {
     Box,
+    Alert,
     Card,
     CardContent,
     Typography,
@@ -33,6 +34,7 @@ export default function Settings() {
     const [language, setLanguage] = useState('en')
     const [timezone, setTimezone] = useState('Africa/Kampala')
     const [saving, setSaving] = useState(false)
+    const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
     React.useEffect(() => {
         const load = async () => {
@@ -54,17 +56,17 @@ export default function Settings() {
 
     const handleSave = async () => {
         setSaving(true)
+        setSaveStatus(null)
         try {
             await patchAdminPortalSettings({
                 notifications,
                 language,
                 timezone,
             })
-            alert('Settings saved successfully!')
-            window.location.href = '/admin/home'
+            setSaveStatus({ type: 'success', message: 'Settings saved successfully.' })
         } catch (error) {
             console.error('Failed to save admin settings.', error)
-            alert('Failed to save settings. Please try again.')
+            setSaveStatus({ type: 'error', message: 'Failed to save settings. Please try again.' })
         } finally {
             setSaving(false)
         }
@@ -80,6 +82,11 @@ export default function Settings() {
                 <Typography variant="body2" color="text.secondary">
                     Manage your account preferences, notifications, and system settings.
                 </Typography>
+                {saveStatus && (
+                    <Alert severity={saveStatus.type} sx={{ mt: 2 }}>
+                        {saveStatus.message}
+                    </Alert>
+                )}
             </Box>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 3 }}>

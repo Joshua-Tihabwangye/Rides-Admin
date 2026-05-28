@@ -354,7 +354,7 @@ export async function listAdminPricingZones(): Promise<AdminPricingZoneResponse[
 }
 
 export async function createAdminPricingZone(input: Partial<AdminPricingZoneResponse>) {
-  return request<{ zoneId: string }>("/admin/pricing-zones", {
+  return request<AdminPricingZoneResponse>("/admin/pricing-zones", {
     method: "POST",
     body: input,
   });

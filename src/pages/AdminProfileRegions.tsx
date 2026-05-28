@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState } from"react";
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -45,6 +46,7 @@ export default function AdminProfileRegionSettingsPage() {
 
   const [limitAssignedOnly, setLimitAssignedOnly] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -112,6 +114,11 @@ export default function AdminProfileRegionSettingsPage() {
           >
             Manage your Admin account, contact details and region access.
           </Typography>
+          {saveStatus && (
+            <Alert severity={saveStatus.type} sx={{ mt: 1.5 }}>
+              {saveStatus.message}
+            </Alert>
+          )}
         </Box>
       </Box>
 
@@ -392,6 +399,7 @@ export default function AdminProfileRegionSettingsPage() {
           disabled={saving}
           onClick={async () => {
             setSaving(true);
+            setSaveStatus(null);
             try {
               await patchAdminProfileRegions({
                 name: profile.name,
@@ -399,10 +407,10 @@ export default function AdminProfileRegionSettingsPage() {
                 regions,
                 limitAssignedOnly,
               });
-              alert('Profile changes saved successfully!');
+              setSaveStatus({ type: 'success', message: 'Profile and region settings saved.' });
             } catch (error) {
               console.error("Failed to save admin profile/region settings.", error);
-              alert("Failed to save profile changes. Please try again.");
+              setSaveStatus({ type: 'error', message: 'Failed to save profile changes. Please try again.' });
             } finally {
               setSaving(false);
             }
