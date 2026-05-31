@@ -8,7 +8,7 @@ function parseBooleanFlag(value: string | undefined, fallback = false): boolean 
 
 function normalizeBaseUrl(value: string | undefined): string {
   const raw = value?.trim();
-  if (!raw) return "/api/v1";
+  if (!raw) return "http://localhost:3001/api/v1";
   return raw.replace(/\/+$/, "");
 }
 
