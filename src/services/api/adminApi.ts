@@ -186,6 +186,93 @@ export async function patchAdminDriver(driverId: string, input: AdminUpdateDrive
   });
 }
 
+export type AdminSelfProfileResponse = {
+  id: string;
+  userId: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  department?: string;
+  permissions?: Record<string, unknown>;
+};
+
+export type AdminPortalSettingsResponse = {
+  notifications: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+    weeklyDigest: boolean;
+  };
+  language: string;
+  timezone: string;
+  regions: {
+    eastAfrica: boolean;
+    westAfrica: boolean;
+    global: boolean;
+  };
+  limitAssignedOnly: boolean;
+};
+
+export async function getAdminMyProfile(): Promise<AdminSelfProfileResponse> {
+  return request<AdminSelfProfileResponse>("/admins/me/profile", { method: "GET" });
+}
+
+export async function patchAdminMyProfile(
+  input: Partial<{
+    firstName: string;
+    lastName: string;
+    department: string;
+    permissions: Record<string, unknown>;
+  }>
+): Promise<AdminSelfProfileResponse> {
+  return request<AdminSelfProfileResponse>("/admins/me/profile", {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+export async function getAdminPortalSettings(): Promise<AdminPortalSettingsResponse> {
+  return request<AdminPortalSettingsResponse>("/admins/me/settings", { method: "GET" });
+}
+
+export async function patchAdminPortalSettings(
+  input: Partial<{
+    notifications: {
+      email?: boolean;
+      push?: boolean;
+      sms?: boolean;
+      weeklyDigest?: boolean;
+    };
+    language: string;
+    timezone: string;
+  }>
+): Promise<AdminPortalSettingsResponse> {
+  return request<AdminPortalSettingsResponse>("/admins/me/settings", {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+export async function patchAdminProfileRegions(
+  input: Partial<{
+    name: string;
+    phone: string;
+    regions: {
+      eastAfrica?: boolean;
+      westAfrica?: boolean;
+      global?: boolean;
+    };
+    limitAssignedOnly: boolean;
+  }>
+): Promise<AdminPortalSettingsResponse> {
+  return request<AdminPortalSettingsResponse>("/admins/me/profile-regions", {
+    method: "PATCH",
+    body: input,
+  });
+}
+
 // ── Roles ─────────────────────────────────────────────────────────────────
 
 export type AdminRoleResponse = {
@@ -267,7 +354,7 @@ export async function listAdminPricingZones(): Promise<AdminPricingZoneResponse[
 }
 
 export async function createAdminPricingZone(input: Partial<AdminPricingZoneResponse>) {
-  return request<{ zoneId: string }>("/admin/pricing-zones", {
+  return request<AdminPricingZoneResponse>("/admin/pricing-zones", {
     method: "POST",
     body: input,
   });

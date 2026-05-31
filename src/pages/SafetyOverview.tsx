@@ -32,7 +32,12 @@ import {
 } from"recharts";
 import PeriodSelector, { PeriodOption } from '../components/PeriodSelector';
 import QueueIcon from"@mui/icons-material/Queue";
-import { getRiders, getDrivers, upsertRider, upsertDriver } from"../lib/peopleStore";
+import {
+  listAdminDrivers,
+  listAdminRiders,
+  patchAdminDriver,
+  patchAdminRider,
+} from"../services/api/adminApi";
 
 // Base data for different regions
 const REGION_DATA = {
@@ -100,37 +105,43 @@ export default function SafetyOverviewDashboardPage() {
   const [selectedRegion, setSelectedRegion] = useState<string>('All Regions');
   const [usersUnderReview, setUsersUnderReview] = useState<any[]>([]);
 
-  // Fetch users under review from peopleStore
+  // Fetch users under review from backend
   useEffect(() => {
-    const riders = getRiders();
-    const drivers = getDrivers();
-    
-    // Get riders and drivers that are under review (not approved)
-    const underReviewRiders = riders
-      .filter(r => r.primaryStatus === 'under_review')
-      .map(r => ({
-        id: r.id,
-        name: r.name,
-        type: 'Rider',
-        city: r.city,
-        reason: r.risk === 'High' ? 'Multiple low ratings' : r.risk === 'Medium' ? 'Needs monitoring' : 'Pending verification',
-        riskLevel: r.risk || 'Low',
-        record: r,
-      }));
-    
-    const underReviewDrivers = drivers
-      .filter(d => d.primaryStatus === 'under_review')
-      .map(d => ({
-        id: d.id,
-        name: d.name,
-        type: 'Driver',
-        city: d.city,
-        reason: d.risk === 'High' ? 'High cancellation rate' : d.risk === 'Medium' ? 'Needs monitoring' : 'Document verification',
-        riskLevel: d.risk || 'Low',
-        record: d,
-      }));
-    
-    setUsersUnderReview([...underReviewRiders, ...underReviewDrivers]);
+    const load = async () => {
+      try {
+        const [riders, drivers] = await Promise.all([listAdminRiders(), listAdminDrivers()]);
+        const underReviewRiders = riders
+          .filter((r) => r.status !== 'active')
+          .map((r) => ({
+            id: r.userId,
+            backendId: r.userId,
+            name: r.fullName || `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email || 'Rider',
+            type: 'Rider',
+            city: r.city || 'Unknown',
+            reason: 'Pending verification',
+            riskLevel: 'Low',
+          }));
+
+        const underReviewDrivers = drivers
+          .filter((d) => d.status !== 'active')
+          .map((d) => ({
+            id: d.driverId,
+            backendId: d.driverId,
+            name: d.fullName,
+            type: 'Driver',
+            city: d.city || 'Unknown',
+            reason: 'Document verification',
+            riskLevel: 'Low',
+          }));
+
+        setUsersUnderReview([...underReviewRiders, ...underReviewDrivers]);
+      } catch (error) {
+        console.warn('Failed to load safety overview review queue from backend.', error);
+        setUsersUnderReview([]);
+      }
+    };
+
+    void load();
   }, []);
 
   const handlePeriodChange = (newPeriod: PeriodOption) => {
@@ -183,19 +194,21 @@ export default function SafetyOverviewDashboardPage() {
     }
   };
 
-  const handleApproveUser = (user, e) => {
+  const handleApproveUser = async (user, e) => {
     e.stopPropagation();
-    
-    if (user.type === 'Rider') {
-      const updatedRecord = { ...user.record, primaryStatus: 'approved' };
-      upsertRider(updatedRecord);
-    } else {
-      const updatedRecord = { ...user.record, primaryStatus: 'approved' };
-      upsertDriver(updatedRecord);
+
+    try {
+      if (user.type === 'Rider') {
+        await patchAdminRider(user.backendId, { status: 'active' });
+      } else {
+        await patchAdminDriver(user.backendId, { status: 'active' });
+      }
+
+      setUsersUnderReview(prev => prev.filter(u => !(u.id === user.id && u.type === user.type)));
+    } catch (error) {
+      console.error('Failed to approve user from safety queue.', error);
+      alert('Failed to approve user. Please try again.');
     }
-    
-    // Remove from local state
-    setUsersUnderReview(prev => prev.filter(u => !(u.id === user.id && u.type === user.type)));
   };
 
   const handleViewQueue = () => {

@@ -48,37 +48,28 @@ export default function ApprovalsHistory() {
 
   React.useEffect(() => {
     const hydrate = async () => {
-      if (isAdminBackendEnabled()) {
-        try {
-          const approvals = await listAdminApprovals();
-          setHistory(approvals.map(mapApprovalToRow));
-          return;
-        } catch (error) {
-          console.warn("Failed to load backend approvals history. Falling back to local cache.", error);
-        }
-      }
-
-      const stored = localStorage.getItem("approval_history");
-      if (!stored) {
+      if (!isAdminBackendEnabled()) {
         setHistory([]);
+        setSnackbar({
+          open: true,
+          message: "Backend mode is disabled. Approval history requires backend connection.",
+          severity: "error",
+        });
         return;
       }
+
       try {
-        const parsed = JSON.parse(stored);
-        setHistory(Array.isArray(parsed) ? parsed : []);
-      } catch {
+        const approvals = await listAdminApprovals();
+        setHistory(approvals.map(mapApprovalToRow));
+      } catch (error) {
+        console.warn("Failed to load backend approvals history.", error);
         setHistory([]);
+        setSnackbar({ open: true, message: "Failed to load backend approval history.", severity: "error" });
       }
     };
 
     void hydrate();
   }, []);
-
-  const handleClearLocalCache = () => {
-    localStorage.removeItem("approval_history");
-    setHistory([]);
-    setSnackbar({ open: true, message: "Local approval cache cleared.", severity: "success" });
-  };
 
   return (
     <Box className="p-6">
@@ -96,17 +87,6 @@ export default function ApprovalsHistory() {
             Approval History
           </Typography>
         </Box>
-        {!isAdminBackendEnabled() && history.length > 0 && (
-          <Button
-            variant="outlined"
-            color="error"
-            size="small"
-            onClick={handleClearLocalCache}
-            sx={{ textTransform: "none", borderRadius: 2 }}
-          >
-            Clear Local Cache
-          </Button>
-        )}
       </Box>
 
       <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>

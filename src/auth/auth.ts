@@ -53,7 +53,7 @@ function buildDevAuthUser(email: string): AuthUser {
 export async function loginWithCredentials(credentials: { email: string; password: string }): Promise<AuthUser> {
   const normalizedEmail = credentials.email.trim().toLowerCase()
 
-  if (isOpenAuthEnabled()) {
+  if (isOpenAuthEnabled() && import.meta.env.DEV) {
     const authUser = buildDevAuthUser(normalizedEmail)
     signIn(authUser)
     return authUser

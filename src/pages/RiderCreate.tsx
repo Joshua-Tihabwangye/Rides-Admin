@@ -16,7 +16,7 @@ import {
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
-import { createRider } from '../lib/peopleStore'
+import { createAdminRider } from '../services/api/adminApi'
 
 export default function RiderCreate() {
     const navigate = useNavigate()
@@ -38,26 +38,24 @@ export default function RiderCreate() {
         setFormData({ ...formData, city: e.target.value })
     }
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setSaving(true)
 
-        // Simulate standard defaults for new rider
-        const newRider = createRider({
-            name: formData.name || 'New User',
-            phone: formData.phone || '+000',
-            city: formData.city,
-            trips: 0,
-            spend: '$0',
-            risk: 'Low',
-            primaryStatus: 'under_review',
-            activityStatus: 'inactive'
-        })
-
-        setTimeout(() => {
+        try {
+            const created = await createAdminRider({
+                fullName: formData.name || 'New User',
+                phone: formData.phone || '+000',
+                city: formData.city,
+                email: formData.email || `${(formData.name || 'new.user').toLowerCase().replace(/\s+/g, '.')}.${Date.now()}@example.com`,
+            })
             setSaving(false)
-            navigate(`/admin/riders/${newRider.id}`)
-        }, 600)
+            navigate(`/admin/riders/${created.userId}`)
+        } catch (error) {
+            console.error('Failed to create rider profile.', error)
+            setSaving(false)
+            alert('Failed to create rider profile. Please try again.')
+        }
     }
 
     return (
