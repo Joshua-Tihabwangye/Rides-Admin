@@ -18,12 +18,16 @@ function normalizeSocketBaseUrl(value: string | undefined, apiBaseUrl: string): 
   return apiBaseUrl.replace(/\/api(?:\/v\d+)?$/, "");
 }
 
+const backendBaseUrlEnv = env.VITE_BACKEND_BASE_URL ?? env.VITE_API_BASE_URL;
+const backendEnabledEnv = env.VITE_BACKEND_ENABLED ?? env.VITE_USE_BACKEND;
+const openAuthEnv = env.VITE_ENABLE_OPEN_AUTH ?? env.VITE_OPEN_AUTH;
+const demoApiEnv = env.VITE_ENABLE_DEMO_API ?? env.VITE_ALLOW_DEMO_API;
 const IS_NON_PROD = (env.MODE?.trim().toLowerCase() ?? "development") !== "production";
 
-export const USE_BACKEND = parseBooleanFlag(env.VITE_USE_BACKEND, true);
-export const OPEN_AUTH = parseBooleanFlag(env.VITE_OPEN_AUTH, false) && IS_NON_PROD;
-export const ALLOW_DEMO_API = parseBooleanFlag(env.VITE_ALLOW_DEMO_API, false) && IS_NON_PROD;
-export const API_BASE_URL = normalizeBaseUrl(env.VITE_API_BASE_URL);
+export const USE_BACKEND = parseBooleanFlag(backendEnabledEnv, true);
+export const OPEN_AUTH = parseBooleanFlag(openAuthEnv, false) && IS_NON_PROD;
+export const ALLOW_DEMO_API = parseBooleanFlag(demoApiEnv, false) && IS_NON_PROD;
+export const API_BASE_URL = normalizeBaseUrl(backendBaseUrlEnv);
 export const SOCKET_BASE_URL = normalizeSocketBaseUrl(env.VITE_SOCKET_BASE_URL, API_BASE_URL);
 export const SOCKET_PATH = (env.VITE_SOCKET_PATH || "/socket.io").trim() || "/socket.io";
 export const APP_ID = (env.VITE_APP_ID || "admin").trim() || "admin";

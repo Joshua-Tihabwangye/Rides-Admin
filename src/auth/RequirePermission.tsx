@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getAuthUser } from "./auth";
-import { hasAnyPermission, type AdminPermission } from "./permissions";
+import { getAuthRoles, getAuthUser } from "./auth";
+import { hasAnyPermissionByRoles, type AdminPermission } from "./permissions";
 
 export default function RequirePermission({
   anyOf,
@@ -17,7 +17,8 @@ export default function RequirePermission({
     return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
   }
 
-  if (!hasAnyPermission(user, anyOf)) {
+  const claimRoles = getAuthRoles();
+  if (!hasAnyPermissionByRoles(claimRoles, anyOf)) {
     return <Navigate to="/admin/access-denied" replace state={{ from: location.pathname }} />;
   }
 
