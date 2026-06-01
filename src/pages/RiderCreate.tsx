@@ -12,7 +12,9 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem
+    MenuItem,
+    FormControlLabel,
+    Checkbox
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
@@ -26,6 +28,8 @@ export default function RiderCreate() {
         phone: '',
         city: 'Kigali',
         email: '',
+        password: '',
+        invite: false,
     })
 
     const [saving, setSaving] = useState(false)
@@ -48,6 +52,8 @@ export default function RiderCreate() {
                 phone: formData.phone || '+000',
                 city: formData.city,
                 email: formData.email || `${(formData.name || 'new.user').toLowerCase().replace(/\s+/g, '.')}.${Date.now()}@example.com`,
+                password: formData.password || undefined,
+                invite: formData.invite,
             })
             setSaving(false)
             navigate(`/admin/riders/${created.userId}`)
@@ -135,6 +141,29 @@ export default function RiderCreate() {
                                         <MenuItem value="Lagos">Lagos</MenuItem>
                                     </Select>
                                 </FormControl>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Temporary Password"
+                                    name="password"
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    placeholder="Optional (min 8 chars)"
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={formData.invite}
+                                            onChange={(e) => setFormData((prev) => ({ ...prev, invite: e.target.checked }))}
+                                        />
+                                    }
+                                    label="Create as invited user"
+                                />
                             </Grid>
 
                             <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>

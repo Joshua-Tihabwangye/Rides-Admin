@@ -14,6 +14,7 @@ export type AuthUser = {
   name: string
   email: string
   role: string
+  roles?: string[]
 }
 
 const STORAGE_KEY = 'evzone_admin_auth'
@@ -46,7 +47,8 @@ function buildDevAuthUser(email: string): AuthUser {
   return {
     name: normalizedEmail.split("@")[0] || "Admin",
     email: normalizedEmail,
-    role: "Admin",
+    role: "Super Admin",
+    roles: ["super_admin"],
   }
 }
 
@@ -73,6 +75,7 @@ export async function loginWithCredentials(credentials: { email: string; passwor
     name: backend.user.email.split("@")[0] || "Admin",
     email: backend.user.email,
     role: backend.user.roles?.includes("super_admin") ? "Super Admin" : "Admin",
+    roles: backend.user.roles ?? [],
   }
 
   signIn(authUser)
