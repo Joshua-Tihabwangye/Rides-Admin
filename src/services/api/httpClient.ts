@@ -8,6 +8,8 @@ interface ApiEnvelope<T> {
   data?: T;
 }
 
+type QueryValue = string | number | boolean | null | undefined;
+
 export interface TokenRefreshResult {
   accessToken: string;
   refreshToken: string;
@@ -26,6 +28,7 @@ interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   headers?: Record<string, string>;
+  query?: Record<string, QueryValue>;
   retryOnUnauthorized?: boolean;
 }
 
@@ -107,6 +110,21 @@ async function attemptRefresh(): Promise<TokenRefreshResult> {
 function handleUnauthorized() {
   authAdapter?.clearSession();
   authAdapter?.onUnauthorized?.();
+}
+
+function buildRequestUrl(path: string, query?: Record<string, QueryValue>): string {
+  if (!query) {
+    return `${API_BASE_URL}${path}`;
+  }
+
+  const search = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    search.set(key, String(value));
+  });
+
+  const suffix = search.toString();
+  return suffix ? `${API_BASE_URL}${path}?${suffix}` : `${API_BASE_URL}${path}`;
 }
 
 function nowMs(): number {
@@ -953,7 +971,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     throw new ApiRequestError("Admin backend is disabled. Set VITE_USE_BACKEND=true.", 503);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(buildRequestUrl(path, options.query), {
     method: options.method || "GET",
     headers: buildHeaders(options),
     body: options.body === undefined ? undefined : JSON.stringify(options.body),

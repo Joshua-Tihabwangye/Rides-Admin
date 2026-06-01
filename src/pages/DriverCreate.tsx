@@ -12,7 +12,9 @@ import {
     FormControl,
     InputLabel,
     Select,
-    MenuItem
+    MenuItem,
+    FormControlLabel,
+    Checkbox
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
@@ -28,6 +30,8 @@ export default function DriverCreate() {
         email: '',
         vehiclePlate: '',
         vehicleModel: '',
+        password: '',
+        invite: false,
     })
 
     const [saving, setSaving] = useState(false)
@@ -50,6 +54,8 @@ export default function DriverCreate() {
                 phone: formData.phone || '+000',
                 city: formData.city,
                 email: formData.email || `${(formData.name || 'new.driver').toLowerCase().replace(/\s+/g, '.')}.${Date.now()}@example.com`,
+                password: formData.password || undefined,
+                invite: formData.invite,
                 vehicleType: 'Car',
             })
             setSaving(false)
@@ -139,6 +145,29 @@ export default function DriverCreate() {
                                         <MenuItem value="Accra">Accra</MenuItem>
                                     </Select>
                                 </FormControl>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Temporary Password"
+                                    name="password"
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    placeholder="Optional (min 8 chars)"
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={6} sx={{ display: 'flex', alignItems: 'center' }}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={formData.invite}
+                                            onChange={(e) => setFormData((prev) => ({ ...prev, invite: e.target.checked }))}
+                                        />
+                                    }
+                                    label="Create as invited user"
+                                />
                             </Grid>
 
                             <Grid item xs={12}>

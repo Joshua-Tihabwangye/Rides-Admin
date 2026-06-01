@@ -696,7 +696,9 @@ export type AdminCreateUserInput = {
   email: string;
   phone: string;
   city?: string;
+  country?: string;
   password?: string;
+  invite?: boolean;
 };
 
 export type AdminUpdateUserInput = Partial<{
@@ -713,6 +715,9 @@ export type AdminCreateDriverInput = {
   email: string;
   phone: string;
   city?: string;
+  country?: string;
+  password?: string;
+  invite?: boolean;
   licensePlate?: string;
   model?: string;
   vehicleType: 'Bike' | 'Car';
@@ -727,6 +732,27 @@ export type AdminUpdateDriverInput = Partial<{
   model: string;
   vehicleType: 'Bike' | 'Car';
 }>;
+
+export type AdminCreatePlatformUserInput = {
+  email: string;
+  phone?: string;
+  roles: string[];
+  password?: string;
+  invite?: boolean;
+  fullName?: string;
+  city?: string;
+  country?: string;
+};
+
+export async function createAdminUser(input: AdminCreatePlatformUserInput): Promise<{ userId: string }> {
+  const created = await request<{
+    id: string;
+  }>("/admin/users", {
+    method: "POST",
+    body: input,
+  });
+  return { userId: created.id };
+}
 
 // ── Approvals ───────────────────────────────────────────────────────────────
 

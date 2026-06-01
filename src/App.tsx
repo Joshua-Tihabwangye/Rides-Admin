@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import RequireAuth from './auth/RequireAuth'
+import RequirePermission from './auth/RequirePermission'
 import AdminShell from './layout/AdminShell'
 import AdminBackendBootstrap from './components/AdminBackendBootstrap'
 
@@ -57,6 +58,7 @@ import Integrations from './pages/Integrations'
 import AuditLog from './pages/AuditLog'
 import SystemOverview from './pages/SystemOverview'
 import Settings from './pages/Settings'
+import AccessDenied from './pages/AccessDenied'
 
 export default function App() {
   return (
@@ -71,6 +73,7 @@ export default function App() {
         <Route path="/admin/reset-password" element={<ResetPassword />} />
         <Route path="/admin/onboarding/welcome" element={<AdminWelcomeNotice />} />
         <Route path="/admin/onboarding/checklist" element={<AdminOnboardingChecklist />} />
+        <Route path="/admin/access-denied" element={<AccessDenied />} />
 
         {/* Protected admin area */}
         <Route
@@ -133,19 +136,75 @@ export default function App() {
           {/* Users & roles */}
           <Route path="agents" element={<AgentManagement />} />
           <Route path="agents/:id" element={<AgentDetail />} />
-          <Route path="admin-users" element={<AdminUsersManagement />} />
-          <Route path="admin-users/:id" element={<AdminUserDetail />} />
-          <Route path="roles" element={<RolesPermissions />} />
+          <Route
+            path="admin-users"
+            element={
+              <RequirePermission anyOf={["manage_admin_users"]}>
+                <AdminUsersManagement />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="admin-users/:id"
+            element={
+              <RequirePermission anyOf={["manage_admin_users"]}>
+                <AdminUserDetail />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="roles"
+            element={
+              <RequirePermission anyOf={["manage_roles"]}>
+                <RolesPermissions />
+              </RequirePermission>
+            }
+          />
 
           {/* Training & system */}
           <Route path="training" element={<GlobalTrainingManager />} />
           <Route path="training/preview" element={<TrainingModulePreview />} />
           {/* <Route path="localization" element={<LocalizationLanguageContent />} /> Removed */}
-          <Route path="system/flags" element={<FeatureFlagsExperiments />} />
-          <Route path="system/flags/:id/results" element={<ExperimentResults />} />
-          <Route path="system/integrations" element={<Integrations />} />
-          <Route path="system/audit-log" element={<AuditLog />} />
-          <Route path="system/overview" element={<SystemOverview />} />
+          <Route
+            path="system/flags"
+            element={
+              <RequirePermission anyOf={["manage_system"]}>
+                <FeatureFlagsExperiments />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="system/flags/:id/results"
+            element={
+              <RequirePermission anyOf={["manage_system"]}>
+                <ExperimentResults />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="system/integrations"
+            element={
+              <RequirePermission anyOf={["manage_system"]}>
+                <Integrations />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="system/audit-log"
+            element={
+              <RequirePermission anyOf={["manage_system"]}>
+                <AuditLog />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="system/overview"
+            element={
+              <RequirePermission anyOf={["manage_system"]}>
+                <SystemOverview />
+              </RequirePermission>
+            }
+          />
           <Route path="settings" element={<Settings />} />
 
           <Route path="*" element={<Navigate to="/admin/home" replace />} />
