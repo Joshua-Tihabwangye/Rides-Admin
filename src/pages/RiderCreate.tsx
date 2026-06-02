@@ -18,7 +18,10 @@ import {
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
+import { getAuthRoles } from '../auth/auth'
+import { hasPermissionByRoles } from '../auth/permissions'
 import { createAdminRider } from '../services/api/adminApi'
+import { normalizeAdminCreateRiderInput } from '../services/api/validators'
 
 export default function RiderCreate() {
     const navigate = useNavigate()
@@ -33,6 +36,7 @@ export default function RiderCreate() {
     })
 
     const [saving, setSaving] = useState(false)
+    const canManagePeople = hasPermissionByRoles(getAuthRoles(), 'manage_people')
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -44,23 +48,28 @@ export default function RiderCreate() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!canManagePeople) {
+            alert('Your account cannot create or update people records.')
+            return
+        }
         setSaving(true)
 
         try {
-            const created = await createAdminRider({
-                fullName: formData.name || 'New User',
-                phone: formData.phone || '+000',
+            const payload = normalizeAdminCreateRiderInput({
+                fullName: formData.name,
+                phone: formData.phone,
                 city: formData.city,
-                email: formData.email || `${(formData.name || 'new.user').toLowerCase().replace(/\s+/g, '.')}.${Date.now()}@example.com`,
+                email: formData.email,
                 password: formData.password || undefined,
                 invite: formData.invite,
             })
+            const created = await createAdminRider(payload)
             setSaving(false)
             navigate(`/admin/riders/${created.userId}`)
         } catch (error) {
             console.error('Failed to create rider profile.', error)
             setSaving(false)
-            alert('Failed to create rider profile. Please try again.')
+            alert(error instanceof Error ? error.message : 'Failed to create rider profile. Please try again.')
         }
     }
 
@@ -173,7 +182,7 @@ export default function RiderCreate() {
                                 <Button
                                     type="submit"
                                     variant="contained"
-                                    disabled={saving}
+                                    disabled={saving || !canManagePeople}
                                     startIcon={<SaveIcon />}
                                     sx={{ bgcolor: '#03cd8c' }}
                                 >

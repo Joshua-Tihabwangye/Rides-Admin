@@ -18,7 +18,10 @@ import {
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
+import { getAuthRoles } from '../auth/auth'
+import { hasPermissionByRoles } from '../auth/permissions'
 import { createAdminDriver } from '../services/api/adminApi'
+import { normalizeAdminCreateDriverInput } from '../services/api/validators'
 
 export default function DriverCreate() {
     const navigate = useNavigate()
@@ -35,6 +38,7 @@ export default function DriverCreate() {
     })
 
     const [saving, setSaving] = useState(false)
+    const canManagePeople = hasPermissionByRoles(getAuthRoles(), 'manage_people')
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -46,24 +50,31 @@ export default function DriverCreate() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!canManagePeople) {
+            alert('Your account cannot create or update people records.')
+            return
+        }
         setSaving(true)
 
         try {
-            const created = await createAdminDriver({
-                fullName: formData.name || 'New Driver',
-                phone: formData.phone || '+000',
+            const payload = normalizeAdminCreateDriverInput({
+                fullName: formData.name,
+                phone: formData.phone,
                 city: formData.city,
-                email: formData.email || `${(formData.name || 'new.driver').toLowerCase().replace(/\s+/g, '.')}.${Date.now()}@example.com`,
+                email: formData.email,
                 password: formData.password || undefined,
                 invite: formData.invite,
+                licensePlate: formData.vehiclePlate,
+                model: formData.vehicleModel,
                 vehicleType: 'Car',
             })
+            const created = await createAdminDriver(payload)
             setSaving(false)
             navigate(`/admin/drivers/${created.driverId}`)
         } catch (error) {
             console.error('Failed to create driver profile.', error)
             setSaving(false)
-            alert('Failed to create driver profile. Please try again.')
+            alert(error instanceof Error ? error.message : 'Failed to create driver profile. Please try again.')
         }
     }
 
@@ -205,7 +216,7 @@ export default function DriverCreate() {
                                 <Button
                                     type="submit"
                                     variant="contained"
-                                    disabled={saving}
+                                    disabled={saving || !canManagePeople}
                                     startIcon={<SaveIcon />}
                                     sx={{ bgcolor: '#03cd8c' }}
                                 >

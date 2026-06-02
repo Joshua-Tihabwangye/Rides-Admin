@@ -1,6 +1,11 @@
 import { io, type Socket } from "socket.io-client";
 import { SOCKET_BASE_URL, SOCKET_PATH, getBackendEnabled } from "./config";
 import { request, configureHttpClientAuth, type TokenRefreshResult } from "./httpClient";
+import {
+  normalizeAdminCreateDriverInput,
+  normalizeAdminCreatePlatformUserInput,
+  normalizeAdminCreateRiderInput,
+} from "./validators";
 
 export const ADMIN_BACKEND_ACCESS_TOKEN_KEY = "admin_backend_access_token";
 export const ADMIN_BACKEND_REFRESH_TOKEN_KEY = "admin_backend_refresh_token";
@@ -153,7 +158,7 @@ export { getAdminRider as getRider };
 export async function createAdminRider(input: AdminCreateUserInput): Promise<{ userId: string }> {
   return request<{ userId: string }>("/admin/riders", {
     method: "POST",
-    body: input,
+    body: normalizeAdminCreateRiderInput(input),
   });
 }
 
@@ -175,7 +180,7 @@ export async function getAdminDriver(driverId: string): Promise<AdminDriverRespo
 export async function createAdminDriver(input: AdminCreateDriverInput): Promise<{ driverId: string }> {
   return request<{ driverId: string }>("/admin/drivers", {
     method: "POST",
-    body: input,
+    body: normalizeAdminCreateDriverInput(input),
   });
 }
 
@@ -749,7 +754,7 @@ export async function createAdminUser(input: AdminCreatePlatformUserInput): Prom
     id: string;
   }>("/admin/users", {
     method: "POST",
-    body: input,
+    body: normalizeAdminCreatePlatformUserInput(input),
   });
   return { userId: created.id };
 }
