@@ -8,7 +8,8 @@ interface ApiEnvelope<T> {
   data?: T;
 }
 
-type QueryValue = string | number | boolean | null | undefined;
+type QueryPrimitive = string | number | boolean;
+type QueryValue = QueryPrimitive | QueryPrimitive[] | null | undefined;
 
 export interface TokenRefreshResult {
   accessToken: string;
@@ -112,16 +113,22 @@ function handleUnauthorized() {
   authAdapter?.onUnauthorized?.();
 }
 
+function appendQueryValue(search: URLSearchParams, key: string, value: QueryValue): void {
+  if (value === undefined || value === null) return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => appendQueryValue(search, key, item));
+    return;
+  }
+  search.append(key, String(value));
+}
+
 function buildRequestUrl(path: string, query?: Record<string, QueryValue>): string {
   if (!query) {
     return `${API_BASE_URL}${path}`;
   }
 
   const search = new URLSearchParams();
-  Object.entries(query).forEach(([key, value]) => {
-    if (value === undefined || value === null) return;
-    search.set(key, String(value));
-  });
+  Object.entries(query).forEach(([key, value]) => appendQueryValue(search, key, value));
 
   const suffix = search.toString();
   return suffix ? `${API_BASE_URL}${path}?${suffix}` : `${API_BASE_URL}${path}`;
@@ -968,7 +975,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     if (ALLOW_DEMO_API) {
       return handleDemoRequest<T>(path, options);
     }
-    throw new ApiRequestError("Admin backend is disabled. Set VITE_USE_BACKEND=true.", 503);
+    throw new ApiRequestError("Admin backend is disabled. Set VITE_BACKEND_ENABLED=true and configure VITE_BACKEND_BASE_URL.", 503);
   }
 
   const response = await fetch(buildRequestUrl(path, options.query), {
@@ -989,8 +996,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
           Authorization: `Bearer ${refreshed.accessToken}`,
         },
       });
-    } catch {
+    } catch (error) {
       handleUnauthorized();
+      throw error instanceof ApiRequestError ? error : new ApiRequestError("Session expired", 401);
     }
   }
 

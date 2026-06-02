@@ -19,6 +19,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
 import { createAdminDriver } from '../services/api/adminApi'
+import { normalizeAdminCreateDriverInput } from '../services/api/validators'
 
 export default function DriverCreate() {
     const navigate = useNavigate()
@@ -49,21 +50,24 @@ export default function DriverCreate() {
         setSaving(true)
 
         try {
-            const created = await createAdminDriver({
-                fullName: formData.name || 'New Driver',
-                phone: formData.phone || '+000',
+            const payload = normalizeAdminCreateDriverInput({
+                fullName: formData.name,
+                phone: formData.phone,
                 city: formData.city,
-                email: formData.email || `${(formData.name || 'new.driver').toLowerCase().replace(/\s+/g, '.')}.${Date.now()}@example.com`,
+                email: formData.email,
                 password: formData.password || undefined,
                 invite: formData.invite,
+                licensePlate: formData.vehiclePlate,
+                model: formData.vehicleModel,
                 vehicleType: 'Car',
             })
+            const created = await createAdminDriver(payload)
             setSaving(false)
             navigate(`/admin/drivers/${created.driverId}`)
         } catch (error) {
             console.error('Failed to create driver profile.', error)
             setSaving(false)
-            alert('Failed to create driver profile. Please try again.')
+            alert(error instanceof Error ? error.message : 'Failed to create driver profile. Please try again.')
         }
     }
 

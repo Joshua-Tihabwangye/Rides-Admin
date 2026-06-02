@@ -19,6 +19,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
 import { createAdminRider } from '../services/api/adminApi'
+import { normalizeAdminCreateRiderInput } from '../services/api/validators'
 
 export default function RiderCreate() {
     const navigate = useNavigate()
@@ -47,20 +48,21 @@ export default function RiderCreate() {
         setSaving(true)
 
         try {
-            const created = await createAdminRider({
-                fullName: formData.name || 'New User',
-                phone: formData.phone || '+000',
+            const payload = normalizeAdminCreateRiderInput({
+                fullName: formData.name,
+                phone: formData.phone,
                 city: formData.city,
-                email: formData.email || `${(formData.name || 'new.user').toLowerCase().replace(/\s+/g, '.')}.${Date.now()}@example.com`,
+                email: formData.email,
                 password: formData.password || undefined,
                 invite: formData.invite,
             })
+            const created = await createAdminRider(payload)
             setSaving(false)
             navigate(`/admin/riders/${created.userId}`)
         } catch (error) {
             console.error('Failed to create rider profile.', error)
             setSaving(false)
-            alert('Failed to create rider profile. Please try again.')
+            alert(error instanceof Error ? error.message : 'Failed to create rider profile. Please try again.')
         }
     }
 
