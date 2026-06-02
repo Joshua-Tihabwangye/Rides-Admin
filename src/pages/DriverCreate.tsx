@@ -18,6 +18,8 @@ import {
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
+import { getAuthRoles } from '../auth/auth'
+import { hasPermissionByRoles } from '../auth/permissions'
 import { createAdminDriver } from '../services/api/adminApi'
 import { normalizeAdminCreateDriverInput } from '../services/api/validators'
 
@@ -36,6 +38,7 @@ export default function DriverCreate() {
     })
 
     const [saving, setSaving] = useState(false)
+    const canManagePeople = hasPermissionByRoles(getAuthRoles(), 'manage_people')
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -47,6 +50,10 @@ export default function DriverCreate() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!canManagePeople) {
+            alert('Your account cannot create or update people records.')
+            return
+        }
         setSaving(true)
 
         try {
@@ -209,7 +216,7 @@ export default function DriverCreate() {
                                 <Button
                                     type="submit"
                                     variant="contained"
-                                    disabled={saving}
+                                    disabled={saving || !canManagePeople}
                                     startIcon={<SaveIcon />}
                                     sx={{ bgcolor: '#03cd8c' }}
                                 >

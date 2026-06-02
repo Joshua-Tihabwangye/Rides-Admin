@@ -1,4 +1,5 @@
-import type { AuthUser } from "./auth";
+import type { AuthUser } from "./auth"
+import type { AdminBackendRole } from "./auth"
 
 export type AdminPermission =
   | "view_dashboard"
@@ -10,7 +11,7 @@ export type AdminPermission =
   | "manage_promotions"
   | "manage_admin_users"
   | "manage_roles"
-  | "manage_system";
+  | "manage_system"
 
 const ALL_PERMISSIONS: AdminPermission[] = [
   "view_dashboard",
@@ -23,52 +24,58 @@ const ALL_PERMISSIONS: AdminPermission[] = [
   "manage_admin_users",
   "manage_roles",
   "manage_system",
-];
+]
 
-const ADMIN_DEFAULT_PERMISSIONS: AdminPermission[] = [
-  "view_dashboard",
-  "manage_operations",
-  "manage_people",
-  "manage_companies",
-  "manage_finance",
-  "manage_pricing",
-  "manage_promotions",
-];
+const ROLE_PERMISSIONS: Record<AdminBackendRole, readonly AdminPermission[]> = {
+  admin: [
+    "view_dashboard",
+    "manage_operations",
+    "manage_people",
+    "manage_companies",
+    "manage_finance",
+    "manage_pricing",
+    "manage_promotions",
+  ],
+  super_admin: ALL_PERMISSIONS,
+}
 
-function normalizeRoles(roles: string[]): string[] {
+function normalizeRoles(roles: readonly string[]): AdminBackendRole[] {
   return Array.from(
     new Set(
       roles
-        .filter((role) => typeof role === "string")
+        .filter((role): role is string => typeof role === "string")
         .map((role) => role.trim().toLowerCase())
-        .filter(Boolean),
+        .filter((role): role is AdminBackendRole => role === "admin" || role === "super_admin"),
     ),
-  );
+  )
 }
 
-function isSuperAdminByRoles(roles: string[]): boolean {
-  return normalizeRoles(roles).includes("super_admin");
-}
-
-export function getPermissionsForRoles(roles: string[]): AdminPermission[] {
-  if (isSuperAdminByRoles(roles)) {
-    return ALL_PERMISSIONS;
+export function getPermissionsForRoles(roles: readonly string[]): AdminPermission[] {
+  const granted = new Set<AdminPermission>()
+  for (const role of normalizeRoles(roles)) {
+    for (const permission of ROLE_PERMISSIONS[role]) {
+      granted.add(permission)
+    }
   }
-  return ADMIN_DEFAULT_PERMISSIONS;
+  return Array.from(granted)
 }
 
 export function getUserPermissions(user: AuthUser): AdminPermission[] {
-  return getPermissionsForRoles(user.roles ?? []);
+  return getPermissionsForRoles(user.roles ?? [])
+}
+
+export function hasPermissionByRoles(roles: readonly string[], permission: AdminPermission): boolean {
+  return new Set(getPermissionsForRoles(roles)).has(permission)
 }
 
 export function hasAnyPermission(user: AuthUser, required: AdminPermission[]): boolean {
-  if (required.length === 0) return true;
-  const granted = new Set(getUserPermissions(user));
-  return required.some((permission) => granted.has(permission));
+  if (required.length === 0) return true
+  const granted = new Set(getUserPermissions(user))
+  return required.some((permission) => granted.has(permission))
 }
 
-export function hasAnyPermissionByRoles(roles: string[], required: AdminPermission[]): boolean {
-  if (required.length === 0) return true;
-  const granted = new Set(getPermissionsForRoles(roles));
-  return required.some((permission) => granted.has(permission));
+export function hasAnyPermissionByRoles(roles: readonly string[], required: AdminPermission[]): boolean {
+  if (required.length === 0) return true
+  const granted = new Set(getPermissionsForRoles(roles))
+  return required.some((permission) => granted.has(permission))
 }

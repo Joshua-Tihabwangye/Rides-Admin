@@ -12,8 +12,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  MenuItem,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -23,6 +21,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import PageStateCard from "../components/PageStateCard";
+import { getAuthRoles } from "../auth/auth";
+import { hasPermissionByRoles } from "../auth/permissions";
 import { createAdminRole, listAdminRoles, patchAdminRole } from "../services/api/adminApi";
 
 const PERMISSIONS = ["View", "Edit", "Suspend/Block", "Configure"];
@@ -63,7 +64,7 @@ function flattenPermissionMatrix(matrix) {
   return output;
 }
 
-function RoleMatrix({ role, onToggle }) {
+function RoleMatrix({ role, onToggle, disabled }) {
   const matrix = useMemo(() => parsePermissionMatrix(role?.permissions || []), [role]);
 
   return (
@@ -84,7 +85,7 @@ function RoleMatrix({ role, onToggle }) {
                   <TableCell>{resource}</TableCell>
                   {PERMISSIONS.map((perm) => (
                     <TableCell key={perm} align="center">
-                      <Button size="small" variant={matrix[resource][perm] ? "contained" : "outlined"} onClick={() => onToggle(resource, perm)}>
+                      <Button size="small" disabled={disabled} variant={matrix[resource][perm] ? "contained" : "outlined"} onClick={() => onToggle(resource, perm)}>
                         {matrix[resource][perm] ? "✓" : "-"}
                       </Button>
                     </TableCell>
@@ -105,17 +106,23 @@ export default function RolesPermissionsPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newRole, setNewRole] = useState({ name: "", description: "" });
   const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  const canManageRoles = hasPermissionByRoles(getAuthRoles(), "manage_roles");
   const selectedRole = useMemo(() => roles.find((role) => role.id === selectedRoleId) || roles[0], [roles, selectedRoleId]);
 
   const loadRoles = async () => {
+    setLoading(true);
     try {
       const rows = await listAdminRoles();
       setRoles(rows);
       setSelectedRoleId((prev) => prev || rows[0]?.id || "");
+      setStatus(null);
     } catch (error) {
       console.error("Failed to load admin roles", error);
       setStatus({ type: "error", message: "Failed to load roles from backend." });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -124,6 +131,10 @@ export default function RolesPermissionsPage() {
   }, []);
 
   const handleCreateRole = async () => {
+    if (!canManageRoles) {
+      setStatus({ type: "warning", message: "Your account cannot create or edit roles." });
+      return;
+    }
     const name = newRole.name.trim();
     if (!name) return;
     try {
@@ -139,7 +150,10 @@ export default function RolesPermissionsPage() {
   };
 
   const handleTogglePermission = async (resource, perm) => {
-    if (!selectedRole) return;
+    if (!selectedRole || !canManageRoles) {
+      setStatus({ type: "warning", message: "Your account cannot update role permissions." });
+      return;
+    }
     const matrix = parsePermissionMatrix(selectedRole.permissions || []);
     matrix[resource][perm] = !matrix[resource][perm];
     try {
@@ -153,7 +167,10 @@ export default function RolesPermissionsPage() {
   };
 
   const handleDescriptionUpdate = async () => {
-    if (!selectedRole) return;
+    if (!selectedRole || !canManageRoles) {
+      setStatus({ type: "warning", message: "Your account cannot update role descriptions." });
+      return;
+    }
     try {
       await patchAdminRole(selectedRole.id, { description: selectedRole.description || "" });
       setStatus({ type: "success", message: "Role description saved." });
@@ -166,52 +183,62 @@ export default function RolesPermissionsPage() {
 
   return (
     <AdminRolesLayout>
+      {!canManageRoles ? <Alert severity="warning">This view is readable, but your account cannot change roles or permissions.</Alert> : null}
       {status && <Alert severity={status.type}>{status.message}</Alert>}
-      <Box className="flex flex-col lg:flex-row gap-4">
-        <Card elevation={1} sx={{ flex: 1, borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
-          <CardContent className="p-4 flex flex-col gap-3">
-            <Box className="flex items-center justify-between gap-2">
-              <Typography variant="subtitle2" className="font-semibold">Roles</Typography>
-              <Button variant="outlined" size="small" sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }} onClick={() => setCreateDialogOpen(true)}>+ New role</Button>
-            </Box>
-            <Divider className="!my-1" />
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "action.hover" }}>
-                    <TableCell>Role</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell align="right">Permissions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {roles.map((role) => (
-                    <TableRow key={role.id} hover selected={role.id === selectedRoleId} onClick={() => setSelectedRoleId(role.id)} sx={{ cursor: "pointer" }}>
-                      <TableCell>{role.name}</TableCell>
-                      <TableCell>{role.description || "-"}</TableCell>
-                      <TableCell align="right"><Chip size="small" label={(role.permissions || []).length} /></TableCell>
+
+      {loading ? (
+        <PageStateCard kind="loading" title="Loading roles" message="Fetching backend role definitions." />
+      ) : status?.type === "error" && roles.length === 0 ? (
+        <PageStateCard kind="error" title="Failed to load roles" message={status.message} actionLabel="Retry" onAction={() => void loadRoles()} />
+      ) : roles.length === 0 ? (
+        <PageStateCard kind="empty" title="No roles found" message="Create a backend role to start managing permission matrices." actionLabel={canManageRoles ? "Reload" : undefined} onAction={canManageRoles ? () => void loadRoles() : undefined} />
+      ) : (
+        <Box className="flex flex-col lg:flex-row gap-4">
+          <Card elevation={1} sx={{ flex: 1, borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+            <CardContent className="p-4 flex flex-col gap-3">
+              <Box className="flex items-center justify-between gap-2">
+                <Typography variant="subtitle2" className="font-semibold">Roles</Typography>
+                <Button variant="outlined" disabled={!canManageRoles} size="small" sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }} onClick={() => setCreateDialogOpen(true)}>+ New role</Button>
+              </Box>
+              <Divider className="!my-1" />
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "action.hover" }}>
+                      <TableCell>Role</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell align="right">Permissions</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
+                  </TableHead>
+                  <TableBody>
+                    {roles.map((role) => (
+                      <TableRow key={role.id} hover selected={role.id === selectedRoleId} onClick={() => setSelectedRoleId(role.id)} sx={{ cursor: "pointer" }}>
+                        <TableCell>{role.name}</TableCell>
+                        <TableCell>{role.description || "-"}</TableCell>
+                        <TableCell align="right"><Chip size="small" label={(role.permissions || []).length} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
 
-        <Box sx={{ flex: 2 }} className="flex flex-col gap-3">
-          {selectedRole && (
-            <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
-              <CardContent className="p-4 flex flex-col gap-2">
-                <Typography variant="subtitle2" className="font-semibold">{selectedRole.name}</Typography>
-                <TextField size="small" value={selectedRole.description || ""} onChange={(event) => setRoles((prev) => prev.map((role) => (role.id === selectedRole.id ? { ...role, description: event.target.value } : role)))} label="Description" />
-                <Box className="flex justify-end"><Button variant="contained" size="small" onClick={() => void handleDescriptionUpdate()}>Save Description</Button></Box>
-              </CardContent>
-            </Card>
-          )}
+          <Box sx={{ flex: 2 }} className="flex flex-col gap-3">
+            {selectedRole && (
+              <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+                <CardContent className="p-4 flex flex-col gap-2">
+                  <Typography variant="subtitle2" className="font-semibold">{selectedRole.name}</Typography>
+                  <TextField size="small" disabled={!canManageRoles} value={selectedRole.description || ""} onChange={(event) => setRoles((prev) => prev.map((role) => (role.id === selectedRole.id ? { ...role, description: event.target.value } : role)))} label="Description" />
+                  <Box className="flex justify-end"><Button variant="contained" size="small" disabled={!canManageRoles} onClick={() => void handleDescriptionUpdate()}>Save Description</Button></Box>
+                </CardContent>
+              </Card>
+            )}
 
-          {selectedRole && <RoleMatrix role={selectedRole} onToggle={(resource, perm) => void handleTogglePermission(resource, perm)} />}
+            {selectedRole ? <RoleMatrix role={selectedRole} disabled={!canManageRoles} onToggle={(resource, perm) => void handleTogglePermission(resource, perm)} /> : null}
+          </Box>
         </Box>
-      </Box>
+      )}
 
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Create New Role</DialogTitle>
@@ -221,7 +248,7 @@ export default function RolesPermissionsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
-          <Button onClick={() => void handleCreateRole()} variant="contained">Create</Button>
+          <Button onClick={() => void handleCreateRole()} variant="contained" disabled={!canManageRoles}>Create</Button>
         </DialogActions>
       </Dialog>
     </AdminRolesLayout>

@@ -21,10 +21,13 @@ export type AuthUser = {
   roles?: string[]
 }
 
+type JwtPayload = { exp?: number; roles?: unknown }
+type AdminRoleClaimStatus = { roles: AdminBackendRole[]; hasUnknownRoles: boolean }
+
 const STORAGE_KEY = "evzone_admin_auth"
 const ADMIN_ROLE_SET = new Set<string>(ADMIN_BACKEND_ROLE_ENUMS)
 
-function parseJwtPayload(token: string): { exp?: number; roles?: unknown } | null {
+function parseJwtPayload(token: string): JwtPayload | null {
   const parts = token.split(".")
   if (parts.length < 2) return null
 
@@ -32,20 +35,40 @@ function parseJwtPayload(token: string): { exp?: number; roles?: unknown } | nul
     const normalized = parts[1]!.replace(/-/g, "+").replace(/_/g, "/")
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")
     const json = atob(padded)
-    return JSON.parse(json) as { exp?: number; roles?: unknown }
+    return JSON.parse(json) as JwtPayload
   } catch {
     return null
   }
 }
 
-function sanitizeAdminRoles(roles: unknown): AdminBackendRole[] {
-  if (!Array.isArray(roles)) return []
-  const normalized = roles
-    .filter((role): role is string => typeof role === "string")
-    .map((role) => role.trim().toLowerCase())
-    .filter((role): role is AdminBackendRole => ADMIN_ROLE_SET.has(role))
+function parseAdminRoles(roles: unknown): AdminRoleClaimStatus {
+  if (!Array.isArray(roles)) {
+    return { roles: [], hasUnknownRoles: false }
+  }
 
-  return Array.from(new Set(normalized))
+  const normalized = new Set<AdminBackendRole>()
+  let hasUnknownRoles = false
+
+  for (const value of roles) {
+    if (typeof value !== "string") {
+      hasUnknownRoles = true
+      continue
+    }
+
+    const role = value.trim().toLowerCase()
+    if (!role) continue
+
+    if (ADMIN_ROLE_SET.has(role)) {
+      normalized.add(role as AdminBackendRole)
+    } else {
+      hasUnknownRoles = true
+    }
+  }
+
+  return {
+    roles: Array.from(normalized),
+    hasUnknownRoles,
+  }
 }
 
 function isTokenExpired(token: string): boolean {
@@ -54,11 +77,11 @@ function isTokenExpired(token: string): boolean {
   return payload.exp * 1000 <= Date.now()
 }
 
-function resolveClaimRoles(): AdminBackendRole[] {
+function resolveClaimRoles(): AdminRoleClaimStatus {
   const accessToken = readAdminBackendAccessToken()
-  if (!accessToken) return []
+  if (!accessToken) return { roles: [], hasUnknownRoles: false }
   const payload = parseJwtPayload(accessToken)
-  return sanitizeAdminRoles(payload?.roles)
+  return parseAdminRoles(payload?.roles)
 }
 
 export function getAuthUser(): AuthUser | null {
@@ -74,9 +97,17 @@ export function getAuthUser(): AuthUser | null {
 
 export function getAuthRoles(): AdminBackendRole[] {
   const claimRoles = resolveClaimRoles()
-  if (claimRoles.length > 0) return claimRoles
+  if (claimRoles.hasUnknownRoles) {
+    signOut()
+    return []
+  }
+  if (claimRoles.roles.length > 0) return claimRoles.roles
   const user = getAuthUser()
-  return sanitizeAdminRoles(user?.roles)
+  return parseAdminRoles(user?.roles).roles
+}
+
+export function hasInvalidRoleClaims(): boolean {
+  return resolveClaimRoles().hasUnknownRoles
 }
 
 export function signIn(user: AuthUser) {
@@ -84,7 +115,9 @@ export function signIn(user: AuthUser) {
 }
 
 export function signOut() {
-  localStorage.removeItem(STORAGE_KEY)
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(STORAGE_KEY)
+  }
   clearAdminBackendTokens()
 }
 
@@ -94,7 +127,7 @@ export function isAuthed() {
 
   if (isBackendAuthEnabled()) {
     const token = readAdminBackendAccessToken()
-    if (!token || isTokenExpired(token)) {
+    if (!token || isTokenExpired(token) || hasInvalidRoleClaims()) {
       signOut()
       return false
     }
@@ -134,7 +167,16 @@ export async function loginWithCredentials(credentials: { email: string; passwor
   saveAdminBackendTokens(backend.accessToken, backend.refreshToken)
 
   const roleClaims = resolveClaimRoles()
-  const resolvedRoles = roleClaims.length > 0 ? roleClaims : sanitizeAdminRoles(backend.user.roles)
+  if (roleClaims.hasUnknownRoles) {
+    signOut()
+    throw new Error("Received unsupported admin role claims.")
+  }
+
+  const resolvedRoles = roleClaims.roles.length > 0 ? roleClaims.roles : parseAdminRoles(backend.user.roles).roles
+  if (resolvedRoles.length === 0) {
+    signOut()
+    throw new Error("Admin account has no supported backend role.")
+  }
 
   const authUser: AuthUser = {
     name: backend.user.email.split("@")[0] || "Admin",
