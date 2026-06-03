@@ -2,6 +2,7 @@
 import React, { useState } from"react";
 import { useNavigate } from"react-router-dom";
 import { requestPasswordReset } from "../auth/auth";
+import { readAuthPrefill, saveAuthPrefill } from "../auth/authPrefill";
 
 // Forgot Password - Step 1: Enter email to request reset link
 
@@ -30,7 +31,8 @@ const ArrowLeftIcon = () => (
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const prefill = React.useMemo(() => readAuthPrefill(), []);
+  const [email, setEmail] = useState(prefill.email || prefill.identity || "");
   const [emailErr, setEmailErr] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -52,7 +54,9 @@ export default function ForgotPassword() {
 
     setIsLoading(true);
     try {
-      await requestPasswordReset(email);
+      const normalizedEmail = email.trim().toLowerCase();
+      await requestPasswordReset(normalizedEmail);
+      saveAuthPrefill({ email: normalizedEmail, identity: normalizedEmail });
       setIsSubmitted(true);
     } catch (error) {
       setEmailErr(error instanceof Error ? error.message : "Unable to send reset email");

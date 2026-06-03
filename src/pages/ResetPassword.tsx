@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState } from"react";
 import { useNavigate, useSearchParams } from"react-router-dom";
+import { saveAuthPrefill } from "../auth/authPrefill";
 
 // Reset Password - Step 2: Enter new password (accessed via reset link)
 
@@ -97,6 +98,10 @@ export default function ResetPassword() {
     setIsLoading(true);
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
+    const emailParam = searchParams.get("email")?.trim().toLowerCase() || "";
+    if (emailParam) {
+      saveAuthPrefill({ email: emailParam, identity: emailParam, password });
+    }
     setIsLoading(false);
     setIsSuccess(true);
   };
