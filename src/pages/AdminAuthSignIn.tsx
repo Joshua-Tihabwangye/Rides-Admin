@@ -99,7 +99,7 @@ export default function AuthSignIn() {
     return () => window.removeEventListener("resize", onR);
   }, []);
 
-  const validateEmail = (val) => String(val).trim().length > 0;
+  const validateEmail = (val) => /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(val).trim().toLowerCase());
 
   const onEmailBlur = () => {
     setEmailErr(email && !validateEmail(email) ? "Email is required" : "");
@@ -114,21 +114,11 @@ export default function AuthSignIn() {
       return;
     }
     if (!validateEmail(email)) {
-      setEmailErr("Email is required");
+      setEmailErr("Enter a valid email address");
       return;
     }
 
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    // ✅ Demo validation: any valid email + any password
-    const isValid = validateEmail(email) && pwd.length > 0;
-
-    if (!isValid) {
-      setLoginError("Invalid email or password. Please try again.");
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
