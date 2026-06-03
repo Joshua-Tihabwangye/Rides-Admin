@@ -206,6 +206,9 @@ export default function AuthSignIn() {
             <p style={styles.subtitle}>
               Sign in to access your admin dashboard and manage your fleet operations.
             </p>
+            <p style={{ ...styles.subtitle, marginTop: 12, marginBottom: 0 }}>
+              Need an account? <a href="/admin/signup" style={{ color: EV.green, fontWeight: 700 }}>Create admin account</a>
+            </p>
           </div>
 
           {/* SSO Buttons */}
