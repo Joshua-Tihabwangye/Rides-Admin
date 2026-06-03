@@ -96,6 +96,10 @@ export async function loadBackendRuntimeFlag(force = false): Promise<boolean> {
     return runtimeFlagLoadPromise;
   }
 
+  if (force && USE_BACKEND) {
+    runtimeBackendEnabled = true;
+  }
+
   runtimeFlagLoadPromise = (async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/compat/flags/${APP_ID}`);
