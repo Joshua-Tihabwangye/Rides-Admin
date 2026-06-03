@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from"react";
 import { useLocation, useNavigate } from"react-router-dom";
 import { loginWithCredentials } from"../auth/auth";
+import { clearAuthPrefillPassword, readAuthPrefill, saveAuthPrefill } from"../auth/authPrefill";
 
 // Professional Auth page for EVzone Admin Portal
 // Clean, enterprise style with real SSO provider icons
@@ -75,9 +76,10 @@ export default function AuthSignIn() {
   const location = useLocation();
   const from = location.state && location.state.from ? location.state.from :"/admin/home";
 
-  const [email, setEmail] = useState("");
+  const prefill = React.useMemo(() => readAuthPrefill(), []);
+  const [email, setEmail] = useState(prefill.email || prefill.identity || "");
   const [emailErr, setEmailErr] = useState("");
-  const [pwd, setPwd] = useState("");
+  const [pwd, setPwd] = useState(prefill.password || "");
   const [caps, setCaps] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [remember, setRemember] = useState(true);
@@ -129,7 +131,10 @@ export default function AuthSignIn() {
     }
 
     try {
-      await loginWithCredentials({ email, password: pwd });
+      const normalizedEmail = email.trim().toLowerCase();
+      await loginWithCredentials({ email: normalizedEmail, password: pwd });
+      saveAuthPrefill({ email: normalizedEmail, identity: normalizedEmail });
+      clearAuthPrefillPassword();
       track("auth_login", { email, remember });
       navigate(from, { replace: true });
     } catch (error) {
