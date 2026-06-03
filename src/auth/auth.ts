@@ -1,6 +1,7 @@
 import {
   backendForgotPassword,
   backendLogin,
+  backendRegister,
   isBackendAuthEnabled,
   isOpenAuthEnabled,
 } from "../services/api/authApi"
@@ -84,6 +85,44 @@ function resolveClaimRoles(): AdminRoleClaimStatus {
   return parseAdminRoles(payload?.roles)
 }
 
+function buildAuthUser(email: string, roles: AdminBackendRole[], name?: string): AuthUser {
+  const normalizedEmail = email.trim().toLowerCase()
+  const resolvedName = name?.trim() || normalizedEmail.split("@")[0] || "Admin"
+  return {
+    name: resolvedName,
+    email: normalizedEmail,
+    role: roles.includes("super_admin") ? "Super Admin" : "Admin",
+    roles,
+  }
+}
+
+function finalizeBackendAuth(backend: {
+  accessToken: string
+  refreshToken: string
+  user: { email: string; roles?: string[] }
+}, preferredName?: string): AuthUser {
+  saveAdminBackendTokens(backend.accessToken, backend.refreshToken)
+
+  const roleClaims = resolveClaimRoles()
+  if (roleClaims.hasUnknownRoles) {
+    signOut()
+    throw new Error("Received unsupported admin role claims.")
+  }
+
+  const resolvedRoles = roleClaims.roles.length > 0 ? roleClaims.roles : parseAdminRoles(backend.user.roles).roles
+  if (resolvedRoles.length === 0) {
+    signOut()
+    throw new Error("Admin account has no supported backend role.")
+  }
+
+  const authUser = buildAuthUser(backend.user.email, resolvedRoles, preferredName)
+  signIn(authUser)
+  void syncAdminReferenceData().catch((error) => {
+    console.warn("Admin backend bootstrap sync failed. Keeping current local store.", error)
+  })
+  return authUser
+}
+
 export function getAuthUser(): AuthUser | null {
   if (typeof window === "undefined") return null
   try {
@@ -146,6 +185,34 @@ function buildDevAuthUser(email: string): AuthUser {
   }
 }
 
+export async function registerWithCredentials(credentials: {
+  email: string
+  password: string
+  fullName?: string
+  phone?: string
+}): Promise<AuthUser> {
+  const normalizedEmail = credentials.email.trim().toLowerCase()
+
+  if (isOpenAuthEnabled() && import.meta.env.DEV) {
+    const authUser = buildDevAuthUser(normalizedEmail)
+    signIn(authUser)
+    return authUser
+  }
+
+  if (!isBackendAuthEnabled()) {
+    throw new Error("Admin backend authentication is disabled.")
+  }
+
+  const backend = await backendRegister({
+    email: normalizedEmail,
+    password: credentials.password,
+    fullName: credentials.fullName,
+    phone: credentials.phone,
+  })
+
+  return finalizeBackendAuth(backend, credentials.fullName)
+}
+
 export async function loginWithCredentials(credentials: { email: string; password: string }): Promise<AuthUser> {
   const normalizedEmail = credentials.email.trim().toLowerCase()
 
@@ -164,32 +231,7 @@ export async function loginWithCredentials(credentials: { email: string; passwor
     password: credentials.password,
   })
 
-  saveAdminBackendTokens(backend.accessToken, backend.refreshToken)
-
-  const roleClaims = resolveClaimRoles()
-  if (roleClaims.hasUnknownRoles) {
-    signOut()
-    throw new Error("Received unsupported admin role claims.")
-  }
-
-  const resolvedRoles = roleClaims.roles.length > 0 ? roleClaims.roles : parseAdminRoles(backend.user.roles).roles
-  if (resolvedRoles.length === 0) {
-    signOut()
-    throw new Error("Admin account has no supported backend role.")
-  }
-
-  const authUser: AuthUser = {
-    name: backend.user.email.split("@")[0] || "Admin",
-    email: backend.user.email,
-    role: resolvedRoles.includes("super_admin") ? "Super Admin" : "Admin",
-    roles: resolvedRoles,
-  }
-
-  signIn(authUser)
-  void syncAdminReferenceData().catch((error) => {
-    console.warn("Admin backend bootstrap sync failed. Keeping current local store.", error)
-  })
-  return authUser
+  return finalizeBackendAuth(backend)
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

@@ -7,6 +7,7 @@ import AdminBackendBootstrap from './components/AdminBackendBootstrap'
 
 // Pages (attached)
 import AdminAuthSignIn from './pages/AdminAuthSignIn'
+import AdminAuthSignUp from './pages/AdminAuthSignUp'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AdminWelcomeNotice from './pages/AdminWelcomeNotice'
@@ -69,6 +70,7 @@ export default function App() {
 
         {/* Auth & onboarding (public) */}
         <Route path="/admin/login" element={<AdminAuthSignIn />} />
+        <Route path="/admin/signup" element={<AdminAuthSignUp />} />
         <Route path="/admin/forgot-password" element={<ForgotPassword />} />
         <Route path="/admin/reset-password" element={<ResetPassword />} />
         <Route path="/admin/onboarding/welcome" element={<AdminWelcomeNotice />} />

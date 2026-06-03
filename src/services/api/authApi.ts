@@ -15,6 +15,13 @@ interface BackendAuthResponse {
   user: BackendAuthUser;
 }
 
+export interface BackendRegisterInput {
+  email: string;
+  password: string;
+  fullName?: string;
+  phone?: string;
+}
+
 export interface BackendLoginInput {
   email: string;
   password: string;
@@ -30,6 +37,19 @@ export function isBackendAuthEnabled(): boolean {
 
 export function isOpenAuthEnabled(): boolean {
   return OPEN_AUTH;
+}
+
+export async function backendRegister(input: BackendRegisterInput): Promise<BackendAuthResponse> {
+  return request<BackendAuthResponse>("/auth/register", {
+    method: "POST",
+    body: {
+      email: input.email,
+      password: input.password,
+      fullName: input.fullName,
+      phone: input.phone,
+      roles: ["admin"],
+    },
+  });
 }
 
 export async function backendLogin(input: BackendLoginInput): Promise<BackendAuthResponse> {
