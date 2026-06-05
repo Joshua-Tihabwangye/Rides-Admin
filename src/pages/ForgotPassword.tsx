@@ -78,9 +78,9 @@ export default function ForgotPassword() {
             <div style={styles.iconWrapper}>
               <MailIcon />
             </div>
-            <h1 style={styles.title}>Check your email</h1>
+            <h1 style={styles.title}>Check your email or phone</h1>
             <p style={styles.subtitle}>
-              We've sent a password reset link to<br />
+              We've sent a 6-digit password reset code to<br />
               <strong style={{ color: EV.dark }}>{email}</strong>
             </p>
             <p style={styles.helpText}>
@@ -96,6 +96,12 @@ export default function ForgotPassword() {
                 try another email address
               </a>
             </p>
+            <button
+              style={styles.submitButton}
+              onClick={() => navigate("/admin/reset-password", { state: { email: email.trim().toLowerCase() } })}
+            >
+              Enter reset code
+            </button>
             <button
               style={styles.secondaryButton}
               onClick={() => navigate("/admin/login")}

@@ -50,6 +50,29 @@ export interface BackendForgotPasswordInput {
   email: string;
 }
 
+export interface BackendVerifyOtpInput {
+  email: string;
+  otp: string;
+}
+
+export interface BackendVerifyOtpResult {
+  verified: boolean;
+  resetRequired?: boolean;
+  resetToken?: string;
+  expiresInSeconds?: number;
+  otpLength?: number;
+}
+
+export interface BackendResetPasswordInput {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+export interface BackendResetPasswordResult {
+  reset: boolean;
+}
+
 export function isBackendAuthEnabled(): boolean {
   return getBackendEnabled();
 }
@@ -86,6 +109,20 @@ export async function backendFetchSession(): Promise<BackendSessionResponse> {
 
 export async function backendForgotPassword(input: BackendForgotPasswordInput): Promise<{ sent: boolean }> {
   return request<{ sent: boolean }>("/auth/forgot-password", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function backendVerifyOtp(input: BackendVerifyOtpInput): Promise<BackendVerifyOtpResult> {
+  return request<BackendVerifyOtpResult>("/auth/verify-otp", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function backendResetPassword(input: BackendResetPasswordInput): Promise<BackendResetPasswordResult> {
+  return request<BackendResetPasswordResult>("/auth/reset-password", {
     method: "POST",
     body: input,
   });
