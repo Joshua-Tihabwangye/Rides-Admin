@@ -50,7 +50,7 @@ export default function AdminAuthSignUp() {
 
     setIsSubmitting(true)
     try {
-      await registerWithCredentials({
+      const authUser = await registerWithCredentials({
         fullName: fullName.trim(),
         email: normalizedEmail,
         phone: phone.trim() || undefined,
@@ -58,7 +58,7 @@ export default function AdminAuthSignUp() {
       })
       saveAuthPrefill({ email: normalizedEmail, identity: normalizedEmail })
       clearAuthPrefillPassword()
-      navigate("/admin/home", { replace: true })
+      navigate(authUser.defaultRedirect || "/admin/home", { replace: true })
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Sign up failed. Please try again.")
       setIsSubmitting(false)

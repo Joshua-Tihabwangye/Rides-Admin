@@ -122,11 +122,11 @@ export default function AuthSignIn() {
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      await loginWithCredentials({ email: normalizedEmail, password: pwd });
+      const authUser = await loginWithCredentials({ email: normalizedEmail, password: pwd });
       saveAuthPrefill({ email: normalizedEmail, identity: normalizedEmail });
       clearAuthPrefillPassword();
       track("auth_login", { email, remember });
-      navigate(from, { replace: true });
+      navigate(from || authUser.defaultRedirect || "/admin/home", { replace: true });
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "Login failed. Please try again.");
       setIsLoading(false);
