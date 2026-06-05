@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { registerWithCredentials } from "../auth/auth"
+import { registerWithCredentials, signOut } from "../auth/auth"
 import { clearAuthPrefillPassword, saveAuthPrefill } from "../auth/authPrefill"
 
 const EV = {
@@ -58,7 +58,8 @@ export default function AdminAuthSignUp() {
       })
       saveAuthPrefill({ email: normalizedEmail, identity: normalizedEmail })
       clearAuthPrefillPassword()
-      navigate(authUser.defaultRedirect || "/admin/home", { replace: true })
+      signOut()
+      navigate("/admin/login", { replace: true })
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Sign up failed. Please try again.")
       setIsSubmitting(false)

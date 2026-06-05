@@ -1,5 +1,6 @@
 import type { AuthUser } from "./auth"
 import type { AdminBackendRole } from "./auth"
+import { getAuthPermissions } from "./auth"
 
 export type AdminPermission =
   | "view_dashboard"
@@ -61,10 +62,21 @@ export function getPermissionsForRoles(roles: readonly string[]): AdminPermissio
 }
 
 export function getUserPermissions(user: AuthUser): AdminPermission[] {
+  const backendPermissions = Array.isArray(user.permissions)
+    ? user.permissions.filter((permission): permission is AdminPermission => ALL_PERMISSIONS.includes(permission as AdminPermission))
+    : []
+  if (backendPermissions.length > 0) {
+    return Array.from(new Set(backendPermissions))
+  }
   return getPermissionsForRoles(user.roles ?? [])
 }
 
 export function hasPermissionByRoles(roles: readonly string[], permission: AdminPermission): boolean {
+  const backendPermissions = getAuthPermissions()
+    .filter((value): value is AdminPermission => ALL_PERMISSIONS.includes(value as AdminPermission))
+  if (backendPermissions.length > 0) {
+    return new Set(backendPermissions).has(permission)
+  }
   return new Set(getPermissionsForRoles(roles)).has(permission)
 }
 
@@ -76,6 +88,8 @@ export function hasAnyPermission(user: AuthUser, required: AdminPermission[]): b
 
 export function hasAnyPermissionByRoles(roles: readonly string[], required: AdminPermission[]): boolean {
   if (required.length === 0) return true
-  const granted = new Set(getPermissionsForRoles(roles))
+  const backendPermissions = getAuthPermissions()
+    .filter((value): value is AdminPermission => ALL_PERMISSIONS.includes(value as AdminPermission))
+  const granted = new Set(backendPermissions.length > 0 ? backendPermissions : getPermissionsForRoles(roles))
   return required.some((permission) => granted.has(permission))
 }

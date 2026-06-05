@@ -628,6 +628,13 @@ export async function listAdminAuditEvents(): Promise<AdminAuditEventResponse[]>
   return request<AdminAuditEventResponse[]>("/admin/system/audit-log", { method: "GET" });
 }
 
+export async function getAdminSystemOverview(): Promise<{
+  totals: { users: number; riders: number; drivers: number; companies: number; trips: number };
+  queues: { approvals: number; riskCases: number; safetyIncidents: number };
+}> {
+  return request<{ totals: { users: number; riders: number; drivers: number; companies: number; trips: number }; queues: { approvals: number; riskCases: number; safetyIncidents: number } }>("/admin/system/overview", { method: "GET" });
+}
+
 // ── Reference Data Sync ─────────────────────────────────────────────────────
 
 export async function syncAdminReferenceData(): Promise<void> {
