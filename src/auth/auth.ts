@@ -1,4 +1,5 @@
 import {
+  backendFetchSession,
   backendForgotPassword,
   backendLogin,
   backendRegister,
@@ -20,6 +21,7 @@ export type AuthUser = {
   email: string
   role: string
   roles?: string[]
+  defaultRedirect?: string
 }
 
 type JwtPayload = { exp?: number; roles?: unknown }
@@ -85,7 +87,7 @@ function resolveClaimRoles(): AdminRoleClaimStatus {
   return parseAdminRoles(payload?.roles)
 }
 
-function buildAuthUser(email: string, roles: AdminBackendRole[], name?: string): AuthUser {
+function buildAuthUser(email: string, roles: AdminBackendRole[], name?: string, defaultRedirect?: string): AuthUser {
   const normalizedEmail = email.trim().toLowerCase()
   const resolvedName = name?.trim() || normalizedEmail.split("@")[0] || "Admin"
   return {
@@ -93,15 +95,23 @@ function buildAuthUser(email: string, roles: AdminBackendRole[], name?: string):
     email: normalizedEmail,
     role: roles.includes("super_admin") ? "Super Admin" : "Admin",
     roles,
+    defaultRedirect,
   }
 }
 
-function finalizeBackendAuth(backend: {
+async function finalizeBackendAuth(backend: {
   accessToken: string
   refreshToken: string
   user: { email: string; roles?: string[] }
-}, preferredName?: string): AuthUser {
+}, preferredName?: string): Promise<AuthUser> {
   saveAdminBackendTokens(backend.accessToken, backend.refreshToken)
+
+  const session = await backendFetchSession()
+  const sessionRoles = parseAdminRoles(session.user.roles)
+  if (sessionRoles.hasUnknownRoles) {
+    signOut()
+    throw new Error("Received unsupported admin role claims.")
+  }
 
   const roleClaims = resolveClaimRoles()
   if (roleClaims.hasUnknownRoles) {
@@ -109,13 +119,18 @@ function finalizeBackendAuth(backend: {
     throw new Error("Received unsupported admin role claims.")
   }
 
-  const resolvedRoles = roleClaims.roles.length > 0 ? roleClaims.roles : parseAdminRoles(backend.user.roles).roles
+  const resolvedRoles =
+    sessionRoles.roles.length > 0
+      ? sessionRoles.roles
+      : roleClaims.roles.length > 0
+        ? roleClaims.roles
+        : parseAdminRoles(backend.user.roles).roles
   if (resolvedRoles.length === 0) {
     signOut()
     throw new Error("Admin account has no supported backend role.")
   }
 
-  const authUser = buildAuthUser(backend.user.email, resolvedRoles, preferredName)
+  const authUser = buildAuthUser(session.user.email, resolvedRoles, preferredName, session.defaultRedirect)
   signIn(authUser)
   void syncAdminReferenceData().catch((error) => {
     console.warn("Admin backend bootstrap sync failed. Keeping current local store.", error)

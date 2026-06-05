@@ -15,6 +15,25 @@ interface BackendAuthResponse {
   user: BackendAuthUser;
 }
 
+export interface BackendSessionResponse {
+  user: {
+    id: string;
+    email: string;
+    phone?: string | null;
+    status: string;
+    roles: string[];
+    lastLoginAt?: string | null;
+  };
+  profile: {
+    driverProfileId: string | null;
+    riderProfileId: string | null;
+    fleetProfileId: string | null;
+    adminProfileId: string | null;
+  };
+  permissions: string[];
+  defaultRedirect: string;
+}
+
 export interface BackendRegisterInput {
   email: string;
   password: string;
@@ -56,6 +75,12 @@ export async function backendLogin(input: BackendLoginInput): Promise<BackendAut
   return request<BackendAuthResponse>("/auth/login", {
     method: "POST",
     body: input,
+  });
+}
+
+export async function backendFetchSession(): Promise<BackendSessionResponse> {
+  return request<BackendSessionResponse>("/auth/session", {
+    method: "GET",
   });
 }
 
