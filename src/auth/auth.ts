@@ -2,7 +2,9 @@ import {
   backendFetchSession,
   backendForgotPassword,
   backendLogin,
+  backendResetPassword,
   backendRegister,
+  backendVerifyOtp,
   isBackendAuthEnabled,
   isOpenAuthEnabled,
 } from "../services/api/authApi"
@@ -255,4 +257,27 @@ export async function requestPasswordReset(email: string): Promise<void> {
   }
 
   await backendForgotPassword({ email: email.trim().toLowerCase() })
+}
+
+export async function verifyPasswordResetOtp(email: string, otp: string) {
+  if (!isBackendAuthEnabled()) {
+    throw new Error("Admin backend authentication is disabled.")
+  }
+
+  return backendVerifyOtp({
+    email: email.trim().toLowerCase(),
+    otp: otp.trim(),
+  })
+}
+
+export async function resetPasswordWithOtp(email: string, otp: string, newPassword: string) {
+  if (!isBackendAuthEnabled()) {
+    throw new Error("Admin backend authentication is disabled.")
+  }
+
+  return backendResetPassword({
+    email: email.trim().toLowerCase(),
+    otp: otp.trim(),
+    newPassword,
+  })
 }

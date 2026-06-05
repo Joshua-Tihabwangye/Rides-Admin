@@ -1,7 +1,8 @@
 // @ts-nocheck
 import React, { useState } from"react";
-import { useNavigate, useSearchParams } from"react-router-dom";
-import { saveAuthPrefill } from "../auth/authPrefill";
+import { useLocation, useNavigate } from"react-router-dom";
+import { readAuthPrefill, saveAuthPrefill } from "../auth/authPrefill";
+import { requestPasswordReset, resetPasswordWithOtp } from "../auth/auth";
 
 // Reset Password - Step 2: Enter new password (accessed via reset link)
 
@@ -48,9 +49,12 @@ const EyeIcon = ({ open }) => (
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+  const location = useLocation();
+  const prefill = React.useMemo(() => readAuthPrefill(), []);
+  const state = location.state || {};
 
+  const [email, setEmail] = useState((state.email || prefill.email || prefill.identity || "").trim().toLowerCase());
+  const [otp, setOtp] = useState(state.otp || "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -58,6 +62,7 @@ export default function ResetPassword() {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
 
   // Password strength indicators
   const hasMinLength = password.length >= 8;
@@ -78,6 +83,18 @@ export default function ResetPassword() {
     e.preventDefault();
     const newErrors = {};
 
+    if (!email) {
+      newErrors.email = "Please enter your email address";
+    } else if (!/[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(email).toLowerCase())) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!otp) {
+      newErrors.otp = "Please enter the 6-digit reset code";
+    } else if (!/^\d{6}$/.test(String(otp))) {
+      newErrors.otp = "Reset code must be 6 digits";
+    }
+
     if (!password) {
       newErrors.password ="Please enter a new password";
     } else if (password.length < 8) {
@@ -96,54 +113,46 @@ export default function ResetPassword() {
     }
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const emailParam = searchParams.get("email")?.trim().toLowerCase() || "";
-    if (emailParam) {
-      saveAuthPrefill({ email: emailParam, identity: emailParam, password });
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const result = await resetPasswordWithOtp(normalizedEmail, otp, password);
+      if (!result.reset) {
+        setErrors({ otp: "Password reset failed. Please try again." });
+        setIsLoading(false);
+        return;
+      }
+      saveAuthPrefill({ email: normalizedEmail, identity: normalizedEmail, password });
+      setIsLoading(false);
+      setIsSuccess(true);
+    } catch (error) {
+      setErrors({
+        otp: error instanceof Error ? error.message : "Password reset failed. Please try again.",
+      });
+      setIsLoading(false);
     }
-    setIsLoading(false);
-    setIsSuccess(true);
   };
 
-  // Invalid/expired token state
-  if (!token) {
-    return (
-      <div style={styles.page}>
-        <div style={styles.container}>
-          <div style={styles.logoContainer}>
-            <div style={styles.logoDot} />
-            <span style={styles.logoText}>EVzone</span>
-          </div>
+  const handleResendOtp = async () => {
+    if (!email) {
+      setErrors({ email: "Enter your email address first." });
+      return;
+    }
 
-          <div style={styles.card}>
-            <div style={styles.iconWrapper}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="#dc2626" strokeWidth="1.5"/>
-                <path d="M12 8v4M12 16h.01" stroke="#dc2626" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <h1 style={styles.title}>Invalid reset link</h1>
-            <p style={styles.subtitle}>
-              This password reset link is invalid or has expired. Please request a new one.
-            </p>
-            <button
-              style={styles.submitButton}
-              onClick={() => navigate("/admin/forgot-password")}
-            >
-              Request new link
-            </button>
-            <button
-              style={styles.backButton}
-              onClick={() => navigate("/admin/login")}
-            >
-              Back to sign in
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    setIsLoading(true);
+    setResendMessage("");
+    try {
+      await requestPasswordReset(email.trim().toLowerCase());
+      setResendMessage("A new 6-digit reset code has been sent.");
+      setErrors({ ...errors, otp: "", email: "" });
+    } catch (error) {
+      setErrors({
+        ...errors,
+        email: error instanceof Error ? error.message : "Could not resend the reset code.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Success state
   if (isSuccess) {
@@ -189,10 +198,50 @@ export default function ResetPassword() {
           </div>
           <h1 style={styles.title}>Set new password</h1>
           <p style={styles.subtitle}>
-            Your new password must be different from previously used passwords.
+            Enter the 6-digit reset code you received, then choose a new password.
           </p>
 
           <form style={styles.form} onSubmit={handleSubmit}>
+            <div style={styles.fieldGroup}>
+              <label style={styles.label}>Email address</label>
+              <input
+                style={{
+                  ...styles.input,
+                  borderColor: errors.email ?"#fca5a5" : EV.grayBorder,
+                  backgroundColor: errors.email ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
+                }}
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setErrors({ ...errors, email:"" }); }}
+                placeholder="you@company.com"
+                disabled={isLoading}
+                autoFocus={!email}
+              />
+              {errors.email && <span style={styles.errorText}>{errors.email}</span>}
+            </div>
+
+            <div style={styles.fieldGroup}>
+              <label style={styles.label}>Reset code</label>
+              <input
+                style={{
+                  ...styles.input,
+                  borderColor: errors.otp ?"#fca5a5" : EV.grayBorder,
+                  backgroundColor: errors.otp ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
+                  letterSpacing: "0.3em",
+                  textAlign: "center",
+                }}
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setErrors({ ...errors, otp:"" }); }}
+                placeholder="123456"
+                disabled={isLoading}
+              />
+              {errors.otp && <span style={styles.errorText}>{errors.otp}</span>}
+              {resendMessage ? <span style={{ ...styles.helpText, marginTop: 8 }}>{resendMessage}</span> : null}
+            </div>
+
             <div style={styles.fieldGroup}>
               <label style={styles.label}>New password</label>
               <div style={styles.passwordWrapper}>
@@ -288,6 +337,14 @@ export default function ResetPassword() {
               {isLoading ?"Resetting password..." :"Reset password"}
             </button>
           </form>
+
+          <button
+            style={styles.secondaryButton}
+            onClick={handleResendOtp}
+            disabled={isLoading}
+          >
+            Resend reset code
+          </button>
 
           <button
             style={styles.backButton}
