@@ -19,11 +19,12 @@ export const ADMIN_BACKEND_ROLE_ENUMS = ["admin", "super_admin"] as const
 export type AdminBackendRole = (typeof ADMIN_BACKEND_ROLE_ENUMS)[number]
 
 export type AuthUser = {
-  name: string
-  email: string
-  role: string
-  roles?: string[]
-  defaultRedirect?: string
+    name: string
+    email: string
+    role: string
+    roles?: string[]
+    permissions?: string[]
+    defaultRedirect?: string
 }
 
 type JwtPayload = { exp?: number; roles?: unknown }
@@ -52,27 +53,20 @@ function parseAdminRoles(roles: unknown): AdminRoleClaimStatus {
   }
 
   const normalized = new Set<AdminBackendRole>()
-  let hasUnknownRoles = false
 
   for (const value of roles) {
     if (typeof value !== "string") {
-      hasUnknownRoles = true
       continue
     }
 
     const role = value.trim().toLowerCase()
-    if (!role) continue
-
-    if (ADMIN_ROLE_SET.has(role)) {
-      normalized.add(role as AdminBackendRole)
-    } else {
-      hasUnknownRoles = true
-    }
+    if (!role || !ADMIN_ROLE_SET.has(role)) continue
+    normalized.add(role as AdminBackendRole)
   }
 
   return {
     roles: Array.from(normalized),
-    hasUnknownRoles,
+    hasUnknownRoles: false,
   }
 }
 
@@ -89,7 +83,13 @@ function resolveClaimRoles(): AdminRoleClaimStatus {
   return parseAdminRoles(payload?.roles)
 }
 
-function buildAuthUser(email: string, roles: AdminBackendRole[], name?: string, defaultRedirect?: string): AuthUser {
+function buildAuthUser(
+  email: string,
+  roles: AdminBackendRole[],
+  name?: string,
+  defaultRedirect?: string,
+  permissions: string[] = [],
+): AuthUser {
   const normalizedEmail = email.trim().toLowerCase()
   const resolvedName = name?.trim() || normalizedEmail.split("@")[0] || "Admin"
   return {
@@ -97,6 +97,7 @@ function buildAuthUser(email: string, roles: AdminBackendRole[], name?: string, 
     email: normalizedEmail,
     role: roles.includes("super_admin") ? "Super Admin" : "Admin",
     roles,
+    permissions,
     defaultRedirect,
   }
 }
@@ -132,7 +133,13 @@ async function finalizeBackendAuth(backend: {
     throw new Error("Admin account has no supported backend role.")
   }
 
-  const authUser = buildAuthUser(session.user.email, resolvedRoles, preferredName, session.defaultRedirect)
+  const authUser = buildAuthUser(
+    session.user.email,
+    resolvedRoles,
+    preferredName,
+    session.defaultRedirect,
+    Array.isArray(session.permissions) ? session.permissions : [],
+  )
   signIn(authUser)
   void syncAdminReferenceData().catch((error) => {
     console.warn("Admin backend bootstrap sync failed. Keeping current local store.", error)
@@ -160,6 +167,11 @@ export function getAuthRoles(): AdminBackendRole[] {
   if (claimRoles.roles.length > 0) return claimRoles.roles
   const user = getAuthUser()
   return parseAdminRoles(user?.roles).roles
+}
+
+export function getAuthPermissions(): string[] {
+  const user = getAuthUser()
+  return Array.isArray(user?.permissions) ? user.permissions.filter((value) => typeof value === "string") : []
 }
 
 export function hasInvalidRoleClaims(): boolean {

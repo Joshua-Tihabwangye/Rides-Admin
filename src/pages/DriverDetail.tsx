@@ -35,6 +35,11 @@ function CustomTabPanel(props: TabPanelProps) {
     )
 }
 
+function formatRating(value: unknown): string {
+    const numericValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+    return Number.isFinite(numericValue) ? numericValue.toFixed(1) : 'N/A'
+}
+
 export default function DriverDetail() {
     const { id } = useParams() // id is backend driver ID (string)
     const navigate = useNavigate()
@@ -118,7 +123,7 @@ export default function DriverDetail() {
     const phone = driver.phone || '+256 700 000 000'
     const city = driver.city || 'Unknown'
     const trips = driver.totalTrips ?? 0
-    const rating = driver.rating?.toFixed(1) || 'N/A'
+    const rating = formatRating(driver.rating)
 
     return (
         <Box>

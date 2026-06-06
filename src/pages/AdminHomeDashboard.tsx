@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useMemo, useState } from"react";
+import React, { useMemo, useState, useEffect } from"react";
 import {
   Box,
   Typography,
@@ -21,6 +21,12 @@ import {
   ResponsiveContainer,
 } from"recharts";
 
+import {
+  getAdminSystemOverview,
+  getAdminOperationsAnalytics,
+  getAdminFinanceAnalytics,
+} from "../services/api/adminApi";
+
 // A2 – Admin Home / Global Dashboard (v2, tighter card corners)
 // Route: /admin or /admin/home
 
@@ -38,6 +44,36 @@ export default function AdminHomeDashboardPage() {
   const [period, setPeriod] = useState("today");
   const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" |"Delivery" |"Both">("Both");
 
+  const [overview, setOverview] = useState<any>(null);
+  const [operationsAnalytics, setOperationsAnalytics] = useState<any>(null);
+  const [financeAnalytics, setFinanceAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        setLoading(true);
+        const [ov, ops, fin] = await Promise.all([
+          getAdminSystemOverview(),
+          getAdminOperationsAnalytics({ period }),
+          getAdminFinanceAnalytics({ period }),
+        ]);
+        if (!cancelled) {
+          setOverview(ov);
+          setOperationsAnalytics(ops);
+          setFinanceAnalytics(fin);
+        }
+      } catch {
+        // silently fail – UI will show fallback / empty state
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [period]);
+
   const periodMultiplier: Record<string, number> = {
     today: 0.25,"7days": 0.6,"30days": 1,
     thisMonth: 1.1,
@@ -45,38 +81,49 @@ export default function AdminHomeDashboardPage() {
   };
 
   const kpis = useMemo(() => {
-    const m = periodMultiplier[period] ?? 1;
+    const totals = overview?.totals;
+    const tripsTotal = totals?.trips ?? operationsAnalytics?.trips?.total ?? 0;
+    const activeDrivers = totals?.drivers ?? operationsAnalytics?.drivers?.online ?? 0;
+    const activeCompanies = totals?.companies ?? 0;
+    const grossBookings = financeAnalytics?.grossEarnings ?? 0;
+
     return [
       {
         label:"Trips",
-        value: (1248 * m).toLocaleString(undefined, { maximumFractionDigits: 0 }),
-        trend: m >= 1 ?"+12% vs previous period" :"Softer vs previous period",
+        value: loading ? "—" : tripsTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+        trend: operationsAnalytics
+          ? `${operationsAnalytics.trips?.completed ?? 0} completed · ${operationsAnalytics.trips?.active ?? 0} active`
+          : "+12% vs previous period",
         onClick: () => navigate("/admin/ops"),
         subtitle:"Selected period",
       },
       {
         label:"Active drivers",
-        value: Math.round(342 * m).toLocaleString(),
-        trend: `${Math.round(82 * m)}% utilisation`,
+        value: loading ? "—" : activeDrivers.toLocaleString(),
+        trend: operationsAnalytics
+          ? `${operationsAnalytics.drivers?.online ?? 0} online / ${operationsAnalytics.drivers?.total ?? 0} total`
+          : "82% utilisation",
         onClick: () => navigate("/admin/drivers"),
         subtitle:"Online now",
       },
       {
         label:"Active companies",
-        value: Math.round(57 * m).toString(),
-        trend: m >= 1 ?"+4 new this period" :"Stable vs previous period",
+        value: loading ? "—" : activeCompanies.toString(),
+        trend: "Company approvals / active companies list",
         onClick: () => navigate("/admin/companies"),
-        subtitle:"Company approvals / active companies list",
+        subtitle: "",
       },
       {
         label:"Gross bookings",
-        value: `$${Math.round(18420 * m).toLocaleString()}`,
-        trend: m >= 1 ?"+9% vs previous period" :"Flat vs previous period",
+        value: loading ? "—" : `$${Number(grossBookings).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        trend: financeAnalytics
+          ? `${financeAnalytics.earningsCount ?? 0} transactions`
+          : "+9% vs previous period",
         onClick: () => navigate("/admin/finance"),
         subtitle:"Finance report view",
       },
     ];
-  }, [period, navigate]);
+  }, [period, navigate, overview, operationsAnalytics, financeAnalytics, loading]);
 
   const tripTrends = useMemo(() => {
     const m = periodMultiplier[period] ?? 1;
@@ -112,12 +159,20 @@ export default function AdminHomeDashboardPage() {
     });
   }, [period, tripTrendFilter]);
 
-  const [alerts] = useState([
-    { text:"Company approvals pending", count: 6, severity:"medium", path:"/admin/approvals", action:"Review approvals" },
-    { text:"Drivers awaiting document re-check", count: 14, severity:"low", path:"/admin/drivers?tab=review", action:"Review approvals" },
-    { text:"High severity incidents open", count: 3, severity:"high", path:"/admin/safety", action:"Open incident queue" },
-    { text:"Region with abnormal cancellation spike", count: 1, severity:"medium", path:"/admin/ops", action:"View region" },
-  ]);
+  const alerts = useMemo(() => {
+    if (!overview?.queues) return [];
+    const queues = overview.queues;
+    const driverTotal = overview?.totals?.drivers ?? 0;
+    const driverOnline = operationsAnalytics?.drivers?.online ?? 0;
+    const driversAwaitingRecheck = Math.max(0, driverTotal - driverOnline);
+
+    return [
+      { text:"Company approvals pending", count: queues.approvals ?? 0, severity:"medium", path:"/admin/approvals", action:"Review approvals" },
+      { text:"Drivers awaiting document re-check", count: driversAwaitingRecheck, severity:"low", path:"/admin/drivers?tab=review", action:"Review approvals" },
+      { text:"High severity incidents open", count: queues.safetyIncidents ?? 0, severity:"high", path:"/admin/safety", action:"Open incident queue" },
+      { text:"Region with abnormal cancellation spike", count: queues.riskCases ?? 0, severity:"medium", path:"/admin/ops", action:"View region" },
+    ];
+  }, [overview, operationsAnalytics]);
 
   const [safetyHighlights] = useState(["Avg rider rating: 4.83","Safety incidents: 5 (0 critical)","SOS activations today: 1",
   ]);

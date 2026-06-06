@@ -37,6 +37,11 @@ function CustomTabPanel(props: TabPanelProps) {
     )
 }
 
+function formatRating(value: unknown): string {
+    const numericValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+    return Number.isFinite(numericValue) ? numericValue.toFixed(1) : 'N/A'
+}
+
 export default function RiderDetail() {
     const { id } = useParams() // id is backend user ID (string)
     const navigate = useNavigate()
@@ -120,7 +125,7 @@ export default function RiderDetail() {
     const phone = rider.phone || '+250 788 000 000'
     const city = rider.city || 'Unknown'
     const trips = rider.totalTrips ?? 0
-    const rating = rider.rating?.toFixed(1) || 'N/A'
+    const rating = formatRating(rider.rating)
 
     return (
         <Box>

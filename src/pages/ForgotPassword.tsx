@@ -98,7 +98,7 @@ export default function ForgotPassword() {
             </p>
             <button
               style={styles.submitButton}
-              onClick={() => navigate("/admin/reset-password", { state: { email: email.trim().toLowerCase() } })}
+              onClick={() => navigate("/admin/verify-otp", { state: { email: email.trim().toLowerCase() } })}
             >
               Enter reset code
             </button>
@@ -158,7 +158,7 @@ export default function ForgotPassword() {
               }}
               disabled={isLoading}
             >
-              {isLoading ?"Sending..." :"Send reset link"}
+              {isLoading ?"Sending..." :"Send reset code"}
             </button>
           </form>
 

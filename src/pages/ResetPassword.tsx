@@ -54,7 +54,8 @@ export default function ResetPassword() {
   const state = location.state || {};
 
   const [email, setEmail] = useState((state.email || prefill.email || prefill.identity || "").trim().toLowerCase());
-  const [otp, setOtp] = useState(state.otp || "");
+  const verifiedOtp = typeof state.otp === "string" ? state.otp : "";
+  const [otp, setOtp] = useState(verifiedOtp);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -220,27 +221,37 @@ export default function ResetPassword() {
               {errors.email && <span style={styles.errorText}>{errors.email}</span>}
             </div>
 
-            <div style={styles.fieldGroup}>
-              <label style={styles.label}>Reset code</label>
-              <input
-                style={{
-                  ...styles.input,
-                  borderColor: errors.otp ?"#fca5a5" : EV.grayBorder,
-                  backgroundColor: errors.otp ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
-                  letterSpacing: "0.3em",
-                  textAlign: "center",
-                }}
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setErrors({ ...errors, otp:"" }); }}
-                placeholder="123456"
-                disabled={isLoading}
-              />
-              {errors.otp && <span style={styles.errorText}>{errors.otp}</span>}
-              {resendMessage ? <span style={{ ...styles.helpText, marginTop: 8 }}>{resendMessage}</span> : null}
-            </div>
+            {verifiedOtp ? (
+              <div style={styles.fieldGroup}>
+                <label style={styles.label}>Verified reset code</label>
+                <div style={{ ...styles.input, letterSpacing: "0.3em", textAlign: "center", backgroundColor: EV.lightGray }}>
+                  {verifiedOtp}
+                </div>
+                {resendMessage ? <span style={{ ...styles.helpText, marginTop: 8 }}>{resendMessage}</span> : null}
+              </div>
+            ) : (
+              <div style={styles.fieldGroup}>
+                <label style={styles.label}>Reset code</label>
+                <input
+                  style={{
+                    ...styles.input,
+                    borderColor: errors.otp ?"#fca5a5" : EV.grayBorder,
+                    backgroundColor: errors.otp ? "var(--ev-input-bg-error, #fef2f2)" : EV.white,
+                    letterSpacing: "0.3em",
+                    textAlign: "center",
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setErrors({ ...errors, otp:"" }); }}
+                  placeholder="123456"
+                  disabled={isLoading}
+                />
+                {errors.otp && <span style={styles.errorText}>{errors.otp}</span>}
+                {resendMessage ? <span style={{ ...styles.helpText, marginTop: 8 }}>{resendMessage}</span> : null}
+              </div>
+            )}
 
             <div style={styles.fieldGroup}>
               <label style={styles.label}>New password</label>

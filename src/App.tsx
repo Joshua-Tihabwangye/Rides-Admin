@@ -9,6 +9,7 @@ import AdminBackendBootstrap from './components/AdminBackendBootstrap'
 import AdminAuthSignIn from './pages/AdminAuthSignIn'
 import AdminAuthSignUp from './pages/AdminAuthSignUp'
 import ForgotPassword from './pages/ForgotPassword'
+import VerifyResetOtp from './pages/VerifyResetOtp'
 import ResetPassword from './pages/ResetPassword'
 import AdminWelcomeNotice from './pages/AdminWelcomeNotice'
 import AdminOnboardingChecklist from './pages/AdminOnboardingChecklist'
@@ -72,6 +73,7 @@ export default function App() {
         <Route path="/admin/login" element={<AdminAuthSignIn />} />
         <Route path="/admin/signup" element={<AdminAuthSignUp />} />
         <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+        <Route path="/admin/verify-otp" element={<VerifyResetOtp />} />
         <Route path="/admin/reset-password" element={<ResetPassword />} />
         <Route path="/admin/onboarding/welcome" element={<AdminWelcomeNotice />} />
         <Route path="/admin/onboarding/checklist" element={<AdminOnboardingChecklist />} />
