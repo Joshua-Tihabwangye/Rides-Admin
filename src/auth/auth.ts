@@ -53,27 +53,20 @@ function parseAdminRoles(roles: unknown): AdminRoleClaimStatus {
   }
 
   const normalized = new Set<AdminBackendRole>()
-  let hasUnknownRoles = false
 
   for (const value of roles) {
     if (typeof value !== "string") {
-      hasUnknownRoles = true
       continue
     }
 
     const role = value.trim().toLowerCase()
-    if (!role) continue
-
-    if (ADMIN_ROLE_SET.has(role)) {
-      normalized.add(role as AdminBackendRole)
-    } else {
-      hasUnknownRoles = true
-    }
+    if (!role || !ADMIN_ROLE_SET.has(role)) continue
+    normalized.add(role as AdminBackendRole)
   }
 
   return {
     roles: Array.from(normalized),
-    hasUnknownRoles,
+    hasUnknownRoles: false,
   }
 }
 
