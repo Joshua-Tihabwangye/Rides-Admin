@@ -1,4 +1,13 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "env": {
+    "VITE_BACKEND_BASE_URL": "https://api.evzone.app/api/v1",
+    "VITE_SOCKET_BASE_URL": "https://api.evzone.app",
+    "VITE_BACKEND_ENABLED": "true",
+    "VITE_USE_BACKEND": "true"
+  },
   "version": 2,
   "rewrites": [
     {
