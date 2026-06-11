@@ -20,10 +20,7 @@ function normalizeBaseUrl(value: string | undefined): string {
 function normalizeSocketBaseUrl(value: string | undefined, apiBaseUrl: string): string {
   const raw = value?.trim();
   if (raw) return raw.replace(/\/+$/, "");
-  if (IS_NON_PROD) return apiBaseUrl.replace(/\/api(?:\/v\d+)?$/, "");
-  throw new Error(
-    "VITE_SOCKET_BASE_URL must be configured to the backend origin without /api/v1.",
-  );
+  return apiBaseUrl.replace(/\/api(?:\/v\d+)?$/, "");
 }
 
 function isInvalidProductionOrigin(value: string): boolean {
