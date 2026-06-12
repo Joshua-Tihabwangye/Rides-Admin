@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useLocation } from "react-router-dom"
 import { isAuthed } from "../auth/auth"
-import { API_BASE_URL, BACKEND_FLAG_EVENT } from "../services/api/config"
+import { BACKEND_FLAG_EVENT } from "../services/api/config"
 import {
   createAdminSocket,
   isAdminBackendEnabled,
@@ -60,7 +60,9 @@ export default function AdminBackendBootstrap() {
       return Array.from(normalized)
     }
 
-    const defaultSyncEvents = normalizeAdminEvents([
+    // Phase 1.5 equivalent for admin — event names are hardcoded from
+    // events.contract.ts. No preflight HTTP fetch needed.
+    const syncEvents = normalizeAdminEvents([
       "audit.log.entry",
       "admin.audit.updated",
       "approval.updated",
@@ -68,37 +70,13 @@ export default function AdminBackendBootstrap() {
       "flag.changed",
       "flag.created",
     ])
-    let syncEvents = [...defaultSyncEvents]
-    let cancelled = false
 
-    const bootstrapRealtime = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/compat/realtime/events`)
-        if (response.ok) {
-          const payload = await response.json()
-          const data = (payload?.data || payload) as { admin?: { server?: Record<string, string> } }
-          const backendEvents = Object.values(data?.admin?.server || {}).filter(
-            (value): value is string => typeof value === "string" && value.length > 0,
-          )
-          if (backendEvents.length > 0) {
-            syncEvents = normalizeAdminEvents([...defaultSyncEvents, ...backendEvents])
-          }
-        }
-      } catch {
-        // fallback to defaults
-      }
-
-      if (cancelled) return
-      syncEvents.forEach((eventName) => {
-        socket.on(eventName, syncFromRealtime)
-      })
-      socket.connect()
-    }
-
-    void bootstrapRealtime()
+    syncEvents.forEach((eventName) => {
+      socket.on(eventName, syncFromRealtime)
+    })
+    socket.connect()
 
     return () => {
-      cancelled = true
       syncEvents.forEach((eventName) => {
         socket.off(eventName, syncFromRealtime)
       })
