@@ -9,6 +9,7 @@ import {
 
 export const ADMIN_BACKEND_ACCESS_TOKEN_KEY = "admin_backend_access_token";
 export const ADMIN_BACKEND_REFRESH_TOKEN_KEY = "admin_backend_refresh_token";
+export const ADMIN_SUMMARY_UPDATED_EVENT = "evzone:admin-summary-updated";
 const ADMIN_AUTH_STORAGE_KEY = "evzone_admin_auth";
 const RIDERS_KEY = "evzone_admin_riders";
 const DRIVERS_KEY = "evzone_admin_drivers";
@@ -60,6 +61,18 @@ export type AdminAuditEventResponse = {
   resourceId: string;
   createdAt: number;
   metadata?: Record<string, any>;
+};
+
+export type AdminUserResponse = {
+  id: string;
+  name: string;
+  email: string;
+  roles: string[];
+  regions: string;
+  status: "Active" | "Suspended";
+  lastLogin: number;
+  twoFA: boolean;
+  avatarColor?: string;
 };
 
 // Auth helpers for admin backend tokens
@@ -573,12 +586,27 @@ export type AdminRiskCaseResponse = {
   status?: "open" | "under_review" | "resolved";
 };
 
+export type AdminUpdateRiskCaseInput = Partial<{
+  notes: string;
+  status: "open" | "under_review" | "resolved";
+}>;
+
 export async function listAdminRiskCases(): Promise<AdminRiskCaseResponse[]> {
   return request<AdminRiskCaseResponse[]>("/admin/risk/cases", { method: "GET" });
 }
 
 export async function getAdminRiskCase(riskCaseId: string): Promise<AdminRiskCaseResponse> {
   return request<AdminRiskCaseResponse>(`/admin/risk/cases/${riskCaseId}`, { method: "GET" });
+}
+
+export async function patchAdminRiskCase(
+  riskCaseId: string,
+  input: AdminUpdateRiskCaseInput,
+): Promise<AdminRiskCaseResponse> {
+  return request<AdminRiskCaseResponse>(`/admin/risk/cases/${riskCaseId}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
 
 export type AdminRiderServiceResponse = {
@@ -685,6 +713,98 @@ export async function syncAdminReferenceData(): Promise<void> {
     resource: item.resource,
     resourceId: item.resourceId,
   })));
+
+  window.dispatchEvent(new Event(ADMIN_SUMMARY_UPDATED_EVENT));
+}
+
+export async function getAdminOperationalSummary(): Promise<{
+  pendingApprovals: number;
+  openRiskCases: number;
+  openIncidents: number;
+  payoutQueue: number;
+  disabledServices: number;
+  enabledFlags: number;
+  notifications: Array<{
+    id: string;
+    type: "warning" | "error" | "info" | "success";
+    title: string;
+    message: string;
+    time: string;
+    read: boolean;
+    path: string;
+  }>;
+}> {
+  const [overview, approvals, riskCases, finance, services, flags] = await Promise.all([
+    getAdminSystemOverview(),
+    listAdminApprovals(),
+    listAdminRiskCases(),
+    getAdminFinanceAnalytics({ period: "today" }),
+    listAdminServices(),
+    listAdminFeatureFlags(),
+  ]);
+
+  const pendingApprovals = approvals.filter((approval) => approval.status === "pending").length;
+  const openRiskCases = riskCases.filter((riskCase) => (riskCase.status ?? "open") !== "resolved").length;
+  const openIncidents = overview.queues.safetyIncidents ?? 0;
+  const payoutQueue = finance.payoutsPending ?? 0;
+  const disabledServices = services.filter((service) => !service.enabled).length;
+  const enabledFlags = flags.filter((flag) => flag.enabled).length;
+
+  return {
+    pendingApprovals,
+    openRiskCases,
+    openIncidents,
+    payoutQueue,
+    disabledServices,
+    enabledFlags,
+    notifications: [
+      {
+        id: "approvals",
+        type: pendingApprovals > 0 ? "warning" : "success",
+        title: "Company approvals",
+        message: `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting review`,
+        time: "live",
+        read: pendingApprovals === 0,
+        path: "/admin/approvals",
+      },
+      {
+        id: "payouts",
+        type: payoutQueue > 0 ? "warning" : "success",
+        title: "Payout queue",
+        message: `${payoutQueue.toLocaleString()} payout${payoutQueue === 1 ? "" : "s"} pending`,
+        time: "live",
+        read: payoutQueue === 0,
+        path: "/admin/finance",
+      },
+      {
+        id: "incidents",
+        type: openIncidents > 0 ? "error" : "success",
+        title: "Service health",
+        message: `${openIncidents} incident${openIncidents === 1 ? "" : "s"} need attention`,
+        time: "live",
+        read: openIncidents === 0,
+        path: "/admin/safety",
+      },
+      {
+        id: "risk",
+        type: openRiskCases > 0 ? "warning" : "success",
+        title: "Risk desk",
+        message: `${openRiskCases} case${openRiskCases === 1 ? "" : "s"} open`,
+        time: "live",
+        read: openRiskCases === 0,
+        path: "/admin/risk",
+      },
+      {
+        id: "services",
+        type: disabledServices > 0 ? "info" : "success",
+        title: "Integrations health",
+        message: `${disabledServices} service${disabledServices === 1 ? "" : "s"} disabled · ${enabledFlags} feature flag${enabledFlags === 1 ? "" : "s"} enabled`,
+        time: "live",
+        read: disabledServices === 0,
+        path: "/admin/system/integrations",
+      },
+    ],
+  };
 }
 
 // ── Socket.io ───────────────────────────────────────────────────────────────
@@ -764,6 +884,21 @@ export async function createAdminUser(input: AdminCreatePlatformUserInput): Prom
     body: normalizeAdminCreatePlatformUserInput(input),
   });
   return { userId: created.id };
+}
+
+export async function listAdminUsers(): Promise<AdminUserResponse[]> {
+  return request<AdminUserResponse[]>("/admin/users", { method: "GET" });
+}
+
+export async function getAdminUser(userId: string): Promise<AdminUserResponse> {
+  return request<AdminUserResponse>(`/admin/users/${userId}`, { method: "GET" });
+}
+
+export async function patchAdminUser(userId: string, input: AdminUpdateUserInput): Promise<AdminUserResponse> {
+  return request<AdminUserResponse>(`/admin/users/${userId}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
 
 // ── Approvals ───────────────────────────────────────────────────────────────

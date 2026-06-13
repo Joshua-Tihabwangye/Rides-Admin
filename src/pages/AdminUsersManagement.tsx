@@ -1,126 +1,132 @@
-import React, { useState } from"react";
-import { useNavigate } from"react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  TextField,
   Chip,
-  Button,
-  Divider,
+  CircularProgress,
   Table,
-  TableHead,
   TableBody,
-  TableRow,
   TableCell,
   TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
   Paper,
-  InputAdornment
-} from"@mui/material";
-import SearchIcon from"@mui/icons-material/Search";
-import StatusBadge from"../components/StatusBadge";
-
-// D2 – Admin Users Management (Light/Dark, EVzone themed)
-// Route suggestion: /admin/admin-users
-// Shows platform admin accounts and uses a RoleMatrix component inside an
-// Admin detail drawer. The same RoleMatrix pattern is also used in D3.
-
-const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
-};
-
-// RoleMatrix and AdminDetailDrawer moved to AdminUserDetail page.
-// This page now only lists users.
-
-
-const SAMPLE_ADMINS = [
-  {
-    id: 1,
-    name:"Alex Admin",
-    email:"alex.admin@evzonehq.com",
-    roles:"Super Admin",
-    regions:"Global",
-    status:"Active",
-    lastLogin:"2025-11-25 09:02",
-    twoFA:"Enabled",
-  },
-  {
-    id: 2,
-    name:"Maria Mobility",
-    email:"maria.mobility@evzonehq.com",
-    roles:"Mobility Admin",
-    regions:"East & West Africa",
-    status:"Active",
-    lastLogin:"2025-11-24 17:30",
-    twoFA:"Enabled",
-  },
-  {
-    id: 3,
-    name:"Felix Finance",
-    email:"felix.finance@evzonehq.com",
-    roles:"Finance Admin",
-    regions:"East Africa",
-    status:"Suspended",
-    lastLogin:"2025-11-10 12:15",
-    twoFA:"Disabled",
-  },
-];
+  InputAdornment,
+  Alert,
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
+import DownloadIcon from "@mui/icons-material/Download";
+import StatusBadge from "../components/StatusBadge";
+import { listAdminUsers, type AdminUserResponse } from "../services/api/adminApi";
 
 export default function AdminUsersManagementPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeRole, setActiveRole] = useState("All");
+  const [users, setUsers] = useState<AdminUserResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSearchSubmit = (event) => {
-    event.preventDefault();
+  const loadUsers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setUsers(await listAdminUsers());
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to load admin users");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRowClick = (admin) => {
-    navigate(`/admin/admin-users/${admin.id}`);
+  useEffect(() => {
+    void loadUsers();
+  }, []);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const matchesSearch =
+        user.name.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase());
+      const matchesRole = activeRole === "All" || user.roles.some((role) => role.toLowerCase().includes(activeRole.toLowerCase()));
+      return matchesSearch && matchesRole;
+    });
+  }, [activeRole, search, users]);
+
+  const handleExport = () => {
+    const rows = [
+      ["Name", "Email", "Roles", "Regions", "Status", "2FA", "Last login"],
+      ...filteredUsers.map((user) => [
+        user.name,
+        user.email,
+        user.roles.join("; "),
+        user.regions,
+        user.status,
+        user.twoFA ? "Enabled" : "Disabled",
+        new Date(user.lastLogin).toISOString(),
+      ]),
+    ];
+    const blob = new Blob([rows.map((row) => row.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "admin-users.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
-  const filteredAdmins = SAMPLE_ADMINS.filter((admin) => {
-    const matchesSearch = admin.name.toLowerCase().includes(search.toLowerCase()) ||
-      admin.email.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = activeRole ==="All" || admin.roles.includes(activeRole);
-    return matchesSearch && matchesRole;
-  });
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>
-      {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
+          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
             Admin Users Management
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Super Admins and platform admins with access to one or more EVzone modules.
+          <Typography variant="caption" color="text.secondary">
+            Privileged accounts, roles, regions, and security posture.
           </Typography>
+        </Box>
+        <Box className="flex items-center gap-2">
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleExport}
+            sx={{ textTransform: "none", borderRadius: 2 }}
+          >
+            Export
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            sx={{ textTransform: "none", borderRadius: 2, bgcolor: "#03cd8c", "&:hover": { bgcolor: "#0fb589" } }}
+            disabled
+          >
+            Add admin
+          </Button>
         </Box>
       </Box>
 
-      {/* Filters */}
-      <Card
-        elevation={2}
-        sx={{
-          borderRadius: 2,
-          border:"1px solid rgba(148,163,184,0.3)",
-          bgcolor:"background.paper",
-          mb: 3
-        }}
-      >
+      <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", mb: 3 }}>
         <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
-          <Box component="form" onSubmit={handleSearchSubmit} className="flex-1">
+          <Box className="flex-1">
             <TextField
               fullWidth
               size="small"
@@ -134,43 +140,31 @@ export default function AdminUsersManagementPage() {
                   </InputAdornment>
                 ),
               }}
-              sx={{"& .MuiOutlinedInput-root": { bgcolor:"background.default", borderRadius: 8 },"& .MuiInputBase-input::placeholder": { fontSize: 13 },
-              }}
+              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "background.default", borderRadius: 2 } }}
             />
           </Box>
-          <Box className="flex flex-wrap gap-1 text-[11px] items-center">
-            <Typography
-              variant="caption"
-              color="text.secondary"
-            >
+          <Box className="flex flex-wrap gap-1 items-center">
+            <Typography variant="caption" color="text.secondary">
               Role:
             </Typography>
-            {["All","Super Admin","Mobility Admin","Finance Admin"].map((role) => (
+            {["All", "Super Admin", "Admin"].map((role) => (
               <Chip
                 key={role}
                 size="small"
                 label={role}
                 onClick={() => setActiveRole(role)}
-                color={activeRole === role ?"primary" :"default"}
-                variant={activeRole === role ?"filled" :"outlined"}
-                sx={{ fontSize: 11, height: 24, cursor: 'pointer' }}
+                color={activeRole === role ? "primary" : "default"}
+                variant={activeRole === role ? "filled" : "outlined"}
+                sx={{ fontSize: 11, height: 24, cursor: "pointer" }}
               />
             ))}
           </Box>
         </CardContent>
       </Card>
 
-      {/* Table */}
-      <Card
-        elevation={2}
-        sx={{
-          borderRadius: 2,
-          border:"1px solid rgba(148,163,184,0.3)",
-          bgcolor:"background.paper"
-        }}
-      >
+      <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
         <CardContent className="p-0">
-          <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
+          <TableContainer component={Paper} elevation={0} sx={{ bgcolor: "transparent" }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -184,26 +178,32 @@ export default function AdminUsersManagementPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredAdmins.map((admin) => (
-                  <TableRow
-                    key={admin.id}
-                    hover
-                    sx={{ cursor:"pointer" }}
-                    onClick={() => handleRowClick(admin)}
-                  >
-                    <TableCell sx={{ fontWeight: 600 }}>{admin.name}</TableCell>
-                    <TableCell>{admin.email}</TableCell>
+                {filteredUsers.map((user) => (
+                  <TableRow key={user.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/admin/admin-users/${user.id}`)}>
+                    <TableCell sx={{ fontWeight: 600 }}>{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
                     <TableCell>
-                      <Chip label={admin.roles} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                      <Box className="flex flex-wrap gap-1">
+                        {user.roles.map((role) => (
+                          <Chip key={role} label={role} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                        ))}
+                      </Box>
                     </TableCell>
-                    <TableCell>{admin.regions}</TableCell>
+                    <TableCell>{user.regions}</TableCell>
                     <TableCell>
-                      <StatusBadge status={admin.status.toLowerCase()} />
+                      <StatusBadge status={user.status.toLowerCase()} />
                     </TableCell>
-                    <TableCell>{admin.twoFA}</TableCell>
-                    <TableCell>{admin.lastLogin}</TableCell>
+                    <TableCell>{user.twoFA ? "Enabled" : "Disabled"}</TableCell>
+                    <TableCell>{new Date(user.lastLogin).toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
+                {filteredUsers.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                      No admin users found.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>

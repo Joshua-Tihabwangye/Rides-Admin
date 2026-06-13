@@ -554,6 +554,44 @@ function seedCompanies() {
   ];
 }
 
+function seedAdminUsers() {
+  return [
+    {
+      id: "ADM-001",
+      name: "Alex Admin",
+      email: "alex.admin@evzonehq.com",
+      roles: ["super_admin"],
+      regions: "Global",
+      status: "Active",
+      lastLogin: nowMs() - 3600000 * 4,
+      twoFA: true,
+      avatarColor: "#03cd8c",
+    },
+    {
+      id: "ADM-002",
+      name: "Maria Mobility",
+      email: "maria.mobility@evzonehq.com",
+      roles: ["admin"],
+      regions: "East & West Africa",
+      status: "Active",
+      lastLogin: nowMs() - 3600000 * 18,
+      twoFA: true,
+      avatarColor: "#f77f00",
+    },
+    {
+      id: "ADM-003",
+      name: "Felix Finance",
+      email: "felix.finance@evzonehq.com",
+      roles: ["admin"],
+      regions: "East Africa",
+      status: "Suspended",
+      lastLogin: nowMs() - 3600000 * 72,
+      twoFA: false,
+      avatarColor: "#3b82f6",
+    },
+  ];
+}
+
 function seedAuditLog() {
   return [
     {
@@ -733,6 +771,48 @@ async function handleDemoRequest<T>(path: string, options: RequestOptions): Prom
     return deepClone(drivers[index]) as T;
   }
 
+  if (pathname === "/admin/users" && method === "GET") {
+    return deepClone(getCollection(`${DEMO_PREFIX}_admin_users`, seedAdminUsers)) as T;
+  }
+
+  if (pathname.startsWith("/admin/users/") && method === "GET") {
+    const id = pathname.split("/").pop() || "";
+    const users = getCollection(`${DEMO_PREFIX}_admin_users`, seedAdminUsers);
+    const item = findByAnyId(users, id, ["id", "email"]);
+    if (!item) throw new ApiRequestError("Admin user not found", 404);
+    return deepClone(item) as T;
+  }
+
+  if (pathname.startsWith("/admin/users/") && method === "PATCH") {
+    const id = pathname.split("/").pop() || "";
+    const users = getCollection(`${DEMO_PREFIX}_admin_users`, seedAdminUsers);
+    const index = users.findIndex((item) =>
+      [item.id, item.email].map((v: string) => String(v).toLowerCase()).includes(id.toLowerCase())
+    );
+    if (index < 0) throw new ApiRequestError("Admin user not found", 404);
+    users[index] = { ...users[index], ...body };
+    saveCollection(`${DEMO_PREFIX}_admin_users`, users);
+    return deepClone(users[index]) as T;
+  }
+
+  if (pathname === "/admin/users" && method === "POST") {
+    const users = getCollection(`${DEMO_PREFIX}_admin_users`, seedAdminUsers);
+    const userId = makeId("ADM");
+    users.unshift({
+      id: userId,
+      name: String(body.fullName || body.email || "New Admin"),
+      email: String(body.email || `${userId.toLowerCase()}@example.com`),
+      roles: Array.isArray(body.roles) && body.roles.length > 0 ? body.roles : ["admin"],
+      regions: String(body.city || "Global"),
+      status: "Active",
+      lastLogin: nowMs(),
+      twoFA: false,
+      avatarColor: "#03cd8c",
+    });
+    saveCollection(`${DEMO_PREFIX}_admin_users`, users);
+    return { id: userId } as T;
+  }
+
   if (pathname === "/admin/pricing-zones" && method === "GET") {
     return deepClone(getCollection(DEMO_KEYS.pricingZones, seedPricingZones)) as T;
   }
@@ -888,6 +968,16 @@ async function handleDemoRequest<T>(path: string, options: RequestOptions): Prom
     const item = findByAnyId(riskCases, id, ["id"]);
     if (!item) throw new ApiRequestError("Risk case not found", 404);
     return deepClone(item) as T;
+  }
+
+  if (pathname.startsWith("/admin/risk/cases/") && method === "PATCH") {
+    const id = pathname.split("/").pop() || "";
+    const riskCases = getCollection(DEMO_KEYS.riskCases, seedRiskCases);
+    const index = riskCases.findIndex((item) => String(item.id).toLowerCase() === id.toLowerCase());
+    if (index < 0) throw new ApiRequestError("Risk case not found", 404);
+    riskCases[index] = { ...riskCases[index], ...body };
+    saveCollection(DEMO_KEYS.riskCases, riskCases);
+    return deepClone(riskCases[index]) as T;
   }
 
   if (pathname === "/admin/rider-services" && method === "GET") {

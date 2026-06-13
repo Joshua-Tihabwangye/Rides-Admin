@@ -75,9 +75,11 @@ export default function FinancialOverviewPage() {
 
   const handleExport = () => {
     if (!analytics) return;
+    const netRevenue = Math.max(0, analytics.grossEarnings - analytics.payoutsPending);
     const csvContent = [
       ['Metric', 'Value'],
       ['Gross bookings', analytics.grossEarnings.toString()],
+      ['Net revenue', netRevenue.toString()],
       ['Payouts (scheduled)', analytics.payoutsPending.toString()],
       ['Currency', analytics.currency],
     ].map(e => e.join(",")).join("\n");
@@ -99,6 +101,7 @@ export default function FinancialOverviewPage() {
 
   const kpis = useMemo(() => {
     if (!analytics) return [];
+    const netRevenue = Math.max(0, analytics.grossEarnings - analytics.payoutsPending);
     return [
       {
         label: "Gross bookings",
@@ -107,8 +110,8 @@ export default function FinancialOverviewPage() {
       },
       {
         label: "EVzone net revenue",
-        value: `$${analytics.earningsCount.toLocaleString()}`,
-        subtitle: "Net after fees & incentives",
+        value: `$${netRevenue.toLocaleString()}`,
+        subtitle: "Estimated gross less payout liability",
       },
       {
         label: "Payouts (scheduled)",
@@ -300,7 +303,7 @@ export default function FinancialOverviewPage() {
                   className="font-semibold"
                   color="text.primary"
                 >
-                  Revenue by region (sample)
+                  Revenue by region
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Click a region to view detailed reports.

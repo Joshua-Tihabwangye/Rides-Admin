@@ -49,6 +49,10 @@ export default function AdminBackendBootstrap() {
     const adminEventAliases: Record<string, string[]> = {
       "audit.log.entry": ["admin.audit.updated"],
       "approval.reviewed": ["approval.updated"],
+      "service.updated": ["admin.service.updated"],
+      "flag.changed": ["admin.flag.updated"],
+      "cashout.request.updated": ["finance.payout.updated"],
+      "risk.case.updated": ["admin.risk.updated"],
     }
     const normalizeAdminEvents = (events: string[]) => {
       const normalized = new Set<string>()
@@ -69,6 +73,9 @@ export default function AdminBackendBootstrap() {
       "approval.reviewed",
       "flag.changed",
       "flag.created",
+      "service.updated",
+      "finance.payout.updated",
+      "risk.case.updated",
     ])
 
     syncEvents.forEach((eventName) => {
