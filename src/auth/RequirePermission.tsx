@@ -17,16 +17,21 @@ export default function RequirePermission({
     return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
   }
 
-  const granted = new Set(
+  const claimPermissions = new Set(
     getAuthPermissions().filter((permission): permission is AdminPermission =>
-      anyOf.includes(permission as AdminPermission) || true,
+      anyOf.includes(permission as AdminPermission),
     ),
-  )
-  const claimRoles = getAuthRoles()
+  );
+  const claimRoles = new Set(getAuthRoles());
+  const granted =
+    claimPermissions.size > 0
+      ? claimPermissions
+      : new Set<AdminPermission>();
   const hasPermission =
-    granted.size > 0
-      ? anyOf.some((permission) => granted.has(permission))
-      : anyOf.some((permission) => claimRoles.includes("super_admin") || claimRoles.includes("admin") && permission !== "manage_system")
+    anyOf.some((permission) => granted.has(permission)) ||
+    (claimPermissions.size === 0 &&
+      ((claimRoles.has("super_admin") && anyOf.length > 0) ||
+        (claimRoles.has("admin") && anyOf.every((permission) => permission !== "manage_system"))));
   if (!hasPermission) {
     return <Navigate to="/admin/access-denied" replace state={{ from: location.pathname }} />;
   }

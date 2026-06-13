@@ -6,6 +6,7 @@ import {
   CardContent,
   Typography,
   TextField,
+  Checkbox,
   Chip,
   Button,
   Divider,
@@ -80,6 +81,7 @@ export default function ApprovalsDashboardPage() {
   const [period, setPeriod] = useState<PeriodOption>("today");
   const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [snackbar, setSnackbar] = useState<{ open: boolean; msg: string; severity: 'success' | 'error' }>({ open: false, msg: '', severity: 'success' });
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const fetchApprovals = async () => {
     setLoading(true);
@@ -112,6 +114,45 @@ export default function ApprovalsDashboardPage() {
        setSnackbar({ open: true, msg: `Case ${approval.id} ${action === 'Approve' ? 'Approved' : 'Rejected'}`, severity: 'success' });
     } catch (e: any) {
       setSnackbar({ open: true, msg: `Failed: ${e?.message}`, severity: 'error' });
+    }
+  };
+
+  const toggleSelected = (approvalId: string) => {
+    setSelectedIds((prev) => prev.includes(approvalId) ? prev.filter((id) => id !== approvalId) : [...prev, approvalId]);
+  };
+
+  const exportCsv = () => {
+    const rows = [
+      ["ID", "Type", "Entity", "Status", "Requested By", "Reviewed By", "Created At"],
+      ...filteredApprovals.map((approval) => [
+        approval.id,
+        approval.entityType,
+        approval.entityId,
+        approval.status,
+        approval.requestedBy,
+        approval.reviewedBy || "",
+        new Date(approval.createdAt).toISOString(),
+      ]),
+    ];
+    const blob = new Blob([rows.map((row) => row.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "approvals.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const bulkReview = async (decision: "approved" | "rejected") => {
+    const targets = approvals.filter((approval) => selectedIds.includes(approval.id) && approval.status === "pending");
+    if (targets.length === 0) return;
+    try {
+      await Promise.all(targets.map((approval) => reviewAdminApproval(approval.id, { decision })));
+      setApprovals((prev) => prev.filter((approval) => !selectedIds.includes(approval.id)));
+      setSelectedIds([]);
+      setSnackbar({ open: true, msg: `${targets.length} approval${targets.length === 1 ? "" : "s"} ${decision}`, severity: "success" });
+    } catch (err: any) {
+      setSnackbar({ open: true, msg: err?.message ?? "Bulk review failed", severity: "error" });
     }
   };
 
@@ -175,6 +216,33 @@ export default function ApprovalsDashboardPage() {
                 <MenuItem value="Document">Document</MenuItem>
               </Select>
             </FormControl>
+            <Button
+              size="small"
+              variant="outlined"
+              sx={{ textTransform: "none" }}
+              onClick={exportCsv}
+            >
+              Export CSV
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              sx={{ textTransform: "none", bgcolor: EV_COLORS.primary, "&:hover": { bgcolor: "#0fb589" } }}
+              disabled={selectedIds.length === 0}
+              onClick={() => void bulkReview("approved")}
+            >
+              Approve selected
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              sx={{ textTransform: "none" }}
+              disabled={selectedIds.length === 0}
+              onClick={() => void bulkReview("rejected")}
+            >
+              Reject selected
+            </Button>
             <Box className="ml-auto">
               <Button
                 variant="text"
@@ -209,6 +277,7 @@ export default function ApprovalsDashboardPage() {
             elevation={1}
             sx={{
               border: "1px solid rgba(148,163,184,0.5)",
+              outline: selectedIds.includes(approval.id) ? `2px solid ${EV_COLORS.primary}` : "none",
             }}
           >
             <CardContent
@@ -216,19 +285,27 @@ export default function ApprovalsDashboardPage() {
               onClick={() => handleCaseClick(approval)}
             >
               <Box className="flex items-center justify-between gap-2">
-                <Box>
-                  <Typography
-                    variant="caption"
-                    className="text-[11px] text-slate-500"
-                  >
-                    {approval.id}
-                  </Typography>
-                  <Typography
-                    variant="subtitle2"
-                    className="font-semibold"
-                  >
-                    {approval.entityId}
-                  </Typography>
+                <Box className="flex items-start gap-2">
+                  <Checkbox
+                    checked={selectedIds.includes(approval.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleSelected(approval.id)}
+                    size="small"
+                  />
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      className="text-[11px] text-slate-500"
+                    >
+                      {approval.id}
+                    </Typography>
+                    <Typography
+                      variant="subtitle2"
+                      className="font-semibold"
+                    >
+                      {approval.entityId}
+                    </Typography>
+                  </Box>
                 </Box>
                 <Box className="flex flex-col items-end gap-1">
                   <Chip

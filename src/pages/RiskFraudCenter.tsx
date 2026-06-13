@@ -6,12 +6,14 @@ import {
   CardContent,
   Typography,
   TextField,
+  Checkbox,
   Chip,
+  Button,
   Divider,
   CircularProgress,
   Alert,
 } from"@mui/material";
-import { listAdminRiskCases } from"../services/api/adminApi";
+import { listAdminRiskCases, patchAdminRiskCase } from"../services/api/adminApi";
 import type { AdminRiskCaseResponse } from"../services/api/adminApi";
 
 const EV_COLORS = {
@@ -26,6 +28,7 @@ export default function RiskFraudCenterPage() {
   const [cases, setCases] = useState<AdminRiskCaseResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const fetchCases = async () => {
     setLoading(true);
@@ -46,6 +49,44 @@ export default function RiskFraudCenterPage() {
 
   const handleCaseClick = (riskCase: AdminRiskCaseResponse) => {
     navigate(`/admin/risk/${riskCase.id}`);
+  };
+
+  const exportCsv = () => {
+    const rows = [
+      ["ID", "Subject", "Type", "Severity", "Status", "Created At", "Notes"],
+      ...filteredCases.map((riskCase) => [
+        riskCase.id,
+        riskCase.subjectId,
+        riskCase.type,
+        riskCase.severity,
+        riskCase.status ?? "open",
+        new Date(riskCase.createdAt).toISOString(),
+        riskCase.notes ?? "",
+      ]),
+    ];
+    const blob = new Blob([rows.map((row) => row.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "risk-cases.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]);
+  };
+
+  const bulkUpdate = async (status: "under_review" | "resolved") => {
+    const targets = cases.filter((riskCase) => selectedIds.includes(riskCase.id));
+    if (targets.length === 0) return;
+    try {
+      await Promise.all(targets.map((riskCase) => patchAdminRiskCase(riskCase.id, { status })));
+      await fetchCases();
+      setSelectedIds([]);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to update risk cases");
+    }
   };
 
   const filteredCases = useMemo(() => {
@@ -111,6 +152,29 @@ export default function RiskFraudCenterPage() {
           >
             Filter suspicious activity by type, severity, age and region. Data is from backend.
           </Typography>
+          <Box className="flex flex-wrap gap-2 justify-end">
+            <Button size="small" variant="outlined" onClick={exportCsv} sx={{ textTransform: "none" }}>
+              Export CSV
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={selectedIds.length === 0}
+              sx={{ textTransform: "none", bgcolor: EV_COLORS.primary, "&:hover": { bgcolor: "#0fb589" } }}
+              onClick={() => void bulkUpdate("under_review")}
+            >
+              Mark under review
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={selectedIds.length === 0}
+              sx={{ textTransform: "none" }}
+              onClick={() => void bulkUpdate("resolved")}
+            >
+              Resolve selected
+            </Button>
+          </Box>
 
           <Divider className="!my-1" />
 
@@ -163,6 +227,7 @@ export default function RiskFraudCenterPage() {
             sx={{
               borderRadius: 8,
               border: "1px solid rgba(148,163,184,0.6)",
+              outline: selectedIds.includes(riskCase.id) ? `2px solid ${EV_COLORS.primary}` : "none",
               cursor: "pointer",
               "&:hover": {
                 transform: "translateY(-3px)",
@@ -172,25 +237,33 @@ export default function RiskFraudCenterPage() {
           >
             <CardContent className="p-4 flex flex-col gap-2">
               <Box className="flex items-center justify-between gap-2">
-                <Box>
-                  <Typography
-                    variant="caption"
-                    className="text-[11px] text-slate-500"
-                  >
-                    {riskCase.id}
-                  </Typography>
-                  <Typography
-                    variant="subtitle2"
-                    className="font-semibold"
-                  >
-                    {riskCase.subjectId}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    className="text-[11px] text-slate-500"
-                  >
-                    {riskCase.subjectType} · {riskCase.type}
-                  </Typography>
+                <Box className="flex items-start gap-2">
+                  <Checkbox
+                    checked={selectedIds.includes(riskCase.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleSelected(riskCase.id)}
+                    size="small"
+                  />
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      className="text-[11px] text-slate-500"
+                    >
+                      {riskCase.id}
+                    </Typography>
+                    <Typography
+                      variant="subtitle2"
+                      className="font-semibold"
+                    >
+                      {riskCase.subjectId}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      className="text-[11px] text-slate-500"
+                    >
+                      {riskCase.subjectType} · {riskCase.type}
+                    </Typography>
+                  </Box>
                 </Box>
                 <Box className="flex flex-col items-end gap-1">
                   <Chip

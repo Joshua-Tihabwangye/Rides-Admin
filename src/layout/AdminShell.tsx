@@ -68,6 +68,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, signOut } from '../auth/auth'
+import { ADMIN_SUMMARY_UPDATED_EVENT, getAdminOperationalSummary } from '../services/api/adminApi'
 
 const drawerWidth = 220
 const drawerWidthMini = 88
@@ -143,41 +144,15 @@ const EV_COLORS = {
   secondary: '#f77f00',
 }
 
-// Sample notifications data
-const SAMPLE_NOTIFICATIONS = [
-  {
-    id: 1,
-    type: 'warning',
-    title: 'Company approvals pending',
-    message: '6 companies awaiting approval',
-    time: '5 min ago',
-    read: false,
-  },
-  {
-    id: 2,
-    type: 'error',
-    title: 'High severity incidents',
-    message: '3 incidents require immediate attention',
-    time: '12 min ago',
-    read: false,
-  },
-  {
-    id: 3,
-    type: 'info',
-    title: 'Driver documents expiring',
-    message: '14 drivers need document re-check',
-    time: '1 hour ago',
-    read: false,
-  },
-  {
-    id: 4,
-    type: 'success',
-    title: 'Payouts completed',
-    message: 'Weekly payouts processed successfully',
-    time: '2 hours ago',
-    read: true,
-  },
-]
+type NotificationItem = {
+  id: string
+  type: 'warning' | 'error' | 'info' | 'success'
+  title: string
+  message: string
+  time: string
+  read: boolean
+  path: string
+}
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2)
@@ -196,7 +171,7 @@ export default function AdminShell() {
   const [search, setSearch] = useState('')
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null)
   const [notificationAnchor, setNotificationAnchor] = useState<null | HTMLElement>(null)
-  const [notifications, setNotifications] = useState(SAMPLE_NOTIFICATIONS)
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
 
   const user = getAuthUser() || { name: 'Admin', email: 'admin@evzone.app', role: 'Admin' }
   const userInitials = useMemo(() => initials(user.name), [user.name])
@@ -210,13 +185,39 @@ export default function AdminShell() {
   const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => setNotificationAnchor(event.currentTarget)
   const handleNotificationClose = () => setNotificationAnchor(null)
 
-  const handleMarkAsRead = (id: number) => {
+  const handleMarkAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
   }
 
   const handleMarkAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    let cancelled = false
+    const refreshSummary = async () => {
+      try {
+        const summary = await getAdminOperationalSummary()
+        if (cancelled) return
+        setNotifications(summary.notifications)
+      } catch (error) {
+        console.warn('Failed to load admin summary notifications.', error)
+      }
+    }
+
+    void refreshSummary()
+    const handleSummaryUpdate = () => {
+      void refreshSummary()
+    }
+
+    window.addEventListener(ADMIN_SUMMARY_UPDATED_EVENT, handleSummaryUpdate as EventListener)
+    return () => {
+      cancelled = true
+      window.removeEventListener(ADMIN_SUMMARY_UPDATED_EVENT, handleSummaryUpdate as EventListener)
+    }
+  }, [location.pathname])
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -617,7 +618,11 @@ export default function AdminShell() {
                     notifications.map((notification) => (
                       <Box
                         key={notification.id}
-                        onClick={() => handleMarkAsRead(notification.id)}
+                      onClick={() => {
+                        handleMarkAsRead(notification.id)
+                        navigate(notification.path)
+                        handleNotificationClose()
+                      }}
                         sx={{
                           p: 2,
                           borderBottom: '1px solid',

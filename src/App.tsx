@@ -88,58 +88,303 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route path="home" element={<AdminHomeDashboard />} />
+          <Route
+            path="home"
+            element={
+              <RequirePermission anyOf={["view_dashboard"]}>
+                <AdminHomeDashboard />
+              </RequirePermission>
+            }
+          />
           <Route path="profile" element={<AdminProfileRegions />} />
           <Route path="search" element={<AdminGlobalSearch />} />
 
           {/* Ops & analytics */}
-          <Route path="ops" element={<OperationsDashboard />} />
-          <Route path="reports" element={<DetailedAnalytics />} />
+          <Route
+            path="ops"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <OperationsDashboard />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="reports"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <DetailedAnalytics />
+              </RequirePermission>
+            }
+          />
 
           {/* People */}
-          <Route path="riders" element={<RiderManagement />} />
-          <Route path="riders/new" element={<RiderCreate />} />
-          <Route path="riders/:id" element={<RiderDetail />} />
-          <Route path="drivers" element={<DriverManagement />} />
-          <Route path="drivers/new" element={<DriverCreate />} />
-          <Route path="drivers/:id" element={<DriverDetail />} />
-          <Route path="safety" element={<SafetyOverview />} />
-          <Route path="risk" element={<RiskFraudCenter />} />
-          <Route path="risk/:riskId" element={<RiskDetail />} />
+          <Route
+            path="riders"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <RiderManagement />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="riders/new"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <RiderCreate />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="riders/:id"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <RiderDetail />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="drivers"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <DriverManagement />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="drivers/new"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <DriverCreate />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="drivers/:id"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <DriverDetail />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="safety"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <SafetyOverview />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="risk"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <RiskFraudCenter />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="risk/:riskId"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <RiskDetail />
+              </RequirePermission>
+            }
+          />
 
           {/* Companies */}
-          <Route path="companies" element={<CompanyList />} />
-          <Route path="companies/approvals" element={<CompanyApprovals />} />
-          <Route path="companies/:companyId" element={<CompanyDetail />} />
+          <Route
+            path="companies"
+            element={
+              <RequirePermission anyOf={["manage_companies"]}>
+                <CompanyList />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="companies/approvals"
+            element={
+              <RequirePermission anyOf={["manage_companies"]}>
+                <CompanyApprovals />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="companies/:companyId"
+            element={
+              <RequirePermission anyOf={["manage_companies"]}>
+                <CompanyDetail />
+              </RequirePermission>
+            }
+          />
 
           {/* Finance */}
-          <Route path="finance" element={<FinancialOverview />} />
+          <Route
+            path="finance"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <FinancialOverview />
+              </RequirePermission>
+            }
+          />
           {/* Requested routes for I2 */}
-          <Route path="finance/companies" element={<CompanyList />} />
-          <Route path="finance/companies/:companyId" element={<CompanyPayouts />} />
-          <Route path="finance/tax-invoices" element={<RegionTaxConfigEditor />} />
-          <Route path="finance/tax-invoices/:regionId/edit" element={<RegionTaxConfigEditor />} />
-          <Route path="finance/tax-invoices/template-preview" element={<InvoiceTemplatePreview />} />
+          <Route
+            path="finance/companies"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <CompanyList />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/companies/:companyId"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <CompanyPayouts />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/tax-invoices"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <RegionTaxConfigEditor />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/tax-invoices/:regionId/edit"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <RegionTaxConfigEditor />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/tax-invoices/template-preview"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <InvoiceTemplatePreview />
+              </RequirePermission>
+            }
+          />
 
           {/* Approvals */}
-          <Route path="approvals" element={<ApprovalsDashboard />} />
-          <Route path="approvals/history" element={<ApprovalsHistory />} />
-          <Route path="approvals/:approvalId" element={<ApprovalDetail />} />
+          <Route
+            path="approvals"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <ApprovalsDashboard />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="approvals/history"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <ApprovalsHistory />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="approvals/:approvalId"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <ApprovalDetail />
+              </RequirePermission>
+            }
+          />
 
           {/* Product config */}
-          <Route path="services" element={<ServiceConfiguration />} />
-          <Route path="pricing" element={<PricingRulesTariffs />} />
-          <Route path="pricing/zones" element={<ZonesList />} />
-          <Route path="pricing/new-zone" element={<ZoneCreate />} />
-          <Route path="pricing/map/:id" element={<ZoneMapView />} />
-          <Route path="pricing/detail/:id" element={<ZonePricingDetail />} />
-          <Route path="promos" element={<PromotionsIncentives />} />
-          <Route path="promos/:id" element={<PromoDetail />} />
-          <Route path="vertical-policies" element={<VerticalPolicies />} />
+          <Route
+            path="services"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ServiceConfiguration />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <PricingRulesTariffs />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/zones"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZonesList />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/new-zone"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZoneCreate />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/map/:id"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZoneMapView />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/detail/:id"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZonePricingDetail />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="promos"
+            element={
+              <RequirePermission anyOf={["manage_promotions"]}>
+                <PromotionsIncentives />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="promos/:id"
+            element={
+              <RequirePermission anyOf={["manage_promotions"]}>
+                <PromoDetail />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="vertical-policies"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <VerticalPolicies />
+              </RequirePermission>
+            }
+          />
 
           {/* Users & roles */}
-          <Route path="agents" element={<AgentManagement />} />
-          <Route path="agents/:id" element={<AgentDetail />} />
+          <Route
+            path="agents"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <AgentManagement />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="agents/:id"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <AgentDetail />
+              </RequirePermission>
+            }
+          />
           <Route
             path="admin-users"
             element={
@@ -166,8 +411,22 @@ export default function App() {
           />
 
           {/* Training & system */}
-          <Route path="training" element={<GlobalTrainingManager />} />
-          <Route path="training/preview" element={<TrainingModulePreview />} />
+          <Route
+            path="training"
+            element={
+              <RequirePermission anyOf={["manage_system"]}>
+                <GlobalTrainingManager />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="training/preview"
+            element={
+              <RequirePermission anyOf={["manage_system"]}>
+                <TrainingModulePreview />
+              </RequirePermission>
+            }
+          />
           {/* <Route path="localization" element={<LocalizationLanguageContent />} /> Removed */}
           <Route
             path="system/flags"

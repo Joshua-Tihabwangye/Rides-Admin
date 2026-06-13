@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from"react";
+import React, { useEffect, useState } from"react";
 import { useNavigate } from"react-router-dom";
 import {
   Box,
@@ -112,11 +112,30 @@ const INITIAL_MODULES = [
   },
 ];
 
+const TRAINING_STORAGE_KEY = "evzone_admin_training_modules";
+
 export default function GlobalTrainingManagerPage() {
   const navigate = useNavigate();
-  const [modules, setModules] = useState(INITIAL_MODULES);
+  const [modules, setModules] = useState(() => {
+    try {
+      const raw = localStorage.getItem(TRAINING_STORAGE_KEY);
+      if (!raw) return INITIAL_MODULES;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_MODULES;
+    } catch {
+      return INITIAL_MODULES;
+    }
+  });
   const [selectedId, setSelectedId] = useState(INITIAL_MODULES[0]?.id || null);
   const [editing, setEditing] = useState(() => ({ ...INITIAL_MODULES[0] }));
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(modules));
+    } catch {
+      // no-op
+    }
+  }, [modules]);
 
   const selectedModule =
     modules.find((m) => m.id === selectedId) || modules[0] || null;

@@ -174,11 +174,25 @@ export default function AdminHomeDashboardPage() {
     ];
   }, [overview, operationsAnalytics]);
 
-  const [safetyHighlights] = useState(["Avg rider rating: 4.83","Safety incidents: 5 (0 critical)","SOS activations today: 1",
-  ]);
+  const safetyHighlights = useMemo(() => {
+    const trips = operationsAnalytics?.trips;
+    const drivers = operationsAnalytics?.drivers;
+    return [
+      `Trips completed: ${trips?.completed ?? 0}`,
+      `Drivers online: ${drivers?.online ?? 0} / ${drivers?.total ?? 0}`,
+      `Open incidents: ${overview?.queues?.safetyIncidents ?? 0}`,
+    ];
+  }, [operationsAnalytics, overview]);
 
-  const [financeSnapshot] = useState(["EVzone share today: $4,980","Payouts scheduled this week: $21,300","Top city by revenue: Kampala",
-  ]);
+  const financeSnapshot = useMemo(() => {
+    const grossBookings = Number(financeAnalytics?.grossEarnings ?? 0);
+    const payouts = Number(financeAnalytics?.payoutsPending ?? 0);
+    return [
+      `Gross bookings: $${grossBookings.toLocaleString()}`,
+      `Payout queue: $${payouts.toLocaleString()}`,
+      `Open approvals: ${overview?.queues?.approvals ?? 0} · live backend data`,
+    ];
+  }, [financeAnalytics, overview]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
