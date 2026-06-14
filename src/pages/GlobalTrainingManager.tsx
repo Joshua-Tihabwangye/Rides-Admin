@@ -1,153 +1,220 @@
 // @ts-nocheck
-import React, { useEffect, useState } from"react";
-import { useNavigate } from"react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  Chip,
-  Button,
   Divider,
+  MenuItem,
+  Snackbar,
+  Select,
   Table,
-  TableHead,
   TableBody,
-  TableRow,
   TableCell,
   TableContainer,
-  Paper,
+  TableHead,
+  TableRow,
   TextField,
-  Select,
-  MenuItem,
-} from"@mui/material";
-
-// J1 – Global Training Manager (Light/Dark, EVzone themed)
-// Route suggestion: /admin/training
-// Content list + editor pattern for training modules (Drivers, Agents,
-// Companies). Mirrors the same structure used in localization and feature
-// flags.
-//
-// Manual test cases:
-// 1) Initial render
-//    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle"Training · Global manager".
-//    - Title"Global Training Manager" visible.
-//    - Left card lists sample training modules with columns: Title, Audience,
-//      Status, Language.
-//    - Right card shows the selected module's title, type, language and
-//      description in editable fields.
-// 2) Theme toggle
-//    - Toggle Light/Dark; list and editor state remain intact.
-// 3) Select module
-//    - Clicking a row in the module table selects it and updates the editor
-//      fields accordingly.
-// 4) Edit & save
-//    - Change Title/Type/Language/Description and click"Save module".
-//    - Expect a console log with the updated module and an AuditLog-style
-//      entry (simulated).
-// 5) New module
-//    - Click"+ New module"; editor should clear to defaults and selecting
-//"Save" logs creation for a new module id (demo only, no full list
-//      persistence).
+  Typography,
+} from "@mui/material";
+import {
+  createAdminTrainingModule,
+  deleteAdminTrainingModule,
+  listAdminTrainingModules,
+  patchAdminTrainingModule,
+  type AdminTrainingModuleResponse,
+} from "../services/api/adminApi";
 
 const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
+  primary: "#03cd8c",
+  secondary: "#f77f00",
 };
+
+const TRAINING_STORAGE_KEY = "evzone_admin_training_modules";
+
+const INITIAL_MODULES = [
+  {
+    id: "core-admin",
+    title: "Driver onboarding 101",
+    audience: "Drivers",
+    status: "Published",
+    language: "en",
+    description: "Core onboarding for new EV drivers.",
+  },
+  {
+    id: "safety-sos",
+    title: "Safety & SOS procedures",
+    audience: "Drivers",
+    status: "Draft",
+    language: "en",
+    description: "How to handle emergencies and SOS events.",
+  },
+  {
+    id: "agent-tickets",
+    title: "Agent ticket handling",
+    audience: "Agents",
+    status: "Published",
+    language: "en",
+    description: "Guidelines for agents handling rider/driver tickets.",
+  },
+];
+
+function backendStatusToUi(status: AdminTrainingModuleResponse["status"]) {
+  if (status === "published") return "Published";
+  if (status === "archived") return "Archived";
+  return "Draft";
+}
+
+function uiStatusToBackend(status: string) {
+  if (status === "Published") return "published";
+  if (status === "Archived") return "archived";
+  return "draft";
+}
+
+function encodeContent(module) {
+  return JSON.stringify({
+    description: module.description,
+    audience: module.audience,
+    language: module.language,
+  });
+}
+
+function decodeContent(content) {
+  if (!content) {
+    return { description: "", audience: "Drivers", language: "en" };
+  }
+
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      description: typeof parsed.description === "string" ? parsed.description : content,
+      audience: typeof parsed.audience === "string" ? parsed.audience : "Drivers",
+      language: typeof parsed.language === "string" ? parsed.language : "en",
+    };
+  } catch {
+    return { description: content, audience: "Drivers", language: "en" };
+  }
+}
+
+function mapBackendModule(module) {
+  const decoded = decodeContent(module.content);
+  return {
+    id: module.id,
+    title: module.title,
+    audience: decoded.audience || module.category || "Drivers",
+    status: backendStatusToUi(module.status),
+    language: decoded.language,
+    description: decoded.description,
+  };
+}
+
+function mapUiModuleToBackend(module) {
+  return {
+    title: module.title,
+    category: module.audience,
+    status: uiStatusToBackend(module.status),
+    content: encodeContent(module),
+  };
+}
 
 function AdminTrainingLayout({ children }) {
   return (
     <Box>
-      {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
+          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
             Global Training Manager
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Create and manage training modules for Drivers, Agents and
-            Companies across regions.
+          <Typography variant="caption" color="text.secondary">
+            Create and manage training modules for Drivers, Agents and Companies across regions.
           </Typography>
         </Box>
       </Box>
 
-      <Box className="flex-1 flex flex-col gap-3" sx={{ maxWidth: { lg: '100%' }, width: '100%' }}>
+      <Box className="flex-1 flex flex-col gap-3" sx={{ maxWidth: { lg: "100%" }, width: "100%" }}>
         {children}
       </Box>
     </Box>
   );
 }
 
-const INITIAL_MODULES = [
-  {
-    id: 1,
-    title:"Driver onboarding 101",
-    audience:"Drivers",
-    status:"Published",
-    language:"en",
-    description:"Core onboarding for new EV drivers.",
-  },
-  {
-    id: 2,
-    title:"Safety & SOS procedures",
-    audience:"Drivers",
-    status:"Draft",
-    language:"en",
-    description:"How to handle emergencies and SOS events.",
-  },
-  {
-    id: 3,
-    title:"Agent ticket handling",
-    audience:"Agents",
-    status:"Published",
-    language:"en",
-    description:"Guidelines for agents handling rider/driver tickets.",
-  },
-];
-
-const TRAINING_STORAGE_KEY = "evzone_admin_training_modules";
-
 export default function GlobalTrainingManagerPage() {
   const navigate = useNavigate();
-  const [modules, setModules] = useState(() => {
-    try {
-      const raw = localStorage.getItem(TRAINING_STORAGE_KEY);
-      if (!raw) return INITIAL_MODULES;
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_MODULES;
-    } catch {
-      return INITIAL_MODULES;
-    }
-  });
+  const [modules, setModules] = useState(INITIAL_MODULES);
   const [selectedId, setSelectedId] = useState(INITIAL_MODULES[0]?.id || null);
-  const [editing, setEditing] = useState(() => ({ ...INITIAL_MODULES[0] }));
+  const [editing, setEditing] = useState({ ...INITIAL_MODULES[0] });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
   useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const backendModules = await listAdminTrainingModules();
+        if (!active) return;
+        const mapped = backendModules.map(mapBackendModule);
+        const resolved = mapped.length > 0 ? mapped : INITIAL_MODULES;
+        setModules(resolved);
+        setSelectedId((prev) => (prev && resolved.some((module) => module.id === prev) ? prev : resolved[0]?.id ?? null));
+        setEditing((prev) => resolved.find((module) => module.id === (selectedId || prev.id)) || resolved[0] || prev);
+        try {
+          localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(resolved));
+        } catch {
+          // ignore cache failures
+        }
+      } catch (err) {
+        if (!active) return;
+        setError(err?.message || "Failed to load training modules");
+        try {
+          const raw = localStorage.getItem(TRAINING_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setModules(parsed);
+              setSelectedId(parsed[0]?.id ?? null);
+              setEditing({ ...parsed[0] });
+            }
+          }
+        } catch {
+          // keep initial modules
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedModule = useMemo(
+    () => modules.find((module) => module.id === selectedId) || modules[0] || null,
+    [modules, selectedId],
+  );
+
+  const persistLocalCache = (nextModules) => {
+    setModules(nextModules);
     try {
-      localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(modules));
+      localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(nextModules));
     } catch {
-      // no-op
+      // ignore cache failures
     }
-  }, [modules]);
-
-  const selectedModule =
-    modules.find((m) => m.id === selectedId) || modules[0] || null;
-
-  const syncEditingWithSelected = (module) => {
-    if (!module) return;
-    setEditing({ ...module });
   };
 
   const handleRowClick = (module) => {
     setSelectedId(module.id);
-    syncEditingWithSelected(module);
+    setEditing({ ...module });
   };
 
   const handleFieldChange = (field) => (event) => {
@@ -157,81 +224,102 @@ export default function GlobalTrainingManagerPage() {
 
   const handleNewModule = () => {
     const draft = {
-      id: null,
-      title:"",
-      audience:"Drivers",
-      status:"Draft",
-      language:"en",
-      description:"",
+      id: "",
+      title: "",
+      audience: "Drivers",
+      status: "Draft",
+      language: "en",
+      description: "",
     };
     setSelectedId(null);
     setEditing(draft);
   };
 
-  const handleSave = () => {
-    if (!editing.title.trim()) return;
-
-    if (editing.id == null) {
-      // Create new
-      const nextId = modules.length
-        ? Math.max(...modules.map((m) => m.id)) + 1
-        : 1;
-      const newModule = { ...editing, id: nextId };
-      const nextModules = [...modules, newModule];
-      setModules(nextModules);
-      setSelectedId(nextId);
-      console.log("Training module created:", newModule);
-      console.log("AuditLog:", {
-        event:"TRAINING_MODULE_CREATED",
-        moduleId: nextId,
-        title: newModule.title,
-        at: new Date().toISOString(),
-        actor:"Admin (simulated)",
-      });
-    } else {
-      // Update existing
-      const nextModules = modules.map((m) =>
-        m.id === editing.id ? { ...editing } : m
-      );
-      setModules(nextModules);
-      setSelectedId(editing.id);
-      console.log("Training module updated:", editing);
-      console.log("AuditLog:", {
-        event:"TRAINING_MODULE_UPDATED",
-        moduleId: editing.id,
-        title: editing.title,
-        at: new Date().toISOString(),
-        actor:"Admin (simulated)",
-      });
+  const handleDelete = async () => {
+    if (!selectedModule) return;
+    setSaving(true);
+    try {
+      await deleteAdminTrainingModule(selectedModule.id);
+      const nextModules = modules.filter((module) => module.id !== selectedModule.id);
+      const resolved = nextModules.length > 0 ? nextModules : INITIAL_MODULES;
+      persistLocalCache(resolved);
+      setSelectedId(resolved[0]?.id ?? null);
+      setEditing({ ...resolved[0] });
+      setSnackbar({ open: true, message: "Training module deleted.", severity: "success" });
+    } catch (err) {
+      setSnackbar({ open: true, message: err?.message || "Failed to delete module", severity: "error" });
+    } finally {
+      setSaving(false);
     }
   };
 
+  const handleSave = async () => {
+    if (!editing.title.trim()) return;
+    setSaving(true);
+    try {
+      if (!editing.id) {
+        const created = await createAdminTrainingModule(mapUiModuleToBackend(editing));
+        const nextModule = mapBackendModule(created);
+        const nextModules = [...modules, nextModule];
+        persistLocalCache(nextModules);
+        setSelectedId(nextModule.id);
+        setEditing(nextModule);
+        setSnackbar({ open: true, message: "Training module created.", severity: "success" });
+      } else {
+        const updated = await patchAdminTrainingModule(editing.id, mapUiModuleToBackend(editing));
+        const nextModule = mapBackendModule(updated);
+        const nextModules = modules.map((module) => (module.id === nextModule.id ? nextModule : module));
+        persistLocalCache(nextModules);
+        setSelectedId(nextModule.id);
+        setEditing(nextModule);
+        setSnackbar({ open: true, message: "Training module updated.", severity: "success" });
+      }
+    } catch (err) {
+      setSnackbar({ open: true, message: err?.message || "Failed to save module", severity: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 4 }}>
+        <Typography variant="body2" color="text.secondary">
+          Loading training modules...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
   return (
     <AdminTrainingLayout>
-      <Box className="flex flex-col lg:flex-row gap-4" sx={{ width: '100%', maxWidth: '100%' }}>
-        {/* Left – module list */}
+      <Box className="flex flex-col lg:flex-row gap-4" sx={{ width: "100%", maxWidth: "100%" }}>
         <Card
           elevation={1}
           sx={{
             flex: 1,
             borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
             <Box className="flex items-center justify-between gap-2">
-              <Typography
-                variant="subtitle2"
-                className="font-semibold"
-              >
+              <Typography variant="subtitle2" className="font-semibold">
                 Modules
               </Typography>
               <Button
                 variant="outlined"
                 size="small"
                 sx={{
-                  textTransform:"none",
+                  textTransform: "none",
                   borderRadius: 999,
                   fontSize: 11,
                 }}
@@ -242,10 +330,10 @@ export default function GlobalTrainingManagerPage() {
             </Box>
             <Divider className="!my-1" />
 
-            <TableContainer component={Paper} elevation={0}>
+            <TableContainer component={Box}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                  <TableRow sx={{ backgroundColor: "action.hover" }}>
                     <TableCell>Title</TableCell>
                     <TableCell>Audience</TableCell>
                     <TableCell>Status</TableCell>
@@ -257,7 +345,7 @@ export default function GlobalTrainingManagerPage() {
                     <TableRow
                       key={module.id}
                       hover
-                      sx={{ cursor:"pointer" }}
+                      sx={{ cursor: "pointer" }}
                       selected={module.id === selectedId}
                       onClick={() => handleRowClick(module)}
                     >
@@ -271,137 +359,58 @@ export default function GlobalTrainingManagerPage() {
               </Table>
             </TableContainer>
 
-            <Typography
-              variant="caption"
-              className="text-[11px] text-slate-500 mt-1"
-            >
-              Training modules appear in Driver/Agent/Company apps based on
-              their audience and status.
+            <Typography variant="caption" className="text-[11px] text-slate-500 mt-1">
+              Training modules are persisted in the backend and mirrored into rider, driver, and admin surfaces by audience.
             </Typography>
-            
-            {/* Upload Resources Section */}
-            <Divider className="!my-2" />
-            <Box className="flex flex-col gap-2">
-              <Typography variant="caption" className="text-[11px] font-semibold text-slate-500">
-                Upload Resources
-              </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                component="label"
-                sx={{
-                  textTransform:"none",
-                  borderRadius: 2,
-                  fontSize: 11,
-                }}
-              >
-                Upload Video/Resource
-                <input
-                  type="file"
-                  hidden
-                  accept="video/*,.pdf,.mp4,.mov"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      console.log("File selected:", file.name);
-                      // In production, upload to server
-                    }
-                  }}
-                />
-              </Button>
-              <Typography variant="caption" className="text-[10px] text-slate-400">
-                Supported: MP4, MOV, PDF (max 100MB)
-              </Typography>
-            </Box>
           </CardContent>
         </Card>
 
-        {/* Right – module editor */}
         <Card
           elevation={1}
           sx={{
             flex: 1.3,
             borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
+            border: "1px solid rgba(148,163,184,0.5)",
           }}
         >
           <CardContent className="p-4 flex flex-col gap-3">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-            >
+            <Typography variant="subtitle2" className="font-semibold">
               Module editor
             </Typography>
             <Divider className="!my-1" />
 
             <Box className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <Box className="flex flex-col gap-1">
-                <Typography
-                  variant="caption"
-                  className="text-[11px] text-slate-500"
-                >
+                <Typography variant="caption" className="text-[11px] text-slate-500">
                   Title
                 </Typography>
-                <TextField
-                  size="small"
-                  fullWidth
-                  value={editing.title}
-                  onChange={handleFieldChange("title")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                />
+                <TextField size="small" fullWidth value={editing.title} onChange={handleFieldChange("title")} />
               </Box>
               <Box className="flex flex-col gap-1">
-                <Typography
-                  variant="caption"
-                  className="text-[11px] text-slate-500"
-                >
+                <Typography variant="caption" className="text-[11px] text-slate-500">
                   Audience
                 </Typography>
-                <Select
-                  size="small"
-                  fullWidth
-                  value={editing.audience}
-                  onChange={handleFieldChange("audience")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                >
+                <Select size="small" fullWidth value={editing.audience} onChange={handleFieldChange("audience")}>
                   <MenuItem value="Drivers">Drivers</MenuItem>
                   <MenuItem value="Agents">Agents</MenuItem>
                   <MenuItem value="Companies">Companies</MenuItem>
                 </Select>
               </Box>
               <Box className="flex flex-col gap-1">
-                <Typography
-                  variant="caption"
-                  className="text-[11px] text-slate-500"
-                >
+                <Typography variant="caption" className="text-[11px] text-slate-500">
                   Status
                 </Typography>
-                <Select
-                  size="small"
-                  fullWidth
-                  value={editing.status}
-                  onChange={handleFieldChange("status")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                >
+                <Select size="small" fullWidth value={editing.status} onChange={handleFieldChange("status")}>
                   <MenuItem value="Draft">Draft</MenuItem>
                   <MenuItem value="Published">Published</MenuItem>
+                  <MenuItem value="Archived">Archived</MenuItem>
                 </Select>
               </Box>
               <Box className="flex flex-col gap-1">
-                <Typography
-                  variant="caption"
-                  className="text-[11px] text-slate-500"
-                >
+                <Typography variant="caption" className="text-[11px] text-slate-500">
                   Language
                 </Typography>
-                <Select
-                  size="small"
-                  fullWidth
-                  value={editing.language}
-                  onChange={handleFieldChange("language")}
-                  sx={{"& .MuiOutlinedInput-root": {  } }}
-                >
+                <Select size="small" fullWidth value={editing.language} onChange={handleFieldChange("language")}>
                   <MenuItem value="en">English</MenuItem>
                   <MenuItem value="fr">French</MenuItem>
                   <MenuItem value="sw">Swahili</MenuItem>
@@ -410,10 +419,7 @@ export default function GlobalTrainingManagerPage() {
             </Box>
 
             <Box className="flex flex-col gap-1">
-              <Typography
-                variant="caption"
-                className="text-[11px] text-slate-500"
-              >
+              <Typography variant="caption" className="text-[11px] text-slate-500">
                 Description
               </Typography>
               <TextField
@@ -424,46 +430,72 @@ export default function GlobalTrainingManagerPage() {
                 maxRows={5}
                 value={editing.description}
                 onChange={handleFieldChange("description")}
-                sx={{"& .MuiOutlinedInput-root": {  } }}
               />
             </Box>
 
             <Box className="flex items-center justify-between mt-4 border-t pt-4">
               <Button
-                variant="contained"
+                variant="outlined"
                 size="small"
-                sx={{ 
-                  textTransform: 'none', 
-                  bgcolor: EV_COLORS.secondary,
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: '#d97706',
-                  }
-                }}
-                onClick={() => {
-                  if (!editing.title) return;
-                  navigate(`/admin/training/preview?title=${encodeURIComponent(editing.title)}&desc=${encodeURIComponent(editing.description)}`)
-                }}
-              >
-                View as User
-              </Button>
-              <Button
-                variant="contained"
-                size="small"
+                disabled={!selectedModule || saving}
                 sx={{
-                  textTransform:"none",
+                  textTransform: "none",
                   borderRadius: 999,
                   fontSize: 12,
-                  bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
                 }}
-                onClick={handleSave}
+                onClick={handleDelete}
               >
-                Save module
+                Delete module
               </Button>
+              <Box className="flex items-center gap-2">
+                <Button
+                  variant="contained"
+                  size="small"
+                  sx={{
+                    textTransform: "none",
+                    bgcolor: EV_COLORS.secondary,
+                    color: "white",
+                    "&:hover": {
+                      bgcolor: "#d97706",
+                    },
+                  }}
+                  onClick={() => {
+                    if (!editing.title) return;
+                    navigate(`/admin/training/preview?title=${encodeURIComponent(editing.title)}&desc=${encodeURIComponent(editing.description)}`);
+                  }}
+                >
+                  View as User
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  disabled={saving}
+                  sx={{
+                    textTransform: "none",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    bgcolor: EV_COLORS.primary,
+                    "&:hover": { bgcolor: "#0fb589" },
+                  }}
+                  onClick={() => void handleSave()}
+                >
+                  {saving ? "Saving..." : "Save module"}
+                </Button>
+              </Box>
             </Box>
           </CardContent>
         </Card>
       </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3500}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </AdminTrainingLayout>
   );
 }
