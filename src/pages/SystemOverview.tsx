@@ -1,366 +1,261 @@
 // @ts-nocheck
-import React, { useState } from"react";
-import { useNavigate } from"react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
   Chip,
-  Button,
+  CircularProgress,
   Divider,
-} from"@mui/material";
-
-// System Health & Config Overview (Light/Dark, EVzone themed)
-// Route suggestion: /admin/system/overview
-// Glue page that summarises integration status, last errors and recent
-// critical admin actions. Provides quick entry points into Integrations,
-// Flags, Audit and Risk.
-//
-// Manual test cases:
-// 1) Initial render
-//    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle"System · Overview".
-//    - Title"System Health & Config Overview" visible.
-//    - Integrations status cards, recent critical actions and quick links
-//      cards are visible.
-// 2) Theme toggle
-//    - Toggle Light/Dark; all cards update while contents remain intact.
-// 3) Status cards
-//    - Clicking"View details" or"Go to Integrations" logs navigation
-//      hints and AuditLog-style entries.
-// 4) Quick links
-//    - Quick link buttons for Integrations, Flags, Audit log and Risk log the
-//      suggested routes.
+  Stack,
+  Typography,
+} from "@mui/material";
+import {
+  getAdminSystemOverview,
+  listAdminAuditEvents,
+  listAdminFeatureFlags,
+  listAdminServices,
+  type AdminAuditEventResponse,
+  type AdminFeatureFlagResponse,
+  type AdminServiceResponse,
+} from "../services/api/adminApi";
 
 const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
+  primary: "#03cd8c",
+  secondary: "#f77f00",
 };
 
-
-
-const SYSTEM_INTEGRATIONS = [
-  {
-    id:"payments",
-    name:"Payments gateway",
-    provider:"ExamplePay",
-    status:"Connected",
-    lastError:"None",
-  },
-  {
-    id:"sms",
-    name:"SMS provider",
-    provider:"ExampleSMS",
-    status:"Degraded",
-    lastError:"High latency on delivery receipts",
-  },
-  {
-    id:"analytics",
-    name:"Analytics",
-    provider:"ExampleAnalytics",
-    status:"Error",
-    lastError:"Auth token expired",
-  },
-];
-
-const CRITICAL_ACTIONS = [
-  {
-    id:"EVT-CRIT-1",
-    at:"2025-11-25 17:40",
-    actor:"Alex Admin",
-    detail:"Turned on rides.home.v2 for all users.",
-  },
-  {
-    id:"EVT-CRIT-2",
-    at:"2025-11-25 17:35",
-    actor:"Felix Finance",
-    detail:"Updated VAT rate for Uganda.",
-  },
-  {
-    id:"EVT-CRIT-3",
-    at:"2025-11-25 17:20",
-    actor:"RiskBot",
-    detail:"Suspended account for RISK-101.",
-  },
-];
-
+type SystemOverviewState = {
+  totals: { users: number; riders: number; drivers: number; trips: number };
+  queues: { approvals: number; riskCases: number; safetyIncidents: number };
+};
 
 export default function SystemOverviewPage() {
   const navigate = useNavigate();
+  const [overview, setOverview] = useState<SystemOverviewState | null>(null);
+  const [services, setServices] = useState<AdminServiceResponse[]>([]);
+  const [flags, setFlags] = useState<AdminFeatureFlagResponse[]>([]);
+  const [audits, setAudits] = useState<AdminAuditEventResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleIntegrationClick = (integrationId) => {
-    navigate("/admin/system/integrations");
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  const routeMap = {
-    integrations:"/admin/system/integrations",
-    flags:"/admin/system/flags",
-    audit:"/admin/system/audit-log",
-    risk:"/admin/risk",
-  };
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [ov, liveServices, liveFlags, liveAudits] = await Promise.all([
+          getAdminSystemOverview(),
+          listAdminServices(),
+          listAdminFeatureFlags(),
+          listAdminAuditEvents(),
+        ]);
+        if (cancelled) return;
+        setOverview(ov);
+        setServices(liveServices);
+        setFlags(liveFlags);
+        setAudits(liveAudits);
+      } catch (err: any) {
+        if (cancelled) return;
+        setError(err?.message ?? "Failed to load system overview");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-  const handleQuickLink = (target) => {
-    navigate(routeMap[target]);
-  };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const routeMap = useMemo(
+    () => ({
+      integrations: "/admin/system/integrations",
+      flags: "/admin/system/flags",
+      audit: "/admin/system/audit-log",
+      risk: "/admin/risk",
+    }),
+    [],
+  );
+
+  const activeServices = services.filter((service) => service.enabled).length;
+  const disabledServices = services.length - activeServices;
+  const enabledFlags = flags.filter((flag) => flag.enabled).length;
+  const latestAudits = audits.slice(0, 6);
+  const serviceHealth = services.length === 0 ? "No live services" : disabledServices > 0 ? "Needs attention" : "Operational";
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>
-      {/* Title */}
-      <Box className="pb-4 flex items-center justify-between gap-2">
+      <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
+          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
             System Health & Config Overview
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Quickly inspect integrations, flags and recent critical actions.
+          <Typography variant="caption" color="text.secondary">
+            Live service, flag and audit summaries from the backend.
           </Typography>
         </Box>
         <Chip
           size="small"
-          label="System health"
+          label={serviceHealth}
           sx={{
-            bgcolor: '#3b82f615',
-            borderColor:"#bae6fd",
-            color: 'text.primary',
+            bgcolor: disabledServices > 0 ? "#fef3c7" : "#dcfce7",
+            borderColor: disabledServices > 0 ? "#fbbf24" : "#86efac",
+            borderWidth: 1,
+            borderStyle: "solid",
+            color: "text.primary",
             fontSize: 10,
           }}
         />
       </Box>
 
-      {/* System Health KPIs */}
       <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
-          <CardContent className="p-3">
-            <Typography variant="caption" className="text-[11px] uppercase text-slate-500">System Status</Typography>
-            <Typography variant="h6" className="font-semibold text-lg" color="text.primary">Operational</Typography>
-            <Typography variant="caption" className="text-[11px] text-emerald-600">All systems normal</Typography>
-          </CardContent>
-        </Card>
-        <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
-          <CardContent className="p-3">
-            <Typography variant="caption" className="text-[11px] uppercase text-slate-500">Active Integrations</Typography>
-            <Typography variant="h6" className="font-semibold text-lg" color="text.primary">2/3</Typography>
-            <Typography variant="caption" className="text-[11px] text-amber-600">1 degraded</Typography>
-          </CardContent>
-        </Card>
-        <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
-          <CardContent className="p-3">
-            <Typography variant="caption" className="text-[11px] uppercase text-slate-500">Feature Flags</Typography>
-            <Typography variant="h6" className="font-semibold text-lg" color="text.primary">3</Typography>
-            <Typography variant="caption" className="text-[11px] text-slate-500">2 active, 1 experiment</Typography>
-          </CardContent>
-        </Card>
-        <Card elevation={2} sx={{ borderRadius: 2, border:"1px solid rgba(148,163,184,0.3)", bgcolor:"background.paper" }}>
-          <CardContent className="p-3">
-            <Typography variant="caption" className="text-[11px] uppercase text-slate-500">Uptime (30d)</Typography>
-            <Typography variant="h6" className="font-semibold text-lg" color="text.primary">99.8%</Typography>
-            <Typography variant="caption" className="text-[11px] text-emerald-600">+0.2% vs last month</Typography>
-          </CardContent>
-        </Card>
+        <MetricCard label="Users" value={overview?.totals.users ?? 0} note="Live backend count" />
+        <MetricCard label="Trips" value={overview?.totals.trips ?? 0} note="Current platform volume" />
+        <MetricCard label="Active services" value={activeServices} note={`${disabledServices} disabled`} />
+        <MetricCard label="Enabled flags" value={enabledFlags} note={`${flags.length} total`} />
       </Box>
 
       <Box className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Integrations status */}
-        <Card
-          elevation={2}
-          sx={{
-            borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.3)",
-            bgcolor:"background.paper"
-          }}
-        >
+        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
           <CardContent className="p-4 flex flex-col gap-2">
             <Box className="flex items-center justify-between">
-              <Typography
-                variant="subtitle2"
-                className="font-semibold"
-                color="text.primary"
-              >
-                Integrations Status
+              <Typography variant="subtitle2" className="font-semibold" color="text.primary">
+                Services
               </Typography>
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => handleQuickLink("integrations")}
-                sx={{ textTransform:"none", fontSize: 11 }}
-              >
+              <Button variant="text" size="small" onClick={() => navigate(routeMap.integrations)} sx={{ textTransform: "none", fontSize: 11 }}>
                 Manage
               </Button>
             </Box>
             <Divider className="!my-1" />
-            <Box className="flex flex-col gap-3">
-              {SYSTEM_INTEGRATIONS.map((integration) => {
-                const statusColor = integration.status ==="Connected" ?"#03cd8c" : integration.status ==="Degraded" ?"#f77f00" :"#ef4444";
-                return (
-                  <Box
-                    key={integration.id}
-                    className="flex items-start justify-between gap-2 p-2 rounded-md border border-divider"
-                  >
-                    <Box sx={{ flex: 1 }}>
-                      <Box className="flex items-center gap-2 mb-1">
-                        <Typography variant="body2" className="font-semibold" color="text.primary">
-                          {integration.name}
-                        </Typography>
-                        <Chip
-                          label={integration.status}
-                          size="small"
-                          sx={{
-                            height: 20,
-                            fontSize: 9,
-                            bgcolor: statusColor + '20',
-                            color: statusColor,
-                            fontWeight: 600,
-                          }}
-                        />
-                      </Box>
-                      <Typography variant="caption" className="text-[11px]" color="text.secondary">
-                        Provider: {integration.provider}
+            <Stack spacing={1}>
+              {services.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No live services returned from the backend.
+                </Typography>
+              ) : (
+                services.map((service) => (
+                  <Box key={service.id} className="flex items-center justify-between gap-2">
+                    <Box>
+                      <Typography variant="body2" className="font-semibold" color="text.primary">
+                        {service.name}
                       </Typography>
-                      {integration.lastError !=="None" && (
-                        <Typography variant="caption" className="text-[10px] text-amber-600 block mt-1">
-                          {integration.lastError}
-                        </Typography>
-                      )}
+                      <Typography variant="caption" className="text-[11px]" color="text.secondary">
+                        {service.key}
+                      </Typography>
                     </Box>
+                    <Chip
+                      label={service.enabled ? "Enabled" : "Disabled"}
+                      size="small"
+                      color={service.enabled ? "success" : "default"}
+                      sx={{ fontSize: 9, height: 20 }}
+                    />
                   </Box>
-                );
-              })}
-            </Box>
+                ))
+              )}
+            </Stack>
           </CardContent>
         </Card>
 
-        {/* Recent critical actions */}
-        <Card
-          elevation={2}
-          sx={{
-            borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.3)",
-            bgcolor:"background.paper"
-          }}
-        >
+        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
           <CardContent className="p-4 flex flex-col gap-2">
             <Box className="flex items-center justify-between">
-              <Typography
-                variant="subtitle2"
-                className="font-semibold"
-                color="text.primary"
-              >
-                Recent Critical Actions
+              <Typography variant="subtitle2" className="font-semibold" color="text.primary">
+                Recent critical actions
               </Typography>
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => handleQuickLink("audit")}
-                sx={{ textTransform:"none", fontSize: 11 }}
-              >
-                View All
+              <Button variant="text" size="small" onClick={() => navigate(routeMap.audit)} sx={{ textTransform: "none", fontSize: 11 }}>
+                Open audit log
               </Button>
             </Box>
             <Divider className="!my-1" />
-            <Box className="flex flex-col gap-3">
-              {CRITICAL_ACTIONS.map((evt) => (
-                <Box 
-                  key={evt.id} 
-                  className="p-2 rounded-md border border-divider hover:bg-action-hover transition-colors"
-                >
-                  <Typography variant="caption" className="text-[10px] uppercase" color="text.secondary">
-                    {evt.at}
-                  </Typography>
-                  <Typography variant="body2" className="font-semibold mt-0.5" color="text.primary">
-                    {evt.actor}
-                  </Typography>
-                  <Typography variant="body2" className="text-[12px] mt-1" color="text.primary">
-                    {evt.detail}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+            <Stack spacing={1}>
+              {latestAudits.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No recent audit entries returned.
+                </Typography>
+              ) : (
+                latestAudits.map((audit) => (
+                  <Box key={audit.id} className="p-2 rounded-md border border-divider">
+                    <Typography variant="body2" className="font-semibold" color="text.primary">
+                      {audit.action}
+                    </Typography>
+                    <Typography variant="caption" className="text-[11px]" color="text.secondary">
+                      {audit.resource} · {audit.resourceId || "n/a"} · actor {audit.actorId}
+                    </Typography>
+                  </Box>
+                ))
+              )}
+            </Stack>
           </CardContent>
         </Card>
 
-        {/* Quick links */}
-        <Card
-          elevation={2}
-          sx={{
-            borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.3)",
-            bgcolor:"background.paper"
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-3">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-              color="text.primary"
-            >
-              Quick Actions
+        <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
+          <CardContent className="p-4 flex flex-col gap-2">
+            <Typography variant="subtitle2" className="font-semibold" color="text.primary">
+              Quick links
             </Typography>
             <Divider className="!my-1" />
-            <Box className="grid grid-cols-2 gap-2">
-              <Button
-                variant="contained"
-                size="small"
-                sx={{
-                  textTransform:"none",
-                  borderRadius: 2,
-                  fontSize: 11,
-                  bgcolor: EV_COLORS.primary,
-                  '&:hover': { bgcolor: '#0fb589' },
-                }}
-                onClick={() => handleQuickLink("integrations")}
-              >
-                Integrations
-              </Button>
-              <Button
-                variant="contained"
-                size="small"
-                sx={{
-                  textTransform:"none",
-                  borderRadius: 2,
-                  fontSize: 11,
-                  bgcolor: EV_COLORS.secondary,
-                  '&:hover': { bgcolor: '#d97706' },
-                }}
-                onClick={() => handleQuickLink("flags")}
-              >
-                Feature Flags
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                sx={{
-                  textTransform:"none",
-                  borderRadius: 2,
-                  fontSize: 11,
-                }}
-                onClick={() => handleQuickLink("audit")}
-              >
-                Audit Log
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                sx={{
-                  textTransform:"none",
-                  borderRadius: 2,
-                  fontSize: 11,
-                }}
-                onClick={() => handleQuickLink("risk")}
-              >
-                Risk Center
-              </Button>
-            </Box>
+            <Stack spacing={1}>
+              <QuickLink label="Integrations" onClick={() => navigate(routeMap.integrations)} />
+              <QuickLink label="Feature flags" onClick={() => navigate(routeMap.flags)} />
+              <QuickLink label="Audit log" onClick={() => navigate(routeMap.audit)} />
+              <QuickLink label="Risk desk" onClick={() => navigate(routeMap.risk)} />
+            </Stack>
           </CardContent>
         </Card>
       </Box>
     </Box>
+  );
+}
+
+function MetricCard({ label, value, note }: { label: string; value: number; note: string }) {
+  return (
+    <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
+      <CardContent className="p-3">
+        <Typography variant="caption" className="text-[11px] uppercase text-slate-500">
+          {label}
+        </Typography>
+        <Typography variant="h6" className="font-semibold text-lg" color="text.primary">
+          {value.toLocaleString()}
+        </Typography>
+        <Typography variant="caption" className="text-[11px]" sx={{ color: "success.main" }}>
+          {note}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuickLink({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Button
+      variant="outlined"
+      onClick={onClick}
+      sx={{
+        justifyContent: "space-between",
+        textTransform: "none",
+        borderRadius: 2,
+      }}
+    >
+      {label}
+    </Button>
   );
 }

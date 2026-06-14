@@ -417,6 +417,57 @@ export async function patchAdminService(
   });
 }
 
+// ── Training Modules ───────────────────────────────────────────────────────
+
+export type AdminTrainingModuleResponse = {
+  id: string;
+  title: string;
+  category: string;
+  status: "draft" | "published" | "archived";
+  content?: string;
+  version: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type AdminCreateTrainingModuleInput = {
+  title: string;
+  category: string;
+  status?: "draft" | "published" | "archived";
+  content?: string;
+};
+
+export type AdminUpdateTrainingModuleInput = Partial<AdminCreateTrainingModuleInput>;
+
+export async function listAdminTrainingModules(): Promise<AdminTrainingModuleResponse[]> {
+  return request<AdminTrainingModuleResponse[]>("/admin/training/modules", { method: "GET" });
+}
+
+export async function createAdminTrainingModule(
+  input: AdminCreateTrainingModuleInput
+): Promise<AdminTrainingModuleResponse> {
+  return request<AdminTrainingModuleResponse>("/admin/training/modules", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminTrainingModule(
+  moduleId: string,
+  input: AdminUpdateTrainingModuleInput
+): Promise<AdminTrainingModuleResponse> {
+  return request<AdminTrainingModuleResponse>(`/admin/training/modules/${moduleId}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+export async function deleteAdminTrainingModule(moduleId: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/training/modules/${moduleId}`, {
+    method: "DELETE",
+  });
+}
+
 // ── Feature Flags ───────────────────────────────────────────────────────────
 
 export type AdminFeatureFlagResponse = {
