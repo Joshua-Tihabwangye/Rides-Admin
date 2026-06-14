@@ -37,11 +37,7 @@ import DetailedAnalytics from './pages/DetailedAnalytics'
 import ApprovalsDashboard from './pages/ApprovalsDashboard'
 import ApprovalDetail from './pages/ApprovalDetail'
 import ServiceConfiguration from './pages/ServiceConfiguration'
-import PricingRulesTariffs from './pages/PricingRulesTariffs'
-import ZoneCreate from './pages/ZoneCreate'
-import ZoneMapView from './pages/ZoneMapView'
-import ZonePricingDetail from './pages/ZonePricingDetail'
-import ZonesList from './pages/ZonesList'
+import PricingManagement from './pages/PricingManagement'
 import PromotionsIncentives from './pages/PromotionsIncentives'
 import PromoDetail from './pages/PromoDetail'
 import VerticalPolicies from './pages/VerticalPolicies'
@@ -303,43 +299,20 @@ export default function App() {
               </RequirePermission>
             }
           />
+          {/* Centralized pricing management — rides, deliveries, rentals, ambulances */}
           <Route
             path="pricing"
             element={
               <RequirePermission anyOf={["manage_pricing"]}>
-                <PricingRulesTariffs />
+                <PricingManagement />
               </RequirePermission>
             }
           />
           <Route
-            path="pricing/zones"
+            path="pricing/*"
             element={
               <RequirePermission anyOf={["manage_pricing"]}>
-                <ZonesList />
-              </RequirePermission>
-            }
-          />
-          <Route
-            path="pricing/new-zone"
-            element={
-              <RequirePermission anyOf={["manage_pricing"]}>
-                <ZoneCreate />
-              </RequirePermission>
-            }
-          />
-          <Route
-            path="pricing/map/:id"
-            element={
-              <RequirePermission anyOf={["manage_pricing"]}>
-                <ZoneMapView />
-              </RequirePermission>
-            }
-          />
-          <Route
-            path="pricing/detail/:id"
-            element={
-              <RequirePermission anyOf={["manage_pricing"]}>
-                <ZonePricingDetail />
+                <PricingManagement />
               </RequirePermission>
             }
           />

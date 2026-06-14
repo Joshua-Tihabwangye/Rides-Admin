@@ -1038,3 +1038,154 @@ export async function patchAdminCompany(
     body: input,
   });
 }
+
+// ── Centralized Pricing Management ─────────────────────────────────────────
+
+export type VehicleCategory = {
+  id: string;
+  name: string;
+  type: string; // "ride" | "delivery" | "rental" | "ambulance"
+  description?: string;
+  status: "active" | "inactive";
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type RidePricing = {
+  id: string;
+  vehicleCategoryId: string;
+  vehicleCategory: VehicleCategory;
+  ratePerKm: number;
+  baseFare: number;
+  minimumFare: number;
+  perMinuteRate: number;
+  surgeMultiplier: number;
+  currency: string;
+  status: string;
+};
+
+export type DeliveryPricing = {
+  id: string;
+  vehicleCategoryId: string;
+  vehicleCategory: VehicleCategory;
+  ratePerKm: number;
+  baseFare: number;
+  minimumFare: number;
+  weightSurcharge: number;
+  currency: string;
+  status: string;
+};
+
+export type RentalPricing = {
+  id: string;
+  vehicleCategoryId: string;
+  vehicleCategory: VehicleCategory;
+  hourlyRate: number;
+  dailyRate: number;
+  weeklyRate: number;
+  monthlyRate: number;
+  currency: string;
+  status: string;
+};
+
+export type AmbulancePricing = {
+  id: string;
+  ambulanceType: string; // "basic" | "advanced" | "icu"
+  baseFare: number;
+  ratePerKm: number;
+  emergencySurcharge: number;
+  nightSurcharge: number;
+  currency: string;
+  status: string;
+};
+
+export type FarePreview = {
+  baseFare: number;
+  distanceCharge: number;
+  durationCharge: number;
+  surcharge: number;
+  subtotal: number;
+  total: number;
+  minimumFare: number;
+  currency: string;
+  formula: string;
+};
+
+// Vehicle categories
+export async function listVehicleCategories(type?: string): Promise<VehicleCategory[]> {
+  const qs = type ? `?type=${type}` : "";
+  return request<VehicleCategory[]>(`/admin/pricing/vehicle-categories${qs}`);
+}
+export async function createVehicleCategory(input: Partial<VehicleCategory>): Promise<VehicleCategory> {
+  return request<VehicleCategory>("/admin/pricing/vehicle-categories", { method: "POST", body: input });
+}
+export async function patchVehicleCategory(id: string, input: Partial<VehicleCategory>): Promise<VehicleCategory> {
+  return request<VehicleCategory>(`/admin/pricing/vehicle-categories/${id}`, { method: "PATCH", body: input });
+}
+export async function deleteVehicleCategory(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/vehicle-categories/${id}`, { method: "DELETE" });
+}
+
+// Ride pricing
+export async function listRidePricing(): Promise<RidePricing[]> {
+  return request<RidePricing[]>("/admin/pricing/rides");
+}
+export async function createRidePricing(input: Partial<RidePricing>): Promise<RidePricing> {
+  return request<RidePricing>("/admin/pricing/rides", { method: "POST", body: input });
+}
+export async function patchRidePricing(id: string, input: Partial<RidePricing>): Promise<RidePricing> {
+  return request<RidePricing>(`/admin/pricing/rides/${id}`, { method: "PATCH", body: input });
+}
+export async function deleteRidePricing(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/rides/${id}`, { method: "DELETE" });
+}
+
+// Delivery pricing
+export async function listDeliveryPricing(): Promise<DeliveryPricing[]> {
+  return request<DeliveryPricing[]>("/admin/pricing/deliveries");
+}
+export async function createDeliveryPricing(input: Partial<DeliveryPricing>): Promise<DeliveryPricing> {
+  return request<DeliveryPricing>("/admin/pricing/deliveries", { method: "POST", body: input });
+}
+export async function patchDeliveryPricing(id: string, input: Partial<DeliveryPricing>): Promise<DeliveryPricing> {
+  return request<DeliveryPricing>(`/admin/pricing/deliveries/${id}`, { method: "PATCH", body: input });
+}
+export async function deleteDeliveryPricing(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/deliveries/${id}`, { method: "DELETE" });
+}
+
+// Rental pricing
+export async function listRentalPricing(): Promise<RentalPricing[]> {
+  return request<RentalPricing[]>("/admin/pricing/rentals");
+}
+export async function createRentalPricing(input: Partial<RentalPricing>): Promise<RentalPricing> {
+  return request<RentalPricing>("/admin/pricing/rentals", { method: "POST", body: input });
+}
+export async function patchRentalPricing(id: string, input: Partial<RentalPricing>): Promise<RentalPricing> {
+  return request<RentalPricing>(`/admin/pricing/rentals/${id}`, { method: "PATCH", body: input });
+}
+export async function deleteRentalPricing(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/rentals/${id}`, { method: "DELETE" });
+}
+
+// Ambulance pricing
+export async function listAmbulancePricing(): Promise<AmbulancePricing[]> {
+  return request<AmbulancePricing[]>("/admin/pricing/ambulances");
+}
+export async function createAmbulancePricing(input: Partial<AmbulancePricing>): Promise<AmbulancePricing> {
+  return request<AmbulancePricing>("/admin/pricing/ambulances", { method: "POST", body: input });
+}
+export async function patchAmbulancePricing(id: string, input: Partial<AmbulancePricing>): Promise<AmbulancePricing> {
+  return request<AmbulancePricing>(`/admin/pricing/ambulances/${id}`, { method: "PATCH", body: input });
+}
+export async function deleteAmbulancePricing(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/ambulances/${id}`, { method: "DELETE" });
+}
+
+// Fare preview
+export async function previewFare(
+  serviceType: "ride" | "delivery" | "rental" | "ambulance",
+  input: Record<string, unknown>
+): Promise<FarePreview> {
+  return request<FarePreview>(`/admin/pricing/preview/${serviceType}`, { method: "POST", body: input });
+}

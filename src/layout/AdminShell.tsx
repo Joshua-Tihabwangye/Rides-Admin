@@ -115,7 +115,7 @@ const NAV: NavSection[] = [
     label: 'Product config',
     items: [
       { label: 'Services', to: '/admin/services', icon: <CategoryIcon /> },
-      { label: 'Pricing rules', to: '/admin/pricing', icon: <PriceChangeIcon /> },
+      { label: 'Pricing management', to: '/admin/pricing', icon: <PriceChangeIcon /> },
       { label: 'Promotions', to: '/admin/promos', icon: <LocalOfferIcon /> },
       { label: 'Vertical policies', to: '/admin/vertical-policies', icon: <PolicyIcon /> },
       { label: 'Approvals', to: '/admin/approvals', icon: <FactCheckIcon /> },
