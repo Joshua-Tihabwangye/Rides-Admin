@@ -29,10 +29,17 @@ import CompanyList from './pages/CompanyList'
 import CompanyDetail from './pages/CompanyDetail'
 import FinancialOverview from './pages/FinancialOverview'
 import CompanyPayouts from './pages/CompanyPayouts'
+import FinanceCashouts from './pages/FinanceCashouts'
+import FinancePayouts from './pages/FinancePayouts'
+import FinancePayments from './pages/FinancePayments'
+import FinanceSettlements from './pages/FinanceSettlements'
+import FinanceWalletReconciliation from './pages/FinanceWalletReconciliation'
+import FinanceReconciliationRuns from './pages/FinanceReconciliationRuns'
 import CompanyApprovals from './pages/CompanyApprovals'
 import RegionTaxConfigEditor from './pages/RegionTaxConfigEditor'
 import InvoiceTemplatePreview from './pages/InvoiceTemplatePreview'
 import OperationsDashboard from './pages/OperationsDashboard'
+import MonitoringPage from './pages/MonitoringPage'
 import DetailedAnalytics from './pages/DetailedAnalytics'
 import ApprovalsDashboard from './pages/ApprovalsDashboard'
 import ApprovalDetail from './pages/ApprovalDetail'
@@ -101,6 +108,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_operations"]}>
                 <OperationsDashboard />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="monitoring"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <MonitoringPage />
               </RequirePermission>
             }
           />
@@ -236,6 +251,54 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_finance"]}>
                 <CompanyPayouts />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/cashouts"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <FinanceCashouts />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/payouts"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <FinancePayouts />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/payments"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <FinancePayments />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/settlements"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <FinanceSettlements />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/wallet-reconciliation"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <FinanceWalletReconciliation />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="finance/reconciliation-runs"
+            element={
+              <RequirePermission anyOf={["manage_finance"]}>
+                <FinanceReconciliationRuns />
               </RequirePermission>
             }
           />

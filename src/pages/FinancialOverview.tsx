@@ -39,8 +39,8 @@ import ShowChartIcon from"@mui/icons-material/ShowChart";
 import PeriodSelector from"../components/PeriodSelector";
 import type { PeriodOption } from"../components/PeriodSelector";
 import type { Dayjs } from"dayjs";
-import { getAdminFinanceAnalytics } from"../services/api/adminApi";
-import type { AdminFinanceAnalytics } from"../services/api/adminApi";
+import { getAdminFinanceAnalytics, getAdminRevenueSummary, listAdminPayouts } from"../services/api/adminApi";
+import type { AdminFinanceAnalytics, AdminRevenueSummary, AdminPayout } from"../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
@@ -53,15 +53,28 @@ export default function FinancialOverviewPage() {
   const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [regionViewMode, setRegionViewMode] = useState<'table' | 'chart'>('table');
   const [analytics, setAnalytics] = useState<AdminFinanceAnalytics | null>(null);
+  const [revenue, setRevenue] = useState<AdminRevenueSummary | null>(null);
+  const [payouts, setPayouts] = useState<AdminPayout[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const currencySymbol = useMemo(() => {
+    const c = analytics?.currency || revenue?.currency || 'UGX';
+    return c === 'UGX' ? 'USh' : c === 'USD' ? '$' : c;
+  }, [analytics?.currency, revenue?.currency]);
 
   const fetchAnalytics = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getAdminFinanceAnalytics({ period: period as any });
+      const [data, rev, pendingPayouts] = await Promise.all([
+        getAdminFinanceAnalytics({ period: period as any }),
+        getAdminRevenueSummary({ period: period as any }).catch(() => null),
+        listAdminPayouts({ status: 'pending', limit: 10 }).then(r => r.items).catch(() => []),
+      ]);
       setAnalytics(data);
+      setRevenue(rev);
+      setPayouts(pendingPayouts);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load financial analytics');
     } finally {
@@ -82,6 +95,7 @@ export default function FinancialOverviewPage() {
       ['Net revenue', netRevenue.toString()],
       ['Payouts (scheduled)', analytics.payoutsPending.toString()],
       ['Currency', analytics.currency],
+      ['Pending payouts count', payouts.length.toString()],
     ].map(e => e.join(",")).join("\n");
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -105,27 +119,33 @@ export default function FinancialOverviewPage() {
     return [
       {
         label: "Gross bookings",
-        value: `$${analytics.grossEarnings.toLocaleString()}`,
-        subtitle: "+12% vs last period",
+        value: `${currencySymbol}${analytics.grossEarnings.toLocaleString()}`,
+        subtitle: `${payouts.length} pending payouts`,
       },
       {
         label: "EVzone net revenue",
-        value: `$${netRevenue.toLocaleString()}`,
+        value: `${currencySymbol}${netRevenue.toLocaleString()}`,
         subtitle: "Estimated gross less payout liability",
       },
       {
         label: "Payouts (scheduled)",
-        value: `$${analytics.payoutsPending.toLocaleString()}`,
+        value: `${currencySymbol}${analytics.payoutsPending.toLocaleString()}`,
         subtitle: "Next 7 days",
       },
     ];
   }, [analytics]);
 
-  const serviceRevenueData = useMemo(() => [
-    { name: "Rides", value: 82000, color: "#03cd8c" },
-    { name: "Deliveries", value: 32000, color: "#f77f00" },
-    { name: "Rental", value: 14420, color: "#3b82f6" },
-  ], []);
+  const serviceRevenueData = useMemo(() => {
+    if (revenue?.byService?.length) {
+      const palette = ["#03cd8c", "#f77f00", "#3b82f6", "#8b5cf6", "#ef4444", "#10b981"];
+      return revenue.byService.map((s, i) => ({ name: s.serviceType, value: s.amount, color: palette[i % palette.length] }));
+    }
+    return [
+      { name: "Rides", value: 82000, color: "#03cd8c" },
+      { name: "Deliveries", value: 32000, color: "#f77f00" },
+      { name: "Rental", value: 14420, color: "#3b82f6" },
+    ];
+  }, [revenue]);
 
   const regionLineData = useMemo(() => {
     const baseData = [
@@ -277,7 +297,7 @@ export default function FinancialOverviewPage() {
                 <Tooltip
                   contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#f8fafc" }}
                   itemStyle={{ color: "#f8fafc" }}
-                  formatter={(value) => `$${value.toLocaleString()}`}
+                  formatter={(value) => `${currencySymbol}${value.toLocaleString()}`}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
               </PieChart>
