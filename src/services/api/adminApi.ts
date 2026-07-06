@@ -579,6 +579,23 @@ export async function getAdminOperationsAnalytics(
   );
 }
 
+// ── Real-time Operations Monitoring ─────────────────────────────────────────
+
+export type AdminMonitoringSnapshot = {
+  onlineDrivers: number;
+  staleDrivers: number;
+  activeRideJobs: number;
+  activeDeliveryJobs: number;
+  failedDispatches: number;
+  expiredDocumentCount: number;
+  compliancePendingCount: number;
+  lastUpdatedAt?: string;
+};
+
+export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnapshot> {
+  return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
+}
+
 // ── Promotions ──────────────────────────────────────────────────────────────
 
 export type AdminPromoResponse = {

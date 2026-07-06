@@ -84,6 +84,7 @@ const NAV: NavSection[] = [
     items: [
       { label: 'Home', to: '/admin/home', icon: <DashboardIcon /> },
       { label: 'Operations', to: '/admin/ops', icon: <SettingsApplicationsIcon /> },
+      { label: 'Monitoring', to: '/admin/monitoring', icon: <AssessmentIcon /> },
       { label: 'Reports', to: '/admin/reports', icon: <AssessmentIcon /> },
       { label: 'Global Search', to: '/admin/search', icon: <SearchIcon /> },
     ],

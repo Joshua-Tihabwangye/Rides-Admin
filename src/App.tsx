@@ -33,6 +33,7 @@ import CompanyApprovals from './pages/CompanyApprovals'
 import RegionTaxConfigEditor from './pages/RegionTaxConfigEditor'
 import InvoiceTemplatePreview from './pages/InvoiceTemplatePreview'
 import OperationsDashboard from './pages/OperationsDashboard'
+import MonitoringPage from './pages/MonitoringPage'
 import DetailedAnalytics from './pages/DetailedAnalytics'
 import ApprovalsDashboard from './pages/ApprovalsDashboard'
 import ApprovalDetail from './pages/ApprovalDetail'
@@ -101,6 +102,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_operations"]}>
                 <OperationsDashboard />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="monitoring"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <MonitoringPage />
               </RequirePermission>
             }
           />
