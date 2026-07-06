@@ -48,6 +48,11 @@ import SecurityIcon from '@mui/icons-material/Security'
 import BusinessIcon from '@mui/icons-material/Business'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import ReceiptIcon from '@mui/icons-material/Receipt'
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
+import PaymentsIcon from '@mui/icons-material/Payments'
+import CreditCardIcon from '@mui/icons-material/CreditCard'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
+import SyncAltIcon from '@mui/icons-material/SyncAlt'
 import CategoryIcon from '@mui/icons-material/Category'
 import MapIcon from '@mui/icons-material/Map'
 import PriceChangeIcon from '@mui/icons-material/PriceChange'
@@ -108,6 +113,12 @@ const NAV: NavSection[] = [
     items: [
       { label: 'Companies', to: '/admin/companies', icon: <BusinessIcon /> },
       { label: 'Financial overview', to: '/admin/finance', icon: <AccountBalanceIcon /> },
+      { label: 'Cashouts', to: '/admin/finance/cashouts', icon: <AccountBalanceWalletIcon /> },
+      { label: 'Payouts', to: '/admin/finance/payouts', icon: <PaymentsIcon /> },
+      { label: 'Payments', to: '/admin/finance/payments', icon: <CreditCardIcon /> },
+      { label: 'Settlements', to: '/admin/finance/settlements', icon: <ReceiptLongIcon /> },
+      { label: 'Wallet reconciliation', to: '/admin/finance/wallet-reconciliation', icon: <AccountBalanceWalletIcon /> },
+      { label: 'Reconciliation runs', to: '/admin/finance/reconciliation-runs', icon: <SyncAltIcon /> },
       { label: 'Taxes & invoices', to: '/admin/finance/tax-invoices', icon: <ReceiptIcon /> },
     ],
   },

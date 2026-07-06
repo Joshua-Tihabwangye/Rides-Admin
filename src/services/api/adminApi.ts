@@ -548,10 +548,10 @@ function mapPeriodToBackend(period: AdminAnalyticsPeriod): "day" | "week" | "mon
   }
 }
 
-function toQueryString(input: Record<string, string | undefined>): string {
+function toQueryString(input: Record<string, string | number | boolean | undefined>): string {
   const search = new URLSearchParams();
   Object.entries(input).forEach(([key, value]) => {
-    if (value) search.set(key, value);
+    if (value !== undefined && value !== "" && value !== null) search.set(key, String(value));
   });
   const raw = search.toString();
   return raw ? `?${raw}` : "";
@@ -594,6 +594,176 @@ export type AdminMonitoringSnapshot = {
 
 export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnapshot> {
   return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
+}
+
+// ── Admin Finance ───────────────────────────────────────────────────────────
+
+export type AdminFinanceListQuery = {
+  status?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+  period?: string;
+};
+
+export type AdminCashout = {
+  id: string;
+  userId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+};
+
+export type AdminPayout = {
+  id: string;
+  recipientId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+};
+
+export type AdminPayment = {
+  id: string;
+  userId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  method: string;
+  createdAt: string;
+};
+
+export type AdminSettlement = {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  currency?: string;
+  totalAmount?: number;
+  status: string;
+  postedAt?: string;
+  createdAt: string;
+};
+
+export type AdminWalletReconciliation = {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  type?: string;
+  currency?: string;
+  status: string;
+  createdAt: string;
+};
+
+export type AdminRevenueSummary = {
+  totalRevenue: number;
+  currency: string;
+  byService?: Array<{ serviceType: string; amount: number }>;
+};
+
+export async function listAdminCashouts(query: AdminFinanceListQuery = {}): Promise<{ items: AdminCashout[]; meta?: { page: number; limit: number; total: number } }> {
+  return request<{ items: AdminCashout[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/cashouts${toQueryString(query)}`, { method: "GET" });
+}
+
+export async function reviewAdminCashout(id: string, input: { status: string; reason?: string; provider?: string }) {
+  return request<AdminCashout>(`/admin-finance/cashouts/${id}/review`, { method: "PATCH", body: input });
+}
+
+export async function listAdminPayouts(query: AdminFinanceListQuery = {}): Promise<{ items: AdminPayout[]; meta?: { page: number; limit: number; total: number } }> {
+  return request<{ items: AdminPayout[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/payouts${toQueryString(query)}`, { method: "GET" });
+}
+
+export async function retryAdminPayout(id: string) {
+  return request<AdminPayout>(`/admin-finance/payouts/${id}/retry`, { method: "POST" });
+}
+
+export async function listAdminPayments(query: AdminFinanceListQuery = {}): Promise<{ items: AdminPayment[]; meta?: { page: number; limit: number; total: number } }> {
+  return request<{ items: AdminPayment[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/payments${toQueryString(query)}`, { method: "GET" });
+}
+
+export async function refundAdminPayment(id: string, input: { amount?: number; reason?: string; idempotencyKey?: string }) {
+  return request<AdminPayment>(`/admin-finance/payments/${id}/refund`, { method: "POST", body: input });
+}
+
+export async function getAdminRevenueSummary(query: AdminFinanceListQuery = {}): Promise<AdminRevenueSummary> {
+  return request<AdminRevenueSummary>(`/admin-finance/revenue/summary${toQueryString(query)}`, { method: "GET" });
+}
+
+export async function listAdminSettlements(query: AdminFinanceListQuery = {}): Promise<{ items: AdminSettlement[]; meta?: { page: number; limit: number; total: number } }> {
+  return request<{ items: AdminSettlement[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/settlements${toQueryString(query)}`, { method: "GET" });
+}
+
+export async function createAdminSettlement(input: { periodStart: string; periodEnd: string; currency?: string; totalAmount?: number; provider?: string; settlementDate?: string }) {
+  return request<AdminSettlement>("/admin-finance/settlements", { method: "POST", body: input });
+}
+
+export async function postAdminSettlement(id: string) {
+  return request<AdminSettlement>(`/admin-finance/settlements/${id}/post`, { method: "PATCH" });
+}
+
+export async function cancelAdminSettlement(id: string) {
+  return request<AdminSettlement>(`/admin-finance/settlements/${id}/cancel`, { method: "PATCH" });
+}
+
+export async function listAdminWalletReconciliations(query: AdminFinanceListQuery = {}): Promise<{ items: AdminWalletReconciliation[]; meta?: { page: number; limit: number; total: number } }> {
+  return request<{ items: AdminWalletReconciliation[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/wallet-reconciliation${toQueryString(query)}`, { method: "GET" });
+}
+
+export async function createAdminWalletReconciliation(input: { periodStart: string; periodEnd: string; type?: string; currency?: string; runId?: string }) {
+  return request<AdminWalletReconciliation>("/admin-finance/wallet-reconciliation", { method: "POST", body: input });
+}
+
+// ── Reconciliation ──────────────────────────────────────────────────────────
+
+export type AdminReconciliationRun = {
+  id: string;
+  type: string;
+  periodStart: string;
+  periodEnd: string;
+  status: string;
+  summary?: Record<string, unknown>;
+  createdAt: string;
+  completedAt?: string;
+};
+
+export type AdminReconciliationRecord = {
+  id: string;
+  runId: string;
+  internalRecordType: string;
+  internalRecordId: string;
+  providerReference?: string;
+  expectedAmount: number;
+  settledAmount: number;
+  variance: number;
+  status: string;
+  resolution?: string;
+  createdAt: string;
+};
+
+export async function listAdminReconciliationRuns(query: { type?: string; status?: string } = {}): Promise<AdminReconciliationRun[]> {
+  return request<AdminReconciliationRun[]>(`/admin/reconciliation/runs${toQueryString(query)}`, { method: "GET" });
+}
+
+export async function startAdminReconciliationRun(input: { type: string; periodStart: string; periodEnd: string; provider?: string; tolerance?: number }) {
+  return request<AdminReconciliationRun>("/admin/reconciliation/runs", { method: "POST", body: input });
+}
+
+export async function getAdminReconciliationRun(id: string): Promise<AdminReconciliationRun> {
+  return request<AdminReconciliationRun>(`/admin/reconciliation/runs/${id}`, { method: "GET" });
+}
+
+export async function listAdminReconciliationRecords(runId: string, query: { status?: string } = {}): Promise<AdminReconciliationRecord[]> {
+  return request<AdminReconciliationRecord[]>(`/admin/reconciliation/runs/${runId}/records${toQueryString(query)}`, { method: "GET" });
+}
+
+export async function resolveAdminReconciliationRecord(runId: string, recordId: string, input: { status: string; resolution?: string }) {
+  return request<AdminReconciliationRecord>(`/admin/reconciliation/runs/${runId}/records/${recordId}/resolve`, { method: "POST", body: input });
+}
+
+export async function listAdminReconciliationProviders(): Promise<{ providers: string[] }> {
+  return request<{ providers: string[] }>("/admin/reconciliation/providers", { method: "GET" });
 }
 
 // ── Promotions ──────────────────────────────────────────────────────────────

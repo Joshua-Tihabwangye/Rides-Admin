@@ -19,7 +19,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
-import { getAdminCompany, listAdminCompanies, type AdminCompanyResponse } from "../services/api/adminApi";
+import { getAdminCompany, listAdminCompanies, listAdminPayouts, type AdminCompanyResponse } from "../services/api/adminApi";
 
 function AdminFinanceCompanyLayout({ children }) {
   return (
@@ -44,6 +44,7 @@ export default function CompanyPayoutConfigPage() {
   const { companyId } = useParams();
   const [companies, setCompanies] = useState<AdminCompanyResponse[]>([]);
   const [company, setCompany] = useState<AdminCompanyResponse | null>(null);
+  const [payouts, setPayouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,11 +66,18 @@ export default function CompanyPayoutConfigPage() {
         }
 
         if (companyId) {
-          setCompany(await getAdminCompany(companyId));
+          const co = await getAdminCompany(companyId);
+          setCompany(co);
+          const payoutRows = await listAdminPayouts({ search: co?.id || companyId, limit: 50 }).then(r => r.items).catch(() => []);
+          setPayouts(payoutRows);
           return;
         }
 
         setCompany(list[0] ?? null);
+        if (list[0]) {
+          const payoutRows = await listAdminPayouts({ search: list[0].id, limit: 50 }).then(r => r.items).catch(() => []);
+          setPayouts(payoutRows);
+        }
       } catch (err: any) {
         if (cancelled) return;
         setError(err?.message ?? "Failed to load company payouts");
@@ -185,29 +193,32 @@ export default function CompanyPayoutConfigPage() {
               Payout history
             </Typography>
             <Divider className="!my-1" />
-            <Alert severity="warning">
-              The backend does not yet expose payout history for this company. Use the Financial Overview page for live payout liability.
-            </Alert>
-
-            <TableContainer component={Paper} elevation={0}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "action.hover" }}>
-                    <TableCell>Period</TableCell>
-                    <TableCell>Amount</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Method</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                      No live payout history available yet.
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
+            {payouts.length === 0 ? (
+              <Alert severity="info">No live payouts found for this company.</Alert>
+            ) : (
+              <TableContainer component={Paper} elevation={0}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "action.hover" }}>
+                      <TableCell>ID</TableCell>
+                      <TableCell>Amount</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Created</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {payouts.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell sx={{ fontSize: 12, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>{p.id}</TableCell>
+                        <TableCell>{p.currency} {p.amount?.toLocaleString()}</TableCell>
+                        <TableCell>{p.status}</TableCell>
+                        <TableCell>{p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </CardContent>
         </Card>
       </Box>
