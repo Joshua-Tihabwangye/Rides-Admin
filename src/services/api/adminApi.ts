@@ -594,6 +594,48 @@ export type AdminMonitoringSnapshot = {
 
 export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnapshot> {
   return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
+export type AdminDashboardCounts = {
+  activeRides: number;
+  activeDeliveries: number;
+  drivers: number;
+  rides: number;
+  deliveries: number;
+};
+
+export async function getAdminDashboard(): Promise<AdminDashboardCounts> {
+  const raw = await request<Record<string, number>>("/admin/dashboard", { method: "GET" });
+  return {
+    activeRides: raw.activeRides ?? 0,
+    activeDeliveries: raw.activeDeliveries ?? 0,
+    drivers: raw.drivers ?? 0,
+    rides: raw.rides ?? 0,
+    deliveries: raw.deliveries ?? 0,
+  };
+}
+
+export type AdminRecentBooking = {
+  id: string;
+  status: string;
+  pickup?: string | Record<string, unknown>;
+  destination?: string | Record<string, unknown>;
+  dropoff?: string | Record<string, unknown>;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  estimatedFare?: number;
+};
+
+export type AdminRecentBookings = {
+  rides: AdminRecentBooking[];
+  deliveries: AdminRecentBooking[];
+  touristVehicles: AdminRecentBooking[];
+  ambulance: AdminRecentBooking[];
+  carRentals: AdminRecentBooking[];
+};
+
+export async function getAdminRecentBookings(limit = 50): Promise<AdminRecentBookings> {
+  return request<AdminRecentBookings>(`/admin/bookings/recent${toQueryString({ limit: String(limit) })}`, { method: "GET" });
 }
 
 // ── Admin Finance ───────────────────────────────────────────────────────────
