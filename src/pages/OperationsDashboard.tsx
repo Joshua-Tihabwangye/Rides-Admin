@@ -25,8 +25,8 @@ import {
 } from"recharts";
 import PeriodSelector, { PeriodOption } from '../components/PeriodSelector';
 import dayjs from 'dayjs';
-import { getAdminOperationsAnalytics } from '../services/api/adminApi';
-import type { AdminOperationsAnalytics } from '../services/api/adminApi';
+import { getAdminOperationsAnalytics, getAdminDashboard, getAdminRecentBookings } from '../services/api/adminApi';
+import type { AdminOperationsAnalytics, AdminRecentBooking } from '../services/api/adminApi';
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -37,6 +37,8 @@ export default function OperationsDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodOption>('today');
   const [analytics, setAnalytics] = useState<AdminOperationsAnalytics | null>(null);
+  const [dashboard, setDashboard] = useState<{ activeRides: number } | null>(null);
+  const [recentRides, setRecentRides] = useState<AdminRecentBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,8 +46,16 @@ export default function OperationsDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getAdminOperationsAnalytics({ period });
-      setAnalytics(data);
+      const [analyticsData, dashboardData, recentData] = await Promise.all([
+        getAdminOperationsAnalytics({ period }),
+        getAdminDashboard(),
+        getAdminRecentBookings(50),
+      ]);
+      setAnalytics(analyticsData);
+      setDashboard(dashboardData);
+      const activeStatuses = ['searching', 'assigned', 'driver_en_route', 'arrived', 'active', 'in_progress'];
+      const allRides = recentData?.rides ?? [];
+      setRecentRides(allRides.filter((r) => activeStatuses.includes(String(r.status).toLowerCase())));
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load analytics');
     } finally {
@@ -55,6 +65,8 @@ export default function OperationsDashboardPage() {
 
   useEffect(() => {
     fetchAnalytics();
+    const interval = window.setInterval(fetchAnalytics, 15000);
+    return () => window.clearInterval(interval);
   }, [period]);
 
   const handlePeriodChange = (newPeriod: PeriodOption, range?: any) => {
@@ -78,7 +90,7 @@ export default function OperationsDashboardPage() {
       {
         label: 'Trips (Rides + Deliveries)',
         value: analytics.trips.total.toLocaleString(),
-        subtitle: `${analytics.trips.completed} completed, ${analytics.trips.active} active`,
+        subtitle: `${analytics.trips.completed} completed, ${dashboard?.activeRides ?? analytics.trips.active} active`,
         status: 'Monitor',
         description: 'Total completed trip volume = rides + deliveries in the selected period.',
       },
@@ -164,7 +176,7 @@ export default function OperationsDashboardPage() {
       </Box>
 
       {/* KPI row */}
-      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
+      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {kpis.map((kpi) => {
           const getStatusColor = (status: string) => {
             if (status === 'On target') return '#03cd8c';
@@ -224,6 +236,35 @@ export default function OperationsDashboardPage() {
           );
         })}
       </Box>
+
+      {recentRides.length > 0 && (
+        <Card elevation={1} sx={{ border: "1px solid rgba(148,163,184,0.5)", mb: 4 }}>
+          <CardContent className="p-4">
+            <Box className="flex items-center justify-between mb-2">
+              <Typography variant="subtitle2" className="font-semibold">
+                Live active rides
+              </Typography>
+              <Chip size="small" label={`${recentRides.length} active`} sx={{ height: 20, fontSize: 10, bgcolor: '#03cd8c20', color: '#03cd8c' }} />
+            </Box>
+            <Divider className="!my-2" />
+            <Box className="space-y-2">
+              {recentRides.slice(0, 10).map((ride) => {
+                const pickup = typeof ride.pickup === 'object' && ride.pickup ? (ride.pickup as Record<string, unknown>).address ?? ride.pickupAddress ?? '—' : ride.pickup ?? ride.pickupAddress ?? '—';
+                const dropoff = typeof ride.destination === 'object' && ride.destination ? (ride.destination as Record<string, unknown>).address ?? ride.dropoffAddress ?? '—' : ride.destination ?? ride.dropoff ?? ride.dropoffAddress ?? '—';
+                return (
+                  <Box key={ride.id} className="flex items-center justify-between text-sm">
+                    <Box>
+                      <Typography variant="body2" className="font-semibold">{ride.id.slice(0, 8)}</Typography>
+                      <Typography variant="caption" color="text.secondary">{String(pickup)} → {String(dropoff)}</Typography>
+                    </Box>
+                    <Chip size="small" label={ride.status} sx={{ height: 20, fontSize: 10 }} />
+                  </Box>
+                );
+              })}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       <Box className="flex flex-col lg:flex-row gap-4 mb-10">
         {/* Demand vs supply chart */}
