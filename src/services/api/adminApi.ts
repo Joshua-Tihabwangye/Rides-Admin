@@ -594,6 +594,8 @@ export type AdminMonitoringSnapshot = {
 
 export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnapshot> {
   return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
+}
+
 export type AdminDashboardCounts = {
   activeRides: number;
   activeDeliveries: number;
