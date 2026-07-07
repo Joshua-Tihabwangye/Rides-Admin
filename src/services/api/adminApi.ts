@@ -596,6 +596,136 @@ export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnaps
   return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
 }
 
+// ── Monitoring detail endpoints (observability dashboards) ──────────────────
+// NOTE: These endpoints are not fully exposed by the backend yet. The wrappers
+// below fall back to the closest existing endpoints so the UI can render real
+// data as soon as the backend implements them, while staying accurate today.
+
+export type AdminOnlineDriver = AdminDriverResponse & {
+  lastHeartbeatAt?: string;
+};
+
+export type AdminStaleDriver = AdminOnlineDriver & {
+  secondsSinceHeartbeat: number;
+};
+
+export type AdminActiveJob = {
+  id: string;
+  serviceType: "ride" | "delivery";
+  status: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  driverId?: string;
+  driverName?: string;
+  riderId?: string;
+  riderName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AdminFailedDispatch = {
+  id: string;
+  serviceType: "ride" | "delivery";
+  reason?: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  createdAt?: string;
+};
+
+function normalizeBookingToJob(
+  booking: AdminRecentBooking,
+  serviceType: "ride" | "delivery"
+): AdminActiveJob {
+  return {
+    id: booking.id,
+    serviceType,
+    status: booking.status,
+    pickupAddress:
+      typeof booking.pickup === "string"
+        ? booking.pickup
+        : booking.pickupAddress,
+    dropoffAddress:
+      typeof booking.destination === "string"
+        ? booking.destination
+        : typeof booking.dropoff === "string"
+        ? booking.dropoff
+        : booking.dropoffAddress,
+    createdAt: booking.createdAt,
+    updatedAt: booking.updatedAt,
+  };
+}
+
+export async function listAdminOnlineDrivers(): Promise<AdminOnlineDriver[]> {
+  // Gap: backend has no dedicated /admin/monitoring/drivers/online endpoint.
+  // Closest existing endpoint is the driver list.
+  const drivers = await listAdminDrivers();
+  return drivers.filter((driver) => driver.status === "active");
+}
+
+export async function listAdminStaleDrivers(): Promise<AdminStaleDriver[]> {
+  // Gap: backend does not expose driver heartbeat timestamps yet.
+  const drivers = await listAdminOnlineDrivers();
+  return drivers.map((driver) => ({
+    ...driver,
+    secondsSinceHeartbeat: 0,
+  }));
+}
+
+export async function listAdminActiveRideJobs(): Promise<AdminActiveJob[]> {
+  // Gap: backend has no dedicated active-jobs endpoint yet.
+  // Closest existing endpoint is recent bookings.
+  const recent = await getAdminRecentBookings();
+  return (recent.rides || [])
+    .filter(
+      (booking) =>
+        booking.status && !["completed", "cancelled", "failed"].includes(booking.status)
+    )
+    .map((booking) => normalizeBookingToJob(booking, "ride"));
+}
+
+export async function listAdminActiveDeliveryJobs(): Promise<AdminActiveJob[]> {
+  const recent = await getAdminRecentBookings();
+  return (recent.deliveries || [])
+    .filter(
+      (booking) =>
+        booking.status && !["completed", "cancelled", "failed"].includes(booking.status)
+    )
+    .map((booking) => normalizeBookingToJob(booking, "delivery"));
+}
+
+export async function listAdminFailedDispatches(): Promise<AdminFailedDispatch[]> {
+  // Gap: backend has no dedicated failed-dispatches endpoint yet.
+  const recent = await getAdminRecentBookings();
+  const mapBooking = (
+    booking: AdminRecentBooking,
+    serviceType: "ride" | "delivery"
+  ): AdminFailedDispatch => ({
+    id: booking.id,
+    serviceType,
+    reason: booking.status,
+    pickupAddress:
+      typeof booking.pickup === "string"
+        ? booking.pickup
+        : booking.pickupAddress,
+    dropoffAddress:
+      typeof booking.destination === "string"
+        ? booking.destination
+        : typeof booking.dropoff === "string"
+        ? booking.dropoff
+        : booking.dropoffAddress,
+    createdAt: booking.createdAt,
+  });
+
+  const rides = (recent.rides || [])
+    .filter((booking) => ["failed", "no_driver", "cancelled"].includes(booking.status))
+    .map((booking) => mapBooking(booking, "ride"));
+  const deliveries = (recent.deliveries || [])
+    .filter((booking) => ["failed", "no_driver", "cancelled"].includes(booking.status))
+    .map((booking) => mapBooking(booking, "delivery"));
+
+  return [...rides, ...deliveries];
+}
+
 export type AdminDashboardCounts = {
   activeRides: number;
   activeDeliveries: number;

@@ -194,7 +194,7 @@ export default function CompanyPayoutConfigPage() {
             </Typography>
             <Divider className="!my-1" />
             {payouts.length === 0 ? (
-              <Alert severity="info">No live payouts found for this company.</Alert>
+              <Alert severity="info">No live payout history available yet.</Alert>
             ) : (
               <TableContainer component={Paper} elevation={0}>
                 <Table size="small">
