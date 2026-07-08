@@ -77,7 +77,7 @@ export default function PromotionsIncentivesPage() {
         id: promo.id,
         name: promo.code,
         segment: "All users", // backend may not have segment; could add later
-        reward: promo.discountType === "percent" ? `${promo.discountValue}% off` : `$${promo.discountValue} off`,
+        reward: promo.discountType === "percent" ? `${promo.discountValue}% off` : `UGX ${promo.discountValue} off`,
       }));
       setCampaigns(mapped);
     } catch (err: any) {

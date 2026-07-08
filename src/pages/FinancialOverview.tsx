@@ -374,8 +374,8 @@ export default function FinancialOverviewPage() {
                       onClick={() => handleRegionClick('East Africa')}
                     >
                       <TableCell>East Africa</TableCell>
-                      <TableCell align="right">${(74000).toLocaleString()}</TableCell>
-                      <TableCell align="right">${(14200).toLocaleString()}</TableCell>
+                      <TableCell align="right">UGX —</TableCell>
+                      <TableCell align="right">UGX —</TableCell>
                     </TableRow>
                     <TableRow
                       hover
@@ -383,8 +383,8 @@ export default function FinancialOverviewPage() {
                       onClick={() => handleRegionClick('West Africa')}
                     >
                       <TableCell>West Africa</TableCell>
-                      <TableCell align="right">${(54420).toLocaleString()}</TableCell>
-                      <TableCell align="right">${(10480).toLocaleString()}</TableCell>
+                      <TableCell align="right">UGX —</TableCell>
+                      <TableCell align="right">UGX —</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -398,12 +398,12 @@ export default function FinancialOverviewPage() {
                     <YAxis
                       tick={{ fontSize: 11 }}
                       stroke="#94a3b8"
-                      tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                      tickFormatter={(value) => `${currencySymbol}${(value / 1000).toFixed(0)}k`}
                     />
                     <Tooltip
                       contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#f8fafc" }}
                       labelStyle={{ color: "#f8fafc" }}
-                      formatter={(value) => [`$${value.toLocaleString()}`, '']}
+                      formatter={(value) => [`${currencySymbol}${value.toLocaleString()}`, '']}
                     />
                     <Legend
                       verticalAlign="bottom"

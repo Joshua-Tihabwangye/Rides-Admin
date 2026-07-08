@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useMemo, useState, useEffect } from"react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -19,7 +18,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from"recharts";
+} from "recharts";
 
 import {
   getAdminSystemOverview,
@@ -31,17 +30,17 @@ import {
 // Route: /admin or /admin/home
 
 const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
+  primary: "#03cd8c",
+  secondary: "#f77f00",
 };
 
 
-import { useNavigate } from"react-router-dom";
-import PeriodSelector from"../components/PeriodSelector";
+import { useNavigate } from "react-router-dom";
+import PeriodSelector, { type PeriodOption } from "../components/PeriodSelector";
 
 export default function AdminHomeDashboardPage() {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState("today");
+  const [period, setPeriod] = useState<PeriodOption>("today");
   const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" |"Delivery" |"Both">("Both");
 
   const [overview, setOverview] = useState<any>(null);
@@ -56,8 +55,8 @@ export default function AdminHomeDashboardPage() {
         setLoading(true);
         const [ov, ops, fin] = await Promise.all([
           getAdminSystemOverview(),
-          getAdminOperationsAnalytics({ period }),
-          getAdminFinanceAnalytics({ period }),
+          getAdminOperationsAnalytics({ period: period as any }),
+          getAdminFinanceAnalytics({ period: period as any }),
         ]);
         if (!cancelled) {
           setOverview(ov);
@@ -93,7 +92,7 @@ export default function AdminHomeDashboardPage() {
         value: loading ? "—" : tripsTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }),
         trend: operationsAnalytics
           ? `${operationsAnalytics.trips?.completed ?? 0} completed · ${operationsAnalytics.trips?.active ?? 0} active`
-          : "+12% vs previous period",
+          : "—",
         onClick: () => navigate("/admin/ops"),
         subtitle:"Selected period",
       },
@@ -102,7 +101,7 @@ export default function AdminHomeDashboardPage() {
         value: loading ? "—" : activeDrivers.toLocaleString(),
         trend: operationsAnalytics
           ? `${operationsAnalytics.drivers?.online ?? 0} online / ${operationsAnalytics.drivers?.total ?? 0} total`
-          : "82% utilisation",
+          : "—",
         onClick: () => navigate("/admin/drivers"),
         subtitle:"Online now",
       },
@@ -115,49 +114,34 @@ export default function AdminHomeDashboardPage() {
       },
       {
         label:"Gross bookings",
-        value: loading ? "—" : `$${Number(grossBookings).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        value: loading ? "—" : `UGX ${Number(grossBookings).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
         trend: financeAnalytics
           ? `${financeAnalytics.earningsCount ?? 0} transactions`
-          : "+9% vs previous period",
+          : "—",
         onClick: () => navigate("/admin/finance"),
         subtitle:"Finance report view",
       },
     ];
   }, [period, navigate, overview, operationsAnalytics, financeAnalytics, loading]);
 
+  // Hourly trip trends are shown only when the backend supplies them.
+  // Static demo data has been removed to meet production-readiness requirements.
   const tripTrends = useMemo(() => {
-    const m = periodMultiplier[period] ?? 1;
-    const base = [
-      { hour:"6AM", rides: 30, deliveries: 15, bookings: 1200 },
-      { hour:"8AM", rides: 104, deliveries: 52, bookings: 3800 },
-      { hour:"10AM", rides: 132, deliveries: 66, bookings: 4500 },
-      { hour:"12PM", rides: 147, deliveries: 73, bookings: 5200 },
-      { hour:"2PM", rides: 119, deliveries: 59, bookings: 4100 },
-      { hour:"4PM", rides: 156, deliveries: 78, bookings: 5600 },
-      { hour:"6PM", rides: 178, deliveries: 89, bookings: 6300 },
-      { hour:"8PM", rides: 97, deliveries: 48, bookings: 3400 },
-      { hour:"10PM", rides: 52, deliveries: 26, bookings: 1800 },
-    ];
-    return base.map((row) => {
-      const rides = Math.round(row.rides * m);
-      const deliveries = Math.round(row.deliveries * m);
-      let trips = 0;
-      if (tripTrendFilter ==="Rides") {
-        trips = rides;
-      } else if (tripTrendFilter ==="Delivery") {
-        trips = deliveries;
-      } else {
-        trips = rides + deliveries;
-      }
-      return {
-        ...row,
-        rides,
-        deliveries,
-        trips,
-        bookings: Math.round(row.bookings * m),
-      };
-    });
-  }, [period, tripTrendFilter]);
+    const hourly = operationsAnalytics?.hourly;
+    if (!Array.isArray(hourly) || hourly.length === 0) return [];
+    return hourly.map((row: any) => ({
+      hour: row.hour ?? "",
+      rides: Number(row.rides ?? 0),
+      deliveries: Number(row.deliveries ?? 0),
+      trips:
+        tripTrendFilter === "Rides"
+          ? Number(row.rides ?? 0)
+          : tripTrendFilter === "Delivery"
+            ? Number(row.deliveries ?? 0)
+            : Number(row.rides ?? 0) + Number(row.deliveries ?? 0),
+      bookings: Number(row.bookings ?? 0),
+    }));
+  }, [operationsAnalytics, tripTrendFilter]);
 
   const alerts = useMemo(() => {
     if (!overview?.queues) return [];
@@ -188,8 +172,8 @@ export default function AdminHomeDashboardPage() {
     const grossBookings = Number(financeAnalytics?.grossEarnings ?? 0);
     const payouts = Number(financeAnalytics?.payoutsPending ?? 0);
     return [
-      `Gross bookings: $${grossBookings.toLocaleString()}`,
-      `Payout queue: $${payouts.toLocaleString()}`,
+      `Gross bookings: UGX ${grossBookings.toLocaleString()}`,
+      `Payout queue: UGX ${payouts.toLocaleString()}`,
       `Open approvals: ${overview?.queues?.approvals ?? 0} · live backend data`,
     ];
   }, [financeAnalytics, overview]);
@@ -342,30 +326,38 @@ export default function AdminHomeDashboardPage() {
                 </ToggleButtonGroup>
                 <PeriodSelector
                   value={period}
-                  onChange={(newPeriod) => setPeriod(newPeriod)}
+                  onChange={(newPeriod) => setPeriod(newPeriod as PeriodOption)}
                 />
               </Box>
             </Box>
             <Box sx={{ flex: 1, minHeight: 180 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={tripTrends} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="tripGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#03cd8c" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#03cd8c" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="hour" tick={{ fontSize: 10, fill:"#94a3b8" }} stroke="#334155" />
-                  <YAxis tick={{ fontSize: 10, fill:"#94a3b8" }} stroke="#334155" />
-                  <Tooltip
-                    contentStyle={{ backgroundColor:"#0f172a", border:"1px solid #334155", borderRadius: 8, fontSize: 11 }}
-                    labelStyle={{ color:"#e5e7eb" }}
-                    itemStyle={{ color:"#03cd8c" }}
-                  />
-                  <Area type="monotone" dataKey="trips" stroke="#03cd8c" strokeWidth={2} fill="url(#tripGradient)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              {tripTrends.length === 0 ? (
+                <Box className="h-full flex items-center justify-center">
+                  <Typography variant="caption" color="text.secondary" className="text-[11px]">
+                    Hourly trend data is not available from the backend yet.
+                  </Typography>
+                </Box>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={tripTrends} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="tripGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#03cd8c" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#03cd8c" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#94a3b8" }} stroke="#334155" />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} stroke="#334155" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
+                      labelStyle={{ color: "#e5e7eb" }}
+                      itemStyle={{ color: "#03cd8c" }}
+                    />
+                    <Area type="monotone" dataKey="trips" stroke="#03cd8c" strokeWidth={2} fill="url(#tripGradient)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </Box>
           </CardContent>
         </Card>

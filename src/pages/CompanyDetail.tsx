@@ -126,7 +126,7 @@ export default function CompanyDetailPage() {
 
   const [commission, setCommission] = useState({
     baseRate: "12%",
-    minFare: "$1.50",
+    minFare: "UGX 1,500",
     surgeShare: "80%",
   });
   const [verticals, setVerticals] = useState({

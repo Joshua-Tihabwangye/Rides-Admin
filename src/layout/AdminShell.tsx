@@ -90,6 +90,7 @@ const NAV: NavSection[] = [
       { label: 'Home', to: '/admin/home', icon: <DashboardIcon /> },
       { label: 'Operations', to: '/admin/ops', icon: <SettingsApplicationsIcon /> },
       { label: 'Monitoring', to: '/admin/monitoring', icon: <AssessmentIcon /> },
+      { label: 'Matching', to: '/admin/matching', icon: <AssessmentIcon /> },
       { label: 'Reports', to: '/admin/reports', icon: <AssessmentIcon /> },
       { label: 'Global Search', to: '/admin/search', icon: <SearchIcon /> },
     ],
@@ -131,6 +132,7 @@ const NAV: NavSection[] = [
       { label: 'Promotions', to: '/admin/promos', icon: <LocalOfferIcon /> },
       { label: 'Vertical policies', to: '/admin/vertical-policies', icon: <PolicyIcon /> },
       { label: 'Approvals', to: '/admin/approvals', icon: <FactCheckIcon /> },
+      { label: 'Document Review', to: '/admin/documents/review', icon: <FactCheckIcon /> },
     ],
   },
   {

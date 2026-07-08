@@ -84,7 +84,7 @@ export default function DriverManagement() {
           vehicle: "EV Car",
           vehicleType: "Car",
           trips: driver.totalTrips || 0,
-          spend: "$0",
+          spend: "UGX 0",
           risk: "Low",
           primaryStatus,
           activityStatus,
