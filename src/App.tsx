@@ -40,9 +40,11 @@ import RegionTaxConfigEditor from './pages/RegionTaxConfigEditor'
 import InvoiceTemplatePreview from './pages/InvoiceTemplatePreview'
 import OperationsDashboard from './pages/OperationsDashboard'
 import MonitoringPage from './pages/MonitoringPage'
+import MatchingInspectionPage from './pages/MatchingInspectionPage'
 import DetailedAnalytics from './pages/DetailedAnalytics'
 import ApprovalsDashboard from './pages/ApprovalsDashboard'
 import ApprovalDetail from './pages/ApprovalDetail'
+import DocumentReviewPage from './pages/DocumentReviewPage'
 import ServiceConfiguration from './pages/ServiceConfiguration'
 import PricingManagement from './pages/PricingManagement'
 import PromotionsIncentives from './pages/PromotionsIncentives'
@@ -116,6 +118,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_operations"]}>
                 <MonitoringPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="matching"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <MatchingInspectionPage />
               </RequirePermission>
             }
           />
@@ -349,6 +359,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_operations"]}>
                 <ApprovalDetail />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="documents/review"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <DocumentReviewPage />
               </RequirePermission>
             }
           />

@@ -131,9 +131,9 @@ export default function PricingRulesPage() {
   };
 
   const dashboardMetrics = [
-    { label:"Active Zones", value: `${24}`, sub:"Across 2 countries" },
-    { label:"Total Revenue", value: `$${(245000 * multiplier).toLocaleString()}`, sub:"From all active tariffs" },
-    { label:"Avg. Trip Cost", value: `$${(12 * multiplier).toLocaleString()}`, sub:"+5% vs last period" },
+    { label: "Active Zones", value: zones[country]?.length?.toString() ?? "0", sub: "Configured zones" },
+    { label: "Total Revenue", value: "UGX —", sub: "From all active tariffs" },
+    { label: "Avg. Trip Cost", value: "UGX —", sub: "Per configured tariff" },
   ];
 
   const pricingDistribution = React.useMemo(() => [

@@ -293,10 +293,10 @@ export default function PromoDetail() {
                                     Total Spent
                                 </Typography>
                                 <Typography variant="h5" fontWeight={700} color="text.primary">
-                                    ${promo.spent.toLocaleString()}
+                                    UGX {promo.spent.toLocaleString()}
                                 </Typography>
                                 <Typography variant="caption" className="text-[10px]" color="text.secondary">
-                                    of ${promo.budget.toLocaleString()} budget
+                                    of UGX {promo.budget.toLocaleString()} budget
                                 </Typography>
                             </Box>
                         </CardContent>
@@ -341,17 +341,17 @@ export default function PromoDetail() {
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                         <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                                         <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
-                                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v / 1000}k`} />
+                                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `UGX ${v / 1000}k`} />
                                         <Tooltip
                                             contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                             formatter={(value, name) => [
-                                                name === 'spend' ? `$${value.toLocaleString()}` : value.toLocaleString(),
+                                                name === 'spend' ? `UGX ${value.toLocaleString()}` : value.toLocaleString(),
                                                 name === 'spend' ? 'Spend' : 'Redemptions'
                                             ]}
                                         />
                                         <Legend />
                                         <Line yAxisId="left" type="monotone" dataKey="redemptions" name="Redemptions" stroke={EV_COLORS.primary} strokeWidth={2} dot={{ r: 4 }} />
-                                        <Line yAxisId="right" type="monotone" dataKey="spend" name="Spend ($)" stroke={EV_COLORS.secondary} strokeWidth={2} dot={{ r: 4 }} />
+                                        <Line yAxisId="right" type="monotone" dataKey="spend" name="Spend (UGX)" stroke={EV_COLORS.secondary} strokeWidth={2} dot={{ r: 4 }} />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </Box>

@@ -86,7 +86,7 @@ export default function RiderManagement() {
           vehicle: "EV Bike",
           vehicleType: "Bike",
           trips: 0,
-          spend: "$0",
+          spend: "UGX 0",
           risk: "Low",
           primaryStatus,
           activityStatus,

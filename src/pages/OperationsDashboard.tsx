@@ -111,36 +111,10 @@ export default function OperationsDashboardPage() {
     ];
   }, [analytics]);
 
-  // Mock chart data since backend doesn't provide time-series breakdown
-  const demandSupplyData = useMemo(() => {
-    const multiplier = period === 'today' ? 0.15 : period === '7days' ? 0.5 : period === 'thisMonth' ? 1.2 : period === 'thisYear' ? 2.8 : 0.8;
-    const base = [
-      { time: '6AM', demand: 45, supply: 60 },
-      { time: '8AM', demand: 156, supply: 140 },
-      { time: '10AM', demand: 198, supply: 180 },
-      { time: '12PM', demand: 220, supply: 200 },
-      { time: '2PM', demand: 178, supply: 190 },
-      { time: '4PM', demand: 234, supply: 210 },
-      { time: '6PM', demand: 267, supply: 240 },
-      { time: '8PM', demand: 145, supply: 160 },
-      { time: '10PM', demand: 78, supply: 100 },
-    ];
-    return base.map((row) => ({
-      ...row,
-      demand: Math.round(row.demand * multiplier),
-      supply: Math.round(row.supply * multiplier),
-    }));
-  }, [period]);
-
-  const serviceMixData = useMemo(() => {
-    const multiplier = period === 'today' ? 0.15 : period === '7days' ? 0.5 : period === 'thisMonth' ? 1.2 : period === 'thisYear' ? 2.8 : 0.8;
-    return [
-      { region: 'Kampala', rides: Math.round(840 * multiplier), deliveries: Math.round(420 * multiplier) },
-      { region: 'Nairobi', rides: Math.round(650 * multiplier), deliveries: Math.round(380 * multiplier) },
-      { region: 'Lagos', rides: Math.round(920 * multiplier), deliveries: Math.round(510 * multiplier) },
-      { region: 'Accra', rides: Math.round(480 * multiplier), deliveries: Math.round(220 * multiplier) },
-    ];
-  }, [period]);
+  // Demand/supply and service-mix charts are shown only when the backend supplies
+  // hourly / regional breakdowns. Static demo data has been removed.
+  const demandSupplyData = useMemo(() => analytics?.hourly ?? [], [analytics]);
+  const serviceMixData = useMemo(() => analytics?.regions ?? [], [analytics]);
 
   if (loading && !analytics) {
     return (
@@ -296,20 +270,28 @@ export default function OperationsDashboardPage() {
                 }}
               />
             </Box>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={demandSupplyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} />
-                <YAxis stroke="#94a3b8" fontSize={11} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
-                  labelStyle={{ color: "#e5e7eb" }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="demand" stroke="#f77f00" strokeWidth={2} name="Demand (Trips)" />
-                <Line type="monotone" dataKey="supply" stroke="#03cd8c" strokeWidth={2} name="Supply (Drivers)" />
-              </LineChart>
-            </ResponsiveContainer>
+            {demandSupplyData.length === 0 ? (
+              <Box className="flex-1 flex items-center justify-center">
+                <Typography variant="caption" className="text-[11px] text-slate-400">
+                  Hourly demand/supply data is not available from the backend yet.
+                </Typography>
+              </Box>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={demandSupplyData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} />
+                  <YAxis stroke="#94a3b8" fontSize={11} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
+                    labelStyle={{ color: "#e5e7eb" }}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="demand" stroke="#f77f00" strokeWidth={2} name="Demand (Trips)" />
+                  <Line type="monotone" dataKey="supply" stroke="#03cd8c" strokeWidth={2} name="Supply (Drivers)" />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -355,7 +337,7 @@ export default function OperationsDashboardPage() {
                 variant="body2"
                 className="text-[12px]"
               >
-                • Rider cancellations: 4.1%
+                • Rider cancellations: —
               </Typography>
               <Chip
                 label="On target"
@@ -373,7 +355,7 @@ export default function OperationsDashboardPage() {
                 variant="body2"
                 className="text-[12px]"
               >
-                • Driver cancellations: 3.3%
+                • Driver cancellations: —
               </Typography>
               <Chip
                 label="Monitor"
@@ -391,7 +373,7 @@ export default function OperationsDashboardPage() {
                 variant="body2"
                 className="text-[12px]"
               >
-                • Support tickets (24h): 32 + 3 critical
+                • Support tickets (24h): —
               </Typography>
               <Chip
                 label="Critical"
@@ -432,19 +414,27 @@ export default function OperationsDashboardPage() {
               Service Mix by Region
             </Typography>
             <Divider className="!my-1" />
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={serviceMixData} layout="vertical" margin={{ left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" fontSize={11} />
-                <YAxis dataKey="region" type="category" fontSize={11} width={60} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#e5e7eb" }}
-                />
-                <Legend />
-                <Bar dataKey="rides" fill="#03cd8c" name="Rides" stackId="mix" radius={[0, 4, 4, 0]} />
-                <Bar dataKey="deliveries" fill="#f77f00" name="Deliveries" stackId="mix" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {serviceMixData.length === 0 ? (
+              <Box className="flex-1 flex items-center justify-center">
+                <Typography variant="caption" className="text-[11px] text-slate-500">
+                  Regional service-mix data is not available from the backend yet.
+                </Typography>
+              </Box>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={serviceMixData} layout="vertical" margin={{ left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" fontSize={11} />
+                  <YAxis dataKey="region" type="category" fontSize={11} width={60} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#e5e7eb" }}
+                  />
+                  <Legend />
+                  <Bar dataKey="rides" fill="#03cd8c" name="Rides" stackId="mix" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="deliveries" fill="#f77f00" name="Deliveries" stackId="mix" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -468,13 +458,7 @@ export default function OperationsDashboardPage() {
               variant="body2"
               className="text-[12px]"
             >
-              • Kampala – strong demand, wait times within target.
-            </Typography>
-            <Typography
-              variant="body2"
-              className="text-[12px]"
-            >
-              • Lagos – watch cancellations; consider fleet reinforcement.
+              • Live region highlights will appear here once the backend provides regional analytics.
             </Typography>
           </CardContent>
         </Card>

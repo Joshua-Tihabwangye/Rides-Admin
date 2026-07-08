@@ -252,21 +252,21 @@ export default function InvoiceTemplatePreviewPage() {
                 <LineItemRow
                   label="EV Ride – City"
                   qty="1"
-                  price="$8.00"
-                  total="$8.00"
+                  price="UGX 8,000"
+                  total="UGX 8,000"
                 />
                 <LineItemRow
                   label="Service fee"
                   qty="1"
-                  price="$1.00"
-                  total="$1.00"
+                  price="UGX 1,000"
+                  total="UGX 1,000"
                 />
               </Box>
 
               {template.showTaxBreakdown && (
                 <Box className="mt-2 text-[11px] text-slate-500">
-                  <div>Subtotal: $9.00</div>
-                  <div>VAT (18%): $1.62</div>
+                  <div>Subtotal: UGX 9,000</div>
+                  <div>VAT (18%): UGX 1,620</div>
                   <div className="font-semibold text-[12px] mt-1">
                     Total: $10.62
                   </div>

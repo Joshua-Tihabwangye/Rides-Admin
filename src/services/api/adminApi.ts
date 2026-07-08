@@ -525,6 +525,8 @@ export type AdminOperationsAnalytics = {
     online: number;
     total: number;
   };
+  hourly?: Array<{ time?: string; demand?: number; supply?: number; rides?: number; deliveries?: number; bookings?: number }>;
+  regions?: Array<{ region?: string; rides?: number; deliveries?: number }>;
 };
 
 type AnalyticsQuery = {
@@ -724,6 +726,131 @@ export async function listAdminFailedDispatches(): Promise<AdminFailedDispatch[]
     .map((booking) => mapBooking(booking, "delivery"));
 
   return [...rides, ...deliveries];
+}
+
+// ── Matching Inspection ─────────────────────────────────────────────────────
+
+export type AdminMatchingJob = {
+  id: string;
+  serviceType: string;
+  serviceId: string;
+  status: string;
+  pickupLatitude: number;
+  pickupLongitude: number;
+  currentRadiusMeters: number;
+  dispatchRound: number;
+  expiresAt?: string;
+  assignedDriverId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminMatchingJobOffer = {
+  id: string;
+  jobId: string;
+  driverId: string;
+  status: string;
+  offeredAt: string;
+  expiresAt: string;
+  respondedAt?: string;
+  distanceMeters?: number;
+};
+
+export type AdminDispatchSnapshot = {
+  dispatchRound: number;
+  radiusMeters: number;
+  timestamp: string;
+  nearbyDrivers: Array<{
+    driverId: string;
+    distanceKm: number;
+    latitude?: number;
+    longitude?: number;
+  }>;
+  eligibleDrivers: string[];
+  rejectedDrivers: Array<{
+    driverId: string;
+    reason: string;
+    details?: Record<string, unknown>;
+  }>;
+  rankedDrivers: Array<{
+    rank: number;
+    driverId: string;
+    distanceKm: number;
+  }>;
+};
+
+export type AdminMatchingJobDetail = {
+  job: AdminMatchingJob;
+  offers: AdminMatchingJobOffer[];
+  dispatchSnapshot: AdminDispatchSnapshot | null;
+  failureReason: string | null;
+};
+
+export async function listAdminMatchingJobs(
+  status?: string,
+  limit = 50,
+): Promise<{ items: AdminMatchingJob[] }> {
+  return request<{ items: AdminMatchingJob[] }>(
+    `/matching/jobs${toQueryString({ status, limit: String(limit) })}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminMatchingJobDetail(id: string): Promise<AdminMatchingJobDetail> {
+  return request<AdminMatchingJobDetail>(`/matching/jobs/${id}`, { method: "GET" });
+}
+
+export async function retryAdminMatchingJob(id: string): Promise<{ dispatched: boolean; reason?: string }> {
+  return request<{ dispatched: boolean; reason?: string }>(`/matching/jobs/${id}/retry`, { method: "POST" });
+}
+
+// ── Driver / Vehicle Document Review ────────────────────────────────────────
+
+export type AdminPendingDocument = {
+  id: string;
+  type: string;
+  status: string;
+  fileUrl: string;
+  issueDate?: string;
+  expiryDate?: string;
+  createdAt: string;
+  driverId?: string;
+  vehicleId?: string;
+  rejectionReason?: string;
+  reviewedAt?: string;
+};
+
+export type AdminDocumentReviewInput = {
+  status: "verified" | "rejected";
+  rejectionReason?: string;
+};
+
+export async function listAdminPendingDriverDocuments(page = 1, limit = 20): Promise<{
+  items: AdminPendingDocument[];
+  meta: { page: number; limit: number; total: number; pageCount: number };
+}> {
+  return request<{ items: AdminPendingDocument[]; meta: { page: number; limit: number; total: number; pageCount: number } }>(
+    `/admin/driver-documents/pending${toQueryString({ page: String(page), limit: String(limit) })}`,
+    { method: "GET" },
+  );
+}
+
+export async function reviewAdminDriverDocument(id: string, input: AdminDocumentReviewInput) {
+  return request<AdminPendingDocument>(`/admin/driver-documents/${id}/review`, { method: "PATCH", body: input });
+}
+
+export async function listAdminPendingVehicleDocuments(page = 1, limit = 20): Promise<{
+  items: AdminPendingDocument[];
+  meta: { page: number; limit: number; total: number; pageCount: number };
+}> {
+  return request<{ items: AdminPendingDocument[]; meta: { page: number; limit: number; total: number; pageCount: number } }>(
+    `/admin/vehicle-documents/pending${toQueryString({ page: String(page), limit: String(limit) })}`,
+    { method: "GET" },
+  );
+}
+
+export async function reviewAdminVehicleDocument(id: string, input: AdminDocumentReviewInput) {
+  return request<AdminPendingDocument>(`/admin/vehicle-documents/${id}/review`, { method: "PATCH", body: input });
 }
 
 export type AdminDashboardCounts = {
@@ -1549,4 +1676,73 @@ export async function previewFare(
   input: Record<string, unknown>
 ): Promise<FarePreview> {
   return request<FarePreview>(`/admin/pricing/preview/${serviceType}`, { method: "POST", body: input });
+}
+
+// Canonical /api/v1/pricing endpoints
+export type PricingRule = {
+  id: string;
+  serviceType: string;
+  vehicleType?: string;
+  zoneId?: string;
+  baseFare: number;
+  perKm: number;
+  perMinute: number;
+  minimumFare: number;
+  bookingFee: number;
+  cancellationFee?: number;
+  waitingPerMinute?: number;
+  defaultMultiplier?: number;
+  extras?: Record<string, number>;
+  currency: string;
+  active: boolean;
+};
+
+export type SurgeZone = {
+  id: string;
+  zoneId?: string;
+  name: string;
+  serviceType: string;
+  multiplier: number;
+  polygon?: Record<string, unknown>;
+  active: boolean;
+};
+
+export type PromoCode = {
+  id: string;
+  code: string;
+  serviceType?: string;
+  discountType: "PERCENT" | "FIXED";
+  value: number;
+  maximumDiscount?: number;
+  minimumSpend?: number;
+  globalUsageLimit?: number;
+  perUserLimit?: number;
+  active: boolean;
+};
+
+export async function listPricingRules(): Promise<PricingRule[]> {
+  return request<PricingRule[]>("/pricing/rules");
+}
+export async function createPricingRule(input: Partial<PricingRule>): Promise<PricingRule> {
+  return request<PricingRule>("/pricing/rules", { method: "POST", body: input });
+}
+export async function patchPricingRule(id: string, input: Partial<PricingRule>): Promise<PricingRule> {
+  return request<PricingRule>(`/pricing/rules/${id}`, { method: "PATCH", body: input });
+}
+export async function deletePricingRule(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/pricing/rules/${id}`, { method: "DELETE" });
+}
+
+export async function listSurgeZones(): Promise<SurgeZone[]> {
+  return request<SurgeZone[]>("/pricing/surges");
+}
+export async function createSurgeZone(input: Partial<SurgeZone>): Promise<SurgeZone> {
+  return request<SurgeZone>("/pricing/surges", { method: "POST", body: input });
+}
+
+export async function listPromoCodes(): Promise<PromoCode[]> {
+  return request<PromoCode[]>("/pricing/promos");
+}
+export async function createPromoCode(input: Partial<PromoCode>): Promise<PromoCode> {
+  return request<PromoCode>("/pricing/promos", { method: "POST", body: input });
 }
