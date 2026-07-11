@@ -1,3 +1,35 @@
+# Dependencies
 node_modules/
-.env
 
+# Build outputs
+/dist
+/build
+.vite/
+*.tsbuildinfo
+
+# Environment files. Keep only checked-in templates.
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Local credentials and key material
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+firebase-service-account*.json
+service-account*.json
+google-application-credentials*.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor noise
+.DS_Store
+.vscode/.ropeproject/
