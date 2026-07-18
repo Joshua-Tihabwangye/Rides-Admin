@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useMemo } from"react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Card,
@@ -16,63 +16,55 @@ import {
   Paper,
   InputAdornment,
   Button,
-} from"@mui/material";
-import { useNavigate } from"react-router-dom";
-import SearchIcon from"@mui/icons-material/Search";
-import AddIcon from"@mui/icons-material/Add";
-import StatusBadge from"../components/StatusBadge";
+  CircularProgress,
+  Alert,
+} from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
+import StatusBadge from "../components/StatusBadge";
+import { listAdminUsers } from "../services/api/adminApi";
 
-// D1 – Agent Management (Light/Dark, EVzone themed)
-// Route suggestion: /admin/agents
-// People-centric table and filters for EVzone agents.
-
-const SAMPLE_AGENTS = [
-  {
-    id: 1,
-    uniqueId:"AGT-001",
-    name:"Alice Support",
-    email:"alice.support@evzone.com",
-    team:"Support",
-    roles:"Support Agent",
-    status:"Active",
-    lastLogin:"2025-11-20 09:24",
-  },
-  {
-    id: 2,
-    uniqueId:"AGT-002",
-    name:"Brian Onboard",
-    email:"brian.onboard@evzone.com",
-    team:"Onboarding",
-    roles:"Onboarding Agent",
-    status:"Active",
-    lastLogin:"2025-11-25 08:02",
-  },
-  {
-    id: 3,
-    uniqueId:"AGT-003",
-    name:"Carol Dispatch",
-    email:"carol.dispatch@evzone.com",
-    team:"Dispatch",
-    roles:"Dispatch Agent",
-    status:"Away",
-    lastLogin:"2025-11-24 22:41",
-  },
-  {
-    id: 4,
-    uniqueId:"AGT-004",
-    name:"David Safety",
-    email:"david.safety@evzone.com",
-    team:"Safety",
-    roles:"Safety Agent",
-    status:"Suspended",
-    lastLogin:"2025-11-22 16:10",
-  },
-];
+// Backend-authoritative agent list derived from admin/platform users.
+// Team is inferred from the first role claim; roles are displayed as-is.
 
 export default function AgentManagementPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeTeam, setActiveTeam] = useState("All");
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadAgents = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const users = await listAdminUsers();
+      const mapped = users.map((user) => {
+        const primaryRole = user.roles[0] || "Admin";
+        return {
+          id: user.id,
+          uniqueId: user.id,
+          name: user.name,
+          email: user.email,
+          team: primaryRole,
+          roles: user.roles.join(", "),
+          status: user.status,
+          lastLogin: user.lastLogin ? new Date(user.lastLogin).toLocaleString() : "—",
+        };
+      });
+      setAgents(mapped);
+    } catch (err) {
+      setError(err?.message || "Failed to load agents from backend");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadAgents();
+  }, []);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -83,46 +75,53 @@ export default function AgentManagementPage() {
   };
 
   const handleAddAgent = () => {
-    // Navigate to add agent page or open modal
-    navigate('/admin/agents/new');
+    navigate("/admin/agents/new");
   };
 
-  const filteredAgents = SAMPLE_AGENTS.filter(agent => {
-    const matchesSearch = agent.name.toLowerCase().includes(search.toLowerCase()) ||
+  const filteredAgents = agents.filter((agent) => {
+    const matchesSearch =
+      agent.name.toLowerCase().includes(search.toLowerCase()) ||
       agent.email.toLowerCase().includes(search.toLowerCase()) ||
       agent.uniqueId.toLowerCase().includes(search.toLowerCase());
-    const matchesTeam = activeTeam ==="All" || agent.team === activeTeam;
+    const matchesTeam = activeTeam === "All" || agent.team === activeTeam;
     return matchesSearch && matchesTeam;
   });
 
-  // Calculate team counts for tabs with totals
+  const teams = useMemo(() => {
+    const all = Array.from(new Set(agents.map((a) => a.team))).sort();
+    return ["All", ...all];
+  }, [agents]);
+
   const teamCounts = useMemo(() => {
-    return {
-      All: SAMPLE_AGENTS.length,
-      Support: SAMPLE_AGENTS.filter(a => a.team ==="Support").length,
-      Onboarding: SAMPLE_AGENTS.filter(a => a.team ==="Onboarding").length,
-      Dispatch: SAMPLE_AGENTS.filter(a => a.team ==="Dispatch").length,
-      Safety: SAMPLE_AGENTS.filter(a => a.team ==="Safety").length,
-    };
-  }, []);
+    const counts = { All: agents.length };
+    teams.slice(1).forEach((team) => {
+      counts[team] = agents.filter((a) => a.team === team).length;
+    });
+    return counts;
+  }, [agents, teams]);
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
     <Box>
       {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
+          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
             Agent Management
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Manage support, onboarding, dispatch and safety agents. Monitor performance and role assignments.
+          <Typography variant="caption" color="text.secondary">
+            Manage support, onboarding, dispatch and safety agents. Data is fetched from the backend.
           </Typography>
         </Box>
         {/* Add Agent Button */}
@@ -130,7 +129,7 @@ export default function AgentManagementPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={handleAddAgent}
-          sx={{ textTransform:"none", borderRadius: 999 }}
+          sx={{ textTransform: "none", borderRadius: 999 }}
         >
           Add agent
         </Button>
@@ -141,9 +140,9 @@ export default function AgentManagementPage() {
         elevation={2}
         sx={{
           borderRadius: 2,
-          border:"1px solid rgba(148,163,184,0.3)",
-          bgcolor:"background.paper",
-          mb: 3
+          border: "1px solid rgba(148,163,184,0.3)",
+          bgcolor: "background.paper",
+          mb: 3,
         }}
       >
         <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -161,30 +160,27 @@ export default function AgentManagementPage() {
                   </InputAdornment>
                 ),
               }}
-              sx={{"& .MuiOutlinedInput-root": { bgcolor:"background.default", borderRadius: 8 },"& .MuiInputBase-input::placeholder": { fontSize: 13 },
+              sx={{
+                "& .MuiOutlinedInput-root": { bgcolor: "background.default", borderRadius: 8 },
+                "& .MuiInputBase-input::placeholder": { fontSize: 13 },
               }}
             />
           </Box>
           <Box className="flex flex-wrap gap-1 text-[11px] items-center">
-            <Typography
-              variant="caption"
-              color="text.secondary"
-            >
+            <Typography variant="caption" color="text.secondary">
               Team:
             </Typography>
-            {["All","Support","Onboarding","Dispatch","Safety"].map(
-              (team) => (
-                <Chip
-                  key={team}
-                  size="small"
-                  label={`${team} (${teamCounts[team]})`}
-                  onClick={() => setActiveTeam(team)}
-                  color={activeTeam === team ?"primary" :"default"}
-                  variant={activeTeam === team ?"filled" :"outlined"}
-                  sx={{ fontSize: 11, height: 24, cursor: 'pointer' }}
-                />
-              )
-            )}
+            {teams.map((team) => (
+              <Chip
+                key={team}
+                size="small"
+                label={`${team} (${teamCounts[team] ?? 0})`}
+                onClick={() => setActiveTeam(team)}
+                color={activeTeam === team ? "primary" : "default"}
+                variant={activeTeam === team ? "filled" : "outlined"}
+                sx={{ fontSize: 11, height: 24, cursor: "pointer" }}
+              />
+            ))}
           </Box>
         </CardContent>
       </Card>
@@ -194,12 +190,12 @@ export default function AgentManagementPage() {
         elevation={2}
         sx={{
           borderRadius: 2,
-          border:"1px solid rgba(148,163,184,0.3)",
-          bgcolor:"background.paper"
+          border: "1px solid rgba(148,163,184,0.3)",
+          bgcolor: "background.paper",
         }}
       >
         <CardContent className="p-0">
-          <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
+          <TableContainer component={Paper} elevation={0} sx={{ bgcolor: "transparent" }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -217,10 +213,10 @@ export default function AgentManagementPage() {
                   <TableRow
                     key={agent.id}
                     hover
-                    sx={{ cursor:"pointer" }}
+                    sx={{ cursor: "pointer" }}
                     onClick={() => handleRowClick(agent)}
                   >
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: 'text.secondary' }}>
+                    <TableCell sx={{ fontFamily: "monospace", fontSize: 11, color: "text.secondary" }}>
                       {agent.uniqueId}
                     </TableCell>
                     <TableCell>
@@ -228,7 +224,7 @@ export default function AgentManagementPage() {
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
                           {agent.name}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: 10 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace", fontSize: 10 }}>
                           {agent.uniqueId}
                         </Typography>
                       </Box>
@@ -244,6 +240,13 @@ export default function AgentManagementPage() {
                     <TableCell>{agent.lastLogin}</TableCell>
                   </TableRow>
                 ))}
+                {filteredAgents.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                      No agents found.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>

@@ -1,4 +1,4 @@
-import { OPEN_AUTH, getBackendEnabled } from "./config";
+import { getBackendEnabled } from "./config";
 import { request } from "./httpClient";
 
 interface BackendAuthUser {
@@ -77,13 +77,10 @@ export function isBackendAuthEnabled(): boolean {
   return getBackendEnabled();
 }
 
-export function isOpenAuthEnabled(): boolean {
-  return OPEN_AUTH;
-}
-
 export async function backendRegister(input: BackendRegisterInput): Promise<BackendAuthResponse> {
   return request<BackendAuthResponse>("/auth/register", {
     method: "POST",
+    retryOnUnauthorized: false,
     body: {
       email: input.email,
       password: input.password,
@@ -97,6 +94,7 @@ export async function backendRegister(input: BackendRegisterInput): Promise<Back
 export async function backendLogin(input: BackendLoginInput): Promise<BackendAuthResponse> {
   return request<BackendAuthResponse>("/auth/login", {
     method: "POST",
+    retryOnUnauthorized: false,
     body: input,
   });
 }
@@ -110,6 +108,7 @@ export async function backendFetchSession(): Promise<BackendSessionResponse> {
 export async function backendForgotPassword(input: BackendForgotPasswordInput): Promise<{ sent: boolean }> {
   return request<{ sent: boolean }>("/auth/forgot-password", {
     method: "POST",
+    retryOnUnauthorized: false,
     body: input,
   });
 }
@@ -117,6 +116,7 @@ export async function backendForgotPassword(input: BackendForgotPasswordInput): 
 export async function backendVerifyOtp(input: BackendVerifyOtpInput): Promise<BackendVerifyOtpResult> {
   return request<BackendVerifyOtpResult>("/auth/verify-otp", {
     method: "POST",
+    retryOnUnauthorized: false,
     body: input,
   });
 }
@@ -124,6 +124,7 @@ export async function backendVerifyOtp(input: BackendVerifyOtpInput): Promise<Ba
 export async function backendResetPassword(input: BackendResetPasswordInput): Promise<BackendResetPasswordResult> {
   return request<BackendResetPasswordResult>("/auth/reset-password", {
     method: "POST",
+    retryOnUnauthorized: false,
     body: input,
   });
 }

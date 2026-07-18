@@ -80,7 +80,7 @@ export default function ZonesGeofencesPage() {
   const [zones, setZones] = useState<ZoneRow[]>([]);
   const [country, setCountry] = useState("All");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [newZone, setNewZone] = useState({ name: "", city: "", country: "Uganda", services: "Ride" });
+  const [newZone, setNewZone] = useState({ name: "", city: "", country: "", services: "Ride" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -139,7 +139,7 @@ export default function ZonesGeofencesPage() {
       });
 
       setCreateDialogOpen(false);
-      setNewZone({ name: "", city: "", country: "Uganda", services: "Ride" });
+      setNewZone({ name: "", city: "", country: "", services: "Ride" });
       setStatusMessage({ type: "success", message: "Zone created successfully." });
       await loadZones();
     } catch (error) {

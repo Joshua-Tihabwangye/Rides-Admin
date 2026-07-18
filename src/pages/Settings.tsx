@@ -31,8 +31,8 @@ export default function Settings() {
         sms: false,
         weeklyDigest: true,
     })
-    const [language, setLanguage] = useState('en')
-    const [timezone, setTimezone] = useState('Africa/Kampala')
+    const [language, setLanguage] = useState('')
+    const [timezone, setTimezone] = useState('')
     const [saving, setSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -205,6 +205,7 @@ export default function Settings() {
                                     label="Language"
                                     onChange={(e) => setLanguage(e.target.value)}
                                 >
+                                    <MenuItem value=""><em>Select language</em></MenuItem>
                                     <MenuItem value="en">English</MenuItem>
                                     <MenuItem value="fr">Français</MenuItem>
                                     <MenuItem value="sw">Kiswahili</MenuItem>
@@ -218,6 +219,7 @@ export default function Settings() {
                                     label="Timezone"
                                     onChange={(e) => setTimezone(e.target.value)}
                                 >
+                                    <MenuItem value=""><em>Select timezone</em></MenuItem>
                                     <MenuItem value="Africa/Kampala">East Africa Time (EAT)</MenuItem>
                                     <MenuItem value="Africa/Lagos">West Africa Time (WAT)</MenuItem>
                                     <MenuItem value="Africa/Johannesburg">South Africa Standard Time (SAST)</MenuItem>
@@ -316,7 +318,7 @@ export default function Settings() {
                                     Current Session
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                    Windows · Chrome · Kampala, Uganda
+                                    Current browser session
                                 </Typography>
                                 <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
                                     Active now
@@ -329,13 +331,13 @@ export default function Settings() {
                                 </Typography>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                     <Typography variant="caption" color="text.secondary">
-                                        • Approved company GreenMove Fleet - 2 hours ago
+                                        • Activity feed is fetched from the backend audit log.
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        • Updated pricing rules for Kampala - Yesterday
+                                        • No recent activity available.
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        • Reviewed risk case RISK-101 - 2 days ago
+                                        • Sign in events and admin actions are recorded in the audit log.
                                     </Typography>
                                 </Box>
                             </Box>

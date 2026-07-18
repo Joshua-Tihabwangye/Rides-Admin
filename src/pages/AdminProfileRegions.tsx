@@ -33,9 +33,9 @@ const EV_COLORS = {
 
 export default function AdminProfileRegionSettingsPage() {
   const [profile, setProfile] = useState({
-    name:"Alex Admin",
-    email:"alex.admin@evzonehq.com",
-    phone:"+256 700 000 000",
+    name: "",
+    email: "",
+    phone: "",
   });
 
   const [regions, setRegions] = useState({
@@ -59,6 +59,7 @@ export default function AdminProfileRegionSettingsPage() {
         setProfile((prev) => ({
           ...prev,
           name: [adminProfile.firstName, adminProfile.lastName].filter(Boolean).join(" ").trim() || prev.name,
+          email: adminProfile.email || prev.email,
           phone: adminProfile.phone || prev.phone,
         }));
         setRegions(settings.regions);
@@ -260,7 +261,7 @@ export default function AdminProfileRegionSettingsPage() {
                     className="text-[11px]"
                     color="text.secondary"
                   >
-                    Uganda, Kenya, Tanzania, Rwanda
+                    East Africa region
                   </Typography>
                 </Box>
                 <Box className="flex items-center gap-2">

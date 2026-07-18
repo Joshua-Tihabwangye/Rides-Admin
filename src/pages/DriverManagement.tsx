@@ -43,7 +43,7 @@ type DriverRecord = {
   vehicleType: 'Bike' | 'Car';
   trips: number;
   spend: string;
-  risk: 'Low' | 'Medium' | 'High';
+  risk: 'Low' | 'Medium' | 'High' | 'N/A';
   primaryStatus: 'approved' | 'under_review' | 'suspended';
   activityStatus: 'active' | 'inactive';
 };
@@ -75,17 +75,19 @@ export default function DriverManagement() {
       const mapped: DriverRecord[] = data.map((driver, index) => {
         const primaryStatus: DriverRecord['primaryStatus'] = driver.status === 'active' ? 'approved' : 'suspended';
         const activityStatus: DriverRecord['activityStatus'] = driver.status === 'active' ? 'active' : 'inactive';
+        const vehicleParts = [driver.vehicleType, driver.model, driver.licensePlate].filter(Boolean);
+        const vehicle = vehicleParts.length > 0 ? vehicleParts.join(' · ') : 'N/A';
         return {
           id: index + 201,
           backendId: driver.driverId || driver.userId,
           name: driver.fullName,
           phone: driver.phone,
           city: driver.city,
-          vehicle: "EV Car",
-          vehicleType: "Car",
+          vehicle,
+          vehicleType: driver.vehicleType || 'Car',
           trips: driver.totalTrips || 0,
-          spend: "UGX 0",
-          risk: "Low",
+          spend: "N/A",
+          risk: "N/A",
           primaryStatus,
           activityStatus,
         };
@@ -183,21 +185,9 @@ export default function DriverManagement() {
     handleActionClose();
   };
 
-  // Mock last trip/last active - these would come from backend in real implementation
-  const getLastTrip = (driverId: number) => {
-    const daysAgo = (driverId % 7) + 1;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const getLastActive = (driverId: number) => {
-    const hoursAgo = (driverId % 24) + 1;
-    if (hoursAgo < 24) {
-      return `${hoursAgo}h ago`;
-    }
-    return `${Math.floor(hoursAgo / 24)}d ago`;
-  };
+  // Last trip/last active timestamps are not exposed by the backend yet.
+  const getLastTrip = () => "N/A";
+  const getLastActive = () => "N/A";
 
   const tabs = [
     { label: "All", count: tabCounts.all },
@@ -362,8 +352,8 @@ export default function DriverManagement() {
                   <TableCell>{driver.vehicle}</TableCell>
                   <TableCell align="right">{driver.trips}</TableCell>
                   <TableCell align="right">{driver.spend}</TableCell>
-                  <TableCell sx={{ fontSize: 12 }}>{getLastTrip(driver.id)}</TableCell>
-                  <TableCell sx={{ fontSize: 12 }}>{getLastActive(driver.id)}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{getLastTrip()}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{getLastActive()}</TableCell>
                   <TableCell>
                     <StatusBadge status={driver.primaryStatus} />
                   </TableCell>

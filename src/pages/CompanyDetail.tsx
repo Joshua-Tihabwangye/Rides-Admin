@@ -71,16 +71,6 @@ function CompanyHeader({ company, onEdit = () => {} }) {
               borderStyle: "solid",
             }}
           />
-          <Chip
-            size="small"
-            label="Ride & Delivery"
-            sx={{ fontSize: 10, height: 22 }}
-          />
-          <Chip
-            size="small"
-            label="Rental"
-            sx={{ fontSize: 10, height: 22 }}
-          />
         </Box>
       </CardContent>
     </Card>
@@ -125,9 +115,9 @@ export default function CompanyDetailPage() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   const [commission, setCommission] = useState({
-    baseRate: "12%",
-    minFare: "UGX 1,500",
-    surgeShare: "80%",
+    baseRate: "",
+    minFare: "",
+    surgeShare: "",
   });
   const [verticals, setVerticals] = useState({
     ride: true,

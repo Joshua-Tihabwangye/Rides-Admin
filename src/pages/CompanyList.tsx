@@ -34,8 +34,8 @@ type CompanyRecord = {
   name: string;
   regions: string;
   type: string;
-  drivers: number;
-  vehicles: number;
+  drivers: number | string;
+  vehicles: number | string;
   commission: string;
   status: "Active" | "Inactive" | "Pending" | "Suspended";
 };
@@ -59,10 +59,10 @@ export default function CompanyList() {
       const mapped: CompanyRecord[] = data.map((company) => ({
         id: company.id,
         name: company.companyName,
-        regions: "Multiple regions", // backend doesn't provide regions directly, could be derived
-        type: "Fleet Partner",
-        drivers: 0, // TODO: fetch from backend if needed
-        vehicles: 0,
+        regions: "N/A", // backend doesn't provide regions directly
+        type: "N/A",    // backend doesn't expose company type
+        drivers: "N/A", // not available from backend directly
+        vehicles: "N/A",
         commission: "N/A",
         status: company.status === "active" ? "Active" : company.status === "suspended" ? "Suspended" : "Inactive",
       }));

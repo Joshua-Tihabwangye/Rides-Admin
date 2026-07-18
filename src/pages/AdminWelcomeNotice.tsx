@@ -1,13 +1,12 @@
 // @ts-nocheck
 import React, { useState } from"react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
   CardContent,
   Typography,
   Button,
-  Checkbox,
-  FormControlLabel,
   List,
   ListItem,
   ListItemIcon,
@@ -64,15 +63,13 @@ const bulletPoints = [
 ];
 
 export default function AdminWelcomeNoticePage() {
-  const [acknowledged, setAcknowledged] = useState(false);
   const [mode, setMode] = useState("light"); //"light" |"dark"
+  const navigate = useNavigate();
 
   const isDark = mode ==="dark";
 
   const handleContinue = () => {
-    if (!acknowledged) return;
-    // TODO: Navigate to onboarding checklist or home dashboard
-    console.log("Admin responsibility notice acknowledged");
+    navigate("/admin/onboarding/checklist");
   };
 
   const toggleMode = () => {

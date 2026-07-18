@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { useLocation } from "react-router-dom"
 import { isAuthed } from "../auth/auth"
-import { BACKEND_FLAG_EVENT } from "../services/api/config"
 import {
   createAdminSocket,
   isAdminBackendEnabled,
@@ -10,22 +9,7 @@ import {
 
 export default function AdminBackendBootstrap() {
   const location = useLocation()
-  const [adminBackendEnabled, setAdminBackendEnabled] = useState(() => isAdminBackendEnabled())
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined
-
-    const syncBackendFlag = () => {
-      setAdminBackendEnabled(isAdminBackendEnabled())
-    }
-
-    window.addEventListener(BACKEND_FLAG_EVENT, syncBackendFlag as EventListener)
-    syncBackendFlag()
-
-    return () => {
-      window.removeEventListener(BACKEND_FLAG_EVENT, syncBackendFlag as EventListener)
-    }
-  }, [])
+  const [adminBackendEnabled] = useState(() => isAdminBackendEnabled())
 
   useEffect(() => {
     if (!adminBackendEnabled || !isAuthed()) {

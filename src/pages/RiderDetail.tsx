@@ -122,7 +122,7 @@ export default function RiderDetail() {
     }
 
     const displayName = rider.fullName || `${rider.firstName || ''} ${rider.lastName || ''}`.trim() || 'Unknown'
-    const phone = rider.phone || '+250 788 000 000'
+    const phone = rider.phone || '—'
     const city = rider.city || 'Unknown'
     const trips = rider.totalTrips ?? 0
     const rating = formatRating(rider.rating)
@@ -160,7 +160,7 @@ export default function RiderDetail() {
                             <Box sx={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <EmailIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">{rider.email || `rider.${id}@example.com`}</Typography>
+                                    <Typography variant="body2">{rider.email || '—'}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <PhoneIcon color="action" fontSize="small" />
@@ -184,7 +184,7 @@ export default function RiderDetail() {
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="body2" color="text.secondary">Join Date</Typography>
-                                <Typography variant="body2" fontWeight={600}>Oct 12, 2025</Typography>
+                                <Typography variant="body2" fontWeight={600}>—</Typography>
                             </Box>
                         </CardContent>
                     </Card>
@@ -217,14 +217,13 @@ export default function RiderDetail() {
 
                         <CardContent>
                             <CustomTabPanel value={tabValue} index={0}>
-                                {/* Placeholder: fetch trips from backend */}
-                                <Typography color="text.secondary">Trip history not yet integrated.</Typography>
+                                <Typography color="text.secondary">No trip data available.</Typography>
                             </CustomTabPanel>
                             <CustomTabPanel value={tabValue} index={1}>
-                                <Typography color="text.secondary">Payment history not yet integrated.</Typography>
+                                <Typography color="text.secondary">No payment data available.</Typography>
                             </CustomTabPanel>
                             <CustomTabPanel value={tabValue} index={2}>
-                                <Typography color="text.secondary">Document management not yet integrated.</Typography>
+                                <Typography color="text.secondary">No documents available.</Typography>
                             </CustomTabPanel>
                         </CardContent>
                     </Card>

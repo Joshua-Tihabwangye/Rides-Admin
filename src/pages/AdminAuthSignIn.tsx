@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from"react";
 import { useLocation, useNavigate } from"react-router-dom";
 import { loginWithCredentials } from"../auth/auth";
+import { ApiRequestError } from"../services/api/httpClient";
 import { clearAuthPrefillPassword, readAuthPrefill, saveAuthPrefill } from"../auth/authPrefill";
 
 // Professional Auth page for EVzone Admin Portal
@@ -128,7 +129,13 @@ export default function AuthSignIn() {
       track("auth_login", { email, remember });
       navigate(from || authUser.defaultRedirect || "/admin/home", { replace: true });
     } catch (error) {
-      setLoginError(error instanceof Error ? error.message : "Login failed. Please try again.");
+      if (error instanceof ApiRequestError && error.status === 401) {
+        setLoginError(
+          "No account found or password is incorrect. If you registered with a different email, use that one."
+        );
+      } else {
+        setLoginError(error instanceof Error ? error.message : "Login failed. Please try again.");
+      }
       setIsLoading(false);
       return;
     }
@@ -139,7 +146,7 @@ export default function AuthSignIn() {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      alert(`${provider} SSO authentication (demo – connect to your identity provider)`);
+      alert(`${provider} SSO authentication is not configured. Please use email and password.`);
     }, 500);
   };
 

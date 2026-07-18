@@ -214,7 +214,7 @@ export default function ResetPassword() {
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setErrors({ ...errors, email:"" }); }}
-                placeholder="you@company.com"
+                placeholder="Email address"
                 disabled={isLoading}
                 autoFocus={!email}
               />
@@ -245,7 +245,7 @@ export default function ResetPassword() {
                   maxLength={6}
                   value={otp}
                   onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setErrors({ ...errors, otp:"" }); }}
-                  placeholder="123456"
+                  placeholder="Reset code"
                   disabled={isLoading}
                 />
                 {errors.otp && <span style={styles.errorText}>{errors.otp}</span>}

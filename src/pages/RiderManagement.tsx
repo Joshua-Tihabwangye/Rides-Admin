@@ -43,7 +43,7 @@ type RiderRecord = {
   vehicleType: 'Bike' | 'Car';
   trips: number;
   spend: string;
-  risk: 'Low' | 'Medium' | 'High';
+  risk: 'Low' | 'Medium' | 'High' | 'N/A';
   primaryStatus: 'approved' | 'under_review' | 'suspended';
   activityStatus: 'active' | 'inactive';
 };
@@ -83,11 +83,11 @@ export default function RiderManagement() {
           name,
           phone: rider.phone || '',
           city: rider.city || '',
-          vehicle: "EV Bike",
+          vehicle: "N/A",
           vehicleType: "Bike",
-          trips: 0,
-          spend: "UGX 0",
-          risk: "Low",
+          trips: rider.totalTrips || 0,
+          spend: "N/A",
+          risk: "N/A",
           primaryStatus,
           activityStatus,
         };
@@ -106,12 +106,11 @@ export default function RiderManagement() {
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
-    const bikeRiders = riders.filter(r => r.vehicleType === "Bike");
     return {
-      all: bikeRiders.length,
-      active: bikeRiders.filter(r => r.primaryStatus === "approved").length,
-      pending: bikeRiders.filter(r => r.primaryStatus === "under_review").length,
-      suspended: bikeRiders.filter(r => r.primaryStatus === "suspended").length,
+      all: riders.length,
+      active: riders.filter(r => r.primaryStatus === "approved").length,
+      pending: riders.filter(r => r.primaryStatus === "under_review").length,
+      suspended: riders.filter(r => r.primaryStatus === "suspended").length,
     };
   }, [riders]);
 
@@ -131,13 +130,12 @@ export default function RiderManagement() {
       (activeTab === "Active/Verified" && rider.primaryStatus === "approved") ||
       (activeTab === "Pending review" && rider.primaryStatus === "under_review") ||
       (activeTab === "Suspended" && rider.primaryStatus === "suspended");
-    const matchesVehicle = rider.vehicleType === "Bike";
     const matchesCity = cityFilter === "all" || rider.city === cityFilter;
     const matchesAccount = accountFilter === "all" ||
       (accountFilter === "active" && rider.activityStatus === "active") ||
       (accountFilter === "inactive" && rider.activityStatus === "inactive");
     const matchesRisk = riskFilter === "all" || rider.risk.toLowerCase() === riskFilter;
-    return matchesSearch && matchesTab && matchesVehicle && matchesCity && matchesAccount && matchesRisk;
+    return matchesSearch && matchesTab && matchesCity && matchesAccount && matchesRisk;
   });
 
   const handleRowClick = (backendId: string) => {
@@ -177,21 +175,9 @@ export default function RiderManagement() {
     handleActionClose();
   };
 
-  // Mock last trip/last active - these would come from backend in real implementation
-  const getLastTrip = (riderId: number) => {
-    const daysAgo = (riderId % 7) + 1;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const getLastActive = (riderId: number) => {
-    const hoursAgo = (riderId % 24) + 1;
-    if (hoursAgo < 24) {
-      return `${hoursAgo}h ago`;
-    }
-    return `${Math.floor(hoursAgo / 24)}d ago`;
-  };
+  // Last trip/last active timestamps are not exposed by the backend yet.
+  const getLastTrip = () => "N/A";
+  const getLastActive = () => "N/A";
 
   const handleCreateRider = async (e: React.MouseEvent) => {
     // For demo, just navigate to create page; real creation uses form
@@ -358,8 +344,8 @@ export default function RiderManagement() {
                   <TableCell>{rider.vehicle}</TableCell>
                   <TableCell align="right">{rider.trips}</TableCell>
                   <TableCell align="right">{rider.spend}</TableCell>
-                  <TableCell sx={{ fontSize: 12 }}>{getLastTrip(rider.id)}</TableCell>
-                  <TableCell sx={{ fontSize: 12 }}>{getLastActive(rider.id)}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{getLastTrip()}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{getLastActive()}</TableCell>
                   <TableCell>
                     <StatusBadge status={rider.primaryStatus} />
                   </TableCell>

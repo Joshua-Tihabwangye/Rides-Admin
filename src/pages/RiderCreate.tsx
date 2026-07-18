@@ -9,10 +9,6 @@ import {
     TextField,
     Grid,
     Divider,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
     FormControlLabel,
     Checkbox
 } from '@mui/material'
@@ -29,7 +25,7 @@ export default function RiderCreate() {
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
-        city: 'Kigali',
+        city: '',
         email: '',
         password: '',
         invite: false,
@@ -133,23 +129,18 @@ export default function RiderCreate() {
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
-                                    placeholder="marketing@example.com (optional)"
+                                    placeholder="Email address (optional)"
                                 />
                             </Grid>
                             <Grid item xs={12} md={6}>
-                                <FormControl fullWidth>
-                                    <InputLabel>City</InputLabel>
-                                    <Select
-                                        value={formData.city}
-                                        label="City"
-                                        onChange={handleSelectChange}
-                                    >
-                                        <MenuItem value="Kigali">Kigali</MenuItem>
-                                        <MenuItem value="Kampala">Kampala</MenuItem>
-                                        <MenuItem value="Nairobi">Nairobi</MenuItem>
-                                        <MenuItem value="Lagos">Lagos</MenuItem>
-                                    </Select>
-                                </FormControl>
+                                <TextField
+                                    fullWidth
+                                    label="City"
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleChange}
+                                    placeholder="City / region"
+                                />
                             </Grid>
 
                             <Grid item xs={12} md={6}>

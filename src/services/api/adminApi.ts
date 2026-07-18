@@ -11,9 +11,6 @@ export const ADMIN_BACKEND_ACCESS_TOKEN_KEY = "admin_backend_access_token";
 export const ADMIN_BACKEND_REFRESH_TOKEN_KEY = "admin_backend_refresh_token";
 export const ADMIN_SUMMARY_UPDATED_EVENT = "evzone:admin-summary-updated";
 const ADMIN_AUTH_STORAGE_KEY = "evzone_admin_auth";
-const RIDERS_KEY = "evzone_admin_riders";
-const DRIVERS_KEY = "evzone_admin_drivers";
-const AUDIT_KEY = "evzone_admin_audit_events";
 
 export type AdminRiderResponse = {
   id: string;
@@ -136,24 +133,6 @@ configureHttpClientAuth({
     }
   },
 });
-
-// Generic storage helpers (localStorage wrappers)
-function readStorage<T>(key: string): T | null {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStorage<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // no-op
-  }
-}
 
 // ── Admin Users ──────────────────────────────────────────────────────────
 
@@ -906,7 +885,6 @@ export type AdminFinanceListQuery = {
   to?: string;
   page?: number;
   limit?: number;
-  period?: string;
 };
 
 export type AdminCashout = {
@@ -1095,6 +1073,10 @@ export async function listAdminPromos(): Promise<AdminPromoResponse[]> {
   return request<AdminPromoResponse[]>("/admin/promos", { method: "GET" });
 }
 
+export async function getAdminPromo(promoId: string): Promise<AdminPromoResponse> {
+  return request<AdminPromoResponse>(`/admin/promos/${promoId}`, { method: "GET" });
+}
+
 export async function createAdminPromo(input: AdminCreatePromoInput): Promise<{ promoId: string }> {
   return request<{ promoId: string }>("/admin/promos", {
     method: "POST",
@@ -1209,49 +1191,14 @@ export async function syncAdminReferenceData(): Promise<void> {
     return;
   }
 
-  const [riders, drivers, auditEvents] = await Promise.all([
+  // Fetch reference data to warm the backend session and keep the summary event
+  // source accurate. No localStorage caching is used; the admin portal reads
+  // directly from the backend on every relevant page.
+  await Promise.all([
     listAdminRiders(),
     listAdminDrivers(),
     listAdminAuditEvents(),
   ]);
-
-  writeStorage(RIDERS_KEY, riders.map((rider, index) => ({
-    id: index + 101,
-    backendId: rider.riderId || rider.userId,
-    name: rider.fullName,
-    phone: rider.phone,
-    city: rider.city,
-    vehicle: "EV Rider",
-    vehicleType: "Bike",
-    trips: 0,
-    spend: "$0",
-    risk: "Low",
-    primaryStatus: rider.status === "active" ? "approved" : "suspended",
-    activityStatus: rider.status === "active" ? "active" : "inactive",
-  })));
-
-  writeStorage(DRIVERS_KEY, drivers.map((driver, index) => ({
-    id: index + 201,
-    backendId: driver.driverId,
-    name: driver.fullName,
-    phone: driver.phone,
-    city: driver.city,
-    vehicle: "Fleet vehicle",
-    vehicleType: "Car",
-    trips: 0,
-    spend: "$0",
-    risk: "Low",
-    primaryStatus: driver.status === "active" ? "approved" : "suspended",
-    activityStatus: driver.status === "active" ? "active" : "inactive",
-  })));
-
-  writeStorage(AUDIT_KEY, auditEvents.map((item) => ({
-    event: item.action,
-    at: new Date(item.createdAt).toISOString(),
-    actor: item.actorId,
-    resource: item.resource,
-    resourceId: item.resourceId,
-  })));
 
   window.dispatchEvent(new Event(ADMIN_SUMMARY_UPDATED_EVENT));
 }
