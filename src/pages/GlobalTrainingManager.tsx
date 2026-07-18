@@ -33,35 +33,6 @@ const EV_COLORS = {
   secondary: "#f77f00",
 };
 
-const TRAINING_STORAGE_KEY = "evzone_admin_training_modules";
-
-const INITIAL_MODULES = [
-  {
-    id: "core-admin",
-    title: "Driver onboarding 101",
-    audience: "Drivers",
-    status: "Published",
-    language: "en",
-    description: "Core onboarding for new EV drivers.",
-  },
-  {
-    id: "safety-sos",
-    title: "Safety & SOS procedures",
-    audience: "Drivers",
-    status: "Draft",
-    language: "en",
-    description: "How to handle emergencies and SOS events.",
-  },
-  {
-    id: "agent-tickets",
-    title: "Agent ticket handling",
-    audience: "Agents",
-    status: "Published",
-    language: "en",
-    description: "Guidelines for agents handling rider/driver tickets.",
-  },
-];
-
 function backendStatusToUi(status: AdminTrainingModuleResponse["status"]) {
   if (status === "published") return "Published";
   if (status === "archived") return "Archived";
@@ -143,9 +114,16 @@ function AdminTrainingLayout({ children }) {
 
 export default function GlobalTrainingManagerPage() {
   const navigate = useNavigate();
-  const [modules, setModules] = useState(INITIAL_MODULES);
-  const [selectedId, setSelectedId] = useState(INITIAL_MODULES[0]?.id || null);
-  const [editing, setEditing] = useState({ ...INITIAL_MODULES[0] });
+  const [modules, setModules] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [editing, setEditing] = useState({
+    id: "",
+    title: "",
+    audience: "Drivers",
+    status: "Draft",
+    language: "en",
+    description: "",
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -161,31 +139,12 @@ export default function GlobalTrainingManagerPage() {
         const backendModules = await listAdminTrainingModules();
         if (!active) return;
         const mapped = backendModules.map(mapBackendModule);
-        const resolved = mapped.length > 0 ? mapped : INITIAL_MODULES;
-        setModules(resolved);
-        setSelectedId((prev) => (prev && resolved.some((module) => module.id === prev) ? prev : resolved[0]?.id ?? null));
-        setEditing((prev) => resolved.find((module) => module.id === (selectedId || prev.id)) || resolved[0] || prev);
-        try {
-          localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(resolved));
-        } catch {
-          // ignore cache failures
-        }
+        setModules(mapped);
+        setSelectedId((prev) => (prev && mapped.some((module) => module.id === prev) ? prev : mapped[0]?.id ?? null));
+        setEditing((prev) => mapped.find((module) => module.id === (selectedId || prev.id)) || mapped[0] || prev);
       } catch (err) {
         if (!active) return;
         setError(err?.message || "Failed to load training modules");
-        try {
-          const raw = localStorage.getItem(TRAINING_STORAGE_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setModules(parsed);
-              setSelectedId(parsed[0]?.id ?? null);
-              setEditing({ ...parsed[0] });
-            }
-          }
-        } catch {
-          // keep initial modules
-        }
       } finally {
         if (active) setLoading(false);
       }
@@ -205,11 +164,6 @@ export default function GlobalTrainingManagerPage() {
 
   const persistLocalCache = (nextModules) => {
     setModules(nextModules);
-    try {
-      localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(nextModules));
-    } catch {
-      // ignore cache failures
-    }
   };
 
   const handleRowClick = (module) => {
@@ -241,10 +195,16 @@ export default function GlobalTrainingManagerPage() {
     try {
       await deleteAdminTrainingModule(selectedModule.id);
       const nextModules = modules.filter((module) => module.id !== selectedModule.id);
-      const resolved = nextModules.length > 0 ? nextModules : INITIAL_MODULES;
-      persistLocalCache(resolved);
-      setSelectedId(resolved[0]?.id ?? null);
-      setEditing({ ...resolved[0] });
+      persistLocalCache(nextModules);
+      setSelectedId(nextModules[0]?.id ?? null);
+      setEditing(nextModules[0] ? { ...nextModules[0] } : {
+        id: "",
+        title: "",
+        audience: "Drivers",
+        status: "Draft",
+        language: "en",
+        description: "",
+      });
       setSnackbar({ open: true, message: "Training module deleted.", severity: "success" });
     } catch (err) {
       setSnackbar({ open: true, message: err?.message || "Failed to delete module", severity: "error" });

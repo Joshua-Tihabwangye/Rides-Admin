@@ -179,135 +179,9 @@ export default function DetailedAnalyticsPage() {
 	};
 
 	const reportDatasets = {
-		"TRIPS-VOLUME": {
-			All: [
-				{
-					name: "Kampala",
-					rides: 1120,
-					completion: 97,
-					distance: 7.5,
-					duration: 26.2,
-				},
-				{
-					name: "Lagos",
-					rides: 860,
-					completion: 94,
-					distance: 6.8,
-					duration: 24.8,
-				},
-				{
-					name: "Nairobi",
-					rides: 680,
-					completion: 96,
-					distance: 7.2,
-					duration: 25.5,
-				},
-				{
-					name: "Accra",
-					rides: 420,
-					completion: 92,
-					distance: 6.5,
-					duration: 23.1,
-				},
-			],
-			Kampala: [
-				{
-					name: "Kampala Central",
-					rides: 640,
-					completion: 98,
-					distance: 7.8,
-					duration: 27.1,
-				},
-				{
-					name: "Kampala North",
-					rides: 480,
-					completion: 96,
-					distance: 7.2,
-					duration: 25.3,
-				},
-			],
-			Nairobi: [
-				{
-					name: "Nairobi",
-					rides: 680,
-					completion: 96,
-					distance: 7.2,
-					duration: 25.5,
-				},
-			],
-			Lagos: [
-				{
-					name: "Lagos Mainland",
-					rides: 520,
-					completion: 93,
-					distance: 6.9,
-					duration: 24.9,
-				},
-				{
-					name: "Lagos Island",
-					rides: 340,
-					completion: 95,
-					distance: 6.7,
-					duration: 24.7,
-				},
-			],
-		},
-		"DRIVER-PERF": {
-			All: [
-				{
-					name: "Olivia",
-					acceptance: 82,
-					cancellations: 24,
-					rating: 4.7,
-				},
-				{
-					name: "Samuel",
-					acceptance: 88,
-					cancellations: 18,
-					rating: 4.5,
-				},
-				{
-					name: "David",
-					acceptance: 76,
-					cancellations: 31,
-					rating: 4.2,
-				},
-				{
-					name: "Grace",
-					acceptance: 91,
-					cancellations: 15,
-					rating: 4.9,
-				},
-			],
-		},
-		"COMPANY-PERF": {
-			All: [
-				{
-					name: "Alpha Mobility",
-					trips: 1320,
-					cancellations: 22,
-					payouts: 62200,
-				},
-				{
-					name: "Green Rides",
-					trips: 980,
-					cancellations: 18,
-					payouts: 47800,
-				},
-				{
-					name: "City Connect",
-					trips: 760,
-					cancellations: 14,
-					payouts: 35900,
-				},
-				{
-					name: "Urban Fleet",
-					trips: 560,
-					cancellations: 11,
-					payouts: 29200,
-				},
-			],
-		},
+		"TRIPS-VOLUME": { All: [] },
+		"DRIVER-PERF": { All: [] },
+		"COMPANY-PERF": { All: [] },
 	};
 
 	const serviceFactor =
@@ -372,11 +246,9 @@ export default function DetailedAnalyticsPage() {
 				trips: row.rides,
 				completionRate: `${row.completion}%`,
 				avgDistance:
-					row.distance?.toFixed(1) ||
-					(7.2 + Math.random() * 2).toFixed(1),
+					row.distance?.toFixed(1) ?? "N/A",
 				avgDuration:
-					row.duration?.toFixed(1) ||
-					(25.5 + Math.random() * 5).toFixed(1),
+					row.duration?.toFixed(1) ?? "N/A",
 			};
 		}
 

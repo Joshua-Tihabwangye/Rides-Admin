@@ -29,7 +29,7 @@ export default function ZoneCreate() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name:"",
-    country:"Uganda",
+    country:"",
     city:"",
     services: [] as string[],
   });
@@ -103,6 +103,7 @@ export default function ZoneCreate() {
               value={formData.country}
               onChange={handleTextChange("country")}
             >
+              <MenuItem value=""><em>Select country</em></MenuItem>
               <MenuItem value="Uganda">Uganda</MenuItem>
               <MenuItem value="Kenya">Kenya</MenuItem>
               <MenuItem value="Rwanda">Rwanda</MenuItem>

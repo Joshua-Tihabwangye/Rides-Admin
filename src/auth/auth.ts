@@ -6,7 +6,6 @@ import {
   backendRegister,
   backendVerifyOtp,
   isBackendAuthEnabled,
-  isOpenAuthEnabled,
 } from "../services/api/authApi"
 import {
   clearAdminBackendTokens,
@@ -204,16 +203,6 @@ export function isAuthed() {
   return true
 }
 
-function buildDevAuthUser(email: string): AuthUser {
-  const normalizedEmail = email.trim().toLowerCase()
-  return {
-    name: normalizedEmail.split("@")[0] || "Admin",
-    email: normalizedEmail,
-    role: "Super Admin",
-    roles: ["super_admin"],
-  }
-}
-
 export async function registerWithCredentials(credentials: {
   email: string
   password: string
@@ -221,12 +210,6 @@ export async function registerWithCredentials(credentials: {
   phone?: string
 }): Promise<AuthUser> {
   const normalizedEmail = credentials.email.trim().toLowerCase()
-
-  if (isOpenAuthEnabled() && import.meta.env.DEV) {
-    const authUser = buildDevAuthUser(normalizedEmail)
-    signIn(authUser)
-    return authUser
-  }
 
   if (!isBackendAuthEnabled()) {
     throw new Error("Admin backend authentication is disabled.")
@@ -244,12 +227,6 @@ export async function registerWithCredentials(credentials: {
 
 export async function loginWithCredentials(credentials: { email: string; password: string }): Promise<AuthUser> {
   const normalizedEmail = credentials.email.trim().toLowerCase()
-
-  if (isOpenAuthEnabled() && import.meta.env.DEV) {
-    const authUser = buildDevAuthUser(normalizedEmail)
-    signIn(authUser)
-    return authUser
-  }
 
   if (!isBackendAuthEnabled()) {
     throw new Error("Admin backend authentication is disabled.")

@@ -83,7 +83,7 @@ export default function AdminAuthSignUp() {
               style={styles.input}
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
-              placeholder="Operations Admin"
+              placeholder="Full name"
               disabled={isSubmitting}
             />
           </label>
@@ -95,7 +95,7 @@ export default function AdminAuthSignUp() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="admin@company.com"
+              placeholder="Email address"
               disabled={isSubmitting}
             />
           </label>
@@ -107,7 +107,7 @@ export default function AdminAuthSignUp() {
               type="tel"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
-              placeholder="+2567..."
+              placeholder="Phone number"
               disabled={isSubmitting}
             />
           </label>

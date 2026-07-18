@@ -235,7 +235,7 @@ export default function InvoiceTemplatePreviewPage() {
                   <div className="text-[11px] text-slate-500">Invoice to</div>
                   <div>Example Customer</div>
                   <div className="text-[11px] text-slate-500">
-                    Kampala, Uganda
+                    Customer address
                   </div>
                 </Box>
                 <Box className="text-right">

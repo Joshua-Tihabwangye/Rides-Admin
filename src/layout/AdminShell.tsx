@@ -72,7 +72,7 @@ import InfoIcon from '@mui/icons-material/Info'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
-import { getAuthUser, signOut } from '../auth/auth'
+import { getAuthUser, isAuthed, signOut } from '../auth/auth'
 import { ADMIN_SUMMARY_UPDATED_EVENT, getAdminOperationalSummary } from '../services/api/adminApi'
 
 const drawerWidth = 220
@@ -187,7 +187,11 @@ export default function AdminShell() {
   const [notificationAnchor, setNotificationAnchor] = useState<null | HTMLElement>(null)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
 
-  const user = getAuthUser() || { name: 'Admin', email: 'admin@evzone.app', role: 'Admin' }
+  const user = getAuthUser()
+  if (!isAuthed() || !user) {
+    navigate('/admin/login', { replace: true })
+    return null
+  }
   const userInitials = useMemo(() => initials(user.name), [user.name])
 
   const unreadCount = notifications.filter(n => !n.read).length

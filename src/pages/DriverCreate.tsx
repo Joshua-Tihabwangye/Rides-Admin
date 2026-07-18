@@ -9,10 +9,6 @@ import {
     TextField,
     Grid,
     Divider,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
     FormControlLabel,
     Checkbox
 } from '@mui/material'
@@ -29,7 +25,7 @@ export default function DriverCreate() {
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
-        city: 'Kampala',
+        city: '',
         email: '',
         vehiclePlate: '',
         vehicleModel: '',
@@ -42,10 +38,6 @@ export default function DriverCreate() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value })
-    }
-
-    const handleSelectChange = (field: string) => (e: any) => {
-        setFormData({ ...formData, [field]: e.target.value })
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -138,24 +130,18 @@ export default function DriverCreate() {
                                     name="email"
                                     value={formData.email}
                                     onChange={handleChange}
-                                    placeholder="driver@example.com (optional)"
+                                    placeholder="Email address (optional)"
                                 />
                             </Grid>
                             <Grid item xs={12} md={6}>
-                                <FormControl fullWidth>
-                                    <InputLabel>City</InputLabel>
-                                    <Select
-                                        value={formData.city}
-                                        label="City"
-                                        onChange={handleSelectChange('city')}
-                                    >
-                                        <MenuItem value="Kampala">Kampala</MenuItem>
-                                        <MenuItem value="Kigali">Kigali</MenuItem>
-                                        <MenuItem value="Nairobi">Nairobi</MenuItem>
-                                        <MenuItem value="Lagos">Lagos</MenuItem>
-                                        <MenuItem value="Accra">Accra</MenuItem>
-                                    </Select>
-                                </FormControl>
+                                <TextField
+                                    fullWidth
+                                    label="City"
+                                    name="city"
+                                    value={formData.city}
+                                    onChange={handleChange}
+                                    placeholder="City / region"
+                                />
                             </Grid>
 
                             <Grid item xs={12} md={6}>
@@ -195,7 +181,7 @@ export default function DriverCreate() {
                                     name="vehiclePlate"
                                     value={formData.vehiclePlate}
                                     onChange={handleChange}
-                                    placeholder="UAX 123X"
+                                    placeholder="License plate number"
                                 />
                             </Grid>
                             <Grid item xs={12} md={6}>
@@ -205,7 +191,7 @@ export default function DriverCreate() {
                                     name="vehicleModel"
                                     value={formData.vehicleModel}
                                     onChange={handleChange}
-                                    placeholder="Toyota Corolla EV"
+                                    placeholder="Vehicle model"
                                 />
                             </Grid>
 

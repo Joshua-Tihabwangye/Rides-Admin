@@ -35,15 +35,6 @@ function assertPassword(password?: string): string | undefined {
   return next;
 }
 
-function fallbackEmail(fullName: string, prefix: string): string {
-  const slug = fullName
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ".")
-    .replace(/^\.+|\.+$/g, "") || prefix;
-  return `${slug}.${Date.now()}@example.com`;
-}
-
 export function normalizeAdminCreateRiderInput(input: {
   fullName: string;
   email?: string;
@@ -58,7 +49,10 @@ export function normalizeAdminCreateRiderInput(input: {
     throw new Error("Full name is required.");
   }
 
-  const email = input.email?.trim() ? normalizeEmail(input.email) : fallbackEmail(fullName, "rider");
+  const email = input.email?.trim() ? normalizeEmail(input.email) : "";
+  if (!email) {
+    throw new Error("Email is required.");
+  }
   const phone = normalizePhone(input.phone);
   assertValidEmail(email);
   assertValidPhone(phone);
@@ -91,7 +85,10 @@ export function normalizeAdminCreateDriverInput(input: {
     throw new Error("Full name is required.");
   }
 
-  const email = input.email?.trim() ? normalizeEmail(input.email) : fallbackEmail(fullName, "driver");
+  const email = input.email?.trim() ? normalizeEmail(input.email) : "";
+  if (!email) {
+    throw new Error("Email is required.");
+  }
   const phone = normalizePhone(input.phone);
   assertValidEmail(email);
   assertValidPhone(phone);

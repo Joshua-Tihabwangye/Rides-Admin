@@ -36,92 +36,8 @@ const EV_COLORS = {
   incidents:"#ef4444",
 };
 
-const seedCompanies = [
-  {
-    id: 1,
-    name:"GreenMove Fleet",
-    regions:"Kampala, Entebbe",
-    type:"Fleet Partner",
-    drivers: 12,
-    vehicles: 12,
-    commission:"12%",
-    status:"Active",
-  },
-  {
-    id: 2,
-    name:"City Cabs Co.",
-    regions:"Kigali",
-    type:"Taxi Fleet",
-    drivers: 45,
-    vehicles: 40,
-    commission:"15%",
-    status:"Active",
-  },
-  {
-    id: 3,
-    name:"Blue Delivery",
-    regions:"Nairobi",
-    type:"Logistics",
-    drivers: 120,
-    vehicles: 115,
-    commission:"10%",
-    status:"Suspended",
-  },
-  {
-    id: 4,
-    name:"Swift Riders",
-    regions:"Lagos",
-    type:"Fleet Partner",
-    drivers: 78,
-    vehicles: 65,
-    commission:"14%",
-    status:"Inactive",
-  },
-];
-
-// Trips and Incidents are derived from riders and drivers data
-function generateTrips(riders, drivers) {
-  const trips = [];
-  const statuses = ["Completed","In Progress","Cancelled"];
-  const cities = ["Kampala","Lagos","Nairobi","Kigali","Accra"];
-  
-  riders.forEach((rider, idx) => {
-    if (rider.trips > 0) {
-      const driver = drivers[idx % drivers.length];
-      trips.push({
-        id: `TRP-${String(rider.id).padStart(3, '0')}`,
-        rider: rider.name,
-        driver: driver?.name ||"Unassigned",
-        route: `${rider.city} CBD → ${cities[(idx + 1) % cities.length]}`,
-        status: statuses[idx % statuses.length],
-        date: new Date(Date.now() - idx * 86400000).toISOString().split('T')[0],
-        city: rider.city,
-      });
-    }
-  });
-  return trips;
-}
-
-function generateIncidents(riders, drivers) {
-  const incidents = [];
-  const types = ["Accident","Harassment","Lost Item","Vehicle Issue","Payment Dispute"];
-  const severities = ["High","Medium","Low"];
-  
-  // Generate incidents for high-risk users
-  [...riders, ...drivers].forEach((user, idx) => {
-    if (user.risk ==="High" || idx % 5 === 0) {
-      incidents.push({
-        id: `INC-${String(user.id).padStart(3, '0')}`,
-        type: types[idx % types.length],
-        user: user.name,
-        city: user.city,
-        severity: user.risk ==="High" ?"High" : severities[idx % severities.length],
-        date: new Date(Date.now() - idx * 86400000).toISOString().split('T')[0],
-      });
-    }
-  });
-  return incidents;
-}
+// Trips and Incidents are not exposed by the backend for global search yet, so
+// they are returned empty instead of synthesizing mock records.
 
 export default function AdminGlobalSearchPage() {
   const navigate = useNavigate();
@@ -141,8 +57,8 @@ export default function AdminGlobalSearchPage() {
   const [allRiders, setAllRiders] = useState(() => []);
   const [allDrivers, setAllDrivers] = useState(() => []);
   const [allCompanies, setAllCompanies] = useState(() => []);
-  const allTrips = useMemo(() => generateTrips(allRiders, allDrivers), [allRiders, allDrivers]);
-  const allIncidents = useMemo(() => generateIncidents(allRiders, allDrivers), [allRiders, allDrivers]);
+  const allTrips = useMemo(() => [], [allRiders, allDrivers]);
+  const allIncidents = useMemo(() => [], [allRiders, allDrivers]);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -164,11 +80,11 @@ export default function AdminGlobalSearchPage() {
           name: rider.fullName || `${rider.firstName || ""} ${rider.lastName || ""}`.trim() || rider.email || "Rider",
           city: rider.city || "Unknown",
           phone: rider.phone || "-",
-          vehicle: "EV Rider",
+          vehicle: "N/A",
           vehicleType: "Bike",
           trips: rider.totalTrips || 0,
-          spend: "UGX 0",
-          risk: "Low",
+          spend: "N/A",
+          risk: "N/A",
           primaryStatus: rider.status === "active" ? "approved" : "suspended",
           activityStatus: rider.status === "active" ? "active" : "inactive",
         })));
@@ -178,11 +94,11 @@ export default function AdminGlobalSearchPage() {
           name: driver.fullName,
           city: driver.city || "Unknown",
           phone: driver.phone || "-",
-          vehicle: driver.model || "Fleet vehicle",
+          vehicle: driver.model || "N/A",
           vehicleType: driver.vehicleType || "Car",
           trips: driver.totalTrips || 0,
-          spend: "UGX 0",
-          risk: "Low",
+          spend: "N/A",
+          risk: "N/A",
           primaryStatus: driver.status === "active" ? "approved" : "suspended",
           activityStatus: driver.status === "active" ? "active" : "inactive",
         })));
@@ -190,10 +106,10 @@ export default function AdminGlobalSearchPage() {
         setAllCompanies(backendCompanies.map((company, idx) => ({
           id: idx + 1,
           name: company.companyName,
-          regions: "Unknown",
-          type: "Fleet Partner",
-          drivers: 0,
-          vehicles: 0,
+          regions: "N/A",
+          type: "N/A",
+          drivers: "N/A",
+          vehicles: "N/A",
           commission: "N/A",
           status: company.status === "active" ? "Active" : company.status === "suspended" ? "Suspended" : "Inactive",
         })));
@@ -223,7 +139,7 @@ export default function AdminGlobalSearchPage() {
     name: d.name,
     city: d.city,
     vehicle: d.vehicle,
-    rating: 4.5 + Math.random() * 0.5,
+    rating: "N/A",
     status: d.primaryStatus === 'approved' ? 'Active' : d.primaryStatus === 'under_review' ? 'Pending' : 'Suspended',
   })), [allDrivers]);
 

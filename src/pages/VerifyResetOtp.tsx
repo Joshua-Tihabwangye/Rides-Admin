@@ -91,7 +91,7 @@ export default function VerifyResetOtp() {
               type="email"
               value={email}
               onChange={(e) => { setEmail(e.target.value); setError(""); }}
-              placeholder="you@company.com"
+              placeholder="Email address"
               disabled={isLoading}
             />
             <label style={styles.label}>Reset code</label>
@@ -102,7 +102,7 @@ export default function VerifyResetOtp() {
               maxLength={6}
               value={otp}
               onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }}
-              placeholder="123456"
+              placeholder="Reset code"
               disabled={isLoading}
             />
             {error ? <span style={styles.error}>{error}</span> : null}

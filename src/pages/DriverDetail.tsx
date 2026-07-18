@@ -120,10 +120,11 @@ export default function DriverDetail() {
     }
 
     const displayName = driver.fullName || `${driver.firstName || ''} ${driver.lastName || ''}`.trim() || 'Unknown'
-    const phone = driver.phone || '+256 700 000 000'
+    const phone = driver.phone || '—'
     const city = driver.city || 'Unknown'
     const trips = driver.totalTrips ?? 0
     const rating = formatRating(driver.rating)
+    const vehicle = [driver.vehicleType, driver.model, driver.licensePlate].filter(Boolean).join(' · ') || '—'
 
     return (
         <Box>
@@ -162,7 +163,7 @@ export default function DriverDetail() {
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <EmailIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">{driver.email || `driver.${id}@example.com`}</Typography>
+                                    <Typography variant="body2">{driver.email || '—'}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                                     <DirectionsCarIcon color="action" fontSize="small" />
@@ -174,7 +175,7 @@ export default function DriverDetail() {
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                 <Typography variant="body2" color="text.secondary">Vehicle</Typography>
-                                <Typography variant="body2" fontWeight={600}>EV Car</Typography>
+                                <Typography variant="body2" fontWeight={600}>{vehicle}</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                                 <Typography variant="body2" color="text.secondary">Total Trips</Typography>
@@ -215,57 +216,38 @@ export default function DriverDetail() {
 
                         <CardContent>
                             <CustomTabPanel value={tabValue} index={0}>
-                                <Typography variant="subtitle2" gutterBottom>Driver License</Typography>
-                                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, mb: 2, border: '1px dashed grey', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body2">No file chosen</Typography>
-                                </Box>
-                                <Typography variant="subtitle2" gutterBottom>Insurance</Typography>
-                                <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1px dashed grey', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body2">No file chosen</Typography>
-                                </Box>
+                                <Typography color="text.secondary">No documents available.</Typography>
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={1}>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <Typography variant="h6">EV Car</Typography>
+                                    <Typography variant="h6">{vehicle}</Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        Vehicle status is compliant.
+                                        Vehicle details from backend records.
                                     </Typography>
                                     <Grid container spacing={2}>
                                         <Grid item xs={6}>
-                                            <Typography variant="caption" color="text.secondary">Make/Model</Typography>
-                                            <Typography variant="body2">EV Vehicle</Typography>
+                                            <Typography variant="caption" color="text.secondary">Vehicle Type</Typography>
+                                            <Typography variant="body2">{driver.vehicleType || '—'}</Typography>
                                         </Grid>
                                         <Grid item xs={6}>
-                                            <Typography variant="caption" color="text.secondary">Year</Typography>
-                                            <Typography variant="body2">2023</Typography>
+                                            <Typography variant="caption" color="text.secondary">Model</Typography>
+                                            <Typography variant="body2">{driver.model || '—'}</Typography>
                                         </Grid>
                                         <Grid item xs={6}>
-                                            <Typography variant="caption" color="text.secondary">Color</Typography>
-                                            <Typography variant="body2">White</Typography>
+                                            <Typography variant="caption" color="text.secondary">License Plate</Typography>
+                                            <Typography variant="body2">{driver.licensePlate || '—'}</Typography>
                                         </Grid>
                                         <Grid item xs={6}>
-                                            <Typography variant="caption" color="text.secondary">Capacity</Typography>
-                                            <Typography variant="body2">4 Passengers</Typography>
+                                            <Typography variant="caption" color="text.secondary">City</Typography>
+                                            <Typography variant="body2">{driver.city || '—'}</Typography>
                                         </Grid>
                                     </Grid>
                                 </Box>
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={2}>
-                                {[1, 2, 3].map((i) => (
-                                    <Box key={i} sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                            <Typography variant="subtitle2">Trip #{3000 + i}</Typography>
-                                            <StatusBadge status="completed" label="Completed" />
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontSize: 13 }}>
-                                            <DirectionsCarIcon fontSize="small" />
-                                            Standard Ride • $15.00 • 5.2 km
-                                        </Box>
-                                    </Box>
-                                ))}
-                                {trips === 0 && <Typography color="text.secondary">No trips completed yet.</Typography>}
+                                <Typography color="text.secondary">No trip data available.</Typography>
                             </CustomTabPanel>
                         </CardContent>
                     </Card>

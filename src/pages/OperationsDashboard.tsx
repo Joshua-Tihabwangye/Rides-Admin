@@ -91,21 +91,18 @@ export default function OperationsDashboardPage() {
         label: 'Trips (Rides + Deliveries)',
         value: analytics.trips.total.toLocaleString(),
         subtitle: `${analytics.trips.completed} completed, ${dashboard?.activeRides ?? analytics.trips.active} active`,
-        status: 'Monitor',
         description: 'Total completed trip volume = rides + deliveries in the selected period.',
       },
       {
         label: 'Dispatches',
         value: analytics.dispatches.total.toLocaleString(),
         subtitle: `${analytics.dispatches.pending} pending`,
-        status: 'Monitor',
         description: 'Total dispatches created.',
       },
       {
         label: 'Online drivers',
         value: analytics.drivers.online.toString(),
         subtitle: `${analytics.drivers.total} total`,
-        status: 'Monitor',
         description: 'Number of drivers currently online/available.',
       },
     ];
@@ -151,64 +148,42 @@ export default function OperationsDashboardPage() {
 
       {/* KPI row */}
       <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {kpis.map((kpi) => {
-          const getStatusColor = (status: string) => {
-            if (status === 'On target') return '#03cd8c';
-            if (status === 'Watch' || status === 'Monitor') return '#f77f00';
-            if (status === 'Below target' || status === 'Above SLA') return '#ef4444';
-            return '#94a3b8';
-          };
-
-          return (
-            <Card
-              key={kpi.label}
-              elevation={1}
-              sx={{
-                border: "1px solid rgba(148,163,184,0.5)",
-              }}
-            >
-              <CardContent className="p-3 flex flex-col gap-1">
-                <Typography
-                  variant="caption"
-                  className="text-[11px] uppercase tracking-wide text-slate-500"
-                >
-                  {kpi.label}
-                </Typography>
-                <Typography
-                  variant="h6"
-                  className="font-semibold text-lg"
-                >
-                  {kpi.value}
-                </Typography>
-                <Box className="flex items-center gap-2">
-                  <Typography
-                    variant="caption"
-                    className="text-[11px] text-emerald-500"
-                  >
-                    {kpi.subtitle}
-                  </Typography>
-                  <Chip
-                    label={kpi.status}
-                    size="small"
-                    sx={{
-                      height: 18,
-                      fontSize: 9,
-                      bgcolor: getStatusColor(kpi.status) + '20',
-                      color: getStatusColor(kpi.status),
-                      fontWeight: 600,
-                    }}
-                  />
-                </Box>
-                <Typography
-                  variant="caption"
-                  className="text-[10px] text-slate-500 mt-1"
-                >
-                  {kpi.description}
-                </Typography>
-              </CardContent>
-            </Card>
-          );
-        })}
+        {kpis.map((kpi) => (
+          <Card
+            key={kpi.label}
+            elevation={1}
+            sx={{
+              border: "1px solid rgba(148,163,184,0.5)",
+            }}
+          >
+            <CardContent className="p-3 flex flex-col gap-1">
+              <Typography
+                variant="caption"
+                className="text-[11px] uppercase tracking-wide text-slate-500"
+              >
+                {kpi.label}
+              </Typography>
+              <Typography
+                variant="h6"
+                className="font-semibold text-lg"
+              >
+                {kpi.value}
+              </Typography>
+              <Typography
+                variant="caption"
+                className="text-[11px] text-emerald-500"
+              >
+                {kpi.subtitle}
+              </Typography>
+              <Typography
+                variant="caption"
+                className="text-[10px] text-slate-500 mt-1"
+              >
+                {kpi.description}
+              </Typography>
+            </CardContent>
+          </Card>
+        ))}
       </Box>
 
       {recentRides.length > 0 && (
@@ -332,66 +307,22 @@ export default function OperationsDashboardPage() {
               Turn metrics into action
             </Typography>
             <Divider className="!my-1" />
-            <Box className="flex items-center gap-2">
-              <Typography
-                variant="body2"
-                className="text-[12px]"
-              >
+            <Box className="flex flex-col gap-2">
+              <Typography variant="body2" className="text-[12px]">
                 • Rider cancellations: —
               </Typography>
-              <Chip
-                label="On target"
-                size="small"
-                sx={{
-                  height: 18,
-                  fontSize: 9,
-                  bgcolor: '#03cd8c20',
-                  color: '#03cd8c',
-                }}
-              />
-            </Box>
-            <Box className="flex items-center gap-2">
-              <Typography
-                variant="body2"
-                className="text-[12px]"
-              >
+              <Typography variant="body2" className="text-[12px]">
                 • Driver cancellations: —
               </Typography>
-              <Chip
-                label="Monitor"
-                size="small"
-                sx={{
-                  height: 18,
-                  fontSize: 9,
-                  bgcolor: '#f77f0020',
-                  color: '#f77f00',
-                }}
-              />
-            </Box>
-            <Box className="flex items-center gap-2">
-              <Typography
-                variant="body2"
-                className="text-[12px]"
-              >
+              <Typography variant="body2" className="text-[12px]">
                 • Support tickets (24h): —
               </Typography>
-              <Chip
-                label="Critical"
-                size="small"
-                sx={{
-                  height: 18,
-                  fontSize: 9,
-                  bgcolor: '#ef444420',
-                  color: '#ef4444',
-                }}
-              />
             </Box>
             <Typography
               variant="caption"
               className="text-[11px] text-slate-500 mt-1"
             >
-              Use these metrics together with Safety & Risk to spot regions
-              needing intervention.
+              Cancellation and support metrics are not exposed by the backend yet.
             </Typography>
           </CardContent>
         </Card>
@@ -435,31 +366,6 @@ export default function OperationsDashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Region highlights */}
-        <Card
-          elevation={1}
-          sx={{
-            flex: 1,
-            border: "1px solid rgba(148,163,184,0.5)",
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-            >
-              Region highlights
-            </Typography>
-            <Divider className="!my-1" />
-            <Typography
-              variant="body2"
-              className="text-[12px]"
-            >
-              • Live region highlights will appear here once the backend provides regional analytics.
-            </Typography>
           </CardContent>
         </Card>
       </Box>

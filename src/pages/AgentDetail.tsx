@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
     Box,
@@ -20,127 +20,91 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
-    TextField
+    TextField,
+    CircularProgress,
+    Alert,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EmailIcon from '@mui/icons-material/Email'
-import PhoneIcon from '@mui/icons-material/Phone'
-import WhatsAppIcon from '@mui/icons-material/WhatsApp'
-import ChatIcon from '@mui/icons-material/Chat'
-import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn'
 import StarIcon from '@mui/icons-material/Star'
 import SendIcon from '@mui/icons-material/Send'
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
 import StatusBadge from '../components/StatusBadge'
+import { getAdminUser, type AdminUserResponse } from '../services/api/adminApi'
 
-// Consistent with AgentManagement data
-const AGENTS_DATA = [
-    {
-        id: 1,
-        name:"Alice Support",
-        email:"alice.support@evzone.com",
-        phone:"+250 788 111 222",
-        team:"Support",
-        roles:"Support Agent",
-        status:"active",
-        lastLogin:"2025-11-20 09:24",
-        avatarColor:"#03cd8c",
-        kpa: {
-            ticketsResolved: 142,
-            avgResponseTime:"4m 30s",
-            csatScore: 4.8
-        }
-    },
-    {
-        id: 2,
-        name:"Brian Onboard",
-        email:"brian.onboard@evzone.com",
-        phone:"+250 788 333 444",
-        team:"Onboarding",
-        roles:"Onboarding Agent",
-        status:"active",
-        lastLogin:"2025-11-25 08:02",
-        avatarColor:"#f77f00",
-        kpa: {
-            ticketsResolved: 89,
-            avgResponseTime:"12m 10s",
-            csatScore: 4.5
-        }
-    },
-    {
-        id: 3,
-        name:"Carol Dispatch",
-        email:"carol.dispatch@evzone.com",
-        phone:"+250 788 555 666",
-        team:"Dispatch",
-        roles:"Dispatch Agent",
-        status:"away",
-        lastLogin:"2025-11-24 22:41",
-        avatarColor:"#3b82f6",
-        kpa: {
-            ticketsResolved: 310,
-            avgResponseTime:"1m 45s",
-            csatScore: 4.9
-        }
-    },
-    {
-        id: 4,
-        name:"David Safety",
-        email:"david.safety@evzone.com",
-        phone:"+250 788 777 888",
-        team:"Safety",
-        roles:"Safety Agent",
-        status:"suspended",
-        lastLogin:"2025-11-22 16:10",
-        avatarColor:"#ef4444",
-        kpa: {
-            ticketsResolved: 45,
-            avgResponseTime:"8m 00s",
-            csatScore: 3.2
-        }
-    },
-]
-
-const ACTIVITY_LOG = [
-    { id: 1, action:"Logged in", time:"2025-11-25 09:00", details:"IP: 192.168.1.1" },
-    { id: 2, action:"Resolved Ticket #1023", time:"2025-11-25 09:15", details:"Refund processed" },
-    { id: 3, action:"Updated Rider Profile", time:"2025-11-25 10:30", details:"Updated ID doc" },
-    { id: 4, action:"Initiated Call", time:"2025-11-25 11:05", details:"Outbound to Driver #442" },
-]
+const EV_GREEN = "#03cd8c";
 
 export default function AgentDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
+    const [agent, setAgent] = useState<AdminUserResponse | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [chatOpen, setChatOpen] = React.useState(false);
     const [chatMessage, setChatMessage] = React.useState('');
     const [messages, setMessages] = React.useState<{ sender: string, text: string }[]>([
         { sender: 'System', text: 'Chat session started.' }
     ]);
 
-    const agentId = id ? parseInt(id, 10) : 1
-    const agent = useMemo(() => AGENTS_DATA.find(a => a.id === agentId) || AGENTS_DATA[0], [agentId])
+    useEffect(() => {
+        if (!id) return;
+        let active = true;
+        const load = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const user = await getAdminUser(id);
+                if (!active) return;
+                setAgent(user);
+            } catch (err) {
+                if (!active) return;
+                setError((err as Error)?.message || "Failed to load agent details");
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        void load();
+        return () => { active = false; };
+    }, [id]);
 
-    const handleCommunication = (method: string) => {
-        if (method === 'WhatsApp') {
-            window.open(`https://wa.me/?text=Hello ${agent.name}`, '_blank');
-        } else if (method === 'WeChat') {
-            // Mock WeChat link
-            alert(`Opening WeChat for ${agent.name}...`);
-        } else if (method === 'In-System Chat') {
-            setChatOpen(true);
-        }
-    }
+    const avatarColor = useMemo(() => {
+        const colors = [EV_GREEN, "#f77f00", "#3b82f6", "#ef4444"];
+        if (!agent?.id) return colors[0];
+        return colors[agent.id.charCodeAt(0) % colors.length];
+    }, [agent?.id]);
 
     const handleSendChat = () => {
-        if (!chatMessage.trim()) return;
+        if (!chatMessage.trim() || !agent) return;
         setMessages([...messages, { sender: 'You', text: chatMessage }]);
         setChatMessage('');
-        // Simulate reply
-        setTimeout(() => {
-            setMessages(prev => [...prev, { sender: agent.name.split(' ')[0], text: 'Thanks for the message. I am looking into it.' }]);
-        }, 1000);
     };
+
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (error || !agent) {
+        return (
+            <Box>
+                <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/admin/agents')} sx={{ color: 'text.secondary', textTransform: 'none' }}>
+                    Back to Agents
+                </Button>
+                <Alert severity="error" sx={{ mt: 2 }}>
+                    {error || "Agent not found"}
+                </Alert>
+            </Box>
+        );
+    }
+
+    const lastLogin = agent.lastLogin ? new Date(agent.lastLogin).toLocaleString() : "—";
+    const team = agent.roles?.[0] || "Admin";
+    const roles = agent.roles?.join(", ") || "—";
 
     return (
         <Box>
@@ -165,7 +129,7 @@ export default function AgentDetail() {
                                     height: 100,
                                     mx: 'auto',
                                     mb: 2,
-                                    bgcolor: agent.avatarColor,
+                                    bgcolor: avatarColor,
                                     fontSize: 32,
                                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                                 }}
@@ -176,10 +140,10 @@ export default function AgentDetail() {
                                 {agent.name}
                             </Typography>
                             <Typography variant="body2" color="text.secondary" gutterBottom>
-                                {agent.roles} • {agent.team} Team
+                                {roles} • {team} Team
                             </Typography>
                             <Box sx={{ mt: 1, mb: 3 }}>
-                                <StatusBadge status={agent.status} />
+                                <StatusBadge status={agent.status.toLowerCase()} />
                             </Box>
 
                             <Divider sx={{ my: 2 }} />
@@ -188,8 +152,8 @@ export default function AgentDetail() {
                                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                                     <VerifiedUserIcon color="primary" fontSize="small" />
                                     <Box>
-                                        <Typography variant="body2" fontWeight={600}>Identity Verified</Typography>
-                                        <Typography variant="caption" color="text.secondary">KYC Complete</Typography>
+                                        <Typography variant="body2" fontWeight={600}>Identity</Typography>
+                                        <Typography variant="caption" color="text.secondary">Backend user</Typography>
                                     </Box>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
@@ -197,21 +161,15 @@ export default function AgentDetail() {
                                     <Typography variant="body2">{agent.email}</Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                                    <PhoneIcon color="action" fontSize="small" />
-                                    <Typography variant="body2">{agent.phone}</Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                                     <AccessTimeIcon color="action" fontSize="small" />
                                     <Box>
                                         <Typography variant="body2">Last Login</Typography>
-                                        <Typography variant="caption" color="text.secondary">{agent.lastLogin}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{lastLogin}</Typography>
                                     </Box>
                                 </Box>
                             </Box>
                         </CardContent>
                     </Card>
-
-                    {/* Quick Actions Removed */}
                 </Grid>
 
                 {/* Right Column: Performance & Data */}
@@ -226,7 +184,7 @@ export default function AgentDetail() {
                                         <AssignmentTurnedInIcon />
                                     </Avatar>
                                     <Box>
-                                        <Typography variant="h5" fontWeight={700}>{agent.kpa.ticketsResolved}</Typography>
+                                        <Typography variant="h5" fontWeight={700}>N/A</Typography>
                                         <Typography variant="caption" color="text.secondary">Tickets Resolved</Typography>
                                     </Box>
                                 </CardContent>
@@ -239,7 +197,7 @@ export default function AgentDetail() {
                                         <AccessTimeIcon />
                                     </Avatar>
                                     <Box>
-                                        <Typography variant="h5" fontWeight={700}>{agent.kpa.avgResponseTime}</Typography>
+                                        <Typography variant="h5" fontWeight={700}>N/A</Typography>
                                         <Typography variant="caption" color="text.secondary">Avg Response Time</Typography>
                                     </Box>
                                 </CardContent>
@@ -252,7 +210,7 @@ export default function AgentDetail() {
                                         <StarIcon />
                                     </Avatar>
                                     <Box>
-                                        <Typography variant="h5" fontWeight={700}>{agent.kpa.csatScore}</Typography>
+                                        <Typography variant="h5" fontWeight={700}>N/A</Typography>
                                         <Typography variant="caption" color="text.secondary">CSAT Score</Typography>
                                     </Box>
                                 </CardContent>
@@ -266,6 +224,9 @@ export default function AgentDetail() {
                             <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
                                 Recent Activity
                             </Typography>
+                            <Alert severity="info" sx={{ mb: 2 }}>
+                                Activity logs are not exposed by the backend yet.
+                            </Alert>
                             <TableContainer component={Paper} elevation={0} variant="outlined">
                                 <Table size="small">
                                     <TableHead>
@@ -276,13 +237,11 @@ export default function AgentDetail() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {ACTIVITY_LOG.map((row) => (
-                                            <TableRow key={row.id} hover>
-                                                <TableCell sx={{ fontWeight: 500 }}>{row.action}</TableCell>
-                                                <TableCell>{row.time}</TableCell>
-                                                <TableCell sx={{ color: 'text.secondary' }}>{row.details}</TableCell>
-                                            </TableRow>
-                                        ))}
+                                        <TableRow>
+                                            <TableCell colSpan={3} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                                                No activity records available.
+                                            </TableCell>
+                                        </TableRow>
                                     </TableBody>
                                 </Table>
                             </TableContainer>
@@ -300,27 +259,9 @@ export default function AgentDetail() {
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                                 <Button
-                                    variant="outlined"
-                                    color="success"
-                                    startIcon={<WhatsAppIcon />}
-                                    onClick={() => handleCommunication('WhatsApp')}
-                                    sx={{ borderRadius: 2, textTransform: 'none' }}
-                                >
-                                    WhatsApp
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    color="info"
-                                    startIcon={<ChatIcon />}
-                                    onClick={() => handleCommunication('WeChat')}
-                                    sx={{ borderRadius: 2, textTransform: 'none' }}
-                                >
-                                    WeChat
-                                </Button>
-                                <Button
                                     variant="contained"
-                                    startIcon={<ChatIcon />}
-                                    onClick={() => handleCommunication('In-System Chat')}
+                                    startIcon={<SendIcon />}
+                                    onClick={() => setChatOpen(true)}
                                     sx={{ bgcolor: '#03cd8c', '&:hover': { bgcolor: '#02a16e' }, borderRadius: 2, textTransform: 'none', color: '#fff' }}
                                 >
                                     Internal Chat

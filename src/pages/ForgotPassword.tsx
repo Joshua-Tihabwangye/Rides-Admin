@@ -142,7 +142,7 @@ export default function ForgotPassword() {
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setEmailErr(""); }}
-                placeholder="you@company.com"
+                placeholder="Email address"
                 disabled={isLoading}
                 autoFocus
               />
