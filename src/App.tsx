@@ -66,6 +66,12 @@ import AuditLog from './pages/AuditLog'
 import SystemOverview from './pages/SystemOverview'
 import Settings from './pages/Settings'
 import AccessDenied from './pages/AccessDenied'
+import DeliveryListPage from './pages/DeliveryListPage'
+import DeliveryDetailPage from './pages/DeliveryDetailPage'
+import PackageLabelPage from './pages/PackageLabelPage'
+import PrintQueuePage from './pages/PrintQueuePage'
+import LabelExceptionsPage from './pages/LabelExceptionsPage'
+import BlankLabelStockPage from './pages/BlankLabelStockPage'
 
 export default function App() {
   return (
@@ -333,6 +339,64 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_finance"]}>
                 <InvoiceTemplatePreview />
+              </RequirePermission>
+            }
+          />
+
+          {/* Logistics / Delivery workspace */}
+          <Route
+            path="deliveries"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <DeliveryListPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="deliveries/:id"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <DeliveryDetailPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="delivery-packages/:packageId/label"
+            element={
+              <RequirePermission anyOf={["view_delivery_labels"]}>
+                <PackageLabelPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="delivery-labels"
+            element={
+              <RequirePermission anyOf={["view_delivery_labels"]}>
+                <PackageLabelPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="delivery-labels/print-queue"
+            element={
+              <RequirePermission anyOf={["print_delivery_labels"]}>
+                <PrintQueuePage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="delivery-labels/exceptions"
+            element={
+              <RequirePermission anyOf={["view_delivery_labels"]}>
+                <LabelExceptionsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="delivery-label-stock"
+            element={
+              <RequirePermission anyOf={["activate_blank_labels"]}>
+                <BlankLabelStockPage />
               </RequirePermission>
             }
           />

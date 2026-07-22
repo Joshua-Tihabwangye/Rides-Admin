@@ -13,6 +13,18 @@ export type AdminPermission =
   | "manage_admin_users"
   | "manage_roles"
   | "manage_system"
+  // Logistics / delivery workspace (frontend permission strings).
+  // Backend mappings: view_deliveries → delivery:read, manage_deliveries → delivery:write,
+  // view_delivery_labels → delivery-label:read, print_delivery_labels → delivery-label:print,
+  // regenerate_delivery_labels → delivery-label:regenerate, bulk_print_delivery_labels → delivery-label:bulk-print,
+  // activate_blank_labels → blank-label:activate.
+  | "view_deliveries"
+  | "manage_deliveries"
+  | "view_delivery_labels"
+  | "print_delivery_labels"
+  | "regenerate_delivery_labels"
+  | "bulk_print_delivery_labels"
+  | "activate_blank_labels"
 
 const ALL_PERMISSIONS: AdminPermission[] = [
   "view_dashboard",
@@ -25,6 +37,13 @@ const ALL_PERMISSIONS: AdminPermission[] = [
   "manage_admin_users",
   "manage_roles",
   "manage_system",
+  "view_deliveries",
+  "manage_deliveries",
+  "view_delivery_labels",
+  "print_delivery_labels",
+  "regenerate_delivery_labels",
+  "bulk_print_delivery_labels",
+  "activate_blank_labels",
 ]
 
 const ROLE_PERMISSIONS: Record<AdminBackendRole, readonly AdminPermission[]> = {
@@ -36,6 +55,8 @@ const ROLE_PERMISSIONS: Record<AdminBackendRole, readonly AdminPermission[]> = {
     "manage_finance",
     "manage_pricing",
     "manage_promotions",
+    "view_deliveries",
+    "view_delivery_labels",
   ],
   super_admin: ALL_PERMISSIONS,
 }

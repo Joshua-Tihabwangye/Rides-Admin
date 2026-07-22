@@ -70,6 +70,10 @@ import NotificationsIcon from '@mui/icons-material/Notifications'
 import WarningIcon from '@mui/icons-material/Warning'
 import InfoIcon from '@mui/icons-material/Info'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import LocalShippingIcon from '@mui/icons-material/LocalShipping'
+import LabelIcon from '@mui/icons-material/Label'
+import PrintIcon from '@mui/icons-material/Print'
+import InventoryIcon from '@mui/icons-material/Inventory'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, isAuthed, signOut } from '../auth/auth'
@@ -121,6 +125,17 @@ const NAV: NavSection[] = [
       { label: 'Wallet reconciliation', to: '/admin/finance/wallet-reconciliation', icon: <AccountBalanceWalletIcon /> },
       { label: 'Reconciliation runs', to: '/admin/finance/reconciliation-runs', icon: <SyncAltIcon /> },
       { label: 'Taxes & invoices', to: '/admin/finance/tax-invoices', icon: <ReceiptIcon /> },
+    ],
+  },
+  {
+    id: 'logistics',
+    label: 'Logistics',
+    items: [
+      { label: 'Deliveries', to: '/admin/deliveries', icon: <LocalShippingIcon /> },
+      { label: 'Package Labels', to: '/admin/delivery-labels', icon: <LabelIcon /> },
+      { label: 'Print Queue', to: '/admin/delivery-labels/print-queue', icon: <PrintIcon /> },
+      { label: 'Label Exceptions', to: '/admin/delivery-labels/exceptions', icon: <WarningIcon /> },
+      { label: 'Blank Label Stock', to: '/admin/delivery-label-stock', icon: <InventoryIcon /> },
     ],
   },
   {
