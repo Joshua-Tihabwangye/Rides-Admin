@@ -1693,3 +1693,214 @@ export async function listPromoCodes(): Promise<PromoCode[]> {
 export async function createPromoCode(input: Partial<PromoCode>): Promise<PromoCode> {
   return request<PromoCode>("/pricing/promos", { method: "POST", body: input });
 }
+
+// ── Delivery Workspace & Package Labels ───────────────────────────────────
+// Frontend permission strings (see permissions.ts for backend mapping comments):
+// view_deliveries, manage_deliveries, view_delivery_labels, print_delivery_labels,
+// regenerate_delivery_labels, bulk_print_delivery_labels, activate_blank_labels.
+
+export type AdminDeliveryLocation = {
+  address?: string;
+  city?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  contactName?: string;
+  contactPhone?: string;
+};
+
+export type AdminDeliveryPackageResponse = {
+  id: string;
+  deliveryId: string;
+  trackingCode?: string;
+  weight?: number;
+  weightUnit?: string;
+  dimensions?: { length?: number; width?: number; height?: number; unit?: string };
+  description?: string;
+  status: string;
+  labelStatus?: string;
+  activeLabelId?: string | null;
+  activeLabelUrl?: string | null;
+  activeLabelFormat?: 'pdf' | 'png' | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AdminDeliveryLabelResponse = {
+  id: string;
+  packageId: string;
+  version: number;
+  status: 'active' | 'revoked' | 'failed' | 'draft' | string;
+  format: 'pdf' | 'png' | string;
+  downloadUrl?: string;
+  generatedAt?: string;
+  generatedBy?: string;
+  revokedAt?: string;
+  revokeReason?: string;
+};
+
+export type AdminDeliveryEventResponse = {
+  id: string;
+  deliveryId: string;
+  type: string;
+  status?: string;
+  description?: string;
+  occurredAt: string;
+  actorType?: string;
+  actorId?: string;
+  location?: AdminDeliveryLocation;
+  metadata?: Record<string, unknown>;
+};
+
+export type AdminDeliveryOrderResponse = {
+  id: string;
+  trackingCode?: string;
+  originType?: 'merchant' | 'individual' | string;
+  status: string;
+  readinessStatus?: 'not_ready' | 'ready' | 'in_transit' | 'completed' | string;
+  labelStatus?: 'pending' | 'generated' | 'attached' | 'exception' | string;
+  merchantOrganizationId?: string;
+  merchantOrganizationName?: string;
+  sender?: AdminDeliveryLocation;
+  recipient?: AdminDeliveryLocation;
+  route?: {
+    estimatedDistanceMeters?: number;
+    estimatedDurationSeconds?: number;
+    pickupEta?: string;
+    dropoffEta?: string;
+  };
+  driverId?: string;
+  driverName?: string;
+  packages?: AdminDeliveryPackageResponse[];
+  events?: AdminDeliveryEventResponse[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AdminDeliveryListResponse = {
+  items: AdminDeliveryOrderResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+};
+
+export type ListAdminDeliveriesFilters = {
+  page?: number;
+  limit?: number;
+  originType?: string;
+  status?: string;
+  readinessStatus?: string;
+  labelStatus?: string;
+  merchantOrganizationId?: string;
+  driverId?: string;
+  trackingCode?: string;
+  search?: string;
+  fromDate?: string;
+  toDate?: string;
+};
+
+export async function listAdminDeliveries(
+  filters: ListAdminDeliveriesFilters = {}
+): Promise<AdminDeliveryListResponse> {
+  return request<AdminDeliveryListResponse>(
+    `/admin/deliveries${toQueryString({
+      page: filters.page,
+      limit: filters.limit,
+      originType: filters.originType,
+      status: filters.status,
+      readinessStatus: filters.readinessStatus,
+      labelStatus: filters.labelStatus,
+      merchantOrganizationId: filters.merchantOrganizationId,
+      driverId: filters.driverId,
+      trackingCode: filters.trackingCode,
+      search: filters.search,
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+    })}`,
+    { method: "GET" }
+  );
+}
+
+export async function getAdminDelivery(id: string): Promise<AdminDeliveryOrderResponse> {
+  return request<AdminDeliveryOrderResponse>(`/admin/deliveries/${id}`, { method: "GET" });
+}
+
+export async function getAdminDeliveryPackages(
+  id: string
+): Promise<{ items: AdminDeliveryPackageResponse[] }> {
+  return request<{ items: AdminDeliveryPackageResponse[] }>(
+    `/admin/deliveries/${id}/packages`,
+    { method: "GET" }
+  );
+}
+
+export async function getAdminPackageLabels(
+  packageId: string
+): Promise<{ items: AdminDeliveryLabelResponse[] }> {
+  return request<{ items: AdminDeliveryLabelResponse[] }>(
+    `/admin/delivery-packages/${packageId}/labels`,
+    { method: "GET" }
+  );
+}
+
+export async function downloadAdminLabelAsset(
+  labelId: string,
+  format: 'pdf' | 'png' = 'pdf'
+): Promise<{ downloadUrl: string; mimeType: string; fileName: string }> {
+  return request<{ downloadUrl: string; mimeType: string; fileName: string }>(
+    `/admin/delivery-labels/${labelId}/download${toQueryString({ format })}`,
+    { method: "GET" }
+  );
+}
+
+export async function regenerateAdminPackageLabel(
+  packageId: string,
+  reason: string,
+  note?: string
+): Promise<AdminDeliveryLabelResponse> {
+  return request<AdminDeliveryLabelResponse>(
+    `/admin/delivery-packages/${packageId}/labels/regenerate`,
+    {
+      method: "POST",
+      body: { reason, note },
+    }
+  );
+}
+
+export async function recordAdminLabelPrintEvent(
+  labelId: string,
+  source?: string
+): Promise<AdminDeliveryLabelResponse> {
+  return request<AdminDeliveryLabelResponse>(
+    `/admin/delivery-labels/${labelId}/print-events`,
+    {
+      method: "POST",
+      body: { source },
+    }
+  );
+}
+
+export async function markAdminLabelAttached(
+  packageId: string,
+  attachedByUserId?: string,
+  location?: string
+): Promise<AdminDeliveryPackageResponse> {
+  return request<AdminDeliveryPackageResponse>(
+    `/admin/delivery-packages/${packageId}/mark-attached`,
+    {
+      method: "POST",
+      body: { attachedByUserId, location },
+    }
+  );
+}
+
+export async function bulkExportAdminLabels(
+  packageIds: string[],
+  reason?: string
+): Promise<{ batchId: string; packageCount: number; downloadUrl?: string }> {
+  return request<{ batchId: string; packageCount: number; downloadUrl?: string }>(
+    "/admin/delivery-labels/bulk-export",
+    {
+      method: "POST",
+      body: { packageIds, reason },
+    }
+  );
+}
