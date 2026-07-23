@@ -74,6 +74,8 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import LabelIcon from '@mui/icons-material/Label'
 import PrintIcon from '@mui/icons-material/Print'
 import InventoryIcon from '@mui/icons-material/Inventory'
+import StorefrontIcon from '@mui/icons-material/Storefront'
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, isAuthed, signOut } from '../auth/auth'
@@ -136,6 +138,15 @@ const NAV: NavSection[] = [
       { label: 'Print Queue', to: '/admin/delivery-labels/print-queue', icon: <PrintIcon /> },
       { label: 'Label Exceptions', to: '/admin/delivery-labels/exceptions', icon: <WarningIcon /> },
       { label: 'Blank Label Stock', to: '/admin/delivery-label-stock', icon: <InventoryIcon /> },
+    ],
+  },
+  {
+    id: 'marketplace',
+    label: 'Marketplace Simulation',
+    items: [
+      { label: 'Client Shop', to: '/admin/marketplace/client/products', icon: <StorefrontIcon /> },
+      { label: 'Client Cart', to: '/admin/marketplace/client/cart', icon: <ShoppingCartIcon /> },
+      { label: 'Seller Orders', to: '/admin/marketplace/seller/orders', icon: <InventoryIcon /> },
     ],
   },
   {
