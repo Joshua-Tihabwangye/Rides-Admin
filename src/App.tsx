@@ -72,6 +72,10 @@ import PackageLabelPage from './pages/PackageLabelPage'
 import PrintQueuePage from './pages/PrintQueuePage'
 import LabelExceptionsPage from './pages/LabelExceptionsPage'
 import BlankLabelStockPage from './pages/BlankLabelStockPage'
+import MarketplaceClientProductsPage from './pages/marketplace/MarketplaceClientProductsPage'
+import MarketplaceClientCartPage from './pages/marketplace/MarketplaceClientCartPage'
+import MarketplaceSellerOrdersPage from './pages/marketplace/MarketplaceSellerOrdersPage'
+import MarketplaceSellerOrderDetailPage from './pages/marketplace/MarketplaceSellerOrderDetailPage'
 
 export default function App() {
   return (
@@ -339,6 +343,40 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_finance"]}>
                 <InvoiceTemplatePreview />
+              </RequirePermission>
+            }
+          />
+
+          {/* Marketplace simulation */}
+          <Route
+            path="marketplace/client/products"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <MarketplaceClientProductsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="marketplace/client/cart"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <MarketplaceClientCartPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="marketplace/seller/orders"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <MarketplaceSellerOrdersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="marketplace/seller/orders/:sellerOrderId"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <MarketplaceSellerOrderDetailPage />
               </RequirePermission>
             }
           />
