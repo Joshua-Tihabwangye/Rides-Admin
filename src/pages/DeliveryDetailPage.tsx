@@ -52,6 +52,23 @@ function openSignedUrl(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
+async function downloadFile(url: string, filename: string) {
+  if (!url) return;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Download failed with status ${response.status}`);
+  }
+  const blob = await response.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(blobUrl);
+}
+
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
@@ -383,7 +400,9 @@ export default function DeliveryDetailPage() {
   const handleDownloadLabel = async (label: AdminDeliveryLabelResponse, format: 'pdf' | 'png') => {
     try {
       const asset = await downloadAdminLabelAsset(label.id, format);
-      openSignedUrl(asset.downloadUrl);
+      const extension = format === 'pdf' ? 'pdf' : 'png';
+      const filename = asset.fileName || `label-${label.id}.${extension}`;
+      await downloadFile(asset.downloadUrl, filename);
     } catch (e: any) {
       setSnackbar({ message: `Download failed: ${e?.message ?? 'Unknown error'}`, open: true });
     }

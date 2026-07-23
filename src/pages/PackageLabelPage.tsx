@@ -53,6 +53,23 @@ function openSignedUrl(url: string) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
+async function downloadFile(url: string, filename: string) {
+  if (!url) return;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Download failed with status ${response.status}`);
+  }
+  const blob = await response.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(blobUrl);
+}
+
 function LabelHistory({ labels }: { labels: AdminDeliveryLabelResponse[] }) {
   if (labels.length === 0) {
     return <Typography color="text.secondary">No label history yet.</Typography>;
@@ -65,7 +82,8 @@ function LabelHistory({ labels }: { labels: AdminDeliveryLabelResponse[] }) {
   const handleLabelQrDownload = async (labelId: string) => {
     try {
       const asset = await downloadAdminLabelAsset(labelId, 'qr');
-      openSignedUrl(asset.downloadUrl);
+      const filename = asset.fileName || `label-${labelId}-qr.png`;
+      await downloadFile(asset.downloadUrl, filename);
     } catch (e: any) {
       // surface error in console for history item; parent snackbar is not accessible here
       console.warn('QR download failed', e);
@@ -138,7 +156,9 @@ export default function PackageLabelPage() {
     if (!activeLabel) return;
     try {
       const asset = await downloadAdminLabelAsset(activeLabel.id, format);
-      openSignedUrl(asset.downloadUrl);
+      const extension = format === 'pdf' ? 'pdf' : 'png';
+      const filename = asset.fileName || `label-${activeLabel.id}.${extension}`;
+      await downloadFile(asset.downloadUrl, filename);
     } catch (e: any) {
       setSnackbar({ message: `Download failed: ${e?.message ?? 'Unknown error'}`, open: true });
     }
