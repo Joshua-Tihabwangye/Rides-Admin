@@ -1229,12 +1229,12 @@ export async function getAdminOperationalSummary(): Promise<{
     listAdminFeatureFlags(),
   ]);
 
-  const pendingApprovals = approvals.filter((approval) => approval.status === "pending").length;
-  const openRiskCases = riskCases.filter((riskCase) => (riskCase.status ?? "open") !== "resolved").length;
+  const pendingApprovals = Array.isArray(approvals) ? approvals.filter((approval) => approval.status === "pending").length : 0;
+  const openRiskCases = Array.isArray(riskCases) ? riskCases.filter((riskCase) => (riskCase.status ?? "open") !== "resolved").length : overview.queues.riskCases ?? 0;
   const openIncidents = overview.queues.safetyIncidents ?? 0;
   const payoutQueue = finance.payoutsPending ?? 0;
-  const disabledServices = services.filter((service) => !service.enabled).length;
-  const enabledFlags = flags.filter((flag) => flag.enabled).length;
+  const disabledServices = Array.isArray(services) ? services.filter((service) => !service.enabled).length : 0;
+  const enabledFlags = Array.isArray(flags) ? flags.filter((flag) => flag.enabled).length : 0;
 
   return {
     pendingApprovals,
@@ -1699,6 +1699,12 @@ export async function createPromoCode(input: Partial<PromoCode>): Promise<PromoC
 // view_deliveries, manage_deliveries, view_delivery_labels, print_delivery_labels,
 // regenerate_delivery_labels, bulk_print_delivery_labels, activate_blank_labels.
 
+export type AdminDeliveryContactView = {
+  name?: string;
+  phone?: string;
+  email?: string;
+};
+
 export type AdminDeliveryLocation = {
   address?: string;
   city?: string;
@@ -1709,21 +1715,20 @@ export type AdminDeliveryLocation = {
   contactPhone?: string;
 };
 
-export type AdminDeliveryPackageResponse = {
+export type AdminDeliveryPackageView = {
   id: string;
-  deliveryId: string;
-  trackingCode?: string;
-  weight?: number;
-  weightUnit?: string;
-  dimensions?: { length?: number; width?: number; height?: number; unit?: string };
-  description?: string;
+  deliveryOrderId: string;
+  packageIdentifier: string;
+  packageNumber: number;
+  totalPackages?: number;
+  packageName?: string;
+  weightKg?: number;
+  size?: string;
+  dimensions?: { lengthCm?: number; widthCm?: number; heightCm?: number };
+  fragile?: boolean;
   status: string;
-  labelStatus?: string;
-  activeLabelId?: string | null;
-  activeLabelUrl?: string | null;
-  activeLabelFormat?: 'pdf' | 'png' | null;
-  createdAt?: string;
-  updatedAt?: string;
+  readinessStatus: string;
+  activeLabel?: Record<string, unknown> | null;
 };
 
 export type AdminDeliveryLabelResponse = {
@@ -1733,6 +1738,7 @@ export type AdminDeliveryLabelResponse = {
   status: 'active' | 'revoked' | 'failed' | 'draft' | string;
   format: 'pdf' | 'png' | string;
   downloadUrl?: string;
+  qrDownloadUrl?: string;
   generatedAt?: string;
   generatedBy?: string;
   revokedAt?: string;
@@ -1752,34 +1758,45 @@ export type AdminDeliveryEventResponse = {
   metadata?: Record<string, unknown>;
 };
 
+export type AdminDeliveryListItemResponse = {
+  id: string;
+  trackingCode?: string;
+  originType?: string;
+  status: string;
+  readinessStatus?: string;
+  labelGenerationPolicy?: string;
+  labelStatus?: string;
+  packageCount?: number;
+  driverId?: string;
+  createdAt?: string;
+  sender?: AdminDeliveryContactView;
+  receiver?: AdminDeliveryContactView;
+};
+
 export type AdminDeliveryOrderResponse = {
   id: string;
   trackingCode?: string;
-  originType?: 'merchant' | 'individual' | string;
+  originType?: string;
   status: string;
-  readinessStatus?: 'not_ready' | 'ready' | 'in_transit' | 'completed' | string;
-  labelStatus?: 'pending' | 'generated' | 'attached' | 'exception' | string;
-  merchantOrganizationId?: string;
-  merchantOrganizationName?: string;
-  sender?: AdminDeliveryLocation;
-  recipient?: AdminDeliveryLocation;
-  route?: {
-    estimatedDistanceMeters?: number;
-    estimatedDurationSeconds?: number;
-    pickupEta?: string;
-    dropoffEta?: string;
-  };
+  readinessStatus?: string;
+  labelGenerationPolicy?: string;
+  sender?: AdminDeliveryContactView;
+  receiver?: AdminDeliveryContactView;
+  pickupAddress?: string;
+  destinationAddress?: string;
+  route?: Record<string, unknown>;
   driverId?: string;
   driverName?: string;
-  packages?: AdminDeliveryPackageResponse[];
-  events?: AdminDeliveryEventResponse[];
+  packageCount?: number;
+  packages: AdminDeliveryPackageView[];
+  events: AdminDeliveryEventResponse[];
   createdAt?: string;
   updatedAt?: string;
 };
 
 export type AdminDeliveryListResponse = {
-  items: AdminDeliveryOrderResponse[];
-  meta: { page: number; limit: number; total: number; totalPages: number };
+  items: AdminDeliveryListItemResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
 };
 
 export type ListAdminDeliveriesFilters = {
@@ -1815,7 +1832,7 @@ export async function listAdminDeliveries(
       fromDate: filters.fromDate,
       toDate: filters.toDate,
     })}`,
-    { method: "GET" }
+    { method: "GET", unwrapData: false }
   );
 }
 
@@ -1825,25 +1842,27 @@ export async function getAdminDelivery(id: string): Promise<AdminDeliveryOrderRe
 
 export async function getAdminDeliveryPackages(
   id: string
-): Promise<{ items: AdminDeliveryPackageResponse[] }> {
-  return request<{ items: AdminDeliveryPackageResponse[] }>(
+): Promise<AdminDeliveryPackageView[]> {
+  const response = await request<{ items: AdminDeliveryPackageView[] }>(
     `/admin/deliveries/${id}/packages`,
     { method: "GET" }
   );
+  return Array.isArray(response?.items) ? response.items : [];
 }
 
 export async function getAdminPackageLabels(
   packageId: string
-): Promise<{ items: AdminDeliveryLabelResponse[] }> {
-  return request<{ items: AdminDeliveryLabelResponse[] }>(
+): Promise<AdminDeliveryLabelResponse[]> {
+  const response = await request<{ items: AdminDeliveryLabelResponse[] }>(
     `/admin/delivery-packages/${packageId}/labels`,
     { method: "GET" }
   );
+  return response.items ?? [];
 }
 
 export async function downloadAdminLabelAsset(
   labelId: string,
-  format: 'pdf' | 'png' = 'pdf'
+  format: 'pdf' | 'png' | 'qr' = 'pdf'
 ): Promise<{ downloadUrl: string; mimeType: string; fileName: string }> {
   return request<{ downloadUrl: string; mimeType: string; fileName: string }>(
     `/admin/delivery-labels/${labelId}/download${toQueryString({ format })}`,
@@ -1882,8 +1901,8 @@ export async function markAdminLabelAttached(
   packageId: string,
   attachedByUserId?: string,
   location?: string
-): Promise<AdminDeliveryPackageResponse> {
-  return request<AdminDeliveryPackageResponse>(
+): Promise<AdminDeliveryPackageView> {
+  return request<AdminDeliveryPackageView>(
     `/admin/delivery-packages/${packageId}/mark-attached`,
     {
       method: "POST",

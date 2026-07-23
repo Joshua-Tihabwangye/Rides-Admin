@@ -30,8 +30,10 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import StatusBadge from '../components/StatusBadge';
 import {
   listAdminDeliveries,
+  listAdminDrivers,
+  getAdminDelivery,
 } from '../services/api/adminApi';
-import type { AdminDeliveryOrderResponse, ListAdminDeliveriesFilters } from '../services/api/adminApi';
+import type { AdminDeliveryListItemResponse, AdminDeliveryOrderResponse, ListAdminDeliveriesFilters } from '../services/api/adminApi';
 
 const ORIGIN_TYPES = [
   { value: '', label: 'All origins' },
@@ -59,7 +61,8 @@ const READINESS_STATUSES = [
 
 export default function DeliveryListPage() {
   const navigate = useNavigate();
-  const [deliveries, setDeliveries] = useState<AdminDeliveryOrderResponse[]>([]);
+  const [deliveries, setDeliveries] = useState<Array<AdminDeliveryListItemResponse & Partial<AdminDeliveryOrderResponse>>>([]);
+  const [driverNamesById, setDriverNamesById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ListAdminDeliveriesFilters>({
@@ -78,17 +81,49 @@ export default function DeliveryListPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await listAdminDeliveries({
-        ...filters,
-        originType: filters.originType || undefined,
-        status: filters.status || undefined,
-        readinessStatus: filters.readinessStatus || undefined,
-        trackingCode: filters.trackingCode || undefined,
-        fromDate: filters.fromDate || undefined,
-        toDate: filters.toDate || undefined,
-      });
-      setDeliveries(response.items);
-      setTotal(response.meta.total);
+      const [response, drivers] = await Promise.all([
+        listAdminDeliveries({
+          ...filters,
+          originType: filters.originType || undefined,
+          status: filters.status || undefined,
+          readinessStatus: filters.readinessStatus || undefined,
+          trackingCode: filters.trackingCode || undefined,
+          fromDate: filters.fromDate || undefined,
+          toDate: filters.toDate || undefined,
+        }),
+        listAdminDrivers(),
+      ]);
+      const rawResponse = response as unknown as {
+        items?: AdminDeliveryListItemResponse[];
+        data?: AdminDeliveryListItemResponse[];
+      } | AdminDeliveryListItemResponse[];
+      const listItems = Array.isArray(rawResponse)
+        ? rawResponse
+        : Array.isArray(rawResponse.items)
+          ? rawResponse.items
+          : Array.isArray(rawResponse.data)
+            ? rawResponse.data
+            : [];
+      const detailedItems = await Promise.all(
+        listItems.map(async (item) => {
+          try {
+            return await getAdminDelivery(item.id);
+          } catch {
+            return item;
+          }
+        }),
+      );
+      setDeliveries(detailedItems);
+      const responseMeta = Array.isArray(rawResponse) ? undefined : (response as { meta?: { total?: number } }).meta;
+      setTotal(responseMeta?.total ?? listItems.length);
+      setDriverNamesById(
+        Object.fromEntries(
+          (Array.isArray(drivers) ? drivers : []).map((driver) => [
+            driver.driverId || driver.userId,
+            driver.fullName || [driver.firstName, driver.lastName].filter(Boolean).join(' ') || driver.driverId || driver.userId,
+          ]),
+        ),
+      );
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load deliveries');
     } finally {
@@ -315,9 +350,9 @@ export default function DeliveryListPage() {
                     {delivery.trackingCode || delivery.id}
                   </TableCell>
                   <TableCell sx={{ textTransform: 'capitalize' }}>{delivery.originType || 'N/A'}</TableCell>
-                  <TableCell>{delivery.sender?.contactName || delivery.sender?.address || 'N/A'}</TableCell>
-                  <TableCell>{delivery.recipient?.contactName || delivery.recipient?.address || 'N/A'}</TableCell>
-                  <TableCell>{delivery.driverName || delivery.driverId || 'Unassigned'}</TableCell>
+                  <TableCell>{delivery.sender?.name || delivery.sender?.phone || 'N/A'}</TableCell>
+                  <TableCell>{delivery.receiver?.name || delivery.receiver?.phone || 'N/A'}</TableCell>
+                  <TableCell>{delivery.driverName || driverNamesById[delivery.driverId || ''] || delivery.driverId || 'Unassigned'}</TableCell>
                   <TableCell>
                     <StatusBadge status={delivery.status} />
                   </TableCell>
