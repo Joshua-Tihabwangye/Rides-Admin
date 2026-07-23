@@ -27,12 +27,30 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import EventIcon from '@mui/icons-material/Event';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import PrintIcon from '@mui/icons-material/Print';
+import DownloadIcon from '@mui/icons-material/Download';
 import StatusBadge from '../components/StatusBadge';
 import {
   getAdminDelivery,
   getAdminDeliveryPackages,
+  downloadAdminLabelAsset,
+  recordAdminLabelPrintEvent,
 } from '../services/api/adminApi';
-import type { AdminDeliveryOrderResponse, AdminDeliveryPackageResponse, AdminDeliveryEventResponse } from '../services/api/adminApi';
+import type { AdminDeliveryOrderResponse, AdminDeliveryPackageView, AdminDeliveryEventResponse, AdminDeliveryLabelResponse } from '../services/api/adminApi';
+import { getAuthUser } from '../auth/auth';
+import { hasAnyPermission } from '../auth/permissions';
+import type { AdminPermission } from '../auth/permissions';
+
+function hasAny(permissions: AdminPermission[]) {
+  const user = getAuthUser();
+  if (!user) return false;
+  return hasAnyPermission(user, permissions);
+}
+
+function openSignedUrl(url: string) {
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -49,7 +67,7 @@ function CustomTabPanel(props: TabPanelProps) {
   );
 }
 
-function LocationBlock({ title, location }: { title: string; location?: AdminDeliveryOrderResponse['sender'] }) {
+function LocationBlock({ title, contact, address }: { title: string; contact?: AdminDeliveryOrderResponse['sender']; address?: string }) {
   return (
     <Box>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
@@ -58,31 +76,90 @@ function LocationBlock({ title, location }: { title: string; location?: AdminDel
       <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PersonIcon fontSize="small" color="action" />
-          <Typography variant="body2">{location?.contactName || 'N/A'}</Typography>
+          <Typography variant="body2">{contact?.name || 'N/A'}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PhoneIcon fontSize="small" color="action" />
-          <Typography variant="body2">{location?.contactPhone || 'N/A'}</Typography>
+          <Typography variant="body2">{contact?.phone || 'N/A'}</Typography>
         </Box>
+        {contact?.email && (
+          <Typography variant="caption" color="text.secondary">
+            {contact.email}
+          </Typography>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
           <LocationOnIcon fontSize="small" color="action" sx={{ mt: 0.3 }} />
-          <Typography variant="body2">{location?.address || 'N/A'}</Typography>
+          <Typography variant="body2">{address || 'N/A'}</Typography>
         </Box>
-        <Typography variant="caption" color="text.secondary">
-          {location?.city && `${location.city}, `}{location?.country || ''}
-        </Typography>
       </Box>
     </Box>
+  );
+}
+
+function LabelQrPreview({ labelId }: { labelId: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Fetch the backend signed URL so the exact stored QR asset is shown (never generated client-side).
+    downloadAdminLabelAsset(labelId, 'qr')
+      .then((asset) => {
+        if (!cancelled) setUrl(asset.downloadUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [labelId]);
+
+  if (failed) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        QR unavailable
+      </Typography>
+    );
+  }
+  if (!url) {
+    return <CircularProgress size={20} />;
+  }
+  return (
+    <Box
+      component="img"
+      src={url}
+      alt="Label QR code"
+      sx={{ width: 72, height: 72, borderRadius: 1, border: '1px solid', borderColor: 'divider', objectFit: 'contain' }}
+    />
   );
 }
 
 function PackageCard({
   packageItem,
   onViewLabel,
+  onDownloadLabel,
+  onPrintLabel,
+  actionLoading,
+  canDownloadLabels,
+  canPrintLabels,
 }: {
-  packageItem: AdminDeliveryPackageResponse;
+  packageItem: AdminDeliveryPackageView;
   onViewLabel: (packageId: string) => void;
+  onDownloadLabel: (label: AdminDeliveryLabelResponse, format: 'pdf' | 'png') => void;
+  onPrintLabel: (label: AdminDeliveryLabelResponse) => void;
+  actionLoading: boolean;
+  canDownloadLabels: boolean;
+  canPrintLabels: boolean;
 }) {
+  const label = (packageItem.activeLabel ?? null) as AdminDeliveryLabelResponse | null;
+  const rawPrintCount = (label as Record<string, unknown> | null)?.printCount
+    ?? (label as Record<string, unknown> | null)?.print_count;
+  const printCount =
+    typeof rawPrintCount === 'number' || typeof rawPrintCount === 'string'
+      ? rawPrintCount
+      : 'N/A';
+
   return (
     <Card variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
       <CardContent>
@@ -91,10 +168,10 @@ function PackageCard({
             <LocalShippingIcon color="primary" />
             <Box>
               <Typography variant="subtitle2" fontWeight={600}>
-                Package {packageItem.trackingCode || packageItem.id}
+                {packageItem.packageIdentifier || `Package ${packageItem.packageNumber}`}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {packageItem.description || 'No description'}
+                {packageItem.packageName || 'No name'}
               </Typography>
             </Box>
           </Box>
@@ -112,29 +189,100 @@ function PackageCard({
           <Box>
             <Typography variant="caption" color="text.secondary">Weight</Typography>
             <Typography variant="body2" fontWeight={600}>
-              {packageItem.weight ? `${packageItem.weight} ${packageItem.weightUnit || 'kg'}` : 'N/A'}
+              {packageItem.weightKg ? `${packageItem.weightKg} kg` : 'N/A'}
             </Typography>
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary">Dimensions</Typography>
             <Typography variant="body2" fontWeight={600}>
               {packageItem.dimensions
-                ? `${packageItem.dimensions.length || 0}×${packageItem.dimensions.width || 0}×${packageItem.dimensions.height || 0} ${packageItem.dimensions.unit || 'cm'}`
+                ? `${packageItem.dimensions.lengthCm ?? 0}×${packageItem.dimensions.widthCm ?? 0}×${packageItem.dimensions.heightCm ?? 0} cm`
                 : 'N/A'}
             </Typography>
           </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Label status</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
-              <LabelIcon fontSize="small" color={packageItem.labelStatus === 'generated' ? 'success' : 'action'} />
-              <Typography variant="body2" fontWeight={600}>
-                {packageItem.labelStatus || 'pending'}
-              </Typography>
-            </Box>
-          </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Divider sx={{ my: 1.5 }} />
+
+        {label ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 1.5 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Label status</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+                <LabelIcon fontSize="small" color={label.status === 'active' ? 'success' : 'action'} />
+                <Typography variant="body2" fontWeight={600}>
+                  {label.status || 'pending'}
+                </Typography>
+              </Box>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Label version</Typography>
+              <Typography variant="body2" fontWeight={600}>
+                v{label.version ?? 'N/A'}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Issued</Typography>
+              <Typography variant="body2" fontWeight={600}>
+                {label.generatedAt ? new Date(label.generatedAt).toLocaleString() : 'N/A'}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Print count</Typography>
+              <Typography variant="body2" fontWeight={600}>
+                {printCount}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">QR code</Typography>
+              <Box sx={{ mt: 0.25 }}>
+                <LabelQrPreview labelId={label.id} />
+              </Box>
+            </Box>
+          </Box>
+        ) : (
+          <Alert severity="info" sx={{ mb: 1.5 }}>
+            No label generated yet.
+          </Alert>
+        )}
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 1 }}>
+          {label && canDownloadLabels && (
+            <>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={() => onDownloadLabel(label, 'pdf')}
+                disabled={actionLoading}
+                sx={{ textTransform: 'none', borderRadius: 2 }}
+              >
+                Download PDF
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={() => onDownloadLabel(label, 'png')}
+                disabled={actionLoading}
+                sx={{ textTransform: 'none', borderRadius: 2 }}
+              >
+                Download PNG
+              </Button>
+            </>
+          )}
+          {label && canPrintLabels && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<PrintIcon />}
+              onClick={() => onPrintLabel(label)}
+              disabled={actionLoading}
+              sx={{ textTransform: 'none', borderRadius: 2 }}
+            >
+              Print label
+            </Button>
+          )}
           <Button
             size="small"
             variant="outlined"
@@ -195,10 +343,15 @@ export default function DeliveryDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [delivery, setDelivery] = useState<AdminDeliveryOrderResponse | null>(null);
-  const [packages, setPackages] = useState<AdminDeliveryPackageResponse[]>([]);
+  const [packages, setPackages] = useState<AdminDeliveryPackageView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ message: string; open: boolean }>({ message: '', open: false });
+
+  const canDownloadLabels = hasAny(['view_delivery_labels']);
+  const canPrintLabels = hasAny(['print_delivery_labels']);
 
   useEffect(() => {
     if (!id) return;
@@ -211,7 +364,9 @@ export default function DeliveryDetailPage() {
           getAdminDeliveryPackages(id),
         ]);
         setDelivery(deliveryData);
-        setPackages(packagesData.items);
+        const packageList = Array.isArray(packagesData) ? packagesData : [];
+        const fallbackPackages = Array.isArray(deliveryData?.packages) ? deliveryData.packages : [];
+        setPackages(packageList.length > 0 ? packageList : fallbackPackages);
       } catch (e: any) {
         setError(e?.message ?? 'Failed to load delivery');
       } finally {
@@ -223,6 +378,29 @@ export default function DeliveryDetailPage() {
 
   const handleViewLabel = (packageId: string) => {
     navigate(`/admin/delivery-packages/${packageId}/label`);
+  };
+
+  const handleDownloadLabel = async (label: AdminDeliveryLabelResponse, format: 'pdf' | 'png') => {
+    try {
+      const asset = await downloadAdminLabelAsset(label.id, format);
+      openSignedUrl(asset.downloadUrl);
+    } catch (e: any) {
+      setSnackbar({ message: `Download failed: ${e?.message ?? 'Unknown error'}`, open: true });
+    }
+  };
+
+  const handlePrintLabel = async (label: AdminDeliveryLabelResponse) => {
+    setActionLoading(true);
+    try {
+      await recordAdminLabelPrintEvent(label.id, 'admin-portal');
+      const asset = await downloadAdminLabelAsset(label.id, label.format === 'png' ? 'png' : 'pdf');
+      openSignedUrl(asset.downloadUrl);
+      setSnackbar({ message: 'Print event recorded and download opened.', open: true });
+    } catch (e: any) {
+      setSnackbar({ message: `Print failed: ${e?.message ?? 'Unknown error'}`, open: true });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading) {
@@ -265,16 +443,15 @@ export default function DeliveryDetailPage() {
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
                 <StatusBadge status={delivery.status} />
                 <StatusBadge status={delivery.readinessStatus || 'unknown'} />
-                <StatusBadge status={delivery.labelStatus || 'pending'} />
               </Box>
 
               <Divider sx={{ my: 2 }} />
 
-              <LocationBlock title="Sender" location={delivery.sender} />
+              <LocationBlock title="Sender" contact={delivery.sender} address={delivery.pickupAddress} />
 
               <Divider sx={{ my: 2 }} />
 
-              <LocationBlock title="Recipient" location={delivery.recipient} />
+              <LocationBlock title="Recipient" contact={delivery.receiver} address={delivery.destinationAddress} />
 
               <Divider sx={{ my: 2 }} />
 
@@ -284,10 +461,10 @@ export default function DeliveryDetailPage() {
                 </Typography>
                 <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                   <Typography variant="body2">
-                    Distance: {delivery.route?.estimatedDistanceMeters ? `${(delivery.route.estimatedDistanceMeters / 1000).toFixed(1)} km` : 'N/A'}
+                    Distance: {delivery.route && typeof delivery.route === 'object' && 'estimatedDistanceKm' in delivery.route && Number(delivery.route.estimatedDistanceKm) > 0 ? `${(Number(delivery.route.estimatedDistanceKm) / 1000).toFixed(1)} km` : 'N/A'}
                   </Typography>
                   <Typography variant="body2">
-                    Duration: {delivery.route?.estimatedDurationSeconds ? `${Math.round(delivery.route.estimatedDurationSeconds / 60)} min` : 'N/A'}
+                    Duration: {delivery.route && typeof delivery.route === 'object' && 'estimatedDurationMinutes' in delivery.route && Number(delivery.route.estimatedDurationMinutes) > 0 ? `${Math.round(Number(delivery.route.estimatedDurationMinutes))} min` : 'N/A'}
                   </Typography>
                   <Typography variant="body2">
                     Driver: {delivery.driverName || delivery.driverId || 'Unassigned'}
@@ -313,7 +490,16 @@ export default function DeliveryDetailPage() {
                   <Typography color="text.secondary">No packages for this delivery.</Typography>
                 ) : (
                   packages.map((pkg) => (
-                    <PackageCard key={pkg.id} packageItem={pkg} onViewLabel={handleViewLabel} />
+                    <PackageCard
+                      key={pkg.id}
+                      packageItem={pkg}
+                      onViewLabel={handleViewLabel}
+                      onDownloadLabel={handleDownloadLabel}
+                      onPrintLabel={handlePrintLabel}
+                      actionLoading={actionLoading}
+                      canDownloadLabels={canDownloadLabels}
+                      canPrintLabels={canPrintLabels}
+                    />
                   ))
                 )}
               </CustomTabPanel>
@@ -324,6 +510,23 @@ export default function DeliveryDetailPage() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Snackbar */}
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: 24,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: (theme) => theme.zIndex.snackbar,
+        }}
+      >
+        {snackbar.open && (
+          <Alert severity="info" onClose={() => setSnackbar({ ...snackbar, open: false })}>
+            {snackbar.message}
+          </Alert>
+        )}
+      </Box>
     </Box>
   );
 }

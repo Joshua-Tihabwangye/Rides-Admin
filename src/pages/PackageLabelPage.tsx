@@ -20,6 +20,7 @@ import {
   ListItemText,
   TextField,
   Typography,
+  IconButton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LabelIcon from '@mui/icons-material/Label';
@@ -28,6 +29,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import PreviewIcon from '@mui/icons-material/Preview';
+import QrCodeIcon from '@mui/icons-material/QrCode';
 import {
   getAdminPackageLabels,
   downloadAdminLabelAsset,
@@ -60,6 +62,16 @@ function LabelHistory({ labels }: { labels: AdminDeliveryLabelResponse[] }) {
     (a, b) => new Date(b.generatedAt || 0).getTime() - new Date(a.generatedAt || 0).getTime()
   );
 
+  const handleLabelQrDownload = async (labelId: string) => {
+    try {
+      const asset = await downloadAdminLabelAsset(labelId, 'qr');
+      openSignedUrl(asset.downloadUrl);
+    } catch (e: any) {
+      // surface error in console for history item; parent snackbar is not accessible here
+      console.warn('QR download failed', e);
+    }
+  };
+
   return (
     <List dense>
       {sorted.map((label) => (
@@ -70,7 +82,12 @@ function LabelHistory({ labels }: { labels: AdminDeliveryLabelResponse[] }) {
               Version {label.version}
             </Typography>
             <Chip size="small" label={label.status} sx={{ height: 20, fontSize: 10 }} />
-            <Chip size="small" label={label.format.toUpperCase()} sx={{ height: 20, fontSize: 10 }} />
+            <Chip size="small" label={(label.format || 'N/A').toUpperCase()} sx={{ height: 20, fontSize: 10 }} />
+            <Box sx={{ ml: 'auto' }}>
+              <IconButton size="small" onClick={() => handleLabelQrDownload(label.id)} title="Download QR">
+                <QrCodeIcon fontSize="small" />
+              </IconButton>
+            </Box>
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ pl: 4 }}>
             Generated: {label.generatedAt ? new Date(label.generatedAt).toLocaleString() : 'N/A'}
@@ -104,7 +121,7 @@ export default function PackageLabelPage() {
     setError(null);
     try {
       const data = await getAdminPackageLabels(packageId);
-      setLabels(data.items);
+      setLabels(data ?? []);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load labels');
     } finally {
@@ -117,7 +134,7 @@ export default function PackageLabelPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packageId]);
 
-  const handleDownload = async (format: 'pdf' | 'png') => {
+  const handleDownload = async (format: 'pdf' | 'png' | 'qr') => {
     if (!activeLabel) return;
     try {
       const asset = await downloadAdminLabelAsset(activeLabel.id, format);
@@ -267,7 +284,7 @@ export default function PackageLabelPage() {
                 <Box sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
                     <Chip size="small" label={activeLabel.status} color="success" sx={{ height: 24 }} />
-                    <Chip size="small" label={activeLabel.format.toUpperCase()} sx={{ height: 24 }} />
+                    <Chip size="small" label={(activeLabel.format || 'N/A').toUpperCase()} sx={{ height: 24 }} />
                     <Typography variant="body2" color="text.secondary">
                       Version {activeLabel.version}
                     </Typography>
@@ -310,6 +327,16 @@ export default function PackageLabelPage() {
                   sx={{ textTransform: 'none', borderRadius: 2 }}
                 >
                   PNG
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<QrCodeIcon />}
+                  onClick={() => handleDownload('qr')}
+                  disabled={!activeLabel || actionLoading}
+                  sx={{ textTransform: 'none', borderRadius: 2 }}
+                >
+                  QR
                 </Button>
                 <Button
                   size="small"

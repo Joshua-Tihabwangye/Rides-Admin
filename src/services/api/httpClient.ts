@@ -31,6 +31,7 @@ interface RequestOptions {
   headers?: Record<string, string>;
   query?: Record<string, QueryValue>;
   retryOnUnauthorized?: boolean;
+  unwrapData?: boolean;
 }
 
 export class ApiRequestError extends Error {
@@ -133,6 +134,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       return request<T>(path, {
         ...options,
         retryOnUnauthorized: false,
+        unwrapData: options.unwrapData,
         headers: {
           ...(options.headers || {}),
           Authorization: `Bearer ${refreshed.accessToken}`,
@@ -150,6 +152,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (!response.ok) {
     const message = parsed?.message || `Request failed with status ${response.status}`;
     throw new ApiRequestError(message, response.status, parsed?.details);
+  }
+
+  if (options.unwrapData === false) {
+    return parsed as unknown as T;
   }
 
   if (parsed && "data" in parsed && parsed.data !== undefined) {
