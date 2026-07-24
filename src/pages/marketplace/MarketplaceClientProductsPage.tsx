@@ -29,6 +29,7 @@ import {
   type MarketplaceProduct,
   type MarketplaceProductVariant,
 } from "../../services/api/marketplaceApi";
+import { listAdminRiders, type AdminRiderResponse } from "../../services/api/adminApi";
 import { useSimulationSession } from "../../components/marketplace/useSimulationSession";
 
 function formatUgx(amount: number, currency = "UGX") {
@@ -44,7 +45,7 @@ export default function MarketplaceClientProductsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [cartId, setCartId] = useState<string | null>(null);
@@ -52,7 +53,9 @@ export default function MarketplaceClientProductsPage() {
   const [addingVariant, setAddingVariant] = useState<string | null>(null);
   const [selection, setSelection] = useState<Record<string, { variantId: string; quantity: number }>>({});
 
-  // Simulation setup form (used only when there is no active session)
+  // Simulation setup: buyers come from the admin riders API, sellers from the
+  // live catalog — the admin never types a UUID.
+  const [buyers, setBuyers] = useState<AdminRiderResponse[]>([]);
   const [buyerUserId, setBuyerUserId] = useState("");
   const [sellerOrganizationId, setSellerOrganizationId] = useState("");
   const [setupBusy, setSetupBusy] = useState(false);
@@ -72,9 +75,37 @@ export default function MarketplaceClientProductsPage() {
     }
   }, [search, page]);
 
+  // The catalog loads immediately and independently of the simulation session.
   useEffect(() => {
     void loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    if (session) return;
+    void (async () => {
+      try {
+        const riders = await listAdminRiders();
+        setBuyers(riders);
+        if (riders.length > 0 && !buyerUserId) {
+          setBuyerUserId((riders[0] as { id?: string; userId?: string }).id ?? (riders[0] as { userId?: string }).userId ?? "");
+        }
+      } catch {
+        // Buyer list is a convenience; setup can still be typed manually.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  const sellerOptions = useMemo(
+    () => Array.from(new Map(products.map((p) => [p.sellerOrganizationId, p.sellerOrganizationId])).values()),
+    [products],
+  );
+
+  useEffect(() => {
+    if (!sellerOrganizationId && sellerOptions.length > 0) {
+      setSellerOrganizationId(sellerOptions[0]);
+    }
+  }, [sellerOptions, sellerOrganizationId]);
 
   useEffect(() => {
     if (!session) return;
@@ -117,7 +148,7 @@ export default function MarketplaceClientProductsPage() {
     setSetupBusy(true);
     setSetupError(null);
     try {
-      await startSession({ buyerUserId: buyerUserId.trim(), sellerOrganizationId: sellerOrganizationId.trim() });
+      await startSession({ buyerUserId, sellerOrganizationId });
     } catch (err) {
       setSetupError(err instanceof Error ? err.message : "Unable to start simulation session");
     } finally {
@@ -125,68 +156,16 @@ export default function MarketplaceClientProductsPage() {
     }
   }, [buyerUserId, sellerOrganizationId, startSession]);
 
-  const sellerOptions = useMemo(
-    () => Array.from(new Map(products.map((p) => [p.sellerOrganizationId, p.sellerOrganizationId])).values()),
-    [products],
-  );
+  const buyerLabel = (rider: AdminRiderResponse) => {
+    const record = rider as unknown as { id?: string; userId?: string; fullName?: string; firstName?: string; lastName?: string; email?: string; phone?: string };
+    const name = record.fullName ?? `${record.firstName ?? ""} ${record.lastName ?? ""}`.trim();
+    return `${name || "Rider"} · ${record.email ?? record.phone ?? ""}`;
+  };
 
-  if (sessionLoading) {
-    return (
-      <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (!session) {
-    return (
-      <Box maxWidth={560} mx="auto" py={4}>
-        <Card variant="outlined">
-          <CardContent>
-            <Stack spacing={2}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <StorefrontIcon color="primary" />
-                <Typography variant="h6">Marketplace simulation setup</Typography>
-              </Stack>
-              <Typography variant="body2" color="text.secondary">
-                Create an audited simulation session. All client and seller actions run against the real
-                marketplace backend and database — the admin actor is recorded but never becomes the buyer
-                or the seller.
-              </Typography>
-              {sessionError ? <Alert severity="error">{sessionError}</Alert> : null}
-              {setupError ? <Alert severity="error">{setupError}</Alert> : null}
-              <TextField
-                label="Buyer user ID (simulated client)"
-                value={buyerUserId}
-                onChange={(event) => setBuyerUserId(event.target.value)}
-                size="small"
-                fullWidth
-                placeholder="uuid of the user acting as the buyer"
-              />
-              <TextField
-                label="Seller organization ID"
-                value={sellerOrganizationId}
-                onChange={(event) => setSellerOrganizationId(event.target.value)}
-                size="small"
-                fullWidth
-                placeholder="uuid of the seller organization"
-                helperText={
-                  sellerOptions.length > 0 ? `Catalog sellers on this page: ${sellerOptions.join(", ")}` : undefined
-                }
-              />
-              <Button
-                variant="contained"
-                disabled={setupBusy || !buyerUserId.trim() || !sellerOrganizationId.trim()}
-                onClick={() => void handleStartSimulation()}
-              >
-                {setupBusy ? "Starting…" : "Start simulation"}
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-      </Box>
-    );
-  }
+  const buyerId = (rider: AdminRiderResponse) => {
+    const record = rider as unknown as { id?: string; userId?: string };
+    return record.id ?? record.userId ?? "";
+  };
 
   return (
     <Box py={3}>
@@ -201,6 +180,66 @@ export default function MarketplaceClientProductsPage() {
           Cart ({cartCount})
         </Button>
       </Stack>
+
+      {!session && !sessionLoading ? (
+        <Card variant="outlined" sx={{ mb: 2, bgcolor: "background.default" }}>
+          <CardContent>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 220 }}>
+                <StorefrontIcon color="primary" />
+                <Typography variant="subtitle2">Simulation setup</Typography>
+              </Stack>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Simulated buyer</InputLabel>
+                <Select
+                  label="Simulated buyer"
+                  value={buyerUserId}
+                  onChange={(event) => setBuyerUserId(event.target.value)}
+                >
+                  {buyers.map((rider) => (
+                    <MenuItem key={buyerId(rider)} value={buyerId(rider)}>
+                      {buyerLabel(rider)}
+                    </MenuItem>
+                  ))}
+                  {buyers.length === 0 ? <MenuItem value="">No riders found</MenuItem> : null}
+                </Select>
+              </FormControl>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Seller organization</InputLabel>
+                <Select
+                  label="Seller organization"
+                  value={sellerOrganizationId}
+                  onChange={(event) => setSellerOrganizationId(event.target.value)}
+                >
+                  {sellerOptions.map((orgId) => (
+                    <MenuItem key={orgId} value={orgId}>
+                      {products.find((p) => p.sellerOrganizationId === orgId)?.brand ?? orgId.slice(0, 8)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                disabled={setupBusy || !buyerUserId || !sellerOrganizationId}
+                onClick={() => void handleStartSimulation()}
+                sx={{ whiteSpace: "nowrap" }}
+              >
+                {setupBusy ? "Starting…" : "Start simulation"}
+              </Button>
+            </Stack>
+            {setupError ? (
+              <Alert severity="error" sx={{ mt: 1 }}>
+                {setupError}
+              </Alert>
+            ) : null}
+            {sessionError ? (
+              <Alert severity="error" sx={{ mt: 1 }}>
+                {sessionError}
+              </Alert>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Stack direction="row" spacing={2} mb={2}>
         <TextField
@@ -322,15 +361,19 @@ export default function MarketplaceClientProductsPage() {
                       ) : null}
                       <Button
                         variant="contained"
-                        disabled={!chosenVariant || chosenVariant.availableQuantity <= 0 || addingVariant === chosenVariant?.id}
+                        disabled={
+                          !session || !chosenVariant || chosenVariant.availableQuantity <= 0 || addingVariant === chosenVariant?.id
+                        }
                         onClick={() => chosenVariant && void handleAdd(product, chosenVariant)}
                         startIcon={<AddShoppingCartIcon />}
                       >
                         {addingVariant === chosenVariant?.id
                           ? "Adding…"
-                          : chosenVariant && chosenVariant.availableQuantity <= 0
-                            ? "Out of stock"
-                            : "Add to cart"}
+                          : !session
+                            ? "Start simulation to add"
+                            : chosenVariant && chosenVariant.availableQuantity <= 0
+                              ? "Out of stock"
+                              : "Add to cart"}
                       </Button>
                     </Stack>
                   </CardContent>

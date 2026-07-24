@@ -155,13 +155,46 @@ export interface PackageLabelView {
 
 // ── Catalog (real marketplace APIs) ──────────────────────────────────────────
 
+interface PaginatedEnvelope<T> {
+  success?: boolean;
+  data?: T[];
+  meta?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    pageCount?: number;
+    totalPages?: number;
+  };
+}
+
+/**
+ * The backend envelope for lists is `{ success, data: T[], meta }`. The default
+ * unwrap would drop `meta`, so list helpers keep the envelope and normalize it.
+ */
+async function listPaginated<T>(path: string, query?: Record<string, string | number>): Promise<Paginated<T>> {
+  const envelope = await request<PaginatedEnvelope<T>>(path, {
+    unwrapData: false,
+    ...(query ? { query } : {}),
+  });
+  const meta = envelope?.meta ?? {};
+  return {
+    items: Array.isArray(envelope?.data) ? envelope.data : [],
+    meta: {
+      page: meta.page ?? 1,
+      limit: meta.limit ?? 20,
+      total: meta.total ?? 0,
+      pageCount: meta.pageCount ?? meta.totalPages ?? 1,
+    },
+  };
+}
+
 export function listMarketplaceProducts(query: {
   search?: string;
   sellerOrganizationId?: string;
   page?: number;
   limit?: number;
 }): Promise<Paginated<MarketplaceProduct>> {
-  return request<Paginated<MarketplaceProduct>>("/marketplace/products", { query: query as Record<string, string | number> });
+  return listPaginated<MarketplaceProduct>("/marketplace/products", query as Record<string, string | number>);
 }
 
 export function getMarketplaceProduct(productId: string): Promise<MarketplaceProduct> {
@@ -228,9 +261,10 @@ export function simCheckout(
 // ── Seller proxies (act as the session's simulated seller) ───────────────────
 
 export function simListSellerOrders(sessionId: string, status?: string): Promise<Paginated<SellerOrderSummary>> {
-  return request<Paginated<SellerOrderSummary>>(`/admin/marketplace-simulation/${sessionId}/seller-orders`, {
-    query: status ? { status } : {},
-  });
+  return listPaginated<SellerOrderSummary>(
+    `/admin/marketplace-simulation/${sessionId}/seller-orders`,
+    status ? { status } : undefined,
+  );
 }
 
 export function simGetSellerOrder(sessionId: string, sellerOrderId: string): Promise<SellerOrderDetail> {

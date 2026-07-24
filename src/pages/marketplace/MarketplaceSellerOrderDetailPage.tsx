@@ -70,7 +70,10 @@ export default function MarketplaceSellerOrderDetailPage() {
       if (packages.length === 0) {
         setPackages([
           {
-            packageName: "Package 1",
+            packageName:
+              detail.items.length === 1
+                ? detail.items[0].productName
+                : detail.items.map((item) => item.productName).join(" + "),
             weightKg: String(
               detail.items.reduce((sum, item) => sum + (item.estimatedUnitWeightKg ?? 0.5) * item.quantity, 0).toFixed(2),
             ),
@@ -344,7 +347,13 @@ export default function MarketplaceSellerOrderDetailPage() {
                     onClick={() =>
                       setPackages((previous) => [
                         ...previous,
-                        { packageName: `Package ${previous.length + 1}`, weightKg: "0.5", size: "SMALL", fragile: false, allocations: {} },
+                        {
+                          packageName: order?.items[0]?.productName ?? `Package ${previous.length + 1}`,
+                          weightKg: "0.5",
+                          size: "SMALL",
+                          fragile: false,
+                          allocations: {},
+                        },
                       ])
                     }
                   >
