@@ -17,7 +17,6 @@ import {
   Grid,
   List,
   ListItem,
-  ListItemText,
   TextField,
   Typography,
   IconButton,
@@ -68,6 +67,153 @@ async function downloadFile(url: string, filename: string) {
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(blobUrl);
+}
+
+function LabelPreviewPane({ labelId }: { labelId: string }) {
+  const [pngUrl, setPngUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPngUrl(null);
+    setPdfUrl(null);
+    setFailed(false);
+    // The backend-generated asset is the visual truth; try the PNG first and
+    // fall back to embedding the PDF when no PNG asset exists for this label.
+    downloadAdminLabelAsset(labelId, 'png')
+      .then((asset) => {
+        if (!cancelled) setPngUrl(asset.downloadUrl);
+      })
+      .catch(() => {
+        downloadAdminLabelAsset(labelId, 'pdf')
+          .then((asset) => {
+            if (!cancelled) setPdfUrl(asset.downloadUrl);
+          })
+          .catch(() => {
+            if (!cancelled) setFailed(true);
+          });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [labelId]);
+
+  if (failed) {
+    return (
+      <Alert severity="info">
+        Preview unavailable for this label version. Use the download actions to fetch the PDF/PNG assets.
+      </Alert>
+    );
+  }
+  if (!pngUrl && !pdfUrl) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  if (pngUrl) {
+    return (
+      <Box
+        component="img"
+        src={pngUrl}
+        alt="Generated delivery label preview"
+        onError={() => setPngUrl(null)}
+        sx={{
+          width: '100%',
+          maxHeight: 640,
+          objectFit: 'contain',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          bgcolor: 'background.paper',
+        }}
+      />
+    );
+  }
+  return (
+    <Box
+      component="object"
+      data={pdfUrl ?? undefined}
+      type="application/pdf"
+      aria-label="Generated delivery label PDF preview"
+      sx={{ width: '100%', height: 640, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+    >
+      <Alert severity="info">
+        Inline PDF preview is not available in this browser. Use the download actions instead.
+      </Alert>
+    </Box>
+  );
+}
+
+function LabelSnapshotMetadata({ label }: { label: AdminDeliveryLabelResponse }) {
+  const warnings = label.renderWarnings ?? [];
+  const rows: Array<{ label: string; value: string; monospace?: boolean }> = [
+    { label: 'Template version', value: label.templateVersion ?? 'N/A (legacy label)' },
+    {
+      label: 'Render schema version',
+      value: label.renderSchemaVersion !== undefined ? String(label.renderSchemaVersion) : 'N/A',
+    },
+    { label: 'Privacy mode', value: label.preview?.privacyMode ?? 'N/A' },
+    {
+      label: 'Printed attributes',
+      value:
+        label.preview?.printableAttributeCount !== undefined
+          ? String(label.preview.printableAttributeCount)
+          : 'N/A',
+    },
+    { label: 'Checksum', value: label.checksum ?? 'N/A', monospace: true },
+  ];
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      {rows.map((row) => (
+        <Box key={row.label}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+            {row.label}
+          </Typography>
+          <Typography
+            variant="body2"
+            fontWeight={600}
+            sx={row.monospace ? { fontFamily: 'monospace', wordBreak: 'break-all' } : undefined}
+          >
+            {row.value}
+          </Typography>
+        </Box>
+      ))}
+      {label.preview && (
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+            Snapshot summary
+          </Typography>
+          <Typography variant="body2">
+            Service: {label.preview.serviceName || 'N/A'} · Tracking: {label.preview.trackingNumber || 'N/A'}
+          </Typography>
+        </Box>
+      )}
+      <Box>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+          Render warnings &amp; omitted attributes ({warnings.length})
+        </Typography>
+        {warnings.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No render warnings; no attributes were omitted.
+          </Typography>
+        ) : (
+          <Alert severity="warning" sx={{ mt: 0.5 }}>
+            <Box component="ul" sx={{ m: 0, pl: 2 }}>
+              {warnings.map((warning, index) => (
+                <li key={index}>
+                  <Typography variant="body2">{warning}</Typography>
+                </li>
+              ))}
+            </Box>
+          </Alert>
+        )}
+      </Box>
+    </Box>
+  );
 }
 
 function LabelHistory({ labels }: { labels: AdminDeliveryLabelResponse[] }) {
@@ -409,14 +555,39 @@ export default function PackageLabelPage() {
             </CardContent>
           </Card>
         </Grid>
+
+        {/* Exact preview workspace: generated asset plus snapshot metadata */}
+        {activeLabel && (
+          <Grid item xs={12}>
+            <Card sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight={700} gutterBottom>
+                  Label Preview &amp; Snapshot
+                </Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={7}>
+                    <LabelPreviewPane labelId={activeLabel.id} />
+                  </Grid>
+                  <Grid item xs={12} md={5}>
+                    <LabelSnapshotMetadata label={activeLabel} />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
       </Grid>
 
       {/* Regenerate confirmation dialog */}
       <Dialog open={regenerateDialogOpen} onClose={() => setRegenerateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Regenerate Label</DialogTitle>
         <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Regeneration creates a new immutable label version and revokes the prior pickup credential.
+          </Alert>
           <DialogContentText sx={{ mb: 2 }}>
-            Regenerating will create a new label version and revoke the current active label. A reason is required.
+            The new version will appear in the label history; all prior versions remain auditable. A reason is
+            required to confirm.
           </DialogContentText>
           <TextField
             autoFocus
