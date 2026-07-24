@@ -1715,6 +1715,62 @@ export type AdminDeliveryLocation = {
   contactPhone?: string;
 };
 
+// Dynamic delivery label contract (architecture report §7.1 and §11.6).
+// All fields are optional in responses while the backend rolls out behind
+// feature flags; the UI must render gracefully when they are absent.
+
+export type DeliveryAttributeValueType =
+  | 'TEXT'
+  | 'NUMBER'
+  | 'BOOLEAN'
+  | 'ENUM'
+  | 'DATE';
+
+export type DeliveryAttributeVisibility =
+  | 'PUBLIC_LABEL'
+  | 'DRIVER_AFTER_PICKUP'
+  | 'INTERNAL_ONLY';
+
+export type DeliveryAttributeSource =
+  | 'P2P_ITEM'
+  | 'P2P_PACKAGE'
+  | 'MARKETPLACE_PRODUCT'
+  | 'MARKETPLACE_VARIANT'
+  | 'MARKETPLACE_ORDER_ITEM'
+  | 'SELLER_PACKAGE'
+  | 'SYSTEM';
+
+export type DeliveryAttributePriority = 'REQUIRED' | 'HIGH' | 'NORMAL';
+
+export type DeliveryLabelAttribute = {
+  key: string;
+  label: string;
+  value: string | number | boolean;
+  valueType: DeliveryAttributeValueType;
+  unit?: string;
+  displayOrder: number;
+  displayOnLabel: boolean;
+  visibility: DeliveryAttributeVisibility;
+  source: DeliveryAttributeSource;
+  priority: DeliveryAttributePriority;
+};
+
+export type AdminDeliveryPackageItemView = {
+  id?: string;
+  orderItemId?: string;
+  name?: string;
+  productName?: string;
+  quantity: number;
+  attributes?: DeliveryLabelAttribute[];
+};
+
+export type AdminDeliveryLabelPreview = {
+  serviceName: string;
+  trackingNumber: string;
+  printableAttributeCount: number;
+  privacyMode: string;
+};
+
 export type AdminDeliveryPackageView = {
   id: string;
   deliveryOrderId: string;
@@ -1728,7 +1784,9 @@ export type AdminDeliveryPackageView = {
   fragile?: boolean;
   status: string;
   readinessStatus: string;
-  activeLabel?: Record<string, unknown> | null;
+  attributes?: DeliveryLabelAttribute[];
+  items?: AdminDeliveryPackageItemView[];
+  activeLabel?: AdminDeliveryLabelResponse | null;
 };
 
 export type AdminDeliveryLabelResponse = {
@@ -1743,6 +1801,12 @@ export type AdminDeliveryLabelResponse = {
   generatedBy?: string;
   revokedAt?: string;
   revokeReason?: string;
+  printCount?: number | string;
+  templateVersion?: string;
+  renderSchemaVersion?: number;
+  renderWarnings?: string[];
+  preview?: AdminDeliveryLabelPreview;
+  checksum?: string;
 };
 
 export type AdminDeliveryEventResponse = {
