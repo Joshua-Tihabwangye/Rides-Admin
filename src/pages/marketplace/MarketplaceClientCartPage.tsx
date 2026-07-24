@@ -160,7 +160,7 @@ export default function MarketplaceClientCartPage() {
     window.URL.revokeObjectURL(blobUrl);
   }, []);
 
-  if (sessionLoading || loading) {
+  if (sessionLoading || (session && loading)) {
     return (
       <Box display="flex" justifyContent="center" py={8}>
         <CircularProgress />
