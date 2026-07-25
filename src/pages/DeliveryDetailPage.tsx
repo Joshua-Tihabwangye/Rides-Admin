@@ -36,7 +36,7 @@ import {
   downloadAdminLabelAsset,
   recordAdminLabelPrintEvent,
 } from '../services/api/adminApi';
-import type { AdminDeliveryOrderResponse, AdminDeliveryPackageView, AdminDeliveryEventResponse, AdminDeliveryLabelResponse } from '../services/api/adminApi';
+import type { AdminDeliveryOrderResponse, AdminDeliveryPackageView, AdminDeliveryEventResponse, AdminDeliveryLabelResponse, DeliveryLabelAttribute } from '../services/api/adminApi';
 import { getAuthUser } from '../auth/auth';
 import { hasAnyPermission } from '../auth/permissions';
 import type { AdminPermission } from '../auth/permissions';
@@ -152,8 +152,96 @@ function LabelQrPreview({ labelId }: { labelId: string }) {
   );
 }
 
+function formatDeliveryAttributeValue(attr: DeliveryLabelAttribute): string {
+  const raw =
+    attr.valueType === 'BOOLEAN'
+      ? attr.value === true || attr.value === 'true'
+        ? 'Yes'
+        : 'No'
+      : String(attr.value);
+  return attr.unit ? `${raw} ${attr.unit}` : raw;
+}
+
+// Architecture §7.1: only PUBLIC_LABEL attributes with displayOnLabel=true may be printed.
+function isDeliveryAttributePrinted(attr: DeliveryLabelAttribute): boolean {
+  return attr.displayOnLabel === true && attr.visibility === 'PUBLIC_LABEL';
+}
+
+function deliveryAttributeOmissionReason(attr: DeliveryLabelAttribute): string {
+  if (attr.visibility !== 'PUBLIC_LABEL') return `Not printable on label (${attr.visibility})`;
+  return 'Hidden from label';
+}
+
+const ATTRIBUTE_PRIORITY_RANK: Record<string, number> = { REQUIRED: 0, HIGH: 1, NORMAL: 2 };
+
+function sortDeliveryAttributes(attributes: DeliveryLabelAttribute[]): DeliveryLabelAttribute[] {
+  return [...attributes].sort((a, b) => {
+    const priorityDelta =
+      (ATTRIBUTE_PRIORITY_RANK[a.priority] ?? 2) - (ATTRIBUTE_PRIORITY_RANK[b.priority] ?? 2);
+    if (priorityDelta !== 0) return priorityDelta;
+    if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
+    return a.label.localeCompare(b.label);
+  });
+}
+
+function PackageAttributes({ attributes }: { attributes?: DeliveryLabelAttribute[] }) {
+  if (!attributes || attributes.length === 0) return null;
+  const sorted = sortDeliveryAttributes(attributes);
+  return (
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+        Package attributes
+      </Typography>
+      <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {sorted.map((attr, index) => {
+          const printed = isDeliveryAttributePrinted(attr);
+          return (
+            <Box component="li" key={`${attr.key}-${index}`} sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
+              <Typography variant="body2" fontWeight={600}>
+                {attr.label}:
+              </Typography>
+              <Typography variant="body2">{formatDeliveryAttributeValue(attr)}</Typography>
+              <Chip
+                size="small"
+                label={printed ? 'Printed' : 'Omitted'}
+                color={printed ? 'success' : 'default'}
+                variant={printed ? 'filled' : 'outlined'}
+                sx={{ height: 20, fontSize: 10 }}
+                title={printed ? 'Printed on the label' : deliveryAttributeOmissionReason(attr)}
+              />
+              <Chip size="small" label={attr.source} variant="outlined" sx={{ height: 20, fontSize: 10 }} title="Attribute source" />
+              <Chip size="small" label={attr.visibility} variant="outlined" sx={{ height: 20, fontSize: 10 }} title="Attribute visibility" />
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
+
+function PackageItemsAllocation({ items }: { items?: AdminDeliveryPackageView['items'] }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+        Allocated items
+      </Typography>
+      <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {items.map((item, index) => (
+          <Box component="li" key={item.id ?? item.orderItemId ?? index} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography variant="body2">
+              {item.productName || item.name || 'Item'} × {item.quantity}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
 function PackageCard({
   packageItem,
+  originType,
   onViewLabel,
   onDownloadLabel,
   onPrintLabel,
@@ -162,6 +250,7 @@ function PackageCard({
   canPrintLabels,
 }: {
   packageItem: AdminDeliveryPackageView;
+  originType?: string;
   onViewLabel: (packageId: string) => void;
   onDownloadLabel: (label: AdminDeliveryLabelResponse, format: 'pdf' | 'png') => void;
   onPrintLabel: (label: AdminDeliveryLabelResponse) => void;
@@ -169,13 +258,18 @@ function PackageCard({
   canDownloadLabels: boolean;
   canPrintLabels: boolean;
 }) {
-  const label = (packageItem.activeLabel ?? null) as AdminDeliveryLabelResponse | null;
-  const rawPrintCount = (label as Record<string, unknown> | null)?.printCount
-    ?? (label as Record<string, unknown> | null)?.print_count;
+  const label = packageItem.activeLabel ?? null;
+  // Newer backends return printCount; older ones may still return print_count.
+  const rawPrintCount =
+    label?.printCount ?? (label as Record<string, unknown> | null)?.print_count;
   const printCount =
     typeof rawPrintCount === 'number' || typeof rawPrintCount === 'string'
       ? rawPrintCount
       : 'N/A';
+  const warningCount = label?.renderWarnings?.length ?? 0;
+  const destinationRedacted =
+    label?.preview?.privacyMode === 'DESTINATION_REDACTED' ||
+    (!label?.preview && originType === 'MARKETPLACE');
 
   return (
     <Card variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
@@ -217,7 +311,33 @@ function PackageCard({
                 : 'N/A'}
             </Typography>
           </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">Handling</Typography>
+            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.25, flexWrap: 'wrap' }}>
+              {packageItem.fragile && (
+                <Chip size="small" color="warning" label="Fragile" sx={{ height: 20, fontSize: 10 }} />
+              )}
+              {(packageItem.attributes ?? [])
+                .filter((attr) => attr.priority === 'REQUIRED')
+                .map((attr, index) => (
+                  <Chip
+                    key={`${attr.key}-${index}`}
+                    size="small"
+                    color="warning"
+                    variant="outlined"
+                    label={`${attr.label}: ${formatDeliveryAttributeValue(attr)}`}
+                    sx={{ height: 20, fontSize: 10 }}
+                  />
+                ))}
+              {!packageItem.fragile && !(packageItem.attributes ?? []).some((attr) => attr.priority === 'REQUIRED') && (
+                <Typography variant="body2" fontWeight={600}>None</Typography>
+              )}
+            </Box>
+          </Box>
         </Box>
+
+        <PackageAttributes attributes={packageItem.attributes} />
+        <PackageItemsAllocation items={packageItem.items} />
 
         <Divider sx={{ my: 1.5 }} />
 
@@ -250,6 +370,33 @@ function PackageCard({
                 {printCount}
               </Typography>
             </Box>
+            {label.templateVersion && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Template</Typography>
+                <Typography variant="body2" fontWeight={600}>
+                  {label.templateVersion}
+                </Typography>
+              </Box>
+            )}
+            <Box>
+              <Typography variant="caption" color="text.secondary">Snapshot warnings</Typography>
+              <Typography variant="body2" fontWeight={600} color={warningCount > 0 ? 'warning.main' : 'inherit'}>
+                {warningCount}
+              </Typography>
+            </Box>
+            {destinationRedacted && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Privacy</Typography>
+                <Box sx={{ mt: 0.25 }}>
+                  <Chip
+                    size="small"
+                    color="info"
+                    label="Destination redacted (marketplace)"
+                    sx={{ height: 20, fontSize: 10 }}
+                  />
+                </Box>
+              </Box>
+            )}
             <Box>
               <Typography variant="caption" color="text.secondary">QR code</Typography>
               <Box sx={{ mt: 0.25 }}>
@@ -512,6 +659,7 @@ export default function DeliveryDetailPage() {
                     <PackageCard
                       key={pkg.id}
                       packageItem={pkg}
+                      originType={delivery.originType}
                       onViewLabel={handleViewLabel}
                       onDownloadLabel={handleDownloadLabel}
                       onPrintLabel={handlePrintLabel}
