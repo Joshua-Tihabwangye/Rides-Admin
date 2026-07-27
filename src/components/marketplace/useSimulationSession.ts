@@ -17,15 +17,22 @@ export function useSimulationSession() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isExpired = useCallback((item: SimulationSession): boolean => {
+    if (item.status !== "ACTIVE") return true;
+    if (!item.expiresAt) return false;
+    return new Date(item.expiresAt).getTime() < Date.now();
+  }, []);
+
   const bootstrap = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const remembered = window.localStorage.getItem(STORAGE_KEY);
       const { items } = await listSimulationSessions();
-      const active = items.find((item) => item.status === "ACTIVE");
+      const eligible = items.filter((item) => !isExpired(item));
+      const active = eligible[0] ?? null;
       const chosen =
-        (remembered ? items.find((item) => item.id === remembered && item.status === "ACTIVE") : undefined) ??
+        (remembered ? eligible.find((item) => item.id === remembered) : undefined) ??
         active ??
         null;
       if (chosen) {
@@ -39,7 +46,7 @@ export function useSimulationSession() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isExpired]);
 
   useEffect(() => {
     void bootstrap();
