@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
   CircularProgress,
+  Collapse,
   Divider,
   FormControl,
   IconButton,
@@ -24,12 +26,16 @@ import RemoveIcon from "@mui/icons-material/Remove";
 import DownloadIcon from "@mui/icons-material/Download";
 import ShoppingCartCheckoutIcon from "@mui/icons-material/ShoppingCartCheckout";
 import {
+  listDeliveryPaymentMethods,
+  searchPlaces,
   simCheckout,
   simGetOrCreateCart,
   simRemoveCartItem,
   simUpdateCartItem,
   type CheckoutResult,
   type MarketplaceCart,
+  type PaymentCapability,
+  type PlaceSuggestion,
 } from "../../services/api/marketplaceApi";
 import { useSimulationSession } from "../../components/marketplace/useSimulationSession";
 
@@ -37,11 +43,21 @@ function formatUgx(amount: number, currency = "UGX") {
   return `${currency} ${Math.round(amount).toLocaleString()}`;
 }
 
-const PAYMENT_METHODS = [
-  { value: "CASH", label: "Pay on delivery (cash)" },
-  { value: "EVZONE_WALLET", label: "EVzone Wallet" },
-  { value: "MOBILE_MONEY", label: "Mobile money" },
-];
+function formatPaymentMethodLabel(method: string, provider: string, currency: string): string {
+  const labels: Record<string, string> = {
+    CASH: "Cash",
+    EVZONE_WALLET: "EVzone Wallet",
+    MOBILE_MONEY: "Mobile money",
+    CARD: "Card",
+    BANK_TRANSFER: "Bank transfer",
+  };
+  const base = labels[method] ?? method.replace(/_/g, " ");
+  return `${base} · ${provider} · ${currency}`;
+}
+
+function idempotencyKeyStorageKey(sessionId: string, cartId: string): string {
+  return `evzone_admin_mkt_sim_checkout_key_${sessionId}_${cartId}`;
+}
 
 export default function MarketplaceClientCartPage() {
   const navigate = useNavigate();
@@ -55,10 +71,22 @@ export default function MarketplaceClientCartPage() {
   const [recipientPhone, setRecipientPhone] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [address, setAddress] = useState("");
-  const [latitude, setLatitude] = useState("0.3476");
-  const [longitude, setLongitude] = useState("32.5825");
   const [instructions, setInstructions] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
+
+  // Real place search state
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeOptions, setPlaceOptions] = useState<PlaceSuggestion[]>([]);
+  const [selectedPlace, setSelectedPlace] = useState<PlaceSuggestion | null>(null);
+  const [placeLoading, setPlaceLoading] = useState(false);
+  const [manualCoordinates, setManualCoordinates] = useState(false);
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+
+  // Backend-driven payment methods
+  const [paymentCapabilities, setPaymentCapabilities] = useState<PaymentCapability[]>([]);
+  const [paymentCapabilitiesLoading, setPaymentCapabilitiesLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("");
+
   const [checkingOut, setCheckingOut] = useState(false);
   const [confirmation, setConfirmation] = useState<CheckoutResult | null>(null);
 
@@ -79,6 +107,40 @@ export default function MarketplaceClientCartPage() {
   useEffect(() => {
     if (session) void loadCart();
   }, [session, loadCart]);
+
+  // Load backend payment capabilities once we know the cart currency.
+  useEffect(() => {
+    if (!session || !cart) return;
+    setPaymentCapabilitiesLoading(true);
+    listDeliveryPaymentMethods({ country: "UG", currency: cart.currency })
+      .then((capabilities) => {
+        setPaymentCapabilities(capabilities);
+        if (capabilities.length > 0 && !paymentMethod) {
+          setPaymentMethod(capabilities[0].method);
+        }
+      })
+      .catch(() => {
+        // Leave methods empty; the selector will show unavailable state.
+      })
+      .finally(() => setPaymentCapabilitiesLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, cart?.currency]);
+
+  // Debounced place search
+  useEffect(() => {
+    if (!placeQuery.trim() || placeQuery.trim().length < 3) {
+      setPlaceOptions([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setPlaceLoading(true);
+      searchPlaces(placeQuery, "UG", 5)
+        .then((result) => setPlaceOptions(result.items ?? []))
+        .catch(() => setPlaceOptions([]))
+        .finally(() => setPlaceLoading(false));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [placeQuery]);
 
   const changeQuantity = useCallback(
     async (itemId: string, quantity: number) => {
@@ -114,11 +176,26 @@ export default function MarketplaceClientCartPage() {
     [session, cart],
   );
 
+  const checkoutIdempotencyKey = useMemo(() => {
+    if (!session || !cart) return "";
+    const storageKey = idempotencyKeyStorageKey(session.id, cart.id);
+    const existing = window.sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const generated = crypto.randomUUID();
+    window.sessionStorage.setItem(storageKey, generated);
+    return generated;
+  }, [session, cart]);
+
   const checkout = useCallback(async () => {
     if (!session || !cart) return;
     setCheckingOut(true);
     setError(null);
     try {
+      const deliveryLatitude = selectedPlace ? selectedPlace.latitude : Number(latitude);
+      const deliveryLongitude = selectedPlace ? selectedPlace.longitude : Number(longitude);
+      const deliveryAddress = selectedPlace
+        ? `${selectedPlace.displayName}${address.trim() ? ` — ${address.trim()}` : ""}`
+        : address.trim();
       const result = await simCheckout(
         session.id,
         {
@@ -129,22 +206,37 @@ export default function MarketplaceClientCartPage() {
             email: recipientEmail.trim() || undefined,
           },
           deliveryAddress: {
-            address: address.trim(),
-            latitude: Number(latitude),
-            longitude: Number(longitude),
+            address: deliveryAddress,
+            latitude: deliveryLatitude,
+            longitude: deliveryLongitude,
+            placeId: selectedPlace?.placeId,
             instructions: instructions.trim() || undefined,
           },
           paymentMethod,
         },
-        `admin-sim-${session.id}-${Date.now()}`,
+        checkoutIdempotencyKey,
       );
       setConfirmation(result);
+      window.sessionStorage.removeItem(idempotencyKeyStorageKey(session.id, cart.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
     } finally {
       setCheckingOut(false);
     }
-  }, [session, cart, recipientName, recipientPhone, recipientEmail, address, latitude, longitude, instructions, paymentMethod]);
+  }, [
+    session,
+    cart,
+    recipientName,
+    recipientPhone,
+    recipientEmail,
+    address,
+    selectedPlace,
+    latitude,
+    longitude,
+    instructions,
+    paymentMethod,
+    checkoutIdempotencyKey,
+  ]);
 
   const downloadQr = useCallback(async (url: string, filename: string) => {
     const response = await fetch(url);
@@ -159,6 +251,19 @@ export default function MarketplaceClientCartPage() {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(blobUrl);
   }, []);
+
+  const canCheckout = useMemo(() => {
+    const hasPlace = selectedPlace !== null;
+    const hasManualCoords =
+      manualCoordinates && Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+    return (
+      !checkingOut &&
+      !!paymentMethod &&
+      recipientName.trim().length > 0 &&
+      recipientPhone.trim().length > 0 &&
+      (hasPlace || hasManualCoords)
+    );
+  }, [checkingOut, paymentMethod, recipientName, recipientPhone, selectedPlace, manualCoordinates, latitude, longitude]);
 
   if (sessionLoading || (session && loading)) {
     return (
@@ -361,29 +466,63 @@ export default function MarketplaceClientCartPage() {
                   onChange={(event) => setRecipientEmail(event.target.value)}
                   fullWidth
                 />
-                <TextField
+
+                <Autocomplete
                   size="small"
-                  label="Delivery address"
-                  value={address}
-                  onChange={(event) => setAddress(event.target.value)}
-                  fullWidth
+                  freeSolo
+                  options={placeOptions}
+                  loading={placeLoading}
+                  value={selectedPlace}
+                  inputValue={placeQuery}
+                  getOptionLabel={(option) =>
+                    typeof option === "string" ? option : option.displayName
+                  }
+                  isOptionEqualToValue={(option, value) => option.placeId === value.placeId}
+                  onInputChange={(_, value) => setPlaceQuery(value)}
+                  onChange={(_, value) => {
+                    if (value && typeof value !== "string") {
+                      setSelectedPlace(value);
+                      setAddress(value.displayName);
+                    } else {
+                      setSelectedPlace(null);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Search delivery address"
+                      placeholder="Start typing a place in Uganda…"
+                      fullWidth
+                    />
+                  )}
                 />
-                <Stack direction="row" spacing={1}>
-                  <TextField
-                    size="small"
-                    label="Latitude"
-                    value={latitude}
-                    onChange={(event) => setLatitude(event.target.value)}
-                    fullWidth
-                  />
-                  <TextField
-                    size="small"
-                    label="Longitude"
-                    value={longitude}
-                    onChange={(event) => setLongitude(event.target.value)}
-                    fullWidth
-                  />
-                </Stack>
+
+                <Button
+                  size="small"
+                  sx={{ alignSelf: "flex-start" }}
+                  onClick={() => setManualCoordinates((previous) => !previous)}
+                >
+                  {manualCoordinates ? "Hide manual coordinates" : "Enter coordinates manually"}
+                </Button>
+                <Collapse in={manualCoordinates}>
+                  <Stack direction="row" spacing={1}>
+                    <TextField
+                      size="small"
+                      label="Latitude"
+                      value={latitude}
+                      onChange={(event) => setLatitude(event.target.value)}
+                      fullWidth
+                    />
+                    <TextField
+                      size="small"
+                      label="Longitude"
+                      value={longitude}
+                      onChange={(event) => setLongitude(event.target.value)}
+                      fullWidth
+                    />
+                  </Stack>
+                </Collapse>
+
                 <TextField
                   size="small"
                   label="Delivery instructions (optional)"
@@ -391,32 +530,37 @@ export default function MarketplaceClientCartPage() {
                   onChange={(event) => setInstructions(event.target.value)}
                   fullWidth
                 />
-                <FormControl size="small" fullWidth>
+
+                <FormControl size="small" fullWidth disabled={paymentCapabilitiesLoading}>
                   <InputLabel>Payment method</InputLabel>
                   <Select
                     label="Payment method"
                     value={paymentMethod}
                     onChange={(event) => setPaymentMethod(event.target.value)}
                   >
-                    {PAYMENT_METHODS.map((method) => (
-                      <MenuItem key={method.value} value={method.value}>
-                        {method.label}
+                    {paymentCapabilities.map((capability) => (
+                      <MenuItem key={capability.method} value={capability.method}>
+                        {formatPaymentMethodLabel(capability.method, capability.provider, capability.currency)}
                       </MenuItem>
                     ))}
+                    {paymentCapabilities.length === 0 && !paymentCapabilitiesLoading ? (
+                      <MenuItem disabled value="">
+                        No payment methods available
+                      </MenuItem>
+                    ) : null}
                   </Select>
                 </FormControl>
+                {paymentCapabilities.length === 0 && !paymentCapabilitiesLoading ? (
+                  <Alert severity="warning" sx={{ py: 0 }}>
+                    No delivery payment methods are configured. Ask an administrator to enable at least one method.
+                  </Alert>
+                ) : null}
+
                 <Button
                   variant="contained"
                   size="large"
                   startIcon={<ShoppingCartCheckoutIcon />}
-                  disabled={
-                    checkingOut ||
-                    !recipientName.trim() ||
-                    !recipientPhone.trim() ||
-                    !address.trim() ||
-                    !Number.isFinite(Number(latitude)) ||
-                    !Number.isFinite(Number(longitude))
-                  }
+                  disabled={!canCheckout}
                   onClick={() => void checkout()}
                 >
                   {checkingOut ? "Submitting…" : `Place order · ${formatUgx(cart.subtotal, cart.currency)} + delivery`}

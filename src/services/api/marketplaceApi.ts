@@ -201,6 +201,61 @@ export function getMarketplaceProduct(productId: string): Promise<MarketplacePro
   return request<MarketplaceProduct>(`/marketplace/products/${productId}`);
 }
 
+// ── Payment capabilities (backend-driven, no hard-coded methods) ─────────────
+
+export interface PaymentCapability {
+  method: string;
+  provider: string;
+  country: string;
+  operator?: string;
+  currency: string;
+  minAmount?: number;
+  maxAmount?: number;
+  requiresPhone: boolean;
+  requiresEmail: boolean;
+  serviceTypes?: string[];
+}
+
+export function listDeliveryPaymentMethods(query: {
+  country?: string;
+  currency?: string;
+  operator?: string;
+}): Promise<PaymentCapability[]> {
+  return request<PaymentCapability[]>("/payments/methods", {
+    query: {
+      serviceType: "DELIVERY",
+      ...(query.country ? { country: query.country } : {}),
+      ...(query.currency ? { currency: query.currency } : {}),
+      ...(query.operator ? { operator: query.operator } : {}),
+    },
+  });
+}
+
+// ── Place search (real geo provider) ─────────────────────────────────────────
+
+export interface PlaceSuggestion {
+  placeId: string;
+  name: string;
+  displayName: string;
+  latitude: number;
+  longitude: number;
+  category?: string;
+  type?: string;
+  address?: Record<string, string>;
+}
+
+export interface PlaceSearchResult {
+  items: PlaceSuggestion[];
+  provider: string;
+  message?: string;
+}
+
+export function searchPlaces(query: string, countryCode = "UG", limit = 5): Promise<PlaceSearchResult> {
+  return request<PlaceSearchResult>("/geo/places", {
+    query: { query, countryCode: countryCode.toLowerCase(), limit },
+  });
+}
+
 // ── Simulation sessions ──────────────────────────────────────────────────────
 
 export function createSimulationSession(input: {
