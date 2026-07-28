@@ -216,6 +216,8 @@ export interface PaymentCapability {
   serviceTypes?: string[];
 }
 
+export type PaymentTiming = 'PREPAID' | 'PAY_ON_DELIVERY' | 'UNKNOWN_LEGACY';
+
 export function listDeliveryPaymentMethods(query: {
   country?: string;
   currency?: string;
@@ -303,6 +305,7 @@ export function simCheckout(
     recipient: { name: string; phone: string; email?: string };
     deliveryAddress: { address: string; latitude: number; longitude: number; placeId?: string; instructions?: string };
     paymentMethod: string;
+    paymentTiming: PaymentTiming | "";
   },
   idempotencyKey: string,
 ): Promise<CheckoutResult> {

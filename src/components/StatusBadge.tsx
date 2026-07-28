@@ -1,6 +1,7 @@
 import React from 'react'
 import { Chip, ChipProps } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import { getDeliveryStatusBadgeConfig } from '../utils/deliveryStatus'
 
 export type StatusType =
     | 'active'
@@ -32,7 +33,11 @@ const STATUS_CONFIG: Record<string, { color: string; label: string; bgColor?: st
 
 export default function StatusBadge({ status, label, sx, ...props }: StatusBadgeProps) {
     const normalized = status.toLowerCase().replace(/\s+/g, '_')
-    const config = STATUS_CONFIG[normalized] || { color: '#64748b', label: status, bgColor: 'rgba(100, 116, 139, 0.12)' }
+    // DLV-014: delivery statuses use the canonical backend enum config so
+    // every badge is meaningful and unknown values stay visible.
+    const deliveryConfig = getDeliveryStatusBadgeConfig(status)
+    const genericConfig = STATUS_CONFIG[normalized]
+    const config = genericConfig || deliveryConfig
     const theme = useTheme()
     const displayLabel = label || config.label
 
