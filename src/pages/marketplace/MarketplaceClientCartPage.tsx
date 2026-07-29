@@ -46,7 +46,6 @@ function formatUgx(amount: number, currency = "UGX") {
 
 function formatPaymentMethodLabel(method: string, provider: string, currency: string): string {
   const labels: Record<string, string> = {
-    CASH: "Cash",
     EVZONE_WALLET: "EVzone Wallet",
     MOBILE_MONEY: "Mobile money",
     CARD: "Card",
@@ -116,9 +115,11 @@ export default function MarketplaceClientCartPage() {
     setPaymentCapabilitiesLoading(true);
     listDeliveryPaymentMethods({ country: "UG", currency: cart.currency })
       .then((capabilities) => {
-        setPaymentCapabilities(capabilities);
-        if (capabilities.length > 0 && !paymentMethod) {
-          setPaymentMethod(capabilities[0].method);
+        const cashless = capabilities.filter((c) => c.method !== "CASH");
+        const deduped = cashless.filter((c, index, arr) => arr.findIndex((x) => x.method === c.method) === index);
+        setPaymentCapabilities(deduped);
+        if (deduped.length > 0 && !paymentMethod) {
+          setPaymentMethod(deduped[0].method);
         }
       })
       .catch(() => {
