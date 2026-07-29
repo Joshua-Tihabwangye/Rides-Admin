@@ -34,6 +34,7 @@ import {
   getAdminDelivery,
 } from '../services/api/adminApi';
 import type { AdminDeliveryListItemResponse, AdminDeliveryOrderResponse, ListAdminDeliveriesFilters } from '../services/api/adminApi';
+import { DELIVERY_STATUS_FILTER_OPTIONS } from '../utils/deliveryStatus';
 
 const ORIGIN_TYPES = [
   { value: '', label: 'All origins' },
@@ -41,15 +42,7 @@ const ORIGIN_TYPES = [
   { value: 'individual', label: 'Individual' },
 ];
 
-const STATUSES = [
-  { value: '', label: 'All statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'in_transit', label: 'In transit' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'failed', label: 'Failed' },
-];
+
 
 const READINESS_STATUSES = [
   { value: '', label: 'All readiness' },
@@ -257,7 +250,7 @@ export default function DeliveryListPage() {
               onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value, page: 1 }))}
               sx={{ fontSize: 12, borderRadius: 2, height: 36 }}
             >
-              {STATUSES.map((s) => (
+              {DELIVERY_STATUS_FILTER_OPTIONS.map((s) => (
                 <MenuItem key={s.value} value={s.value}>
                   {s.label}
                 </MenuItem>

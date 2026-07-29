@@ -35,6 +35,7 @@ import {
   type CheckoutResult,
   type MarketplaceCart,
   type PaymentCapability,
+  type PaymentTiming,
   type PlaceSuggestion,
 } from "../../services/api/marketplaceApi";
 import { useSimulationSession } from "../../components/marketplace/useSimulationSession";
@@ -45,7 +46,6 @@ function formatUgx(amount: number, currency = "UGX") {
 
 function formatPaymentMethodLabel(method: string, provider: string, currency: string): string {
   const labels: Record<string, string> = {
-    CASH: "Cash",
     EVZONE_WALLET: "EVzone Wallet",
     MOBILE_MONEY: "Mobile money",
     CARD: "Card",
@@ -86,6 +86,7 @@ export default function MarketplaceClientCartPage() {
   const [paymentCapabilities, setPaymentCapabilities] = useState<PaymentCapability[]>([]);
   const [paymentCapabilitiesLoading, setPaymentCapabilitiesLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentTiming, setPaymentTiming] = useState<PaymentTiming | "">("");
 
   const [checkingOut, setCheckingOut] = useState(false);
   const [confirmation, setConfirmation] = useState<CheckoutResult | null>(null);
@@ -114,9 +115,11 @@ export default function MarketplaceClientCartPage() {
     setPaymentCapabilitiesLoading(true);
     listDeliveryPaymentMethods({ country: "UG", currency: cart.currency })
       .then((capabilities) => {
-        setPaymentCapabilities(capabilities);
-        if (capabilities.length > 0 && !paymentMethod) {
-          setPaymentMethod(capabilities[0].method);
+        const cashless = capabilities.filter((c) => c.method !== "CASH");
+        const deduped = cashless.filter((c, index, arr) => arr.findIndex((x) => x.method === c.method) === index);
+        setPaymentCapabilities(deduped);
+        if (deduped.length > 0 && !paymentMethod) {
+          setPaymentMethod(deduped[0].method);
         }
       })
       .catch(() => {
@@ -213,6 +216,7 @@ export default function MarketplaceClientCartPage() {
             instructions: instructions.trim() || undefined,
           },
           paymentMethod,
+          paymentTiming,
         },
         checkoutIdempotencyKey,
       );
@@ -235,6 +239,7 @@ export default function MarketplaceClientCartPage() {
     longitude,
     instructions,
     paymentMethod,
+    paymentTiming,
     checkoutIdempotencyKey,
   ]);
 
@@ -259,11 +264,12 @@ export default function MarketplaceClientCartPage() {
     return (
       !checkingOut &&
       !!paymentMethod &&
+      !!paymentTiming &&
       recipientName.trim().length > 0 &&
       recipientPhone.trim().length > 0 &&
       (hasPlace || hasManualCoords)
     );
-  }, [checkingOut, paymentMethod, recipientName, recipientPhone, selectedPlace, manualCoordinates, latitude, longitude]);
+  }, [checkingOut, paymentMethod, paymentTiming, recipientName, recipientPhone, selectedPlace, manualCoordinates, latitude, longitude]);
 
   if (sessionLoading || (session && loading)) {
     return (
@@ -531,25 +537,37 @@ export default function MarketplaceClientCartPage() {
                   fullWidth
                 />
 
-                <FormControl size="small" fullWidth disabled={paymentCapabilitiesLoading}>
-                  <InputLabel>Payment method</InputLabel>
-                  <Select
-                    label="Payment method"
-                    value={paymentMethod}
-                    onChange={(event) => setPaymentMethod(event.target.value)}
-                  >
-                    {paymentCapabilities.map((capability) => (
-                      <MenuItem key={capability.method} value={capability.method}>
-                        {formatPaymentMethodLabel(capability.method, capability.provider, capability.currency)}
-                      </MenuItem>
-                    ))}
-                    {paymentCapabilities.length === 0 && !paymentCapabilitiesLoading ? (
-                      <MenuItem disabled value="">
-                        No payment methods available
-                      </MenuItem>
-                    ) : null}
-                  </Select>
-                </FormControl>
+<FormControl size="small" fullWidth disabled={paymentCapabilitiesLoading}>
+                   <InputLabel>Payment mode</InputLabel>
+                   <Select
+                     label="Payment mode"
+                     value={paymentTiming}
+                     onChange={(event) => setPaymentTiming(event.target.value as PaymentTiming)}
+                   >
+                     <MenuItem value="PREPAID">Pre-payment</MenuItem>
+                     <MenuItem value="PAY_ON_DELIVERY">Payment on delivery</MenuItem>
+                   </Select>
+                 </FormControl>
+
+                 <FormControl size="small" fullWidth disabled={paymentCapabilitiesLoading}>
+                   <InputLabel>Payment method</InputLabel>
+                   <Select
+                     label="Payment method"
+                     value={paymentMethod}
+                     onChange={(event) => setPaymentMethod(event.target.value)}
+                   >
+                     {paymentCapabilities.map((capability) => (
+                       <MenuItem key={capability.method} value={capability.method}>
+                         {formatPaymentMethodLabel(capability.method, capability.provider, capability.currency)}
+                       </MenuItem>
+                     ))}
+                     {paymentCapabilities.length === 0 && !paymentCapabilitiesLoading ? (
+                       <MenuItem disabled value="">
+                         No payment methods available
+                       </MenuItem>
+                     ) : null}
+                   </Select>
+                 </FormControl>
                 {paymentCapabilities.length === 0 && !paymentCapabilitiesLoading ? (
                   <Alert severity="warning" sx={{ py: 0 }}>
                     No delivery payment methods are configured. Ask an administrator to enable at least one method.
