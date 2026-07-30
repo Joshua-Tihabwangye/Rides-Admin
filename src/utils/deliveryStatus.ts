@@ -1,11 +1,14 @@
 /**
- * EVzone Rides-Admin – canonical delivery order statuses (DLV-014).
+ * EVzone Rides-Admin – canonical delivery order statuses (DLV-111).
  *
- * These values must stay in sync with the backend DeliveryStatus enum defined
- * in EVzone-Ride-Backend/src/deliveries/delivery-status-machine.ts (DLV-010).
- * The admin portal uses them for filters, badges, and API queries so that an
- * unknown status is never silently coerced into a different value.
+ * The DeliveryStatus type is generated from the backend OpenAPI contract
+ * (src/contracts/backend.v1.ts). The runtime array is kept as the single
+ * source for iteration and is validated against that generated type.
  */
+
+import type { components } from "../contracts/backend.v1";
+
+export type DeliveryStatus = components["schemas"]["DeliveryStatus"];
 
 export const DELIVERY_STATUS = [
   "CREATED",
@@ -23,9 +26,7 @@ export const DELIVERY_STATUS = [
   "COMPLETED",
   "CANCELLED",
   "REJECTED",
-] as const;
-
-export type DeliveryStatus = (typeof DELIVERY_STATUS)[number];
+] as const satisfies readonly DeliveryStatus[];
 
 export interface DeliveryStatusOption {
   value: DeliveryStatus | "";
