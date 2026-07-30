@@ -1,0 +1,1498 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-07-30T09:25:23.790Z",
+  "source": "docs/openapi.json",
+  "backlogVersion": "1.0",
+  "programmeBranch": "feature/dynamic-delivery-label-v1",
+  "metadata": {
+    "totalRoutes": 74,
+    "audiences": [
+      "admin",
+      "agent",
+      "authenticated",
+      "driver",
+      "public-tracking"
+    ],
+    "services": [
+      "admin",
+      "agent-portal",
+      "deliveries",
+      "delivery-routes",
+      "driver-jobs",
+      "universal-dispatch"
+    ]
+  },
+  "events": {
+    "version": "1.0.0",
+    "deliveryEvents": [
+      "delivery.status.changed",
+      "delivery.assignment.changed",
+      "delivery.location.updated",
+      "delivery.eta.updated",
+      "delivery.payment.changed",
+      "delivery.proof.changed",
+      "delivery.created",
+      "delivery.estimate.requested",
+      "delivery.offer.accepted",
+      "delivery.assigned",
+      "delivery.completed",
+      "delivery.route.created",
+      "delivery.route.orders.added",
+      "delivery.route.dispatched",
+      "delivery.route.started",
+      "delivery.route.stop.updated",
+      "delivery.route.completed",
+      "delivery.dropoff.verified",
+      "delivery.dropoff.credential_issued",
+      "delivery.dropoff.credential_existing",
+      "delivery.dropoff.credential_missing",
+      "delivery.dropoff.credential_expired",
+      "delivery.dropoff.credential_mismatch",
+      "delivery.label.generation_failed",
+      "delivery.label.attributes.disabled",
+      "delivery.label.shadow_render",
+      "delivery.label.snapshot.warnings",
+      "delivery.qr.verify.failed",
+      "delivery.attributes_normalized",
+      "delivery.ready.label_repair_failed",
+      "delivery.ready.label_generation_failed",
+      "delivery.label.preview_failed",
+      "delivery.reprice.routed",
+      "delivery.claim_release_failed",
+      "delivery.payment_release_failed",
+      "delivery.dispatch_blocked",
+      "delivery.dispatch_release_order_missing"
+    ]
+  },
+  "routes": [
+    {
+      "path": "/api/v1/admin/deliveries",
+      "method": "GET",
+      "operationId": "Admin_listDeliveries",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/deliveries/{id}",
+      "method": "GET",
+      "operationId": "Admin_deliveryDetail",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/deliveries/{id}/packages",
+      "method": "GET",
+      "operationId": "Admin_deliveryPackages",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/delivery-labels/{labelId}/download",
+      "method": "GET",
+      "operationId": "Admin_downloadLabelAsset",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/delivery-labels/{labelId}/print-events",
+      "method": "POST",
+      "operationId": "Admin_recordLabelPrintEvent",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "RecordLabelPrintEventDto",
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/delivery-labels/bulk-export",
+      "method": "POST",
+      "operationId": "Admin_bulkExportLabels",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "BulkExportLabelsDto",
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/delivery-packages/{packageId}/labels",
+      "method": "GET",
+      "operationId": "Admin_packageLabels",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/delivery-packages/{packageId}/labels/regenerate",
+      "method": "POST",
+      "operationId": "Admin_regeneratePackageLabel",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "RegenerateAdminLabelDto",
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/delivery-packages/{packageId}/mark-attached",
+      "method": "POST",
+      "operationId": "Admin_markLabelAttached",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "MarkLabelAttachedDto",
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Administration"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/pricing/deliveries",
+      "method": "GET",
+      "operationId": "AdminPortal_deliveryPricing",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "events": [],
+      "tags": [
+        "Admin Portal"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/pricing/deliveries",
+      "method": "POST",
+      "operationId": "AdminPortal_createDeliveryPricing",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": {
+          "type": "object"
+        }
+      },
+      "events": [
+        "delivery.created"
+      ],
+      "tags": [
+        "Admin Portal"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/pricing/deliveries/{id}",
+      "method": "DELETE",
+      "operationId": "AdminPortal_deleteDeliveryPricing",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Admin Portal"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/pricing/deliveries/{id}",
+      "method": "PATCH",
+      "operationId": "AdminPortal_patchDeliveryPricing",
+      "authActor": "admin",
+      "owningService": "admin",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": {
+          "type": "object"
+        }
+      },
+      "events": [],
+      "tags": [
+        "Admin Portal"
+      ]
+    },
+    {
+      "path": "/api/v1/agent/delivery-labels/delivery-packages/{packageId}/print-label",
+      "method": "POST",
+      "operationId": "AgentDeliveryLabels_printPhysicalLabel",
+      "authActor": "agent",
+      "owningService": "agent-portal",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Agent Delivery Labels"
+      ]
+    },
+    {
+      "path": "/api/v1/agent/delivery-labels/stock",
+      "method": "GET",
+      "operationId": "AgentDeliveryLabels_listStock",
+      "authActor": "agent",
+      "owningService": "agent-portal",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": "DeliveryBlankLabelStock"
+      },
+      "events": [],
+      "tags": [
+        "Agent Delivery Labels"
+      ]
+    },
+    {
+      "path": "/api/v1/agent/delivery-labels/stock",
+      "method": "POST",
+      "operationId": "AgentDeliveryLabels_createStock",
+      "authActor": "agent",
+      "owningService": "agent-portal",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "CreateBlankLabelStockDto",
+      "responseSchemas": {
+        "201": "DeliveryBlankLabelStock"
+      },
+      "events": [],
+      "tags": [
+        "Agent Delivery Labels"
+      ]
+    },
+    {
+      "path": "/api/v1/agent/delivery-labels/stock/{id}/activate",
+      "method": "POST",
+      "operationId": "AgentDeliveryLabels_activateBlankLabel",
+      "authActor": "agent",
+      "owningService": "agent-portal",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "ActivateBlankLabelDto",
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Agent Delivery Labels"
+      ]
+    },
+    {
+      "path": "/api/v1/agent/delivery-labels/stock/{id}/void",
+      "method": "POST",
+      "operationId": "AgentDeliveryLabels_voidBlankLabel",
+      "authActor": "agent",
+      "owningService": "agent-portal",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "VoidBlankLabelDto",
+      "responseSchemas": {
+        "201": "DeliveryBlankLabelStock"
+      },
+      "events": [],
+      "tags": [
+        "Agent Delivery Labels"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "GET",
+      "operationId": "Deliveries_list",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries",
+      "method": "POST",
+      "operationId": "Deliveries_create",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "CreateDeliveryDto",
+      "responseSchemas": {},
+      "events": [
+        "delivery.created"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}",
+      "method": "GET",
+      "operationId": "Deliveries_detail",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}",
+      "method": "PATCH",
+      "operationId": "Deliveries_update",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "UpdateDeliveryDto",
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/activity",
+      "method": "GET",
+      "operationId": "Deliveries_activity",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/cancel",
+      "method": "POST",
+      "operationId": "Deliveries_cancel",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "DeliveryActionDto",
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [
+        "delivery.status.changed"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/complete",
+      "method": "POST",
+      "operationId": "Deliveries_complete",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [
+        "delivery.status.changed",
+        "delivery.completed"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/driver-pickup-qr",
+      "method": "GET",
+      "operationId": "Deliveries_driverPickupQr",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": {
+          "type": "object"
+        }
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/dropoff-code",
+      "method": "GET",
+      "operationId": "Deliveries_dropoffCode",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/dropoff-credential",
+      "method": "GET",
+      "operationId": "Deliveries_getDropoffCredential",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/feedback",
+      "method": "POST",
+      "operationId": "Deliveries_feedback",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "DeliveryFeedbackDto",
+      "responseSchemas": {
+        "201": "DeliveryFeedback"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/invitations",
+      "method": "POST",
+      "operationId": "Deliveries_invite",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "CreateTrackingInvitationDto",
+      "responseSchemas": {
+        "201": "TrackingInvitation"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/packages",
+      "method": "GET",
+      "operationId": "Deliveries_getPackages",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/packages/{packageId}/label",
+      "method": "GET",
+      "operationId": "Deliveries_getPackageLabel",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": "DeliveryLabelViewDto"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/packages/{packageId}/qr",
+      "method": "GET",
+      "operationId": "Deliveries_getPackageQr",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": "DeliveryLabelViewDto"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/ready",
+      "method": "POST",
+      "operationId": "Deliveries_markReady",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "MarkDeliveryReadyDto",
+      "responseSchemas": {
+        "201": {
+          "type": "object"
+        }
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/recipient/accept",
+      "method": "POST",
+      "operationId": "Deliveries_recipientAccept",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/recipient/reject",
+      "method": "POST",
+      "operationId": "Deliveries_recipientReject",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "DeliveryActionDto",
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/{id}/share",
+      "method": "POST",
+      "operationId": "Deliveries_share",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "TripShare"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/accept",
+      "method": "POST",
+      "operationId": "Deliveries_driverAccept",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/arrive-dropoff",
+      "method": "POST",
+      "operationId": "Deliveries_arriveDropoff",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [
+        "delivery.status.changed"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/arrive-pickup",
+      "method": "POST",
+      "operationId": "Deliveries_arrivePickup",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [
+        "delivery.status.changed"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/complete",
+      "method": "POST",
+      "operationId": "Deliveries_driverComplete",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/completion-decision",
+      "method": "GET",
+      "operationId": "Deliveries_driverCompletionDecision",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/delivered",
+      "method": "POST",
+      "operationId": "Deliveries_delivered",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "DeliveryActionDto",
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [
+        "delivery.status.changed"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/navigation-context",
+      "method": "GET",
+      "operationId": "Deliveries_navigationContext",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/packages/verify-pickup",
+      "method": "POST",
+      "operationId": "Deliveries_verifyPackagePickup",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "VerifyDeliveryQrDto",
+      "responseSchemas": {
+        "201": "VerifyPackagePickupResponseDto"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/reject",
+      "method": "POST",
+      "operationId": "Deliveries_driverReject",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "DeliveryActionDto",
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/start-transit",
+      "method": "POST",
+      "operationId": "Deliveries_startTransit",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [
+        "delivery.status.changed"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/verify-dropoff",
+      "method": "POST",
+      "operationId": "Deliveries_verifyDropoff",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "VerifyDeliveryDropoffDto",
+      "responseSchemas": {},
+      "events": [
+        "delivery.dropoff.verified"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/verify-dropoff-qr",
+      "method": "POST",
+      "operationId": "Deliveries_verifyDropoffQr",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "VerifyDeliveryDropoffDto",
+      "responseSchemas": {},
+      "events": [
+        "delivery.dropoff.verified"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/{id}/verify-pickup",
+      "method": "POST",
+      "operationId": "Deliveries_verifyPickup",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "VerifyDeliveryQrDto",
+      "responseSchemas": {
+        "201": "DeliveryOrder"
+      },
+      "events": [
+        "delivery.status.changed"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/driver/requests",
+      "method": "GET",
+      "operationId": "Deliveries_driverRequests",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/estimate",
+      "method": "POST",
+      "operationId": "Deliveries_estimate",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "EstimateDeliveryDto",
+      "responseSchemas": {},
+      "events": [
+        "delivery.created",
+        "delivery.estimate.requested"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/invitations",
+      "method": "GET",
+      "operationId": "Deliveries_invitations",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": "TrackingInvitation"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/invitations/{id}/accept",
+      "method": "POST",
+      "operationId": "Deliveries_acceptInvitation",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "TrackingInvitation"
+      },
+      "events": [
+        "delivery.offer.accepted"
+      ],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/invitations/{id}/reject",
+      "method": "POST",
+      "operationId": "Deliveries_rejectInvitation",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "TrackingInvitation"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/invitations/{id}/withdraw",
+      "method": "POST",
+      "operationId": "Deliveries_withdrawInvitation",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "201": "TrackingInvitation"
+      },
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/deliveries/track/{trackingCode}",
+      "method": "GET",
+      "operationId": "Deliveries_track",
+      "authActor": "public-tracking",
+      "owningService": "deliveries",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Deliveries"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes",
+      "method": "GET",
+      "operationId": "DeliveryRoutes_list",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": "DeliveryRoute"
+      },
+      "events": [],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes",
+      "method": "POST",
+      "operationId": "DeliveryRoutes_create",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "CreateDeliveryRouteDto",
+      "responseSchemas": {},
+      "events": [
+        "delivery.route.created"
+      ],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes/{id}",
+      "method": "GET",
+      "operationId": "DeliveryRoutes_detail",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes/{id}/complete",
+      "method": "POST",
+      "operationId": "DeliveryRoutes_complete",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "CompleteDeliveryRouteDto",
+      "responseSchemas": {},
+      "events": [
+        "delivery.status.changed",
+        "delivery.completed",
+        "delivery.route.created"
+      ],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes/{id}/dispatch",
+      "method": "POST",
+      "operationId": "DeliveryRoutes_dispatch",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "DispatchDeliveryRouteDto",
+      "responseSchemas": {},
+      "events": [
+        "delivery.route.created",
+        "delivery.route.dispatched"
+      ],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes/{id}/driver-view",
+      "method": "GET",
+      "operationId": "DeliveryRoutes_driverView",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": "DeliveryRouteDriverViewDto"
+      },
+      "events": [],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes/{id}/optimize",
+      "method": "POST",
+      "operationId": "DeliveryRoutes_optimize",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [
+        "delivery.route.created"
+      ],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes/{id}/orders",
+      "method": "POST",
+      "operationId": "DeliveryRoutes_addOrders",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "AddDeliveryRouteOrdersDto",
+      "responseSchemas": {},
+      "events": [
+        "delivery.route.created"
+      ],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes/{id}/start",
+      "method": "POST",
+      "operationId": "DeliveryRoutes_start",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [
+        "delivery.route.created"
+      ],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/delivery-routes/{id}/stops/{stopId}",
+      "method": "PATCH",
+      "operationId": "DeliveryRoutes_updateStop",
+      "authActor": "authenticated",
+      "owningService": "delivery-routes",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "UpdateDeliveryRouteStopDto",
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Delivery Routes"
+      ]
+    },
+    {
+      "path": "/api/v1/drivers/me/delivery-dashboard",
+      "method": "GET",
+      "operationId": "Drivers_deliveryDashboard",
+      "authActor": "driver",
+      "owningService": "driver-jobs",
+      "routeType": "compatibility",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": "DeliveryDashboardDto"
+      },
+      "events": [],
+      "tags": [
+        "Drivers"
+      ]
+    },
+    {
+      "path": "/api/v1/drivers/me/delivery/active",
+      "method": "GET",
+      "operationId": "DriverCompatibility_activeDelivery",
+      "authActor": "driver",
+      "owningService": "driver-jobs",
+      "routeType": "compatibility",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {
+        "200": {
+          "type": "object"
+        }
+      },
+      "events": [],
+      "tags": [
+        "Driver Compatibility API"
+      ]
+    },
+    {
+      "path": "/api/v1/drivers/me/delivery/orders",
+      "method": "GET",
+      "operationId": "DriverCompatibility_listDriverDeliveries",
+      "authActor": "driver",
+      "owningService": "driver-jobs",
+      "routeType": "compatibility",
+      "idempotency": {
+        "required": false,
+        "keySource": "client-request-id"
+      },
+      "responseSchemas": {},
+      "events": [],
+      "tags": [
+        "Driver Compatibility API"
+      ]
+    },
+    {
+      "path": "/api/v1/universal-dispatch/drivers/deliveries/{deliveryId}/confirm-delivery",
+      "method": "POST",
+      "operationId": "DispatchDriver_confirmDelivery",
+      "authActor": "authenticated",
+      "owningService": "universal-dispatch",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "TransitionUniversalTripDto",
+      "responseSchemas": {
+        "201": "UniversalTripSession"
+      },
+      "events": [
+        "delivery.created"
+      ],
+      "tags": [
+        "Universal Dispatch - Driver"
+      ]
+    },
+    {
+      "path": "/api/v1/universal-dispatch/drivers/deliveries/{deliveryId}/confirm-pickup",
+      "method": "POST",
+      "operationId": "DispatchDriver_confirmPickup",
+      "authActor": "authenticated",
+      "owningService": "universal-dispatch",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "TransitionUniversalTripDto",
+      "responseSchemas": {
+        "201": "UniversalTripSession"
+      },
+      "events": [
+        "delivery.created"
+      ],
+      "tags": [
+        "Universal Dispatch - Driver"
+      ]
+    },
+    {
+      "path": "/api/v1/universal-dispatch/drivers/deliveries/{deliveryId}/verify-delivery-qr",
+      "method": "POST",
+      "operationId": "DispatchDriver_verifyDeliveryQr",
+      "authActor": "authenticated",
+      "owningService": "universal-dispatch",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "VerifyUniversalTripCodeDto",
+      "responseSchemas": {
+        "201": "UniversalTripSession"
+      },
+      "events": [
+        "delivery.created"
+      ],
+      "tags": [
+        "Universal Dispatch - Driver"
+      ]
+    },
+    {
+      "path": "/api/v1/universal-dispatch/drivers/deliveries/{deliveryId}/verify-pickup-qr",
+      "method": "POST",
+      "operationId": "DispatchDriver_verifyPickupQr",
+      "authActor": "authenticated",
+      "owningService": "universal-dispatch",
+      "routeType": "canonical",
+      "idempotency": {
+        "required": true,
+        "keySource": "client-request-id"
+      },
+      "requestSchema": "VerifyUniversalTripCodeDto",
+      "responseSchemas": {
+        "201": "UniversalTripSession"
+      },
+      "events": [
+        "delivery.created",
+        "delivery.status.changed"
+      ],
+      "tags": [
+        "Universal Dispatch - Driver"
+      ]
+    }
+  ]
+}
