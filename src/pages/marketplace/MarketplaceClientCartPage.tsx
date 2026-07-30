@@ -326,26 +326,42 @@ export default function MarketplaceClientCartPage() {
                 Show this QR only to the assigned EVzone driver at delivery. The seller never receives it.
               </Alert>
               {confirmation.dropoffCredentials.map((credential) => (
-                <Stack key={credential.deliveryOrderId} direction="row" spacing={2} alignItems="center">
-                  {credential.qrDownloadUrl ? (
-                    <Box
-                      component="img"
-                      src={credential.qrDownloadUrl}
-                      alt="Drop-off QR"
-                      sx={{ width: 120, height: 120, border: "1px solid", borderColor: "divider", borderRadius: 1 }}
-                    />
+                <Stack key={credential.deliveryOrderId} spacing={1.5}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    {credential.qrDownloadUrl ? (
+                      <Box
+                        component="img"
+                        src={credential.qrDownloadUrl}
+                        alt="Drop-off QR"
+                        sx={{ width: 120, height: 120, border: "1px solid", borderColor: "divider", borderRadius: 1 }}
+                      />
+                    ) : null}
+                    <Button
+                      variant="outlined"
+                      startIcon={<DownloadIcon />}
+                      disabled={!credential.qrDownloadUrl}
+                      onClick={() =>
+                        credential.qrDownloadUrl &&
+                        void downloadQr(credential.qrDownloadUrl, `dropoff-qr-${confirmation.order.orderNumber}.png`)
+                      }
+                    >
+                      Download QR PNG
+                    </Button>
+                  </Stack>
+                  {credential.dropoffPin ? (
+                    <Alert severity="info" icon={false}>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        Drop-off confirmation code
+                      </Typography>
+                      <Typography variant="h4" fontWeight={800} letterSpacing={4} align="center" py={1}>
+                        {credential.dropoffPin}
+                      </Typography>
+                      <Typography variant="caption">
+                        If the driver cannot scan the QR, read them this 6-digit code. It expires once the driver
+                        confirms delivery.
+                      </Typography>
+                    </Alert>
                   ) : null}
-                  <Button
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    disabled={!credential.qrDownloadUrl}
-                    onClick={() =>
-                      credential.qrDownloadUrl &&
-                      void downloadQr(credential.qrDownloadUrl, `dropoff-qr-${confirmation.order.orderNumber}.png`)
-                    }
-                  >
-                    Download QR PNG
-                  </Button>
                 </Stack>
               ))}
               <Stack direction="row" spacing={1}>

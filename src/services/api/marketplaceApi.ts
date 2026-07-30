@@ -96,6 +96,7 @@ export interface CheckoutResult {
     sellerOrderId: string;
     status: string;
     qrDownloadUrl?: string;
+    dropoffPin?: string;
   }>;
 }
 
