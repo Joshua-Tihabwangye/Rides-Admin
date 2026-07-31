@@ -1822,6 +1822,37 @@ export type AdminDeliveryEventResponse = {
   metadata?: Record<string, unknown>;
 };
 
+export type AdminDeliveryAuditLogResponse = {
+  id: string;
+  orderId: string;
+  actorId: string;
+  actorRole: string;
+  action: string;
+  field?: string | null;
+  oldValue?: string | null;
+  newValue?: string | null;
+  metadata?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  timestamp: string;
+  createdAt: string;
+};
+
+export async function getAdminDeliveryAuditLogs(
+  orderId: string,
+  filters?: { action?: string; actorRole?: string; page?: number; limit?: number },
+): Promise<{ items: AdminDeliveryAuditLogResponse[]; total: number }> {
+  return request<{ items: AdminDeliveryAuditLogResponse[]; total: number }>(
+    `/admin/deliveries/${orderId}/audit${toQueryString({
+      action: filters?.action,
+      actorRole: filters?.actorRole,
+      page: filters?.page,
+      limit: filters?.limit,
+    })}`,
+    { method: "GET" },
+  );
+}
+
 export type AdminDeliveryListItemResponse = {
   id: string;
   trackingCode?: string;
@@ -1985,5 +2016,289 @@ export async function bulkExportAdminLabels(
       method: "POST",
       body: { packageIds, reason },
     }
+  );
+}
+
+// ── Delivery Drop-off Credentials ──────────────────────────────────────────
+
+export type AdminDropoffCredentialResponse = {
+  id: string;
+  deliveryOrderId: string;
+  pin: string;
+  qrPayload: string;
+  expiresAt: string;
+  status: 'active' | 'revoked' | 'consumed' | 'expired';
+  createdAt: string;
+  revokedAt?: string;
+  revokedBy?: string;
+  revokeReason?: string;
+};
+
+export type AdminDropoffCredentialHistoryItem = {
+  id: string;
+  deliveryOrderId: string;
+  status: string;
+  createdAt: string;
+  revokedAt?: string;
+};
+
+export async function getAdminDeliveryDropoffCredential(
+  deliveryId: string,
+): Promise<AdminDropoffCredentialResponse> {
+  return request<AdminDropoffCredentialResponse>(
+    `/admin/deliveries/${deliveryId}/dropoff-credential`,
+    { method: "GET" },
+  );
+}
+
+export async function revokeAdminDeliveryDropoffCredential(
+  deliveryId: string,
+  credentialId: string,
+  reason?: string,
+): Promise<AdminDropoffCredentialResponse> {
+  return request<AdminDropoffCredentialResponse>(
+    `/admin/deliveries/${deliveryId}/dropoff-credential/${credentialId}/revoke`,
+    { method: "POST", body: { reason } },
+  );
+}
+
+export async function generateAdminDeliveryDropoffCredential(
+  deliveryId: string,
+): Promise<AdminDropoffCredentialResponse> {
+  return request<AdminDropoffCredentialResponse>(
+    `/admin/deliveries/${deliveryId}/dropoff-credential`,
+    { method: "POST" },
+  );
+}
+
+export async function listAdminDeliveryDropoffCredentialHistory(
+  deliveryId: string,
+): Promise<AdminDropoffCredentialHistoryItem[]> {
+  const response = await request<{ items: AdminDropoffCredentialHistoryItem[] }>(
+    `/admin/deliveries/${deliveryId}/dropoff-credential/history`,
+    { method: "GET" },
+  );
+  return response?.items ?? [];
+}
+
+// ── Delivery Products / Merchandise ─────────────────────────────────────────
+
+export type AdminDeliveryProduct = {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  sku?: string;
+  imageUrl?: string;
+  unitPrice: number;
+  currency: string;
+  isActive: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+export type AdminDeliveryOrderProduct = {
+  id: string;
+  orderId: string;
+  productId?: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  currency: string;
+  lineTotal: number;
+  notes?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export async function listAdminProducts(): Promise<AdminDeliveryProduct[]> {
+  return request<AdminDeliveryProduct[]>("/deliveries/products", { method: "GET" });
+}
+
+export async function createAdminProduct(data: {
+  name: string;
+  description?: string;
+  category?: string;
+  sku?: string;
+  imageUrl?: string;
+  unitPrice: number;
+  currency?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<AdminDeliveryProduct> {
+  return request<AdminDeliveryProduct>("/deliveries/products", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function updateAdminProduct(
+  id: string,
+  data: Partial<{
+    name: string;
+    description: string;
+    category: string;
+    sku: string;
+    imageUrl: string;
+    unitPrice: number;
+    currency: string;
+    isActive: boolean;
+    metadata: Record<string, unknown>;
+  }>,
+): Promise<AdminDeliveryProduct> {
+  return request<AdminDeliveryProduct>(`/deliveries/products/${id}`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export async function getAdminOrderProducts(orderId: string): Promise<AdminDeliveryOrderProduct[]> {
+  return request<AdminDeliveryOrderProduct[]>(`/deliveries/${orderId}/products`, { method: "GET" });
+}
+
+export async function attachAdminOrderProducts(
+  orderId: string,
+  products: Array<{
+    productId?: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    currency?: string;
+    notes?: string;
+    metadata?: Record<string, unknown>;
+  }>,
+): Promise<AdminDeliveryOrderProduct[]> {
+  return request<AdminDeliveryOrderProduct[]>(`/deliveries/${orderId}/products`, {
+    method: "PUT",
+    body: { products },
+  });
+}
+
+// ── Delivery Ledger & Reconciliation (DLV-164) ─────────────────────────────
+
+export type AdminDeliveryLedgerEntryType =
+  | "COLLECTION"
+  | "DRIVER_COMMISSION"
+  | "DRIVER_INCENTIVE"
+  | "PLATFORM_FEE"
+  | "MERCHANT_GROSS"
+  | "REFUND"
+  | "REVERSAL"
+  | "CHARGEBACK";
+
+export type AdminDeliveryLedgerRefs = {
+  journalId?: string;
+  paymentId?: string;
+  providerTransactionId?: string;
+  clientRequestId?: string;
+  sourceEntryId?: string;
+  reversalReference?: string;
+};
+
+export type AdminDeliveryLedgerEntry = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  orderId: string;
+  driverId?: string;
+  merchantOrganizationId?: string;
+  currency: string;
+  grossAmount: number;
+  entryType: AdminDeliveryLedgerEntryType;
+  accountCode: string;
+  debit: number;
+  credit: number;
+  reason?: string;
+  dedupeKey?: string;
+  refs?: AdminDeliveryLedgerRefs;
+};
+
+export type AdminDeliveryLedgerView = {
+  orderId: string;
+  entries: AdminDeliveryLedgerEntry[];
+  debits: number;
+  credits: number;
+  balanced: boolean;
+};
+
+export type AdminReconciliationAlertKind = "LEDGER_BALANCE" | "DRIVER_MISMATCH" | "MERCHANT_MISMATCH";
+export type AdminReconciliationAlertStatus = "OPEN" | "RESOLVED" | "DISMISSED";
+
+export type AdminDeliveryReconciliationAlert = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  orderId: string;
+  kind: AdminReconciliationAlertKind;
+  expectedAmount: number;
+  actualAmount: number;
+  mismatchAmount: number;
+  currency: string;
+  status: AdminReconciliationAlertStatus;
+  details?: Record<string, unknown>;
+  resolvedAt?: string;
+  resolvedByUserId?: string;
+};
+
+export type AdminDriverStatement = {
+  driverId: string;
+  currency: string;
+  netAmount: number;
+  totalGross: number;
+  entries: AdminDeliveryLedgerEntry[];
+};
+
+export async function getAdminDeliveryLedger(orderId: string): Promise<AdminDeliveryLedgerView> {
+  return request<AdminDeliveryLedgerView>(
+    `/delivery-earnings/ledger/orders/${orderId}/entries`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminDriverStatement(
+  driverId: string,
+  filters?: { start?: string; end?: string },
+): Promise<AdminDriverStatement> {
+  return request<AdminDriverStatement>(
+    `/delivery-earnings/driver/${driverId}/statement${toQueryString({
+      start: filters?.start,
+      end: filters?.end,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function runAdminDeliveryReconciliation(
+  since?: string,
+): Promise<AdminDeliveryReconciliationAlert[]> {
+  return request<AdminDeliveryReconciliationAlert[]>(
+    `/delivery-earnings/reconciliation/run${toQueryString({ since })}`,
+    { method: "POST" },
+  );
+}
+
+export async function listAdminDeliveryReconciliationAlerts(
+  status?: AdminReconciliationAlertStatus,
+): Promise<AdminDeliveryReconciliationAlert[]> {
+  return request<AdminDeliveryReconciliationAlert[]>(
+    `/delivery-earnings/reconciliation/alerts${toQueryString({ status })}`,
+    { method: "GET" },
+  );
+}
+
+export async function resolveAdminDeliveryReconciliationAlert(
+  id: string,
+): Promise<AdminDeliveryReconciliationAlert> {
+  return request<AdminDeliveryReconciliationAlert>(
+    `/delivery-earnings/reconciliation/alerts/${id}/resolve`,
+    { method: "POST" },
+  );
+}
+
+export async function dismissAdminDeliveryReconciliationAlert(
+  id: string,
+): Promise<AdminDeliveryReconciliationAlert> {
+  return request<AdminDeliveryReconciliationAlert>(
+    `/delivery-earnings/reconciliation/alerts/${id}/dismiss`,
+    { method: "POST" },
   );
 }
