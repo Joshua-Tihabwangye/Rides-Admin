@@ -65,6 +65,8 @@ import FlagIcon from '@mui/icons-material/Flag'
 import IntegrationInstructionsIcon from '@mui/icons-material/IntegrationInstructions'
 import DnsIcon from '@mui/icons-material/Dns'
 import HistoryIcon from '@mui/icons-material/History'
+import RotateLeftIcon from '@mui/icons-material/RotateLeft'
+import ReplayIcon from '@mui/icons-material/Replay'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import WarningIcon from '@mui/icons-material/Warning'
@@ -134,6 +136,9 @@ const NAV: NavSection[] = [
     label: 'Logistics',
     items: [
       { label: 'Deliveries', to: '/admin/deliveries', icon: <LocalShippingIcon /> },
+      { label: 'Return shipments', to: '/admin/returns', icon: <RotateLeftIcon /> },
+      { label: 'Return requests', to: '/admin/returns/requests', icon: <ReplayIcon /> },
+      { label: 'Return reconciliation', to: '/admin/returns/reconciliation', icon: <SyncAltIcon /> },
       { label: 'Package Labels', to: '/admin/delivery-labels', icon: <LabelIcon /> },
       { label: 'Print Queue', to: '/admin/delivery-labels/print-queue', icon: <PrintIcon /> },
       { label: 'Label Exceptions', to: '/admin/delivery-labels/exceptions', icon: <WarningIcon /> },

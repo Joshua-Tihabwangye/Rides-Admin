@@ -2302,3 +2302,190 @@ export async function dismissAdminDeliveryReconciliationAlert(
     { method: "POST" },
   );
 }
+
+// ── Reverse logistics & returns (DLV-192) ──────────────────────────────────
+
+export type AdminReturnRequestStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "CANCELLED" | "COMPLETED";
+export type AdminReturnRequestSource = "CUSTOMER" | "MERCHANT" | "FAILED_DELIVERY";
+export type AdminReturnReason =
+  | "WRONG_ITEM"
+  | "DAMAGED"
+  | "DEFECTIVE"
+  | "NOT_AS_DESCRIBED"
+  | "CHANGE_OF_MIND"
+  | "MERCHANT_REQUEST"
+  | "FAILED_DELIVERY"
+  | "OTHER";
+export type AdminReturnShipmentStatus =
+  | "CREATED"
+  | "PICKUP_SCHEDULED"
+  | "IN_TRANSIT"
+  | "DELIVERED_TO_MERCHANT"
+  | "INSPECTED"
+  | "RESTOCKED"
+  | "DISPOSED"
+  | "REFUNDED"
+  | "CANCELLED";
+export type AdminReturnCredentialStatus = "ACTIVE" | "CONSUMED" | "REVOKED" | "EXPIRED";
+export type AdminReturnInspectionCondition = "ACCEPTABLE" | "DAMAGED" | "WRONG_ITEM" | "PARTIALLY_COMPLETE";
+export type AdminReturnDisposition = "RESTOCK" | "DISPOSE";
+
+export type AdminReturnRequestView = {
+  id: string;
+  orderId: string;
+  source: AdminReturnRequestSource;
+  reason: AdminReturnReason;
+  status: AdminReturnRequestStatus;
+  note?: string;
+  refundEligibleAmountCents?: number;
+  requestedByUserId?: string;
+  decidedByUserId?: string;
+  decisionNote?: string;
+  decidedAt?: string;
+  createdAt: string;
+};
+
+export type AdminReturnCredentialView = {
+  id: string;
+  returnShipmentId: string;
+  version: number;
+  purpose: string;
+  status: AdminReturnCredentialStatus;
+  issuedAt: string;
+  expiresAt: string;
+  consumedAt?: string;
+  consumedByDriverId?: string;
+};
+
+export type AdminReturnInspectionView = {
+  id: string;
+  returnShipmentId: string;
+  condition: AdminReturnInspectionCondition;
+  disposition: AdminReturnDisposition;
+  restockedQuantity?: number;
+  notes?: string;
+  inspectedByUserId?: string;
+  inspectedAt: string;
+};
+
+export type AdminReturnShipmentView = {
+  id: string;
+  returnShipmentCode: string;
+  returnRequestId: string;
+  orderId: string;
+  originalTrackingCode?: string;
+  source: AdminReturnRequestSource;
+  status: AdminReturnShipmentStatus;
+  driverId?: string;
+  merchantOrganizationId?: string;
+  pickedUpAt?: string;
+  deliveredToMerchantAt?: string;
+  inspectedAt?: string;
+  restockedAt?: string;
+  disposedAt?: string;
+  refundedAt?: string;
+  refundAmountCents?: number;
+  refundReference?: string;
+  refundClientRequestId?: string;
+  credential?: AdminReturnCredentialView;
+  inspections?: AdminReturnInspectionView[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminReturnReconciliationView = {
+  returnShipmentId: string;
+  returnShipmentCode: string;
+  orderId: string;
+  status: string;
+  eligibleCapturedCents: number;
+  refundedCents?: number;
+  refundWithinEligible: boolean;
+  paymentReconciled: boolean;
+  inventoryReconciled: boolean;
+  findings?: Record<string, unknown>;
+};
+
+export type AdminReturnDecision = "APPROVE" | "REJECT";
+
+export type AdminReturnInspectInput = {
+  condition: AdminReturnInspectionCondition;
+  disposition: AdminReturnDisposition;
+  restockTargets?: Array<{
+    productVariantId: string;
+    merchantLocationId: string;
+    quantity: number;
+  }>;
+  notes?: string;
+  evidence?: Record<string, unknown>;
+};
+
+export async function listAdminReturnRequests(filters?: {
+  orderId?: string;
+  status?: AdminReturnRequestStatus;
+}): Promise<AdminReturnRequestView[]> {
+  return request<AdminReturnRequestView[]>(
+    `/deliveries/returns/requests${toQueryString({
+      orderId: filters?.orderId,
+      status: filters?.status,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function decideAdminReturnRequest(
+  requestId: string,
+  decision: AdminReturnDecision,
+  note?: string,
+): Promise<AdminReturnRequestView> {
+  return request<AdminReturnRequestView>(
+    `/deliveries/returns/requests/${requestId}/decision`,
+    { method: "POST", body: { decision, note } },
+  );
+}
+
+export async function listAdminReturnShipments(filters?: {
+  orderId?: string;
+  status?: AdminReturnShipmentStatus;
+  source?: AdminReturnRequestSource;
+}): Promise<AdminReturnShipmentView[]> {
+  return request<AdminReturnShipmentView[]>(
+    `/deliveries/returns${toQueryString({
+      orderId: filters?.orderId,
+      status: filters?.status,
+      source: filters?.source,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminReturnShipment(shipmentId: string): Promise<AdminReturnShipmentView> {
+  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}`, { method: "GET" });
+}
+
+export async function inspectAdminReturnShipment(
+  shipmentId: string,
+  input: AdminReturnInspectInput,
+): Promise<AdminReturnShipmentView> {
+  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}/inspect`, {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function refundAdminReturnShipment(
+  shipmentId: string,
+  amountCents?: number,
+  clientRequestId?: string,
+): Promise<AdminReturnShipmentView> {
+  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}/refund`, {
+    method: "POST",
+    body: { amountCents, clientRequestId },
+  });
+}
+
+export async function listAdminReturnReconciliation(): Promise<AdminReturnReconciliationView[]> {
+  return request<AdminReturnReconciliationView[]>("/deliveries/returns/reconciliation", {
+    method: "GET",
+  });
+}
