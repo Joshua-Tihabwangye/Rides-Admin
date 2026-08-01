@@ -68,6 +68,10 @@ import Settings from './pages/Settings'
 import AccessDenied from './pages/AccessDenied'
 import DeliveryListPage from './pages/DeliveryListPage'
 import DeliveryDetailPage from './pages/DeliveryDetailPage'
+import ReturnRequestsPage from './pages/ReturnRequestsPage'
+import ReturnShipmentsPage from './pages/ReturnShipmentsPage'
+import ReturnShipmentDetailPage from './pages/ReturnShipmentDetailPage'
+import ReturnReconciliationPage from './pages/ReturnReconciliationPage'
 import PackageLabelPage from './pages/PackageLabelPage'
 import PrintQueuePage from './pages/PrintQueuePage'
 import LabelExceptionsPage from './pages/LabelExceptionsPage'
@@ -395,6 +399,39 @@ export default function App() {
             element={
               <RequirePermission anyOf={["view_deliveries"]}>
                 <DeliveryDetailPage />
+              </RequirePermission>
+            }
+          />
+          {/* Reverse logistics & returns (DLV-192) */}
+          <Route
+            path="returns"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <ReturnShipmentsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="returns/requests"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <ReturnRequestsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="returns/shipments/:shipmentId"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <ReturnShipmentDetailPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="returns/reconciliation"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <ReturnReconciliationPage />
               </RequirePermission>
             }
           />
