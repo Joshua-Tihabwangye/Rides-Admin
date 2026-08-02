@@ -69,6 +69,7 @@ import AccessDenied from './pages/AccessDenied'
 import DeliveryListPage from './pages/DeliveryListPage'
 import DeliveryDetailPage from './pages/DeliveryDetailPage'
 import ReturnRequestsPage from './pages/ReturnRequestsPage'
+import DisputesPage from './pages/DisputesPage'
 import ReturnShipmentsPage from './pages/ReturnShipmentsPage'
 import ReturnShipmentDetailPage from './pages/ReturnShipmentDetailPage'
 import ReturnReconciliationPage from './pages/ReturnReconciliationPage'
@@ -432,6 +433,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
                 <ReturnReconciliationPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="disputes"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <DisputesPage />
               </RequirePermission>
             }
           />
