@@ -2489,3 +2489,97 @@ export async function listAdminReturnReconciliation(): Promise<AdminReturnReconc
     method: "GET",
   });
 }
+
+// ── Delivery disputes (DLV-193) ─────────────────────────────────────────────
+
+export type AdminDisputeReason =
+  | "NOT_RECEIVED"
+  | "WRONG_ITEM"
+  | "DAMAGED"
+  | "DEFECTIVE"
+  | "MISSING_PARTS"
+  | "OVERCHARGED"
+  | "UNPROFESSIONAL_DRIVER"
+  | "POOR_SERVICE"
+  | "OTHER";
+
+export type AdminDisputeStatus =
+  | "OPEN"
+  | "UNDER_REVIEW"
+  | "RESOLVED"
+  | "REJECTED"
+  | "WITHDRAWN";
+
+export type AdminDisputeResolution =
+  | "REFUND"
+  | "PARTIAL_REFUND"
+  | "REPLACEMENT"
+  | "NO_REMEDY";
+
+export type AdminDisputeView = {
+  id: string;
+  orderId: string;
+  reason: AdminDisputeReason;
+  note?: string;
+  evidence?: Record<string, unknown>;
+  status: AdminDisputeStatus;
+  openedByUserId?: string;
+  openedByRole?: string;
+  decidedByUserId?: string;
+  resolution?: AdminDisputeResolution;
+  decisionNote?: string;
+  refundAmountCents?: number;
+  refundReference?: string;
+  refundClientRequestId?: string;
+  decidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminDisputeDecisionInput = {
+  resolution: AdminDisputeResolution;
+  note?: string;
+  amountCents?: number;
+  clientRequestId?: string;
+};
+
+export async function listAdminDisputes(filters?: {
+  orderId?: string;
+  status?: AdminDisputeStatus;
+  reason?: AdminDisputeReason;
+}): Promise<AdminDisputeView[]> {
+  return request<AdminDisputeView[]>(
+    `/deliveries/disputes${toQueryString({
+      orderId: filters?.orderId,
+      status: filters?.status,
+      reason: filters?.reason,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminDispute(disputeId: string): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}`, { method: "GET" });
+}
+
+export async function markAdminDisputeUnderReview(disputeId: string): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/review`, {
+    method: "POST",
+  });
+}
+
+export async function decideAdminDispute(
+  disputeId: string,
+  input: AdminDisputeDecisionInput,
+): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/decision`, {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function withdrawAdminDispute(disputeId: string): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/withdraw`, {
+    method: "POST",
+  });
+}
