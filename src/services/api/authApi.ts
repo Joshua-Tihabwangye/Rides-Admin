@@ -95,7 +95,11 @@ export async function backendLogin(input: BackendLoginInput): Promise<BackendAut
   return request<BackendAuthResponse>("/auth/login", {
     method: "POST",
     retryOnUnauthorized: false,
-    body: input,
+    body: {
+      email: input.email,
+      password: input.password,
+      clientApp: "ADMIN",
+    },
   });
 }
 

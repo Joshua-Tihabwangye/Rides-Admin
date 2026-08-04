@@ -110,7 +110,7 @@ export function clearAdminBackendTokens(): void {
 async function refreshAdminBackendTokens(refreshToken: string): Promise<TokenRefreshResult> {
   const payload = await request<{ accessToken: string; refreshToken: string }>("/auth/refresh", {
     method: "POST",
-    body: { refreshToken },
+    body: { refreshToken, clientApp: "ADMIN" },
     retryOnUnauthorized: false,
   });
 
