@@ -1955,6 +1955,7 @@ export type AdminDeliveryOrderResponse = {
   pickupAddress?: string;
   destinationAddress?: string;
   route?: Record<string, unknown>;
+  payment?: { status: string; timing: string; method?: string };
   driverId?: string;
   driverName?: string;
   packageCount?: number;
