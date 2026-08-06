@@ -14700,9 +14700,13 @@ export interface components {
             /** Format: email */
             email?: string;
             password: string;
+            /** @enum {string} App context the session is bound to. */
+            clientApp?: "DRIVER" | "RIDER" | "ADMIN";
         };
         RefreshDto: {
             refreshToken: string;
+            /** @enum {string} App context the refresh token was bound to. */
+            clientApp?: "DRIVER" | "RIDER" | "ADMIN";
         };
         RequestOtpDto: {
             destination: string;
