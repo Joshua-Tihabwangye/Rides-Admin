@@ -169,6 +169,81 @@ export async function getAdminDriver(driverId: string): Promise<AdminDriverRespo
   return request<AdminDriverResponse>(`/admin/drivers/${driverId}`, { method: "GET" });
 }
 
+export interface AdminDriverEarningEntry {
+  id: string;
+  driverId: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  baseFee: number;
+  tip?: number;
+  bonus?: number;
+  status: string;
+  settledAt?: string;
+  createdAt: string;
+}
+
+export interface AdminDriverEarningsSummary {
+  total: number;
+  currency: string;
+  count: number;
+  pending: number;
+  settled: number;
+}
+
+export interface AdminDriverStatementEntry {
+  id: string;
+  orderId?: string;
+  accountCode: string;
+  credit?: number;
+  debit?: number;
+  grossAmount?: number;
+  currency: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface AdminDriverEarningsStatement {
+  driverId: string;
+  currency: string;
+  netAmount: number;
+  totalGross: number;
+  entries: AdminDriverStatementEntry[];
+}
+
+/** Delivery earnings posted for a driver (ledger-backed). */
+export async function getAdminDriverEarnings(
+  driverId: string,
+  start?: string,
+  end?: string,
+): Promise<AdminDriverEarningEntry[]> {
+  const query: Record<string, string> = {};
+  if (start) query.start = start;
+  if (end) query.end = end;
+  return request<AdminDriverEarningEntry[]>(`/delivery-earnings/driver/${driverId}/earnings`, {
+    method: "GET",
+    query: Object.keys(query).length > 0 ? query : undefined,
+  });
+}
+
+export async function getAdminDriverEarningsSummary(
+  driverId: string,
+): Promise<AdminDriverEarningsSummary> {
+  return request<AdminDriverEarningsSummary>(
+    `/delivery-earnings/driver/${driverId}/earnings/summary`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminDriverEarningsStatement(
+  driverId: string,
+): Promise<AdminDriverEarningsStatement> {
+  return request<AdminDriverEarningsStatement>(
+    `/delivery-earnings/driver/${driverId}/statement`,
+    { method: "GET" },
+  );
+}
+
 export async function createAdminDriver(input: AdminCreateDriverInput): Promise<{ driverId: string }> {
   return request<{ driverId: string }>("/admin/drivers", {
     method: "POST",
