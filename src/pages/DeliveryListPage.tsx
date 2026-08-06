@@ -326,9 +326,10 @@ export default function DeliveryListPage() {
                 <TableCell>Recipient</TableCell>
                 <TableCell>Driver</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Readiness</TableCell>
-                <TableCell>Labels</TableCell>
-                <TableCell>Created</TableCell>
+                  <TableCell>Payment</TableCell>
+                  <TableCell>Readiness</TableCell>
+                  <TableCell>Labels</TableCell>
+                  <TableCell>Created</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -350,6 +351,11 @@ export default function DeliveryListPage() {
                     <StatusBadge status={delivery.status} />
                   </TableCell>
                   <TableCell>
+                    <Box sx={{ fontWeight: 600, fontSize: '0.75rem', color: delivery.payment?.status === 'PAID' ? '#10b981' : '#f59e0b' }}>
+                      {delivery.payment?.status === 'PAID' ? 'Paid' : 'Pending'}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
                     <StatusBadge status={delivery.readinessStatus || 'unknown'} />
                   </TableCell>
                   <TableCell>
@@ -362,7 +368,7 @@ export default function DeliveryListPage() {
               ))}
               {deliveries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     No deliveries found.
                   </TableCell>
                 </TableRow>

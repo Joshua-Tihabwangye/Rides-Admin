@@ -1278,10 +1278,10 @@ export default function DeliveryDetailPage() {
                 </Typography>
                 <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                   <Typography variant="body2">
-                    Distance: {delivery.route && typeof delivery.route === 'object' && 'estimatedDistanceKm' in delivery.route && Number(delivery.route.estimatedDistanceKm) > 0 ? `${(Number(delivery.route.estimatedDistanceKm) / 1000).toFixed(1)} km` : 'N/A'}
+                    Distance: {delivery.route && typeof delivery.route === 'object' && 'distanceKm' in delivery.route && Number((delivery.route as Record<string, unknown>).distanceKm) > 0 ? `${(Number((delivery.route as Record<string, unknown>).distanceKm) / 1000).toFixed(1)} km` : 'N/A'}
                   </Typography>
                   <Typography variant="body2">
-                    Duration: {delivery.route && typeof delivery.route === 'object' && 'estimatedDurationMinutes' in delivery.route && Number(delivery.route.estimatedDurationMinutes) > 0 ? `${Math.round(Number(delivery.route.estimatedDurationMinutes))} min` : 'N/A'}
+                    Duration: {delivery.route && typeof delivery.route === 'object' && 'durationMinutes' in delivery.route && Number((delivery.route as Record<string, unknown>).durationMinutes) > 0 ? `${Math.round(Number((delivery.route as Record<string, unknown>).durationMinutes))} min` : 'N/A'}
                   </Typography>
                   <Typography variant="body2">
                     Driver: {delivery.driverName || delivery.driverId || 'Unassigned'}
