@@ -1939,6 +1939,7 @@ export type AdminDeliveryListItemResponse = {
   packageCount?: number;
   driverId?: string;
   createdAt?: string;
+  payment?: { status: string; timing: string; method?: string };
   sender?: AdminDeliveryContactView;
   receiver?: AdminDeliveryContactView;
 };
