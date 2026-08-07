@@ -215,7 +215,7 @@ export default function MarketplaceClientCartPage() {
             placeId: selectedPlace?.placeId,
             instructions: instructions.trim() || undefined,
           },
-          paymentMethod,
+          paymentMethod: paymentTiming === "PAY_ON_DELIVERY" ? "CASH" : paymentMethod,
           paymentTiming,
         },
         checkoutIdempotencyKey,
@@ -263,7 +263,7 @@ export default function MarketplaceClientCartPage() {
       manualCoordinates && Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
     return (
       !checkingOut &&
-      !!paymentMethod &&
+      (paymentTiming === "PAY_ON_DELIVERY" || !!paymentMethod) &&
       !!paymentTiming &&
       recipientName.trim().length > 0 &&
       recipientPhone.trim().length > 0 &&
@@ -553,42 +553,56 @@ export default function MarketplaceClientCartPage() {
                   fullWidth
                 />
 
-<FormControl size="small" fullWidth disabled={paymentCapabilitiesLoading}>
+                 <FormControl size="small" fullWidth disabled={paymentCapabilitiesLoading}>
                    <InputLabel>Payment mode</InputLabel>
                    <Select
                      label="Payment mode"
                      value={paymentTiming}
-                     onChange={(event) => setPaymentTiming(event.target.value as PaymentTiming)}
+                     onChange={(event) => {
+                       setPaymentTiming(event.target.value as PaymentTiming);
+                       if (event.target.value === "PAY_ON_DELIVERY") {
+                         setPaymentMethod("");
+                       }
+                     }}
                    >
                      <MenuItem value="PREPAID">Pre-payment</MenuItem>
                      <MenuItem value="PAY_ON_DELIVERY">Payment on delivery</MenuItem>
                    </Select>
                  </FormControl>
 
-                 <FormControl size="small" fullWidth disabled={paymentCapabilitiesLoading}>
-                   <InputLabel>Payment method</InputLabel>
-                   <Select
-                     label="Payment method"
-                     value={paymentMethod}
-                     onChange={(event) => setPaymentMethod(event.target.value)}
-                   >
-                     {paymentCapabilities.map((capability) => (
-                       <MenuItem key={capability.method} value={capability.method}>
-                         {formatPaymentMethodLabel(capability.method, capability.provider, capability.currency)}
-                       </MenuItem>
-                     ))}
+                 {paymentTiming === "PAY_ON_DELIVERY" ? (
+                   <Alert severity="info" sx={{ py: 0.75 }}>
+                     Cash on delivery — payment is collected at drop-off. No payment gateway is required for this
+                     order.
+                   </Alert>
+                 ) : (
+                   <>
+                     <FormControl size="small" fullWidth disabled={paymentCapabilitiesLoading}>
+                       <InputLabel>Payment method</InputLabel>
+                       <Select
+                         label="Payment method"
+                         value={paymentMethod}
+                         onChange={(event) => setPaymentMethod(event.target.value)}
+                       >
+                         {paymentCapabilities.map((capability) => (
+                           <MenuItem key={capability.method} value={capability.method}>
+                             {formatPaymentMethodLabel(capability.method, capability.provider, capability.currency)}
+                           </MenuItem>
+                         ))}
+                         {paymentCapabilities.length === 0 && !paymentCapabilitiesLoading ? (
+                           <MenuItem disabled value="">
+                             No payment methods available
+                           </MenuItem>
+                         ) : null}
+                       </Select>
+                     </FormControl>
                      {paymentCapabilities.length === 0 && !paymentCapabilitiesLoading ? (
-                       <MenuItem disabled value="">
-                         No payment methods available
-                       </MenuItem>
+                       <Alert severity="warning" sx={{ py: 0 }}>
+                         No delivery payment methods are configured. Ask an administrator to enable at least one method.
+                       </Alert>
                      ) : null}
-                   </Select>
-                 </FormControl>
-                {paymentCapabilities.length === 0 && !paymentCapabilitiesLoading ? (
-                  <Alert severity="warning" sx={{ py: 0 }}>
-                    No delivery payment methods are configured. Ask an administrator to enable at least one method.
-                  </Alert>
-                ) : null}
+                   </>
+                 )}
 
                 <Button
                   variant="contained"
