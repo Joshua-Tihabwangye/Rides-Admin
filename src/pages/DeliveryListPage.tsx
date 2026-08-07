@@ -42,6 +42,14 @@ const ORIGIN_TYPES = [
   { value: 'individual', label: 'Individual' },
 ];
 
+const LABEL_STATUSES = [
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'GENERATED', label: 'Generated' },
+  { value: 'PRINTED', label: 'Printed' },
+  { value: 'ATTACHED', label: 'Attached' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
 
 
 const READINESS_STATUSES = [
@@ -80,6 +88,7 @@ export default function DeliveryListPage() {
           originType: filters.originType || undefined,
           status: filters.status || undefined,
           readinessStatus: filters.readinessStatus || undefined,
+          labelStatus: filters.labelStatus || undefined,
           trackingCode: filters.trackingCode || undefined,
           fromDate: filters.fromDate || undefined,
           toDate: filters.toDate || undefined,
@@ -97,10 +106,14 @@ export default function DeliveryListPage() {
           : Array.isArray(rawResponse.data)
             ? rawResponse.data
             : [];
+      const labelStatusById = new Map(
+        listItems.map((item) => [item.id, item.labelStatus])
+      );
       const detailedItems = await Promise.all(
         listItems.map(async (item) => {
           try {
-            return await getAdminDelivery(item.id);
+            const detail = await getAdminDelivery(item.id);
+            return { ...detail, labelStatus: labelStatusById.get(item.id) ?? (detail as AdminDeliveryListItemResponse).labelStatus };
           } catch {
             return item;
           }
@@ -127,7 +140,7 @@ export default function DeliveryListPage() {
   useEffect(() => {
     fetchDeliveries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.page, filters.limit, filters.originType, filters.status, filters.readinessStatus, filters.fromDate, filters.toDate]);
+  }, [filters.page, filters.limit, filters.originType, filters.status, filters.readinessStatus, filters.labelStatus, filters.fromDate, filters.toDate]);
 
   // Debounce search and tracking code inputs
   const [searchInput, setSearchInput] = useState(filters.search ?? '');
@@ -269,6 +282,23 @@ export default function DeliveryListPage() {
               {READINESS_STATUSES.map((r) => (
                 <MenuItem key={r.value} value={r.value}>
                   {r.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel id="label-status-label">Label status</InputLabel>
+            <Select
+              labelId="label-status-label"
+              value={filters.labelStatus ?? ''}
+              label="Label status"
+              onChange={(e) => setFilters((prev) => ({ ...prev, labelStatus: e.target.value, page: 1 }))}
+              sx={{ fontSize: 12, borderRadius: 2, height: 36 }}
+            >
+              <MenuItem value="">All label statuses</MenuItem>
+              {LABEL_STATUSES.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
                 </MenuItem>
               ))}
             </Select>

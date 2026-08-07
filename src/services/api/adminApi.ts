@@ -2086,13 +2086,113 @@ export async function markAdminLabelAttached(
 export async function bulkExportAdminLabels(
   packageIds: string[],
   reason?: string
-): Promise<{ batchId: string; packageCount: number; downloadUrl?: string }> {
-  return request<{ batchId: string; packageCount: number; downloadUrl?: string }>(
-    "/admin/delivery-labels/bulk-export",
-    {
-      method: "POST",
-      body: { packageIds, reason },
-    }
+): Promise<{
+  batchId: string;
+  actorUserId?: string;
+  reason?: string;
+  packageCount: number;
+  packageIds: string[];
+  downloadUrl?: string;
+  labels: AdminLabelExportEntry[];
+}> {
+  return request<{
+    batchId: string;
+    actorUserId?: string;
+    reason?: string;
+    packageCount: number;
+    packageIds: string[];
+    downloadUrl?: string;
+    labels: AdminLabelExportEntry[];
+  }>("/admin/delivery-labels/bulk-export", {
+    method: "POST",
+    body: { packageIds, reason },
+  });
+}
+
+export type AdminLabelExportEntry = {
+  labelId: string;
+  packageId: string;
+  packageNumber?: number;
+  packageName?: string;
+  packageIdentifier?: string;
+  trackingCode?: string;
+  downloadUrl?: string;
+  qrDownloadUrl?: string;
+};
+
+export async function getAdminLabelBatchDownload(
+  batchId: string
+): Promise<{ batchId: string; packageCount: number; labels: AdminLabelExportEntry[] }> {
+  return request<{ batchId: string; packageCount: number; labels: AdminLabelExportEntry[] }>(
+    `/admin/delivery-label-batches/${batchId}/download`,
+    { method: "GET" }
+  );
+}
+
+export type AdminLabelRegistryResponse = AdminDeliveryLabelResponse & {
+  pdfDownloadUrl?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  printedAt?: string;
+  printedByUserId?: string;
+  attachedAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  replacedByVersionId?: string;
+  package: {
+    id: string;
+    deliveryOrderId: string;
+    packageNumber: number;
+    totalPackages: number;
+    packageIdentifier?: string;
+    packageName?: string;
+    size?: string;
+    weightKg?: number;
+    fragile?: boolean;
+    readinessStatus?: string;
+    status: string;
+    activeLabelVersionId?: string;
+    attributes?: DeliveryLabelAttribute[];
+  } | null;
+  delivery: {
+    id: string;
+    trackingCode?: string;
+    originType?: string;
+    status: string;
+    paymentMethod?: string;
+    paymentTiming?: string;
+    createdAt?: string;
+  } | null;
+};
+
+export type ListAdminLabelsFilters = {
+  page?: number;
+  limit?: number;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+};
+
+export async function listAdminDeliveryLabels(
+  filters: ListAdminLabelsFilters = {}
+): Promise<{
+  items: AdminLabelRegistryResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+}> {
+  return request<{
+    items: AdminLabelRegistryResponse[];
+    meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+  }>(
+    `/admin/delivery-labels${toQueryString({
+      page: filters.page,
+      limit: filters.limit,
+      status: filters.status,
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      search: filters.search,
+    })}`,
+    { method: "GET", unwrapData: false }
   );
 }
 

@@ -74,6 +74,7 @@ import ReturnShipmentsPage from './pages/ReturnShipmentsPage'
 import ReturnShipmentDetailPage from './pages/ReturnShipmentDetailPage'
 import ReturnReconciliationPage from './pages/ReturnReconciliationPage'
 import PackageLabelPage from './pages/PackageLabelPage'
+import DeliveryLabelsPage from './pages/DeliveryLabelsPage'
 import PrintQueuePage from './pages/PrintQueuePage'
 import LabelExceptionsPage from './pages/LabelExceptionsPage'
 import BlankLabelStockPage from './pages/BlankLabelStockPage'
@@ -456,7 +457,7 @@ export default function App() {
             path="delivery-labels"
             element={
               <RequirePermission anyOf={["view_delivery_labels"]}>
-                <PackageLabelPage />
+                <DeliveryLabelsPage />
               </RequirePermission>
             }
           />
