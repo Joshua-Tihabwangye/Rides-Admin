@@ -351,8 +351,13 @@ export default function DeliveryListPage() {
                     <StatusBadge status={delivery.status} />
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ fontWeight: 600, fontSize: '0.75rem', color: delivery.payment?.status === 'PAID' ? '#10b981' : '#f59e0b' }}>
-                      {delivery.payment?.status === 'PAID' ? 'Paid' : 'Pending'}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <Box sx={{ fontWeight: 600, fontSize: '0.75rem', color: delivery.payment?.status === 'PAID' ? '#10b981' : '#f59e0b' }}>
+                        {delivery.payment?.status === 'PAID' ? 'Paid' : 'Pending'}
+                      </Box>
+                      {delivery.payment?.timing === 'PAY_ON_DELIVERY' && (
+                        <Box sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>(on delivery)</Box>
+                      )}
                     </Box>
                   </TableCell>
                   <TableCell>
