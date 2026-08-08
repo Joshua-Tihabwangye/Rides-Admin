@@ -24,7 +24,7 @@ import {
 } from"@mui/material";
 import SearchIcon from"@mui/icons-material/Search";
 import { useNavigate, useSearchParams } from"react-router-dom";
-import { isAdminBackendEnabled, listAdminCompanies, listAdminDrivers, listAdminRiders } from "../services/api/adminApi";
+import { isAdminBackendEnabled, listAdminCompanies, listAdminDrivers, listAdminRiders, listAdminSafetyEmergencies } from "../services/api/adminApi";
 
 // B1 – Global Search (v2, with Trips + Incidents, tabs, and filters)
 // Route: /admin/search
@@ -36,8 +36,8 @@ const EV_COLORS = {
   incidents:"#ef4444",
 };
 
-// Trips and Incidents are not exposed by the backend for global search yet, so
-// they are returned empty instead of synthesizing mock records.
+// Trips are not exposed by the backend for global search yet, so they are
+// returned empty. Incidents come from the live safety queue.
 
 export default function AdminGlobalSearchPage() {
   const navigate = useNavigate();
@@ -58,7 +58,7 @@ export default function AdminGlobalSearchPage() {
   const [allDrivers, setAllDrivers] = useState(() => []);
   const [allCompanies, setAllCompanies] = useState(() => []);
   const allTrips = useMemo(() => [], [allRiders, allDrivers]);
-  const allIncidents = useMemo(() => [], [allRiders, allDrivers]);
+  const [allIncidents, setAllIncidents] = useState(() => []);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -66,13 +66,15 @@ export default function AdminGlobalSearchPage() {
         setAllRiders([]);
         setAllDrivers([]);
         setAllCompanies([]);
+        setAllIncidents([]);
         return;
       }
       try {
-        const [backendRiders, backendDrivers, backendCompanies] = await Promise.all([
+        const [backendRiders, backendDrivers, backendCompanies, incidentPage] = await Promise.all([
           listAdminRiders(),
           listAdminDrivers(),
           listAdminCompanies(),
+          listAdminSafetyEmergencies().catch(() => ({ items: [], meta: { total: 0 } })),
         ]);
 
         setAllRiders(backendRiders.map((rider, idx) => ({
@@ -113,11 +115,21 @@ export default function AdminGlobalSearchPage() {
           commission: "N/A",
           status: company.status === "active" ? "Active" : company.status === "suspended" ? "Suspended" : "Inactive",
         })));
+
+        setAllIncidents((incidentPage?.items ?? []).map((incident, idx) => ({
+          id: idx + 1,
+          user: incident.reporterUserId,
+          type: incident.sos ? `SOS · ${incident.type}` : incident.type,
+          city: incident.address || (incident.latitude != null ? `${Number(incident.latitude).toFixed(4)}, ${Number(incident.longitude).toFixed(4)}` : "Unknown"),
+          status: incident.status === "OPEN" ? "open" : incident.status.toLowerCase(),
+          rawId: incident.id,
+        })));
       } catch (error) {
         console.warn("Failed to load backend global search datasets.", error);
         setAllRiders([]);
         setAllDrivers([]);
         setAllCompanies([]);
+        setAllIncidents([]);
       }
     };
     void loadData();

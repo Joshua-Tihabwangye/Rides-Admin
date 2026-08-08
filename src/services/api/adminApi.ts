@@ -652,6 +652,39 @@ export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnaps
   return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
 }
 
+// ── Safety incidents / SOS (backend GET /safety/emergencies) ────────────────
+
+export type AdminSafetyIncident = {
+  id: string;
+  reporterUserId: string;
+  driverId?: string | null;
+  serviceType?: string | null;
+  serviceId?: string | null;
+  type: string;
+  status: string;
+  description?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  address?: string | null;
+  sos: boolean;
+  notifiedContacts?: Array<{ name?: string; phone?: string; source?: string }>;
+  resolvedAt?: string | null;
+  createdAt: string;
+};
+
+export type AdminSafetyIncidentPage = {
+  items: AdminSafetyIncident[];
+  meta: { page: number; limit: number; total: number; pageCount: number };
+};
+
+export async function listAdminSafetyEmergencies(params?: {
+  page?: number;
+  limit?: number;
+}): Promise<AdminSafetyIncidentPage> {
+  const query = `page=${params?.page ?? 1}&limit=${params?.limit ?? 100}`;
+  return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
+}
+
 // ── Monitoring detail endpoints (observability dashboards) ──────────────────
 // NOTE: These endpoints are not fully exposed by the backend yet. The wrappers
 // below fall back to the closest existing endpoints so the UI can render real

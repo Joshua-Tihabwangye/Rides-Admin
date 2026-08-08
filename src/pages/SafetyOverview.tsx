@@ -38,10 +38,11 @@ import {
   listAdminDrivers,
   listAdminRiders,
   listAdminRiskCases,
+  listAdminSafetyEmergencies,
   patchAdminDriver,
   patchAdminRider,
 } from "../services/api/adminApi";
-import type { AdminRiskCaseResponse } from "../services/api/adminApi";
+import type { AdminRiskCaseResponse, AdminSafetyIncident } from "../services/api/adminApi";
 
 const getRiskColor = (riskLevel: string) => {
   switch (riskLevel?.toLowerCase()) {
@@ -64,6 +65,7 @@ export default function SafetyOverviewDashboardPage() {
   const [selectedRegion, setSelectedRegion] = useState<string>("All Regions");
   const [usersUnderReview, setUsersUnderReview] = useState<any[]>([]);
   const [riskCases, setRiskCases] = useState<AdminRiskCaseResponse[]>([]);
+  const [incidents, setIncidents] = useState<AdminSafetyIncident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,11 +74,13 @@ export default function SafetyOverviewDashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [riders, drivers, cases] = await Promise.all([
+        const [riders, drivers, cases, incidentPage] = await Promise.all([
           listAdminRiders(),
           listAdminDrivers(),
           listAdminRiskCases().catch(() => []),
+          listAdminSafetyEmergencies().catch(() => ({ items: [], meta: { total: 0 } })),
         ]);
+        setIncidents(incidentPage?.items ?? []);
 
         const underReviewRiders = riders
           .filter((r) => r.status !== "active")
@@ -108,12 +112,21 @@ export default function SafetyOverviewDashboardPage() {
         setError(err?.message ?? "Failed to load safety overview data");
         setUsersUnderReview([]);
         setRiskCases([]);
+        setIncidents([]);
       } finally {
         setLoading(false);
       }
     };
 
     void load();
+    // Live SOS incidents arrive over the admin socket; poll so the queue
+    // reflects new alerts even if a page was open before the event landed.
+    const poll = window.setInterval(() => {
+      listAdminSafetyEmergencies()
+        .then((page) => setIncidents(page?.items ?? []))
+        .catch(() => undefined);
+    }, 30000);
+    return () => window.clearInterval(poll);
   }, []);
 
   const handlePeriodChange = (newPeriod: PeriodOption) => {
@@ -345,6 +358,78 @@ export default function SafetyOverviewDashboardPage() {
           </CardContent>
         </Card>
       </Box>
+
+      <Card
+        elevation={2}
+        sx={{
+          borderRadius: 2,
+          border: "1px solid rgba(148,163,184,0.3)",
+          bgcolor: "background.paper",
+        }}
+      >
+        <CardContent className="p-4 flex flex-col gap-2">
+          <Box className="flex items-center justify-between">
+            <Typography variant="subtitle2" className="font-semibold" color="text.primary">
+              SOS &amp; emergency incidents ({incidents.length})
+            </Typography>
+            <Chip
+              size="small"
+              color={incidents.some((i) => i.sos) ? "error" : "default"}
+              label={`${incidents.filter((i) => i.sos).length} SOS · ${incidents.filter((i) => i.status === "OPEN").length} open`}
+            />
+          </Box>
+          <Divider className="!my-1" />
+          {incidents.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: "center" }}>
+              <Typography variant="body2" color="text.secondary">
+                No incidents reported
+              </Typography>
+              <Typography variant="caption" color="text.disabled">
+                New SOS alerts appear here within seconds of being triggered
+              </Typography>
+            </Box>
+          ) : (
+            <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 320 }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Location</TableCell>
+                    <TableCell>Reported</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {incidents.map((incident) => (
+                    <TableRow key={incident.id} hover>
+                      <TableCell sx={{ fontSize: 11 }}>
+                        {incident.sos ? <Chip size="small" color="error" label="SOS" /> : null}
+                        <Typography variant="caption" className="ml-1 font-mono">
+                          {incident.id.slice(0, 8)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 11 }}>{incident.type}</TableCell>
+                      <TableCell sx={{ fontSize: 11 }}>
+                        <Chip size="small" color={incident.status === "OPEN" ? "error" : incident.status === "RESOLVED" ? "success" : "default"} label={incident.status} />
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 11 }}>
+                        {incident.address ||
+                          (incident.latitude != null && incident.longitude != null
+                            ? `${Number(incident.latitude).toFixed(5)}, ${Number(incident.longitude).toFixed(5)}`
+                            : "Location not shared")}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 11 }}>
+                        {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
 
       <Box className="flex flex-col lg:flex-row gap-4">
         <Card
