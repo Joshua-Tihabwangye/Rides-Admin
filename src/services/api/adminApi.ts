@@ -667,7 +667,15 @@ export type AdminSafetyIncident = {
   longitude?: number | null;
   address?: string | null;
   sos: boolean;
-  notifiedContacts?: Array<{ name?: string; phone?: string; source?: string }>;
+  notifiedContacts?: Array<{
+    name?: string;
+    phone?: string;
+    source?: string;
+    attemptedAt?: string;
+    status?: string;
+    provider?: string;
+    providerResult?: { messageId?: string; error?: string };
+  }>;
   resolvedAt?: string | null;
   createdAt: string;
 };
