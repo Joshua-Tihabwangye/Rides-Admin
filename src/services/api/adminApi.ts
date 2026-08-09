@@ -676,6 +676,7 @@ export type AdminSafetyIncident = {
     provider?: string;
     providerResult?: { messageId?: string; error?: string };
   }>;
+  assignedToUserId?: string | null;
   resolvedAt?: string | null;
   createdAt: string;
 };
@@ -691,6 +692,16 @@ export async function listAdminSafetyEmergencies(params?: {
 }): Promise<AdminSafetyIncidentPage> {
   const query = `page=${params?.page ?? 1}&limit=${params?.limit ?? 100}`;
   return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
+}
+
+export async function updateAdminSafetyIncident(
+  id: string,
+  payload: { status: string; assignedToUserId?: string },
+): Promise<AdminSafetyIncident> {
+  return request<AdminSafetyIncident>(`/safety/emergencies/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 // ── Monitoring detail endpoints (observability dashboards) ──────────────────

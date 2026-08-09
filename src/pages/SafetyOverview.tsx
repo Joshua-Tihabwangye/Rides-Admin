@@ -29,6 +29,7 @@ import {
   Cell,
 } from "recharts";
 import QueueIcon from "@mui/icons-material/Queue";
+import SmsFailedIcon from "@mui/icons-material/SmsFailed";
 import {
   listAdminDrivers,
   listAdminRiders,
@@ -36,8 +37,28 @@ import {
   listAdminSafetyEmergencies,
   patchAdminDriver,
   patchAdminRider,
+  updateAdminSafetyIncident,
+  readAdminBackendAccessToken,
 } from "../services/api/adminApi";
 import type { AdminRiskCaseResponse, AdminSafetyIncident } from "../services/api/adminApi";
+
+function currentAdminUserId(): string | null {
+  try {
+    const token = readAdminBackendAccessToken();
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+function mapsLink(latitude?: number | null, longitude?: number | null): string | null {
+  if (latitude == null || longitude == null) return null;
+  return `https://www.google.com/maps?q=${Number(latitude)},${Number(longitude)}`;
+}
+
+const OPEN_SOS_STATUSES = ["OPEN", "ACKNOWLEDGED", "RESPONDING"];
 
 const getRiskColor = (riskLevel: string) => {
   switch (riskLevel?.toLowerCase()) {
@@ -135,6 +156,48 @@ export default function SafetyOverviewDashboardPage() {
 
   const openSosCount = useMemo(() => incidents.filter((i) => i.sos && i.status === "OPEN").length, [incidents]);
   const openCount = useMemo(() => incidents.filter((i) => i.status === "OPEN").length, [incidents]);
+  const activeSos = useMemo(
+    () => incidents.filter((i) => i.sos && OPEN_SOS_STATUSES.includes(i.status)),
+    [incidents],
+  );
+
+  const refreshIncidents = async () => {
+    try {
+      const page = await listAdminSafetyEmergencies();
+      setIncidents(page?.items ?? []);
+    } catch {
+      // keep current list; polling will retry
+    }
+  };
+
+  const transitionIncident = async (
+    incident: AdminSafetyIncident,
+    status: string,
+    assignedToUserId?: string,
+  ) => {
+    try {
+      await updateAdminSafetyIncident(incident.id, {
+        status,
+        ...(assignedToUserId ? { assignedToUserId } : {}),
+      });
+      await refreshIncidents();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? `Failed to update incident ${incident.id.slice(0, 8)}: ${error.message}`
+          : "Failed to update incident. Please try again.",
+      );
+    }
+  };
+
+  const assignToMe = (incident: AdminSafetyIncident) => {
+    const adminUserId = currentAdminUserId();
+    if (!adminUserId) {
+      alert("Could not determine your admin user id. Please sign in again.");
+      return;
+    }
+    void transitionIncident(incident, incident.status || "OPEN", adminUserId);
+  };
 
   const INCIDENT_KPIS = useMemo(
     () => [
@@ -233,6 +296,124 @@ export default function SafetyOverviewDashboardPage() {
           View risk queue
         </Button>
       </Box>
+
+      {activeSos.length > 0 ? (
+        <Box className="mb-4 flex flex-col gap-3">
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              bgcolor: "#7f1d1d",
+              border: "2px solid #dc2626",
+              borderRadius: 2,
+              px: 2.5,
+              py: 1.5,
+            }}
+          >
+            <SmsFailedIcon sx={{ color: "#fecaca", fontSize: 28 }} />
+            <Typography variant="subtitle1" className="font-black tracking-wide text-red-100">
+              {activeSos.length === 1 ? "1 ACTIVE SOS INCIDENT" : `${activeSos.length} ACTIVE SOS INCIDENTS`} — requires immediate attention
+            </Typography>
+          </Box>
+          {activeSos.map((incident) => {
+            const attempts = incident.notifiedContacts ?? [];
+            const sent = attempts.filter((a) => a.status === "SENT").length;
+            const location = mapsLink(incident.latitude, incident.longitude);
+            return (
+              <Card
+                key={incident.id}
+                elevation={6}
+                sx={{
+                  borderRadius: 2,
+                  border: "2px solid #dc2626",
+                  bgcolor: "#fef2f2",
+                  boxShadow: "0 0 0 3px rgba(220,38,38,0.2)",
+                }}
+              >
+                <CardContent className="p-4 flex flex-col gap-2">
+                  <Box className="flex items-center justify-between gap-2 flex-wrap">
+                    <Box className="flex items-center gap-2 flex-wrap">
+                      <Chip size="small" color="error" label="SOS" sx={{ fontWeight: 800 }} />
+                      <Typography variant="subtitle2" className="font-mono font-black text-red-900">
+                        {incident.id}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label={incident.status}
+                        color={incident.status === "RESOLVED" ? "success" : "error"}
+                        sx={{ fontWeight: 700 }}
+                      />
+                      {incident.assignedToUserId ? (
+                        <Chip size="small" label={`Assigned: ${incident.assignedToUserId.slice(0, 8)}`} sx={{ fontWeight: 600 }} />
+                      ) : null}
+                    </Box>
+                    <Box className="flex items-center gap-1 flex-wrap">
+                      {incident.status !== "OPEN" ? (
+                        <Button size="small" variant="outlined" color="warning" onClick={() => void transitionIncident(incident, "OPEN")} sx={{ fontSize: 10, textTransform: "none" }}>
+                          Reopen
+                        </Button>
+                      ) : null}
+                      {incident.status === "OPEN" ? (
+                        <Button size="small" variant="contained" color="warning" onClick={() => void transitionIncident(incident, "ACKNOWLEDGED")} sx={{ fontSize: 10, textTransform: "none" }}>
+                          Acknowledge
+                        </Button>
+                      ) : null}
+                      {incident.status === "ACKNOWLEDGED" ? (
+                        <Button size="small" variant="contained" color="info" onClick={() => void transitionIncident(incident, "RESPONDING")} sx={{ fontSize: 10, textTransform: "none" }}>
+                          Responding
+                        </Button>
+                      ) : null}
+                      <Button size="small" variant="outlined" onClick={() => assignToMe(incident)} sx={{ fontSize: 10, textTransform: "none" }}>
+                        Assign to me
+                      </Button>
+                      <Button size="small" variant="contained" color="success" onClick={() => void transitionIncident(incident, "RESOLVED")} sx={{ fontSize: 10, textTransform: "none" }}>
+                        Resolve
+                      </Button>
+                    </Box>
+                  </Box>
+                  <Box className="grid gap-1 text-[12px] text-red-950/80">
+                    <Typography variant="body2" className="text-[12px]">
+                      <b>Reporter:</b> {incident.reporterUserId}
+                      {incident.driverId ? ` · Driver: ${incident.driverId}` : ""}
+                      {incident.serviceType ? ` · Service: ${incident.serviceType}${incident.serviceId ? ` (${incident.serviceId})` : ""}` : ""}
+                    </Typography>
+                    <Typography variant="body2" className="text-[12px]">
+                      <b>Reported:</b> {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : "-"}
+                      {incident.address ? ` · ${incident.address}` : ""}
+                    </Typography>
+                    <Typography variant="body2" className="text-[12px]">
+                      <b>Location:</b>{" "}
+                      {incident.latitude != null && incident.longitude != null
+                        ? `${Number(incident.latitude).toFixed(5)}, ${Number(incident.longitude).toFixed(5)}`
+                        : "Not shared"}
+                      {location ? (
+                        <a href={location} target="_blank" rel="noreferrer" className="ml-2 font-black text-red-700 underline">
+                          Open in Maps
+                        </a>
+                      ) : null}
+                    </Typography>
+                    {incident.description ? (
+                      <Typography variant="body2" className="text-[12px]">
+                        <b>Description:</b> {incident.description}
+                      </Typography>
+                    ) : null}
+                    <Typography variant="body2" className="text-[12px]">
+                      <b>Contact delivery:</b>{" "}
+                      {attempts.length === 0
+                        ? "No contact notification attempts recorded"
+                        : `${sent}/${attempts.length} delivered by SMS · ${attempts
+                            .filter((a) => a.status !== "SENT")
+                            .map((a) => `${a.name || "contact"} (${a.providerResult?.error || a.status || "FAILED"})`)
+                            .join(" · ")}`}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
+      ) : null}
 
       <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         {INCIDENT_KPIS.map((kpi) => (
