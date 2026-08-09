@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -16,9 +15,6 @@ import {
   TableCell,
   TableContainer,
   Paper,
-  Select,
-  MenuItem,
-  FormControl,
   CircularProgress,
   Alert,
 } from "@mui/material";
@@ -32,20 +28,42 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import PeriodSelector, { PeriodOption } from "../components/PeriodSelector";
 import QueueIcon from "@mui/icons-material/Queue";
+import SmsFailedIcon from "@mui/icons-material/SmsFailed";
 import {
   listAdminDrivers,
   listAdminRiders,
   listAdminRiskCases,
+  listAdminSafetyEmergencies,
   patchAdminDriver,
   patchAdminRider,
+  updateAdminSafetyIncident,
+  readAdminBackendAccessToken,
 } from "../services/api/adminApi";
-import type { AdminRiskCaseResponse } from "../services/api/adminApi";
+import type { AdminRiskCaseResponse, AdminSafetyIncident } from "../services/api/adminApi";
+
+function currentAdminUserId(): string | null {
+  try {
+    const token = readAdminBackendAccessToken();
+    if (!token) return null;
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+function mapsLink(latitude?: number | null, longitude?: number | null): string | null {
+  if (latitude == null || longitude == null) return null;
+  return `https://www.google.com/maps?q=${Number(latitude)},${Number(longitude)}`;
+}
+
+const OPEN_SOS_STATUSES = ["OPEN", "ACKNOWLEDGED", "RESPONDING"];
 
 const getRiskColor = (riskLevel: string) => {
   switch (riskLevel?.toLowerCase()) {
     case "high":
+    case "high risk":
       return "error";
     case "medium":
       return "warning";
@@ -58,12 +76,22 @@ const getRiskColor = (riskLevel: string) => {
 
 const INCIDENT_COLORS = ["#ef4444", "#f97316", "#3b82f6", "#a855f7", "#10b981", "#f59e0b"];
 
+type UserUnderReview = {
+  id: string;
+  backendId: string;
+  name: string;
+  type: "Rider" | "Driver";
+  city: string;
+  reason: string;
+  riskLevel: string;
+};
+
 export default function SafetyOverviewDashboardPage() {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState<PeriodOption>("today");
-  const [selectedRegion, setSelectedRegion] = useState<string>("All Regions");
-  const [usersUnderReview, setUsersUnderReview] = useState<any[]>([]);
+  const [usersUnderReview, setUsersUnderReview] = useState<UserUnderReview[]>([]);
   const [riskCases, setRiskCases] = useState<AdminRiskCaseResponse[]>([]);
+  const [incidents, setIncidents] = useState<AdminSafetyIncident[]>([]);
+  const [expandedIncident, setExpandedIncident] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,13 +100,15 @@ export default function SafetyOverviewDashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [riders, drivers, cases] = await Promise.all([
+        const [riders, drivers, cases, incidentPage] = await Promise.all([
           listAdminRiders(),
           listAdminDrivers(),
           listAdminRiskCases().catch(() => []),
+          listAdminSafetyEmergencies().catch(() => ({ items: [], meta: { total: 0 } })),
         ]);
+        setIncidents(incidentPage?.items ?? []);
 
-        const underReviewRiders = riders
+        const underReviewRiders: UserUnderReview[] = riders
           .filter((r) => r.status !== "active")
           .map((r) => ({
             id: r.userId,
@@ -90,7 +120,7 @@ export default function SafetyOverviewDashboardPage() {
             riskLevel: "Low",
           }));
 
-        const underReviewDrivers = drivers
+        const underReviewDrivers: UserUnderReview[] = drivers
           .filter((d) => d.status !== "active")
           .map((d) => ({
             id: d.driverId,
@@ -104,36 +134,82 @@ export default function SafetyOverviewDashboardPage() {
 
         setUsersUnderReview([...underReviewRiders, ...underReviewDrivers]);
         setRiskCases(cases);
-      } catch (err: any) {
-        setError(err?.message ?? "Failed to load safety overview data");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load safety overview data");
         setUsersUnderReview([]);
         setRiskCases([]);
+        setIncidents([]);
       } finally {
         setLoading(false);
       }
     };
 
     void load();
+    // Poll so open SOS alerts show up without a manual refresh.
+    const poll = window.setInterval(() => {
+      listAdminSafetyEmergencies()
+        .then((page) => setIncidents(page?.items ?? []))
+        .catch(() => undefined);
+    }, 30000);
+    return () => window.clearInterval(poll);
   }, []);
 
-  const handlePeriodChange = (newPeriod: PeriodOption) => {
-    setPeriod(newPeriod);
+  const openSosCount = useMemo(() => incidents.filter((i) => i.sos && i.status === "OPEN").length, [incidents]);
+  const openCount = useMemo(() => incidents.filter((i) => i.status === "OPEN").length, [incidents]);
+  const activeSos = useMemo(
+    () => incidents.filter((i) => i.sos && OPEN_SOS_STATUSES.includes(i.status)),
+    [incidents],
+  );
+
+  const refreshIncidents = async () => {
+    try {
+      const page = await listAdminSafetyEmergencies();
+      setIncidents(page?.items ?? []);
+    } catch {
+      // keep current list; polling will retry
+    }
   };
 
-  const totalIncidents = riskCases.length;
-  const criticalIncidents = riskCases.filter((c) => c.severity === "High").length;
+  const transitionIncident = async (
+    incident: AdminSafetyIncident,
+    status: string,
+    assignedToUserId?: string,
+  ) => {
+    try {
+      await updateAdminSafetyIncident(incident.id, {
+        status,
+        ...(assignedToUserId ? { assignedToUserId } : {}),
+      });
+      await refreshIncidents();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? `Failed to update incident ${incident.id.slice(0, 8)}: ${error.message}`
+          : "Failed to update incident. Please try again.",
+      );
+    }
+  };
+
+  const assignToMe = (incident: AdminSafetyIncident) => {
+    const adminUserId = currentAdminUserId();
+    if (!adminUserId) {
+      alert("Could not determine your admin user id. Please sign in again.");
+      return;
+    }
+    void transitionIncident(incident, incident.status || "OPEN", adminUserId);
+  };
 
   const INCIDENT_KPIS = useMemo(
     () => [
       {
         label: "Total incidents",
-        value: totalIncidents,
-        note: "From risk cases",
+        value: incidents.length,
+        note: "SOS & safety incidents",
       },
       {
-        label: "Critical incidents",
-        value: criticalIncidents,
-        note: "High severity risk cases",
+        label: "Open incidents",
+        value: openCount,
+        note: `${openSosCount} SOS currently open`,
       },
       {
         label: "Users under review",
@@ -141,22 +217,22 @@ export default function SafetyOverviewDashboardPage() {
         note: `${usersUnderReview.filter((u) => u.type === "Rider").length} riders · ${usersUnderReview.filter((u) => u.type === "Driver").length} drivers`,
       },
     ],
-    [totalIncidents, criticalIncidents, usersUnderReview]
+    [incidents.length, openCount, openSosCount, usersUnderReview]
   );
 
   const incidentData = useMemo(() => {
     const counts: Record<string, number> = {};
-    riskCases.forEach((c) => {
-      counts[c.type] = (counts[c.type] || 0) + 1;
+    incidents.forEach((incident) => {
+      counts[incident.type] = (counts[incident.type] || 0) + 1;
     });
     return Object.entries(counts).map(([type, count], index) => ({
       type,
       count,
       color: INCIDENT_COLORS[index % INCIDENT_COLORS.length],
     }));
-  }, [riskCases]);
+  }, [incidents]);
 
-  const handleUserClick = (user) => {
+  const handleUserClick = (user: UserUnderReview) => {
     if (user.type === "Driver") {
       navigate(`/admin/drivers/${user.id}`);
     } else {
@@ -164,7 +240,7 @@ export default function SafetyOverviewDashboardPage() {
     }
   };
 
-  const handleApproveUser = async (user, e) => {
+  const handleApproveUser = async (user: UserUnderReview, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       if (user.type === "Rider") {
@@ -210,22 +286,134 @@ export default function SafetyOverviewDashboardPage() {
             Incidents, SOS activity and users under review across all regions.
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <Select
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              displayEmpty
-              sx={{ fontSize: 12, borderRadius: 2, bgcolor: "background.paper", height: 40 }}
-            >
-              <MenuItem value="All Regions">All Regions</MenuItem>
-              <MenuItem value="East Africa">East Africa</MenuItem>
-              <MenuItem value="West Africa">West Africa</MenuItem>
-            </Select>
-          </FormControl>
-          <PeriodSelector value={period} onChange={handlePeriodChange} />
-        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<QueueIcon fontSize="small" />}
+          onClick={handleViewQueue}
+          sx={{ textTransform: "none", fontSize: 11, borderRadius: 2 }}
+        >
+          View risk queue
+        </Button>
       </Box>
+
+      {activeSos.length > 0 ? (
+        <Box className="mb-4 flex flex-col gap-3">
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              bgcolor: "#7f1d1d",
+              border: "2px solid #dc2626",
+              borderRadius: 2,
+              px: 2.5,
+              py: 1.5,
+            }}
+          >
+            <SmsFailedIcon sx={{ color: "#fecaca", fontSize: 28 }} />
+            <Typography variant="subtitle1" className="font-black tracking-wide text-red-100">
+              {activeSos.length === 1 ? "1 ACTIVE SOS INCIDENT" : `${activeSos.length} ACTIVE SOS INCIDENTS`} — requires immediate attention
+            </Typography>
+          </Box>
+          {activeSos.map((incident) => {
+            const attempts = incident.notifiedContacts ?? [];
+            const sent = attempts.filter((a) => a.status === "SENT").length;
+            const location = mapsLink(incident.latitude, incident.longitude);
+            return (
+              <Card
+                key={incident.id}
+                elevation={6}
+                sx={{
+                  borderRadius: 2,
+                  border: "2px solid #dc2626",
+                  bgcolor: "#fef2f2",
+                  boxShadow: "0 0 0 3px rgba(220,38,38,0.2)",
+                }}
+              >
+                <CardContent className="p-4 flex flex-col gap-2">
+                  <Box className="flex items-center justify-between gap-2 flex-wrap">
+                    <Box className="flex items-center gap-2 flex-wrap">
+                      <Chip size="small" color="error" label="SOS" sx={{ fontWeight: 800 }} />
+                      <Typography variant="subtitle2" className="font-mono font-black text-red-900">
+                        {incident.id}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label={incident.status}
+                        color={incident.status === "RESOLVED" ? "success" : "error"}
+                        sx={{ fontWeight: 700 }}
+                      />
+                      {incident.assignedToUserId ? (
+                        <Chip size="small" label={`Assigned: ${incident.assignedToUserId.slice(0, 8)}`} sx={{ fontWeight: 600 }} />
+                      ) : null}
+                    </Box>
+                    <Box className="flex items-center gap-1 flex-wrap">
+                      {incident.status !== "OPEN" ? (
+                        <Button size="small" variant="outlined" color="warning" onClick={() => void transitionIncident(incident, "OPEN")} sx={{ fontSize: 10, textTransform: "none" }}>
+                          Reopen
+                        </Button>
+                      ) : null}
+                      {incident.status === "OPEN" ? (
+                        <Button size="small" variant="contained" color="warning" onClick={() => void transitionIncident(incident, "ACKNOWLEDGED")} sx={{ fontSize: 10, textTransform: "none" }}>
+                          Acknowledge
+                        </Button>
+                      ) : null}
+                      {incident.status === "ACKNOWLEDGED" ? (
+                        <Button size="small" variant="contained" color="info" onClick={() => void transitionIncident(incident, "RESPONDING")} sx={{ fontSize: 10, textTransform: "none" }}>
+                          Responding
+                        </Button>
+                      ) : null}
+                      <Button size="small" variant="outlined" onClick={() => assignToMe(incident)} sx={{ fontSize: 10, textTransform: "none" }}>
+                        Assign to me
+                      </Button>
+                      <Button size="small" variant="contained" color="success" onClick={() => void transitionIncident(incident, "RESOLVED")} sx={{ fontSize: 10, textTransform: "none" }}>
+                        Resolve
+                      </Button>
+                    </Box>
+                  </Box>
+                  <Box className="grid gap-1 text-[12px] text-red-950/80">
+                    <Typography variant="body2" className="text-[12px]">
+                      <b>Reporter:</b> {incident.reporterUserId}
+                      {incident.driverId ? ` · Driver: ${incident.driverId}` : ""}
+                      {incident.serviceType ? ` · Service: ${incident.serviceType}${incident.serviceId ? ` (${incident.serviceId})` : ""}` : ""}
+                    </Typography>
+                    <Typography variant="body2" className="text-[12px]">
+                      <b>Reported:</b> {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : "-"}
+                      {incident.address ? ` · ${incident.address}` : ""}
+                    </Typography>
+                    <Typography variant="body2" className="text-[12px]">
+                      <b>Location:</b>{" "}
+                      {incident.latitude != null && incident.longitude != null
+                        ? `${Number(incident.latitude).toFixed(5)}, ${Number(incident.longitude).toFixed(5)}`
+                        : "Not shared"}
+                      {location ? (
+                        <a href={location} target="_blank" rel="noreferrer" className="ml-2 font-black text-red-700 underline">
+                          Open in Maps
+                        </a>
+                      ) : null}
+                    </Typography>
+                    {incident.description ? (
+                      <Typography variant="body2" className="text-[12px]">
+                        <b>Description:</b> {incident.description}
+                      </Typography>
+                    ) : null}
+                    <Typography variant="body2" className="text-[12px]">
+                      <b>Contact delivery:</b>{" "}
+                      {attempts.length === 0
+                        ? "No contact notification attempts recorded"
+                        : `${sent}/${attempts.length} delivered by SMS · ${attempts
+                            .filter((a) => a.status !== "SENT")
+                            .map((a) => `${a.name || "contact"} (${a.providerResult?.error || a.status || "FAILED"})`)
+                            .join(" · ")}`}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
+      ) : null}
 
       <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         {INCIDENT_KPIS.map((kpi) => (
@@ -275,7 +463,7 @@ export default function SafetyOverviewDashboardPage() {
           <CardContent className="p-4 flex flex-col gap-2 h-[350px]">
             <Box className="flex items-center justify-between">
               <Typography variant="subtitle2" className="font-semibold text-slate-50">
-                Incident Distribution {selectedRegion !== "All Regions" ? `(${selectedRegion})` : ""}
+                Incident Distribution
               </Typography>
               <Button
                 variant="text"
@@ -345,6 +533,150 @@ export default function SafetyOverviewDashboardPage() {
           </CardContent>
         </Card>
       </Box>
+
+      <Card
+        elevation={2}
+        sx={{
+          borderRadius: 2,
+          border: "1px solid rgba(148,163,184,0.3)",
+          bgcolor: "background.paper",
+        }}
+      >
+        <CardContent className="p-4 flex flex-col gap-2">
+          <Box className="flex items-center justify-between">
+            <Typography variant="subtitle2" className="font-semibold" color="text.primary">
+              SOS &amp; emergency incidents ({incidents.length})
+            </Typography>
+            <Chip
+              size="small"
+              color={openSosCount > 0 ? "error" : "default"}
+              label={`${incidents.filter((i) => i.sos).length} SOS · ${openCount} open`}
+            />
+          </Box>
+          <Divider className="!my-1" />
+          {incidents.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: "center" }}>
+              <Typography variant="body2" color="text.secondary">
+                No incidents reported
+              </Typography>
+              <Typography variant="caption" color="text.disabled">
+                New SOS alerts appear here within seconds of being triggered
+              </Typography>
+            </Box>
+          ) : (
+            <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 380 }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>ID</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Location</TableCell>
+                    <TableCell>Contacts</TableCell>
+                    <TableCell>Reported</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {incidents.map((incident) => {
+                    const attempts = incident.notifiedContacts ?? [];
+                    const sent = attempts.filter((a) => a.status === "SENT").length;
+                    const expanded = expandedIncident === incident.id;
+                    return (
+                      <React.Fragment key={incident.id}>
+                        <TableRow
+                          hover
+                          onClick={() => setExpandedIncident(expanded ? null : incident.id)}
+                          sx={{ cursor: "pointer" }}
+                        >
+                          <TableCell sx={{ fontSize: 11 }}>
+                            {incident.sos ? <Chip size="small" color="error" label="SOS" /> : null}
+                            <Typography variant="caption" className="ml-1 font-mono">
+                              {incident.id.slice(0, 8)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>{incident.type}</TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            <Chip size="small" color={incident.status === "OPEN" ? "error" : incident.status === "RESOLVED" ? "success" : "default"} label={incident.status} />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            {incident.address ||
+                              (incident.latitude != null && incident.longitude != null
+                                ? `${Number(incident.latitude).toFixed(5)}, ${Number(incident.longitude).toFixed(5)}`
+                                : "Location not shared")}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            {attempts.length === 0
+                              ? "—"
+                              : `${sent}/${attempts.length} SMS delivered`}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : "-"}
+                          </TableCell>
+                        </TableRow>
+                        {expanded ? (
+                          <TableRow>
+                            <TableCell colSpan={6} sx={{ bgcolor: "rgba(148,163,184,0.06)", py: 1.5 }}>
+                              <Box className="grid gap-1 text-[12px]">
+                                {incident.description ? (
+                                  <Typography variant="body2" className="text-[12px] text-slate-600">
+                                    <b>Description:</b> {incident.description}
+                                  </Typography>
+                                ) : null}
+                                <Typography variant="body2" className="text-[12px] text-slate-600">
+                                  <b>Reporter:</b> {incident.reporterUserId}
+                                  {incident.serviceType
+                                    ? ` · Service: ${incident.serviceType}${incident.serviceId ? ` (${incident.serviceId})` : ""}`
+                                    : ""}
+                                </Typography>
+                                <Box className="mt-1">
+                                  <Typography variant="caption" className="text-[11px] font-semibold text-slate-500">
+                                    Contact notification attempts
+                                  </Typography>
+                                  {attempts.length === 0 ? (
+                                    <Typography variant="body2" className="text-[12px] text-slate-500">
+                                      No contact notification attempts recorded.
+                                    </Typography>
+                                  ) : (
+                                    <Box className="mt-1 flex flex-col gap-1">
+                                      {attempts.map((attempt, index) => (
+                                        <Box
+                                          key={`${attempt.phone}-${index}`}
+                                          className="flex items-center gap-2 rounded-md bg-white px-2 py-1 border border-slate-200"
+                                        >
+                                          <Chip
+                                            size="small"
+                                            color={attempt.status === "SENT" ? "success" : "error"}
+                                            label={attempt.status === "SENT" ? "SENT" : "FAILED"}
+                                            sx={{ fontSize: 9, height: 18, fontWeight: 600 }}
+                                          />
+                                          <span className="font-medium text-slate-700">
+                                            {attempt.name || "Contact"} · {attempt.phone || "no number"}
+                                          </span>
+                                          <span className="text-[10px] text-slate-400">
+                                            {attempt.source ?? "USER"} · {attempt.provider ?? "NONE"}
+                                            {attempt.providerResult?.error ? ` · ${attempt.providerResult.error}` : ""}
+                                            {attempt.attemptedAt
+                                              ? ` · ${new Date(attempt.attemptedAt).toLocaleString()}`
+                                              : ""}
+                                          </span>
+                                        </Box>
+                                      ))}
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </React.Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
 
       <Box className="flex flex-col lg:flex-row gap-4">
         <Card

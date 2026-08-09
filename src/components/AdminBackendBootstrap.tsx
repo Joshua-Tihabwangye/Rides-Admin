@@ -37,6 +37,7 @@ export default function AdminBackendBootstrap() {
       "flag.changed": ["admin.flag.updated"],
       "cashout.request.updated": ["finance.payout.updated"],
       "risk.case.updated": ["admin.risk.updated"],
+      "safety.incident.new": ["admin.safety.incidents.updated"],
     }
     const normalizeAdminEvents = (events: string[]) => {
       const normalized = new Set<string>()
@@ -60,6 +61,7 @@ export default function AdminBackendBootstrap() {
       "service.updated",
       "finance.payout.updated",
       "risk.case.updated",
+      "safety.incident.new",
     ])
 
     syncEvents.forEach((eventName) => {
