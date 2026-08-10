@@ -39,6 +39,7 @@ import {
   patchAdminRider,
   updateAdminSafetyIncident,
   readAdminBackendAccessToken,
+  createAdminSocket,
 } from "../services/api/adminApi";
 import type { AdminRiskCaseResponse, AdminSafetyIncident } from "../services/api/adminApi";
 
@@ -104,10 +105,13 @@ export default function SafetyOverviewDashboardPage() {
           listAdminRiders(),
           listAdminDrivers(),
           listAdminRiskCases().catch(() => []),
-          listAdminSafetyEmergencies().catch(() => ({ items: [], meta: { total: 0 } })),
+          listAdminSafetyEmergencies(),
         ]);
         setIncidents(incidentPage?.items ?? []);
 
+        // "Under review" is the real backend account status, not an invented
+        // verification label. Only non-active users are listed and the shown
+        // reason is the actual status from the backend.
         const underReviewRiders: UserUnderReview[] = riders
           .filter((r) => r.status !== "active")
           .map((r) => ({
@@ -116,8 +120,8 @@ export default function SafetyOverviewDashboardPage() {
             name: r.fullName || `${r.firstName || ""} ${r.lastName || ""}`.trim() || r.email || "Rider",
             type: "Rider",
             city: r.city || "Unknown",
-            reason: "Pending verification",
-            riskLevel: "Low",
+            reason: r.status,
+            riskLevel: "—",
           }));
 
         const underReviewDrivers: UserUnderReview[] = drivers
@@ -128,8 +132,8 @@ export default function SafetyOverviewDashboardPage() {
             name: d.fullName,
             type: "Driver",
             city: d.city || "Unknown",
-            reason: "Document verification",
-            riskLevel: "Low",
+            reason: d.status,
+            riskLevel: "—",
           }));
 
         setUsersUnderReview([...underReviewRiders, ...underReviewDrivers]);
@@ -152,6 +156,37 @@ export default function SafetyOverviewDashboardPage() {
         .catch(() => undefined);
     }, 30000);
     return () => window.clearInterval(poll);
+  }, []);
+
+  // Realtime SOS acceleration: new/updated incidents push a refetch so the red
+  // alert appears immediately. Realtime is NOT the source of truth — the same
+  // data is re-hydrated from the backend on load and by the 30 s poll, so a
+  // reload or reconnect still shows every active incident.
+  useEffect(() => {
+    let socket: ReturnType<typeof createAdminSocket> | null = null;
+    const refetchIncidents = () => {
+      listAdminSafetyEmergencies()
+        .then((page) => {
+          setIncidents(page?.items ?? []);
+          setError(null);
+        })
+        .catch(() => undefined);
+    };
+    try {
+      socket = createAdminSocket();
+      socket.on("safety.incident.new", refetchIncidents);
+      socket.on("admin.safety.incidents.updated", refetchIncidents);
+      socket.connect();
+    } catch {
+      socket = null;
+    }
+    return () => {
+      if (socket) {
+        socket.off("safety.incident.new", refetchIncidents);
+        socket.off("admin.safety.incidents.updated", refetchIncidents);
+        socket.disconnect();
+      }
+    };
   }, []);
 
   const openSosCount = useMemo(() => incidents.filter((i) => i.sos && i.status === "OPEN").length, [incidents]);
