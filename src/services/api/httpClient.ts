@@ -13,15 +13,15 @@ type QueryValue = QueryPrimitive | QueryPrimitive[] | null | undefined;
 
 export interface TokenRefreshResult {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 interface HttpClientAuthAdapter {
   getAccessToken: () => string | null;
-  getRefreshToken: () => string | null;
-  setTokens: (accessToken: string, refreshToken: string) => void;
+  getRefreshToken?: () => string | null;
+  setTokens: (accessToken: string, refreshToken?: string) => void;
   clearSession: () => void;
-  refresh: (refreshToken: string) => Promise<TokenRefreshResult>;
+  refresh: (refreshToken?: string) => Promise<TokenRefreshResult>;
   onUnauthorized?: () => void;
 }
 
@@ -80,7 +80,7 @@ function buildHeaders(options: RequestOptions): Record<string, string> {
 }
 
 async function attemptRefresh(): Promise<TokenRefreshResult> {
-  const refreshToken = authAdapter?.getRefreshToken();
+  const refreshToken = authAdapter?.getRefreshToken?.();
   if (!authAdapter || !refreshToken) {
     throw new ApiRequestError("Session expired", 401);
   }

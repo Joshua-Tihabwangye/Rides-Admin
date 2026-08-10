@@ -106,7 +106,7 @@ async function finalizeBackendAuth(backend: {
   refreshToken: string
   user: { email: string; roles?: string[] }
 }, preferredName?: string): Promise<AuthUser> {
-  saveAdminBackendTokens(backend.accessToken, backend.refreshToken)
+  saveAdminBackendTokens(backend.accessToken)
 
   const session = await backendFetchSession()
   const sessionRoles = parseAdminRoles(session.user.roles)

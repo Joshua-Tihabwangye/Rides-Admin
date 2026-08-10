@@ -8,7 +8,6 @@ import {
 } from "./validators";
 
 export const ADMIN_BACKEND_ACCESS_TOKEN_KEY = "admin_backend_access_token";
-export const ADMIN_BACKEND_REFRESH_TOKEN_KEY = "admin_backend_refresh_token";
 export const ADMIN_SUMMARY_UPDATED_EVENT = "evzone:admin-summary-updated";
 const ADMIN_AUTH_STORAGE_KEY = "evzone_admin_auth";
 
@@ -85,44 +84,29 @@ export function writeAdminBackendAccessToken(token: string): void {
   localStorage.setItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY, token);
 }
 
-export function readAdminBackendRefreshToken(): string | null {
-  try {
-    return localStorage.getItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function writeAdminBackendRefreshToken(token: string): void {
-  localStorage.setItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY, token);
-}
-
 export function clearAdminBackendTokens(): void {
   try {
     localStorage.removeItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
-    localStorage.removeItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY);
     localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
   } catch {
     // no-op
   }
 }
 
-async function refreshAdminBackendTokens(refreshToken: string): Promise<TokenRefreshResult> {
-  const payload = await request<{ accessToken: string; refreshToken: string }>("/auth/refresh", {
+async function refreshAdminBackendTokens(): Promise<TokenRefreshResult> {
+  const payload = await request<{ accessToken: string }>("/auth/refresh", {
     method: "POST",
-    body: { refreshToken, clientApp: "ADMIN" },
+    body: { clientApp: "ADMIN" },
     retryOnUnauthorized: false,
   });
 
   return {
     accessToken: payload.accessToken,
-    refreshToken: payload.refreshToken,
   };
 }
 
 configureHttpClientAuth({
   getAccessToken: readAdminBackendAccessToken,
-  getRefreshToken: readAdminBackendRefreshToken,
   setTokens: saveAdminBackendTokens,
   clearSession: clearAdminBackendTokens,
   refresh: refreshAdminBackendTokens,
@@ -1289,9 +1273,8 @@ export async function getAdminRiderService(requestId: string): Promise<AdminRide
 
 // ── Admin Backend Token Helpers ────────────────────────────────────────────
 
-export function saveAdminBackendTokens(accessToken: string, refreshToken: string): void {
+export function saveAdminBackendTokens(accessToken: string): void {
   writeAdminBackendAccessToken(accessToken);
-  writeAdminBackendRefreshToken(refreshToken);
 }
 
 export function isAdminBackendEnabled(): boolean {
