@@ -682,9 +682,12 @@ export async function updateAdminSafetyIncident(
   id: string,
   payload: { status: string; assignedToUserId?: string },
 ): Promise<AdminSafetyIncident> {
+  // httpClient.request() stringifies the body; passing the payload object
+  // directly avoids double-encoding (which previously sent a quoted JSON
+  // string and made the backend reject the acknowledge/assign/resolve PATCH).
   return request<AdminSafetyIncident>(`/safety/emergencies/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
