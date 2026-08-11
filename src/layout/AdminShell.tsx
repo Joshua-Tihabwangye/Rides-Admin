@@ -82,6 +82,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, isAuthed, signOut } from '../auth/auth'
 import { ADMIN_SUMMARY_UPDATED_EVENT, getAdminOperationalSummary } from '../services/api/adminApi'
+import SafetyIncidentPopup from '../components/SafetyIncidentPopup'
 
 const drawerWidth = 220
 const drawerWidthMini = 88
@@ -785,6 +786,10 @@ export default function AdminShell() {
 
         </Box>
       </Box>
+
+      {/* Global red-alert popup for live SOS / safety incidents — visible on
+          every admin page; clicking navigates to the driver in trouble. */}
+      <SafetyIncidentPopup />
     </Box>
   )
 }

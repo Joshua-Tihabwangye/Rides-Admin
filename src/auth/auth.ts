@@ -69,12 +69,6 @@ function parseAdminRoles(roles: unknown): AdminRoleClaimStatus {
   }
 }
 
-function isTokenExpired(token: string): boolean {
-  const payload = parseJwtPayload(token)
-  if (!payload?.exp) return false
-  return payload.exp * 1000 <= Date.now()
-}
-
 function resolveClaimRoles(): AdminRoleClaimStatus {
   const accessToken = readAdminBackendAccessToken()
   if (!accessToken) return { roles: [], hasUnknownRoles: false }
@@ -194,7 +188,11 @@ export function isAuthed() {
 
   if (isBackendAuthEnabled()) {
     const token = readAdminBackendAccessToken()
-    if (!token || isTokenExpired(token) || hasInvalidRoleClaims()) {
+    // An expired access token is no longer a sign-out condition on its own:
+    // the HttpOnly refresh cookie can still recover the session. RequireAuth
+    // revalidates via /auth/session, which refreshes on 401 and only signs
+    // out when the refresh genuinely fails.
+    if (!token || hasInvalidRoleClaims()) {
       signOut()
       return false
     }

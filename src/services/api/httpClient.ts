@@ -80,9 +80,20 @@ function buildHeaders(options: RequestOptions): Record<string, string> {
 }
 
 async function attemptRefresh(): Promise<TokenRefreshResult> {
-  const refreshToken = authAdapter?.getRefreshToken?.();
-  if (!authAdapter || !refreshToken) {
+  if (!authAdapter) {
     throw new ApiRequestError("Session expired", 401);
+  }
+
+  // When the adapter exposes getRefreshToken and it returns null, there is no
+  // stored token to refresh with. When it is not provided at all, the refresh
+  // token travels in the HttpOnly cookie, so attempt the refresh regardless.
+  let refreshToken: string | undefined;
+  if (authAdapter.getRefreshToken) {
+    const stored = authAdapter.getRefreshToken();
+    if (!stored) {
+      throw new ApiRequestError("Session expired", 401);
+    }
+    refreshToken = stored;
   }
 
   if (!inFlightRefresh) {
@@ -123,6 +134,10 @@ function buildRequestUrl(path: string, query?: Record<string, QueryValue>): stri
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(buildRequestUrl(path, options.query), {
     method: options.method || "GET",
+    // Send the HttpOnly refresh-token cookie. In dev the API is same-origin
+    // via the Vite proxy; in production this keeps cookie refresh working
+    // when the backend is on another origin (CORS allows credentials).
+    credentials: "include",
     headers: buildHeaders(options),
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
