@@ -51,7 +51,6 @@ function mapsLink(latitude: number | null | undefined, longitude: number | null 
   return `https://maps.google.com/?q=${latitude},${longitude}`
 }
 
-const POPUP_VISIBLE_MS = 60_000
 const MAX_STACKED = 3
 
 export default function SafetyIncidentPopup() {
@@ -113,11 +112,6 @@ export default function SafetyIncidentPopup() {
       }
 
       setAlerts((prev) => [...prev.slice(-(MAX_STACKED - 1)), alert])
-
-      // Auto-dismiss after the popup window so stale alerts do not pile up.
-      window.setTimeout(() => {
-        setAlerts((prev) => prev.filter((entry) => entry.incidentId !== incident.id))
-      }, POPUP_VISIBLE_MS)
     }
 
     socket.on("safety.incident.new", onSafetyIncident)

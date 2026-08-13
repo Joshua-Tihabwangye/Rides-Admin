@@ -42,6 +42,7 @@ import {
   createAdminSocket,
 } from "../services/api/adminApi";
 import type { AdminRiskCaseResponse, AdminSafetyIncident } from "../services/api/adminApi";
+import AdminTripCommunicationPanel from "../components/AdminTripCommunicationPanel";
 
 function currentAdminUserId(): string | null {
   try {
@@ -93,6 +94,7 @@ export default function SafetyOverviewDashboardPage() {
   const [riskCases, setRiskCases] = useState<AdminRiskCaseResponse[]>([]);
   const [incidents, setIncidents] = useState<AdminSafetyIncident[]>([]);
   const [expandedIncident, setExpandedIncident] = useState<string | null>(null);
+  const [contactIncidentId, setContactIncidentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -195,6 +197,21 @@ export default function SafetyOverviewDashboardPage() {
     () => incidents.filter((i) => i.sos && OPEN_SOS_STATUSES.includes(i.status)),
     [incidents],
   );
+  const contactIncident = useMemo(
+    () => incidents.find((i) => i.id === contactIncidentId) ?? null,
+    [contactIncidentId, incidents],
+  );
+
+  // Auto-open the communication panel for the first active SOS incident so an
+  // operator can reach the driver the moment an alert lands. One panel is
+  // mounted at a time (closing it or reselecting restores a single context).
+  useEffect(() => {
+    if (contactIncidentId) return;
+    const firstActive = activeSos[0];
+    if (firstActive) {
+      setContactIncidentId(firstActive.id);
+    }
+  }, [activeSos, contactIncidentId]);
 
   const refreshIncidents = async () => {
     try {
@@ -399,6 +416,17 @@ export default function SafetyOverviewDashboardPage() {
                           Responding
                         </Button>
                       ) : null}
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        disabled={!incident.serviceType || !incident.serviceId}
+                        onClick={() => setContactIncidentId(incident.id)}
+                        sx={{ fontSize: 10, textTransform: "none" }}
+                        title={incident.serviceType && incident.serviceId ? "Chat & call the driver and reporter" : "No linked trip to communicate over"}
+                      >
+                        Chat &amp; call
+                      </Button>
                       <Button size="small" variant="outlined" onClick={() => assignToMe(incident)} sx={{ fontSize: 10, textTransform: "none" }}>
                         Assign to me
                       </Button>
@@ -448,6 +476,54 @@ export default function SafetyOverviewDashboardPage() {
             );
           })}
         </Box>
+      ) : null}
+
+      {contactIncident ? (
+        <Card
+          elevation={3}
+          sx={{
+            mb: 3,
+            borderRadius: 2,
+            border: "1px solid rgba(37,99,235,0.4)",
+            bgcolor: "background.paper",
+          }}
+        >
+          <CardContent className="p-4 flex flex-col gap-2">
+            <Box className="flex items-center justify-between gap-2 flex-wrap">
+              <Box className="flex items-center gap-2 flex-wrap">
+                <Chip
+                  size="small"
+                  color="primary"
+                  label="CONTACT"
+                  sx={{ fontWeight: 800, fontSize: 10, height: 20 }}
+                />
+                <Typography variant="subtitle2" className="font-mono font-bold text-slate-800">
+                  {contactIncident.id}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {contactIncident.serviceType || "RIDE"}
+                  {contactIncident.serviceId ? ` · ${contactIncident.serviceId}` : ""}
+                  {contactIncident.driverId ? ` · driver ${contactIncident.driverId.slice(0, 8)}` : ""}
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => setContactIncidentId(null)}
+                sx={{ fontSize: 10, textTransform: "none" }}
+              >
+                Close
+              </Button>
+            </Box>
+            <AdminTripCommunicationPanel
+              key={contactIncident.id}
+              serviceType={contactIncident.serviceType ?? "RIDE"}
+              serviceId={contactIncident.serviceId}
+              driverId={contactIncident.driverId}
+              reporterUserId={contactIncident.reporterUserId}
+            />
+          </CardContent>
+        </Card>
       ) : null}
 
       <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">

@@ -6,6 +6,7 @@ import {
   isAdminBackendEnabled,
   syncAdminReferenceData,
 } from "../services/api/adminApi"
+import { startAdminProactiveSessionRefresh } from "../services/api/httpClient"
 
 export default function AdminBackendBootstrap() {
   const location = useLocation()
@@ -20,6 +21,17 @@ export default function AdminBackendBootstrap() {
       console.warn("Admin backend sync failed. Keeping current local store.", error)
     })
   }, [adminBackendEnabled, location.pathname])
+
+  useEffect(() => {
+    if (!adminBackendEnabled || !isAuthed()) {
+      return
+    }
+
+    // Refresh the access token before it expires so a racing 401-refresh
+    // (parallel admin requests, multiple tabs) never logs the admin out
+    // while idle.
+    startAdminProactiveSessionRefresh()
+  }, [adminBackendEnabled])
 
   useEffect(() => {
     if (!adminBackendEnabled || !isAuthed()) {
