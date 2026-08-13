@@ -693,6 +693,48 @@ export async function updateAdminSafetyIncident(
   });
 }
 
+// ── Analytics (backend DB-derived, not client-computed) ─────────────────────
+// Phase 12/13: charts must render real database aggregates. The backend
+// aggregates paid payments into per-day revenue/transaction buckets.
+
+export type AdminAnalyticsTimeseriesPoint = {
+  date: string;
+  revenue: number;
+  transactions: number;
+};
+
+export type AdminAnalyticsTimeseries = AdminAnalyticsTimeseriesPoint[];
+
+const ANALYTICS_PERIOD_MAP: Record<string, string> = {
+  today: "day",
+  "7days": "week",
+  "30days": "month",
+  thisMonth: "month",
+  custom: "month",
+};
+
+export function mapAnalyticsPeriod(uiPeriod: string): string {
+  return ANALYTICS_PERIOD_MAP[uiPeriod] ?? "month";
+}
+
+export async function getAdminAnalyticsTimeseries(
+  period = "month",
+): Promise<AdminAnalyticsTimeseries> {
+  const backendPeriod = mapAnalyticsPeriod(period);
+  return request<AdminAnalyticsTimeseries>(
+    `/admin/portal/analytics/timeseries?period=${backendPeriod}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminAnalyticsOperations(): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>("/admin/portal/analytics/operations", { method: "GET" });
+}
+
+export async function getAdminAnalyticsFinance(): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>("/admin/portal/analytics/finance", { method: "GET" });
+}
+
 // ── Monitoring detail endpoints (observability dashboards) ──────────────────
 // NOTE: These endpoints are not fully exposed by the backend yet. The wrappers
 // below fall back to the closest existing endpoints so the UI can render real

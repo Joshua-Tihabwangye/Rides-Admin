@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
 	Box,
 	Card,
@@ -43,6 +43,10 @@ import DownloadIcon from "@mui/icons-material/Download";
 import PeriodSelector from "../components/PeriodSelector";
 import ExportButton from "../components/ExportButton";
 import dayjs from "dayjs";
+import {
+	getAdminAnalyticsTimeseries,
+	type AdminAnalyticsTimeseriesPoint,
+} from "../services/api/adminApi";
 
 // B3 – Detailed Analytics & Reports
 // Route: /admin/reports
@@ -94,6 +98,8 @@ export default function DetailedAnalyticsPage() {
 	const [recentReports, setRecentReports] = useState<string[]>([
 		"TRIPS-VOLUME",
 	]);
+	const [realSeries, setRealSeries] = useState<AdminAnalyticsTimeseriesPoint[]>([]);
+	const [analyticsLoading, setAnalyticsLoading] = useState(false);
 	const [previewState, setPreviewState] = useState<
 		"ready" | "loading" | "empty" | "error"
 	>("ready");
@@ -101,14 +107,27 @@ export default function DetailedAnalyticsPage() {
 		"all",
 	);
 
-	// Mock data update effect – in a real app this would fetch from the backend.
-	React.useEffect(() => {
-		// This side-effect exists to document how filters drive data.
-		// eslint-disable-next-line no-console
-		console.log(
-			`[Analytics] Updating data for Report: ${selectedReportId}, Period: ${period}, Region: ${filters.region}, Service: ${filters.service}`,
-		);
-	}, [selectedReportId, period, filters.region, filters.service]);
+	// Phase 12/13: analytics are derived from the backend (real database
+	// aggregates), not fabricated client-side. Fetch the per-day revenue /
+	// transaction time-series for the selected period and feed it into the
+	// Trips & volumes report.
+	useEffect(() => {
+		let active = true;
+		setAnalyticsLoading(true);
+		getAdminAnalyticsTimeseries(period)
+			.then((data) => {
+				if (active) setRealSeries(Array.isArray(data) ? data : []);
+			})
+			.catch(() => {
+				if (active) setRealSeries([]);
+			})
+			.finally(() => {
+				if (active) setAnalyticsLoading(false);
+			});
+		return () => {
+			active = false;
+		};
+	}, [period]);
 
 	const selectedReport =
 		REPORTS.find((r) => r.id === selectedReportId) || REPORTS[0];
@@ -184,6 +203,18 @@ export default function DetailedAnalyticsPage() {
 		"COMPANY-PERF": { All: [] },
 	};
 
+	// Real backend-derived series for the Trips & volumes report: each payment
+	// bucket becomes a row with the transaction count and revenue.
+	const realTripsData: AdminAnalyticsTimeseriesPoint[] = realSeries.map((bucket) => ({
+		name: bucket.date,
+		rides: bucket.transactions,
+		revenue: bucket.revenue,
+		distance: 0,
+		duration: 0,
+	}));
+
+	const usingRealTrips = selectedReportId === "TRIPS-VOLUME" && realTripsData.length > 0;
+
 	const serviceFactor =
 		filters.service === "Rides"
 			? 1
@@ -194,14 +225,26 @@ export default function DetailedAnalyticsPage() {
 					: 1;
 
 	const selectedReportData =
-		reportDatasets[selectedReportId]?.[filters.region] ||
-		reportDatasets[selectedReportId]?.All ||
-		reportDatasets["TRIPS-VOLUME"].All;
+		usingRealTrips
+			? realTripsData
+			: reportDatasets[selectedReportId]?.[filters.region] ||
+			  reportDatasets[selectedReportId]?.All ||
+			  reportDatasets["TRIPS-VOLUME"].All;
 
 	const chartData = selectedReportData.map((row) => {
 		const mult = periodMultiplier[period] ?? 1;
 
 		if (selectedReportId === "TRIPS-VOLUME") {
+			// Real data is already in absolute units; do not re-apply the
+			// illustrative multipliers used for the (empty) placeholder set.
+			if (usingRealTrips) {
+				return {
+					...row,
+					rides: row.rides,
+					distance: row.distance || 0,
+					duration: row.duration || 0,
+				};
+			}
 			return {
 				...row,
 				rides: Math.round(row.rides * mult * serviceFactor),
@@ -244,11 +287,12 @@ export default function DetailedAnalyticsPage() {
 				region: row.name,
 				service: filters.service === "All" ? "All" : filters.service,
 				trips: row.rides,
-				completionRate: `${row.completion}%`,
+				completionRate:
+					row.completion != null ? `${row.completion}%` : "N/A",
 				avgDistance:
-					row.distance?.toFixed(1) ?? "N/A",
+					row.distance != null ? `${Number(row.distance).toFixed(1)}` : "N/A",
 				avgDuration:
-					row.duration?.toFixed(1) ?? "N/A",
+					row.duration != null ? `${Number(row.duration).toFixed(1)}` : "N/A",
 			};
 		}
 
