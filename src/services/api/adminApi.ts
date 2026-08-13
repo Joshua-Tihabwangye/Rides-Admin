@@ -41,6 +41,8 @@ export type AdminDriverResponse = {
   phone: string;
   city: string;
   status: 'active' | 'deleted' | 'suspended';
+  /** Backend-driven availability (ONLINE / OFFLINE / BUSY / INACTIVE / SUSPENDED). */
+  availabilityStatus?: string;
   vehicleType: 'Bike' | 'Car';
   totalTrips?: number;
   licensePlate?: string;
@@ -751,10 +753,14 @@ function normalizeBookingToJob(
 }
 
 export async function listAdminOnlineDrivers(): Promise<AdminOnlineDriver[]> {
-  // Gap: backend has no dedicated /admin/monitoring/drivers/online endpoint.
-  // Closest existing endpoint is the driver list.
+  // Phase 9: "online" is a backend-driven availability status (ONLINE / BUSY),
+  // not the account approval status. Filter on availabilityStatus so only
+  // drivers actually available are counted as online.
   const drivers = await listAdminDrivers();
-  return drivers.filter((driver) => driver.status === "active");
+  const online = new Set(["ONLINE", "BUSY"]);
+  return drivers.filter(
+    (driver) => driver.availabilityStatus != null && online.has(driver.availabilityStatus.toUpperCase()),
+  );
 }
 
 export async function listAdminStaleDrivers(): Promise<AdminStaleDriver[]> {
