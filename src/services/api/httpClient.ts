@@ -49,6 +49,50 @@ export class ApiRequestError extends Error {
 let authAdapter: HttpClientAuthAdapter | null = null;
 let inFlightRefresh: Promise<TokenRefreshResult> | null = null;
 
+function decodeJwtExp(accessToken: string): number | null {
+  try {
+    const payloadPart = accessToken.split(".")[1];
+    if (!payloadPart) return null;
+    const padded = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(padded)) as { exp?: number };
+    return typeof payload.exp === "number" ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Refresh the access token before it expires so parallel 401s never race a
+ * single rotation (the idle-logout bug). Call once at app start while signed
+ * in; dedupes with any in-flight refresh.
+ */
+export function startAdminProactiveSessionRefresh(
+  intervalMs = 60_000,
+  leadMs = 5 * 60_000,
+): void {
+  if (typeof window === "undefined") return;
+  const tick = () => {
+    if (!authAdapter) return;
+    const token = authAdapter.getAccessToken();
+    if (!token) return;
+    const exp = decodeJwtExp(token);
+    if (exp === null) return;
+    if (exp - Date.now() <= leadMs) {
+      void attemptRefresh()
+        .then((result) => authAdapter?.setTokens(result.accessToken, result.refreshToken))
+        .catch((error) => {
+          // A permanent refresh rejection means the session can never
+          // recover — sign out instead of retrying every tick.
+          if (isDefinitiveAuthRejection(error)) {
+            handleUnauthorized();
+          }
+        });
+    }
+  };
+  tick();
+  window.setInterval(tick, intervalMs);
+}
+
 export function configureHttpClientAuth(adapter: HttpClientAuthAdapter) {
   authAdapter = adapter;
 }
@@ -105,6 +149,15 @@ async function attemptRefresh(): Promise<TokenRefreshResult> {
   return inFlightRefresh;
 }
 
+function isDefinitiveAuthRejection(error: unknown): boolean {
+  return (
+    error instanceof ApiRequestError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 429
+  );
+}
+
 function handleUnauthorized() {
   authAdapter?.clearSession();
   authAdapter?.onUnauthorized?.();
@@ -156,8 +209,15 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
         },
       });
     } catch (error) {
-      handleUnauthorized();
-      throw error instanceof ApiRequestError ? error : new ApiRequestError("Session expired", 401);
+      // A definitive 4xx (except 429) means the session is gone: 401/403 are
+      // invalid tokens and 400/422 mean the refresh credential itself is
+      // missing/malformed. Clearing on those stops the 400-refresh loop.
+      // Transient failures (offline, backend down, timeout, 5xx, 429) keep
+      // the admin signed in — clearing here was the idle-logout bug.
+      if (isDefinitiveAuthRejection(error)) {
+        handleUnauthorized();
+      }
+      throw error;
     }
   }
 
