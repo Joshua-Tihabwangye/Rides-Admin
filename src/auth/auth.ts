@@ -13,6 +13,7 @@ import {
   saveAdminBackendTokens,
   syncAdminReferenceData,
 } from "../services/api/adminApi"
+import { getUserPermissions } from "./permissions"
 
 export const ADMIN_BACKEND_ROLE_ENUMS = ["admin", "super_admin"] as const
 export type AdminBackendRole = (typeof ADMIN_BACKEND_ROLE_ENUMS)[number]
@@ -163,8 +164,14 @@ export function getAuthRoles(): AdminBackendRole[] {
 }
 
 export function getAuthPermissions(): string[] {
-  const user = getAuthUser()
-  return Array.isArray(user?.permissions) ? user.permissions.filter((value) => typeof value === "string") : []
+  const user = getAuthUser();
+  if (!user) return [];
+  // Phase 10: resolve the effective permission set from the user's roles. A
+  // SUPER_ADMIN (or any admin whose backend session emitted the '*' wildcard)
+  // resolves to the full permission set, so page-level guards and API checks
+  // grant unrestricted access. The backend remains authoritative for what
+  // each non-super role may do.
+  return getUserPermissions(user);
 }
 
 export function hasInvalidRoleClaims(): boolean {
