@@ -735,6 +735,43 @@ export async function getAdminAnalyticsFinance(): Promise<Record<string, unknown
   return request<Record<string, unknown>>("/admin/portal/analytics/finance", { method: "GET" });
 }
 
+export type AdminAnalyticsDriverPoint = {
+  driverId: string;
+  name: string;
+  rating: number;
+  trips: number;
+  completed: number;
+  cancelled: number;
+  acceptance: number;
+};
+
+export type AdminAnalyticsCompanyPoint = {
+  organizationId: string;
+  name: string;
+  trips: number;
+  completed: number;
+  cancelled: number;
+  payouts: number;
+};
+
+export async function getAdminAnalyticsDrivers(
+  period = "month",
+): Promise<AdminAnalyticsDriverPoint[]> {
+  return request<AdminAnalyticsDriverPoint[]>(
+    `/admin/portal/analytics/drivers?period=${mapAnalyticsPeriod(period)}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminAnalyticsCompanies(
+  period = "month",
+): Promise<AdminAnalyticsCompanyPoint[]> {
+  return request<AdminAnalyticsCompanyPoint[]>(
+    `/admin/portal/analytics/companies?period=${mapAnalyticsPeriod(period)}`,
+    { method: "GET" },
+  );
+}
+
 // ── Monitoring detail endpoints (observability dashboards) ──────────────────
 // NOTE: These endpoints are not fully exposed by the backend yet. The wrappers
 // below fall back to the closest existing endpoints so the UI can render real
