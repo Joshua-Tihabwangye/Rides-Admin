@@ -41,6 +41,8 @@ export type AdminDriverResponse = {
   phone: string;
   city: string;
   status: 'active' | 'deleted' | 'suspended';
+  /** Backend-driven availability (ONLINE / OFFLINE / BUSY / INACTIVE / SUSPENDED). */
+  availabilityStatus?: string;
   vehicleType: 'Bike' | 'Car';
   totalTrips?: number;
   licensePlate?: string;
@@ -691,6 +693,85 @@ export async function updateAdminSafetyIncident(
   });
 }
 
+// ── Analytics (backend DB-derived, not client-computed) ─────────────────────
+// Phase 12/13: charts must render real database aggregates. The backend
+// aggregates paid payments into per-day revenue/transaction buckets.
+
+export type AdminAnalyticsTimeseriesPoint = {
+  date: string;
+  revenue: number;
+  transactions: number;
+};
+
+export type AdminAnalyticsTimeseries = AdminAnalyticsTimeseriesPoint[];
+
+const ANALYTICS_PERIOD_MAP: Record<string, string> = {
+  today: "day",
+  "7days": "week",
+  "30days": "month",
+  thisMonth: "month",
+  custom: "month",
+};
+
+export function mapAnalyticsPeriod(uiPeriod: string): string {
+  return ANALYTICS_PERIOD_MAP[uiPeriod] ?? "month";
+}
+
+export async function getAdminAnalyticsTimeseries(
+  period = "month",
+): Promise<AdminAnalyticsTimeseries> {
+  const backendPeriod = mapAnalyticsPeriod(period);
+  return request<AdminAnalyticsTimeseries>(
+    `/admin/portal/analytics/timeseries?period=${backendPeriod}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminAnalyticsOperations(): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>("/admin/portal/analytics/operations", { method: "GET" });
+}
+
+export async function getAdminAnalyticsFinance(): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>("/admin/portal/analytics/finance", { method: "GET" });
+}
+
+export type AdminAnalyticsDriverPoint = {
+  driverId: string;
+  name: string;
+  rating: number;
+  trips: number;
+  completed: number;
+  cancelled: number;
+  acceptance: number;
+};
+
+export type AdminAnalyticsCompanyPoint = {
+  organizationId: string;
+  name: string;
+  trips: number;
+  completed: number;
+  cancelled: number;
+  payouts: number;
+};
+
+export async function getAdminAnalyticsDrivers(
+  period = "month",
+): Promise<AdminAnalyticsDriverPoint[]> {
+  return request<AdminAnalyticsDriverPoint[]>(
+    `/admin/portal/analytics/drivers?period=${mapAnalyticsPeriod(period)}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminAnalyticsCompanies(
+  period = "month",
+): Promise<AdminAnalyticsCompanyPoint[]> {
+  return request<AdminAnalyticsCompanyPoint[]>(
+    `/admin/portal/analytics/companies?period=${mapAnalyticsPeriod(period)}`,
+    { method: "GET" },
+  );
+}
+
 // ── Monitoring detail endpoints (observability dashboards) ──────────────────
 // NOTE: These endpoints are not fully exposed by the backend yet. The wrappers
 // below fall back to the closest existing endpoints so the UI can render real
@@ -751,10 +832,14 @@ function normalizeBookingToJob(
 }
 
 export async function listAdminOnlineDrivers(): Promise<AdminOnlineDriver[]> {
-  // Gap: backend has no dedicated /admin/monitoring/drivers/online endpoint.
-  // Closest existing endpoint is the driver list.
+  // Phase 9: "online" is a backend-driven availability status (ONLINE / BUSY),
+  // not the account approval status. Filter on availabilityStatus so only
+  // drivers actually available are counted as online.
   const drivers = await listAdminDrivers();
-  return drivers.filter((driver) => driver.status === "active");
+  const online = new Set(["ONLINE", "BUSY"]);
+  return drivers.filter(
+    (driver) => driver.availabilityStatus != null && online.has(driver.availabilityStatus.toUpperCase()),
+  );
 }
 
 export async function listAdminStaleDrivers(): Promise<AdminStaleDriver[]> {

@@ -38,6 +38,7 @@ type PopupAlert = {
   message: string
   driverName: string
   driverId?: string | null
+  address?: string | null
   latitude?: number | null
   longitude?: number | null
   serviceType?: string | null
@@ -49,6 +50,13 @@ type PopupAlert = {
 function mapsLink(latitude: number | null | undefined, longitude: number | null | undefined): string | null {
   if (latitude == null || longitude == null) return null
   return `https://maps.google.com/?q=${latitude},${longitude}`
+}
+
+function formatIncidentTime(value?: string | null): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
 
 const MAX_STACKED = 3
@@ -103,6 +111,7 @@ export default function SafetyIncidentPopup() {
         message: incident.description || "",
         driverName: driverName || reporterName,
         driverId: incident.driverId,
+        address: incident.address ?? null,
         latitude: incident.latitude,
         longitude: incident.longitude,
         serviceType: incident.serviceType,
@@ -181,9 +190,20 @@ export default function SafetyIncidentPopup() {
                   {alert.serviceId ? ` (${alert.serviceId})` : ""}
                 </Typography>
               ) : null}
+              {alert.address ? (
+                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.9, display: "block", mt: 0.5, fontWeight: 700 }}>
+                  Location: {alert.address}
+                </Typography>
+              ) : null}
               {alert.latitude != null && alert.longitude != null ? (
                 <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
-                  Location: {Number(alert.latitude).toFixed(5)}, {Number(alert.longitude).toFixed(5)}
+                  {alert.address ? "Coordinates: " : "Location: "}
+                  {Number(alert.latitude).toFixed(5)}, {Number(alert.longitude).toFixed(5)}
+                </Typography>
+              ) : null}
+              {formatIncidentTime(alert.createdAt) ? (
+                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
+                  Time: {formatIncidentTime(alert.createdAt)}
                 </Typography>
               ) : null}
               <Button

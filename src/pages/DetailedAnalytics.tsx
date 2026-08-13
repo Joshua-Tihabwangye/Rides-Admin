@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
 	Box,
 	Card,
@@ -43,6 +43,14 @@ import DownloadIcon from "@mui/icons-material/Download";
 import PeriodSelector from "../components/PeriodSelector";
 import ExportButton from "../components/ExportButton";
 import dayjs from "dayjs";
+import {
+	getAdminAnalyticsTimeseries,
+	getAdminAnalyticsDrivers,
+	getAdminAnalyticsCompanies,
+	type AdminAnalyticsTimeseriesPoint,
+	type AdminAnalyticsDriverPoint,
+	type AdminAnalyticsCompanyPoint,
+} from "../services/api/adminApi";
 
 // B3 – Detailed Analytics & Reports
 // Route: /admin/reports
@@ -94,6 +102,10 @@ export default function DetailedAnalyticsPage() {
 	const [recentReports, setRecentReports] = useState<string[]>([
 		"TRIPS-VOLUME",
 	]);
+	const [realSeries, setRealSeries] = useState<AdminAnalyticsTimeseriesPoint[]>([]);
+	const [realDrivers, setRealDrivers] = useState<AdminAnalyticsDriverPoint[]>([]);
+	const [realCompanies, setRealCompanies] = useState<AdminAnalyticsCompanyPoint[]>([]);
+	const [analyticsLoading, setAnalyticsLoading] = useState(false);
 	const [previewState, setPreviewState] = useState<
 		"ready" | "loading" | "empty" | "error"
 	>("ready");
@@ -101,14 +113,31 @@ export default function DetailedAnalyticsPage() {
 		"all",
 	);
 
-	// Mock data update effect – in a real app this would fetch from the backend.
-	React.useEffect(() => {
-		// This side-effect exists to document how filters drive data.
-		// eslint-disable-next-line no-console
-		console.log(
-			`[Analytics] Updating data for Report: ${selectedReportId}, Period: ${period}, Region: ${filters.region}, Service: ${filters.service}`,
-		);
-	}, [selectedReportId, period, filters.region, filters.service]);
+	// Phase 12/13: analytics are derived from the backend (real database
+	// aggregates), not fabricated client-side. Fetch the per-day revenue /
+	// transaction time-series for the selected period and feed it into the
+	// Trips & volumes report.
+	useEffect(() => {
+		let active = true;
+		setAnalyticsLoading(true);
+		Promise.all([
+			getAdminAnalyticsTimeseries(period).catch(() => []),
+			getAdminAnalyticsDrivers(period).catch(() => []),
+			getAdminAnalyticsCompanies(period).catch(() => []),
+		])
+			.then(([series, drivers, companies]) => {
+				if (!active) return;
+				setRealSeries(Array.isArray(series) ? series : []);
+				setRealDrivers(Array.isArray(drivers) ? drivers : []);
+				setRealCompanies(Array.isArray(companies) ? companies : []);
+			})
+			.finally(() => {
+				if (active) setAnalyticsLoading(false);
+			});
+		return () => {
+			active = false;
+		};
+	}, [period]);
 
 	const selectedReport =
 		REPORTS.find((r) => r.id === selectedReportId) || REPORTS[0];
@@ -184,6 +213,37 @@ export default function DetailedAnalyticsPage() {
 		"COMPANY-PERF": { All: [] },
 	};
 
+	// Real backend-derived series for the Trips & volumes report: each payment
+	// bucket becomes a row with the transaction count and revenue.
+	const realTripsData: AdminAnalyticsTimeseriesPoint[] = realSeries.map((bucket) => ({
+		name: bucket.date,
+		rides: bucket.transactions,
+		revenue: bucket.revenue,
+		distance: 0,
+		duration: 0,
+	}));
+
+	// Real driver-performance rows (acceptance %, cancellations, rating).
+	const realDriverData: AdminAnalyticsDriverPoint[] = realDrivers.map((d) => ({
+		name: d.name,
+		acceptance: d.acceptance,
+		cancellations: d.cancelled,
+		rating: d.rating,
+		trips: d.trips,
+	}));
+
+	// Real company-performance rows (trips, cancellations, payouts/revenue).
+	const realCompanyData: AdminAnalyticsCompanyPoint[] = realCompanies.map((c) => ({
+		name: c.name,
+		trips: c.trips,
+		cancellations: c.cancelled,
+		payouts: c.payouts,
+	}));
+
+	const usingRealTrips = selectedReportId === "TRIPS-VOLUME" && realTripsData.length > 0;
+	const usingRealDrivers = selectedReportId === "DRIVER-PERF" && realDriverData.length > 0;
+	const usingRealCompanies = selectedReportId === "COMPANY-PERF" && realCompanyData.length > 0;
+
 	const serviceFactor =
 		filters.service === "Rides"
 			? 1
@@ -194,14 +254,30 @@ export default function DetailedAnalyticsPage() {
 					: 1;
 
 	const selectedReportData =
-		reportDatasets[selectedReportId]?.[filters.region] ||
-		reportDatasets[selectedReportId]?.All ||
-		reportDatasets["TRIPS-VOLUME"].All;
+		usingRealTrips
+			? realTripsData
+			: usingRealDrivers
+			  ? realDriverData
+			  : usingRealCompanies
+			    ? realCompanyData
+			    : reportDatasets[selectedReportId]?.[filters.region] ||
+			      reportDatasets[selectedReportId]?.All ||
+			      reportDatasets["TRIPS-VOLUME"].All;
 
 	const chartData = selectedReportData.map((row) => {
 		const mult = periodMultiplier[period] ?? 1;
 
 		if (selectedReportId === "TRIPS-VOLUME") {
+			// Real data is already in absolute units; do not re-apply the
+			// illustrative multipliers used for the (empty) placeholder set.
+			if (usingRealTrips) {
+				return {
+					...row,
+					rides: row.rides,
+					distance: row.distance || 0,
+					duration: row.duration || 0,
+				};
+			}
 			return {
 				...row,
 				rides: Math.round(row.rides * mult * serviceFactor),
@@ -211,6 +287,16 @@ export default function DetailedAnalyticsPage() {
 		}
 
 		if (selectedReportId === "DRIVER-PERF") {
+			// Real data: render the backend-derived acceptance/cancellations/rating
+			// directly; the illustrative multiplier is only for placeholder data.
+			if (usingRealDrivers) {
+				return {
+					...row,
+					acceptance: row.acceptance,
+					cancellations: row.cancellations,
+					rating: row.rating,
+				};
+			}
 			return {
 				...row,
 				acceptance: Math.round(row.acceptance * mult),
@@ -224,6 +310,14 @@ export default function DetailedAnalyticsPage() {
 		}
 
 		if (selectedReportId === "COMPANY-PERF") {
+			if (usingRealCompanies) {
+				return {
+					...row,
+					trips: row.trips,
+					cancellations: row.cancellations,
+					payouts: row.payouts,
+				};
+			}
 			return {
 				...row,
 				trips: Math.round(row.trips * mult * serviceFactor),
@@ -244,11 +338,12 @@ export default function DetailedAnalyticsPage() {
 				region: row.name,
 				service: filters.service === "All" ? "All" : filters.service,
 				trips: row.rides,
-				completionRate: `${row.completion}%`,
+				completionRate:
+					row.completion != null ? `${row.completion}%` : "N/A",
 				avgDistance:
-					row.distance?.toFixed(1) ?? "N/A",
+					row.distance != null ? `${Number(row.distance).toFixed(1)}` : "N/A",
 				avgDuration:
-					row.duration?.toFixed(1) ?? "N/A",
+					row.duration != null ? `${Number(row.duration).toFixed(1)}` : "N/A",
 			};
 		}
 
@@ -272,24 +367,22 @@ export default function DetailedAnalyticsPage() {
 	});
 
 	// Calculate KPI summary for selected report
+	const safeNum = (value: unknown): number => {
+		const n = typeof value === "number" ? value : parseFloat(String(value));
+		return Number.isFinite(n) ? n : 0;
+	};
 	const kpiSummary = useMemo(() => {
 		if (selectedReportId !== "TRIPS-VOLUME") return null;
 		const totalTrips = tableRows.reduce((sum, row) => sum + row.trips, 0);
 		const weightedCompletion =
-			tableRows.reduce(
-				(sum, row) => sum + row.trips * parseFloat(row.completionRate),
-				0,
-			) / totalTrips;
+			tableRows.reduce((sum, row) => sum + row.trips * safeNum(row.completionRate), 0) /
+			(totalTrips || 1);
 		const weightedDistance =
-			tableRows.reduce(
-				(sum, row) => sum + row.trips * parseFloat(row.avgDistance),
-				0,
-			) / totalTrips;
+			tableRows.reduce((sum, row) => sum + row.trips * safeNum(row.avgDistance), 0) /
+			(totalTrips || 1);
 		const weightedDuration =
-			tableRows.reduce(
-				(sum, row) => sum + row.trips * parseFloat(row.avgDuration),
-				0,
-			) / totalTrips;
+			tableRows.reduce((sum, row) => sum + row.trips * safeNum(row.avgDuration), 0) /
+			(totalTrips || 1);
 
 		return {
 			totalTrips,
