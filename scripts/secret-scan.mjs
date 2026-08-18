@@ -20,10 +20,6 @@ if (hasCommand('gitleaks')) {
   process.exit(run('gitleaks', args));
 }
 
-if (hasCommand('gitleaks')) {
-  process.exit(run('gitleaks', args));
-}
-
 if (hasCommand('docker')) {
   const daemonCheck = spawnSync('docker', ['info'], { stdio: 'ignore' });
   if (daemonCheck.status === 0) {
@@ -47,7 +43,7 @@ console.error(`Secret scanning failed: neither gitleaks nor Docker is available.
 
 Install gitleaks and re-run npm run security:secrets before pushing.
 
-Do not commit real Google API keys, Firebase service-account files, or .env files.`);
+Do not commit real Google API keys, JWT/bearer tokens, Firebase service-account files, or .env files.`);
 
 const fallbackLocalScan = () => {
   const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', 'backups', 'release']);
@@ -57,12 +53,19 @@ const fallbackLocalScan = () => {
     [/AKIA[0-9A-Z]{16}/, 'AWS access key'],
     [/firebase-adminsdk|serviceAccountKey/i, 'Firebase service account'],
     [/\bsk-[A-Za-z0-9]{24,}/, 'OpenAI-style secret key'],
+    // Compact JWT (header.payload.signature) — catches tracked bearer/refresh tokens.
+    [/eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/, 'JWT / bearer token'],
   ];
   const NAME_PATTERNS = [
     [/^\.env(?!\.(example|template)$)/, 'committed local env file'],
     [/\.pem$/, 'private key file'],
     [/service[-_]?account/i, 'service account file'],
+    [/\.(token|jwt)$/i, 'tracked token file'],
   ];
+  const shouldScanContent = (name) =>
+    /\.(ts|tsx|js|mjs|json|yml|yaml|example|txt)$/.test(name) ||
+    name === '.env.example' ||
+    name === '.env.template';
   const failures = [];
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -72,11 +75,18 @@ const fallbackLocalScan = () => {
         continue;
       }
       if (entry.name === 'secret-scan.mjs') continue;
+      // Skip files git already ignores (e.g. local .env) so the scan focuses
+      // on committable/tracked source, matching gitleaks' default behaviour.
+      try {
+        if (spawnSync('git', ['check-ignore', '-q', full]).status === 0) continue;
+      } catch {
+        /* git unavailable — scan everything */
+      }
       const rel = path.relative(process.cwd(), full);
       for (const [pattern, label] of NAME_PATTERNS) {
         if (pattern.test(entry.name)) failures.push(`${rel} — ${label}`);
       }
-      if (!/\.(ts|tsx|js|mjs|json|yml|yaml)$/.test(entry.name)) continue;
+      if (!shouldScanContent(entry.name)) continue;
       let source;
       try {
         source = fs.readFileSync(full, 'utf8');
