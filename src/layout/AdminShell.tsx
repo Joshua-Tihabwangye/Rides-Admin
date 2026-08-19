@@ -220,31 +220,11 @@ export default function AdminShell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
 
   const user = getAuthUser()
-  if (!isAuthed() || !user) {
-    navigate('/admin/login', { replace: true })
-    return null
-  }
-  const userInitials = useMemo(() => initials(user.name), [user.name])
-
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  const handleDrawerToggle = () => setMobileOpen((v) => !v)
-  const handleDesktopToggle = () => setDesktopOpen((v) => !v)
-  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => setUserMenuAnchor(event.currentTarget)
-  const handleUserMenuClose = () => setUserMenuAnchor(null)
-  const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => setNotificationAnchor(event.currentTarget)
-  const handleNotificationClose = () => setNotificationAnchor(null)
-
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-  }
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-  }
+  const userInitials = useMemo(() => (user ? initials(user.name) : ''), [user?.name])
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return undefined
+    if (!isAuthed() || !user) return undefined
 
     let cancelled = false
     const refreshSummary = async () => {
@@ -268,6 +248,28 @@ export default function AdminShell() {
       window.removeEventListener(ADMIN_SUMMARY_UPDATED_EVENT, handleSummaryUpdate as EventListener)
     }
   }, [location.pathname])
+
+  if (!isAuthed() || !user) {
+    navigate('/admin/login', { replace: true })
+    return null
+  }
+
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  const handleDrawerToggle = () => setMobileOpen((v) => !v)
+  const handleDesktopToggle = () => setDesktopOpen((v) => !v)
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => setUserMenuAnchor(event.currentTarget)
+  const handleUserMenuClose = () => setUserMenuAnchor(null)
+  const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => setNotificationAnchor(event.currentTarget)
+  const handleNotificationClose = () => setNotificationAnchor(null)
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
