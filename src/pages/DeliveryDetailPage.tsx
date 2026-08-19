@@ -18,6 +18,7 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  Paper,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -29,6 +30,8 @@ import EventIcon from '@mui/icons-material/Event';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PrintIcon from '@mui/icons-material/Print';
 import DownloadIcon from '@mui/icons-material/Download';
+import MapIcon from '@mui/icons-material/Map';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import StatusBadge from '../components/StatusBadge';
 import {
   getAdminDelivery,
@@ -40,6 +43,12 @@ import type { AdminDeliveryOrderResponse, AdminDeliveryPackageView, AdminDeliver
 import { getAuthUser } from '../auth/auth';
 import { hasAnyPermission } from '../auth/permissions';
 import type { AdminPermission } from '../auth/permissions';
+import {
+  GoogleMap,
+  MarkerF,
+  PolylineF,
+  useJsApiLoader,
+} from '@react-google-maps/api';
 
 function hasAny(permissions: AdminPermission[]) {
   const user = getAuthUser();
@@ -356,6 +365,152 @@ function EventTimeline({ events }: { events?: AdminDeliveryEventResponse[] }) {
   );
 }
 
+const KAMPALA_CENTER = { lat: 0.3476, lng: 32.5825 };
+
+interface DeliveryRouteMapProps {
+  pickupLat?: number;
+  pickupLng?: number;
+  destinationLat?: number;
+  destinationLng?: number;
+  pickupAddress?: string;
+  destinationAddress?: string;
+  driverName?: string;
+  driverId?: string;
+}
+
+function DeliveryRouteMap({
+  pickupLat,
+  pickupLng,
+  destinationLat,
+  destinationLng,
+  pickupAddress,
+  destinationAddress,
+  driverName,
+  driverId,
+}: DeliveryRouteMapProps) {
+  const rawApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
+  const googleMapsApiKey = rawApiKey && !/^https?:\/\//i.test(rawApiKey) ? rawApiKey : '';
+  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey });
+
+  const hasCoordinates =
+    typeof pickupLat === 'number' &&
+    typeof pickupLng === 'number' &&
+    typeof destinationLat === 'number' &&
+    typeof destinationLng === 'number';
+
+  const center = hasCoordinates
+    ? { lat: (pickupLat! + destinationLat!) / 2, lng: (pickupLng! + destinationLng!) / 2 }
+    : KAMPALA_CENTER;
+
+  if (loadError) {
+    return (
+      <Paper elevation={1} sx={{ p: 3, textAlign: 'center', borderRadius: 2 }}>
+        <Typography color="error">Failed to load Google Maps</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          {loadError.message}
+        </Typography>
+      </Paper>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <Paper elevation={1} sx={{ p: 3, textAlign: 'center', borderRadius: 2 }}>
+        <CircularProgress />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+          Loading map…
+        </Typography>
+      </Paper>
+    );
+  }
+
+  if (!hasCoordinates) {
+    return (
+      <Paper elevation={1} sx={{ p: 3, textAlign: 'center', borderRadius: 2 }}>
+        <Typography variant="h6" color="text.secondary">
+          No route coordinates available
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Pickup and destination coordinates are required to display the route map.
+        </Typography>
+      </Paper>
+    );
+  }
+
+  return (
+    <Paper elevation={1} sx={{ borderRadius: 2, overflow: 'hidden', height: 400 }}>
+      <GoogleMap
+        mapContainerStyle={{ width: '100%', height: '100%' }}
+        center={center}
+        zoom={11}
+        options={{ gestureHandling: 'cooperative', streetViewControl: false, mapTypeControl: false, fullscreenControl: false }}
+      >
+        <MarkerF
+          position={{ lat: pickupLat!, lng: pickupLng! }}
+          title="Pickup"
+          label={{ text: 'A', color: '#fff', fontWeight: 'bold' }}
+          options={{ icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#10b981', fillOpacity: 1, strokeWeight: 2, strokeColor: '#fff' } }}
+        />
+        <MarkerF
+          position={{ lat: destinationLat!, lng: destinationLng! }}
+          title="Destination"
+          label={{ text: 'B', color: '#fff', fontWeight: 'bold' }}
+          options={{ icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#ef4444', fillOpacity: 1, strokeWeight: 2, strokeColor: '#fff' } }}
+        />
+        <PolylineF
+          path={[
+            { lat: pickupLat!, lng: pickupLng! },
+            { lat: destinationLat!, lng: destinationLng! },
+          ]}
+          options={{
+            strokeColor: '#10b981',
+            strokeWeight: 3,
+            strokeOpacity: 0.8,
+            geodesic: true,
+          }}
+        />
+      </GoogleMap>
+      <Box sx={{ position: 'absolute', bottom: 12, left: 12, right: 12, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Paper elevation={2} variant="outlined" sx={{ px: 2, py: 1, borderRadius: 1, flex: 1, minWidth: 160 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <LocationOnIcon fontSize="small" color="success" />
+            <Typography variant="caption" color="text.secondary">
+              Pickup
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ ml: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {pickupAddress || `Lat: ${pickupLat!.toFixed(5)}, Lng: ${pickupLng!.toFixed(5)}`}
+          </Typography>
+        </Paper>
+        <Paper elevation={2} variant="outlined" sx={{ px: 2, py: 1, borderRadius: 1, flex: 1, minWidth: 160 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <LocationOnIcon fontSize="small" color="error" />
+            <Typography variant="caption" color="text.secondary">
+              Destination
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ ml: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {destinationAddress || `Lat: ${destinationLat!.toFixed(5)}, Lng: ${destinationLng!.toFixed(5)}`}
+          </Typography>
+        </Paper>
+        {driverId && (
+          <Paper elevation={2} variant="outlined" sx={{ px: 2, py: 1, borderRadius: 1, flex: 1, minWidth: 160 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <DirectionsCarIcon fontSize="small" color="primary" />
+              <Typography variant="caption" color="text.secondary">
+                Driver
+              </Typography>
+            </Box>
+            <Typography variant="body2" sx={{ ml: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {driverName || driverId}
+            </Typography>
+          </Paper>
+        )}
+      </Box>
+    </Paper>
+  );
+}
+
 export default function DeliveryDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -501,6 +656,7 @@ export default function DeliveryDetailPage() {
               <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
                 <Tab label={`Packages (${packages.length})`} />
                 <Tab label={`Events (${delivery.events?.length ?? 0})`} />
+                <Tab label="Map" icon={<MapIcon fontSize="small" />} />
               </Tabs>
             </Box>
             <CardContent>
@@ -524,6 +680,18 @@ export default function DeliveryDetailPage() {
               </CustomTabPanel>
               <CustomTabPanel value={tabValue} index={1}>
                 <EventTimeline events={delivery.events} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={2}>
+                <DeliveryRouteMap
+                  pickupLat={delivery.pickupLatitude}
+                  pickupLng={delivery.pickupLongitude}
+                  destinationLat={delivery.destinationLatitude}
+                  destinationLng={delivery.destinationLongitude}
+                  pickupAddress={delivery.pickupAddress}
+                  destinationAddress={delivery.destinationAddress}
+                  driverName={delivery.driverName}
+                  driverId={delivery.driverId}
+                />
               </CustomTabPanel>
             </CardContent>
           </Card>

@@ -1807,6 +1807,10 @@ export type AdminDeliveryOrderResponse = {
   receiver?: AdminDeliveryContactView;
   pickupAddress?: string;
   destinationAddress?: string;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
   route?: Record<string, unknown>;
   driverId?: string;
   driverName?: string;
