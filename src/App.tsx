@@ -40,6 +40,7 @@ import RegionTaxConfigEditor from './pages/RegionTaxConfigEditor'
 import InvoiceTemplatePreview from './pages/InvoiceTemplatePreview'
 import OperationsDashboard from './pages/OperationsDashboard'
 import MonitoringPage from './pages/MonitoringPage'
+import LiveDriversMapPage from './pages/LiveDriversMapPage'
 import MatchingInspectionPage from './pages/MatchingInspectionPage'
 import DetailedAnalytics from './pages/DetailedAnalytics'
 import ApprovalsDashboard from './pages/ApprovalsDashboard'
@@ -124,6 +125,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_operations"]}>
                 <MonitoringPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="live-map"
+            element={
+              <RequirePermission anyOf={["manage_operations"]}>
+                <LiveDriversMapPage />
               </RequirePermission>
             }
           />

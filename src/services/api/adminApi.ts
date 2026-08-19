@@ -165,6 +165,29 @@ export async function listAdminDrivers(): Promise<AdminDriverResponse[]> {
   return request<AdminDriverResponse[]>("/admin/drivers", { method: "GET" });
 }
 
+export type ActiveDriverMarker = {
+  driverId: string;
+  latitude: number;
+  longitude: number;
+  heading?: number;
+  vehicleType?: string;
+  availabilityStatus: string;
+  lastLocationAt?: string;
+  distanceKm: number;
+};
+
+export async function getActiveDrivers(
+  latitude: number,
+  longitude: number,
+  radiusKm = 50,
+  limit = 300,
+): Promise<{ drivers: ActiveDriverMarker[] }> {
+  return request<{ drivers: ActiveDriverMarker[] }>("/geo/drivers/active", {
+    method: "GET",
+    query: { latitude, longitude, radiusKm, limit },
+  });
+}
+
 export async function getAdminDriver(driverId: string): Promise<AdminDriverResponse> {
   return request<AdminDriverResponse>(`/admin/drivers/${driverId}`, { method: "GET" });
 }
