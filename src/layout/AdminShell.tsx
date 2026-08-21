@@ -98,6 +98,7 @@ const NAV: NavSection[] = [
     items: [
       { label: 'Home', to: '/admin/home', icon: <DashboardIcon /> },
       { label: 'Operations', to: '/admin/ops', icon: <SettingsApplicationsIcon /> },
+      { label: 'Live drivers map', to: '/admin/live-map', icon: <MapIcon /> },
       { label: 'Monitoring', to: '/admin/monitoring', icon: <AssessmentIcon /> },
       { label: 'Matching', to: '/admin/matching', icon: <AssessmentIcon /> },
       { label: 'Reports', to: '/admin/reports', icon: <AssessmentIcon /> },

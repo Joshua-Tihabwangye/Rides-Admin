@@ -1,0 +1,100 @@
+name: Deploy (Admin Web)
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'production'
+
+concurrency:
+  group: deploy-admin-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_DIR: /opt/evzone/admin
+  APP_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
+  WEB_ROOT: /var/www
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (pointing at the production API)
+        run: npm run build
+        env:
+          VITE_BACKEND_BASE_URL: https://${{ vars.APP_DOMAIN }}
+          VITE_API_BASE_URL: https://${{ vars.APP_DOMAIN }}
+          VITE_SOCKET_BASE_URL: wss://${{ vars.APP_DOMAIN }}
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+      - name: Upload build & deploy artifacts
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ env.APP_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          source: "dist,deploy"
+          target: ${{ env.DEPLOY_DIR }}
+          rm: true
+          overwrite: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run remote deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ env.APP_USER }}
+          key: ${{ secrets.DO_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_DIR="${{ env.DEPLOY_DIR }}"
+            WEB_ROOT="${{ env.WEB_ROOT }}"
+            ADMIN_DOMAIN="${{ vars.ADMIN_DOMAIN }}"
+            DOMAIN="$ADMIN_DOMAIN"
+            SSL_EMAIL="${{ secrets.SSL_EMAIL }}"
+
+            echo "==> One-time server setup (idempotent)"
+            sudo bash "$DEPLOY_DIR/deploy/setup-server.sh"
+
+            echo "==> Install static site"
+            sudo rm -rf "$WEB_ROOT/$DOMAIN/html"
+            sudo mkdir -p "$WEB_ROOT/$DOMAIN/html"
+            sudo cp -r "$DEPLOY_DIR/dist/." "$WEB_ROOT/$DOMAIN/html/"
+
+            echo "==> Install nginx site config"
+            sudo cp "$DEPLOY_DIR/deploy/nginx/admin.conf" "/etc/nginx/sites-available/$DOMAIN"
+            sudo sed -i "s/__DOMAIN__/$DOMAIN/g" "/etc/nginx/sites-available/$DOMAIN"
+            sudo ln -sf "/etc/nginx/sites-available/$DOMAIN" "/etc/nginx/sites-enabled/$DOMAIN"
+            sudo rm -f /etc/nginx/sites-enabled/default
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            echo "==> Provision TLS certificate (Certbot)"
+            sudo bash "$DEPLOY_DIR/deploy/setup-ssl.sh" "$DOMAIN" "$SSL_EMAIL"
+
+            echo "==> Admin web deploy complete for $DOMAIN"

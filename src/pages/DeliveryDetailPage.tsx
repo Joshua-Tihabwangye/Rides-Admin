@@ -80,6 +80,12 @@ import type {
 import { getAuthUser } from '../auth/auth';
 import { hasAnyPermission } from '../auth/permissions';
 import type { AdminPermission } from '../auth/permissions';
+import {
+  GoogleMap,
+  MarkerF,
+  PolylineF,
+  useJsApiLoader,
+} from '@react-google-maps/api';
 
 function hasAny(permissions: AdminPermission[]) {
   const user = getAuthUser();
