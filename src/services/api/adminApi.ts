@@ -8,7 +8,6 @@ import {
 } from "./validators";
 
 export const ADMIN_BACKEND_ACCESS_TOKEN_KEY = "admin_backend_access_token";
-export const ADMIN_BACKEND_REFRESH_TOKEN_KEY = "admin_backend_refresh_token";
 export const ADMIN_SUMMARY_UPDATED_EVENT = "evzone:admin-summary-updated";
 const ADMIN_AUTH_STORAGE_KEY = "evzone_admin_auth";
 
@@ -42,6 +41,8 @@ export type AdminDriverResponse = {
   phone: string;
   city: string;
   status: 'active' | 'deleted' | 'suspended';
+  /** Backend-driven availability (ONLINE / OFFLINE / BUSY / INACTIVE / SUSPENDED). */
+  availabilityStatus?: string;
   vehicleType: 'Bike' | 'Car';
   totalTrips?: number;
   licensePlate?: string;
@@ -85,44 +86,29 @@ export function writeAdminBackendAccessToken(token: string): void {
   localStorage.setItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY, token);
 }
 
-export function readAdminBackendRefreshToken(): string | null {
-  try {
-    return localStorage.getItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function writeAdminBackendRefreshToken(token: string): void {
-  localStorage.setItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY, token);
-}
-
 export function clearAdminBackendTokens(): void {
   try {
     localStorage.removeItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
-    localStorage.removeItem(ADMIN_BACKEND_REFRESH_TOKEN_KEY);
     localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
   } catch {
     // no-op
   }
 }
 
-async function refreshAdminBackendTokens(refreshToken: string): Promise<TokenRefreshResult> {
-  const payload = await request<{ accessToken: string; refreshToken: string }>("/auth/refresh", {
+async function refreshAdminBackendTokens(): Promise<TokenRefreshResult> {
+  const payload = await request<{ accessToken: string }>("/auth/refresh", {
     method: "POST",
-    body: { refreshToken },
+    body: { clientApp: "ADMIN" },
     retryOnUnauthorized: false,
   });
 
   return {
     accessToken: payload.accessToken,
-    refreshToken: payload.refreshToken,
   };
 }
 
 configureHttpClientAuth({
   getAccessToken: readAdminBackendAccessToken,
-  getRefreshToken: readAdminBackendRefreshToken,
   setTokens: saveAdminBackendTokens,
   clearSession: clearAdminBackendTokens,
   refresh: refreshAdminBackendTokens,
@@ -190,6 +176,81 @@ export async function getActiveDrivers(
 
 export async function getAdminDriver(driverId: string): Promise<AdminDriverResponse> {
   return request<AdminDriverResponse>(`/admin/drivers/${driverId}`, { method: "GET" });
+}
+
+export interface AdminDriverEarningEntry {
+  id: string;
+  driverId: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  baseFee: number;
+  tip?: number;
+  bonus?: number;
+  status: string;
+  settledAt?: string;
+  createdAt: string;
+}
+
+export interface AdminDriverEarningsSummary {
+  total: number;
+  currency: string;
+  count: number;
+  pending: number;
+  settled: number;
+}
+
+export interface AdminDriverStatementEntry {
+  id: string;
+  orderId?: string;
+  accountCode: string;
+  credit?: number;
+  debit?: number;
+  grossAmount?: number;
+  currency: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface AdminDriverEarningsStatement {
+  driverId: string;
+  currency: string;
+  netAmount: number;
+  totalGross: number;
+  entries: AdminDriverStatementEntry[];
+}
+
+/** Delivery earnings posted for a driver (ledger-backed). */
+export async function getAdminDriverEarnings(
+  driverId: string,
+  start?: string,
+  end?: string,
+): Promise<AdminDriverEarningEntry[]> {
+  const query: Record<string, string> = {};
+  if (start) query.start = start;
+  if (end) query.end = end;
+  return request<AdminDriverEarningEntry[]>(`/delivery-earnings/driver/${driverId}/earnings`, {
+    method: "GET",
+    query: Object.keys(query).length > 0 ? query : undefined,
+  });
+}
+
+export async function getAdminDriverEarningsSummary(
+  driverId: string,
+): Promise<AdminDriverEarningsSummary> {
+  return request<AdminDriverEarningsSummary>(
+    `/delivery-earnings/driver/${driverId}/earnings/summary`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminDriverEarningsStatement(
+  driverId: string,
+): Promise<AdminDriverEarningsStatement> {
+  return request<AdminDriverEarningsStatement>(
+    `/delivery-earnings/driver/${driverId}/statement`,
+    { method: "GET" },
+  );
 }
 
 export async function createAdminDriver(input: AdminCreateDriverInput): Promise<{ driverId: string }> {
@@ -600,6 +661,140 @@ export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnaps
   return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
 }
 
+// ── Safety incidents / SOS (backend GET /safety/emergencies) ────────────────
+
+export type AdminSafetyIncident = {
+  id: string;
+  reporterUserId: string;
+  driverId?: string | null;
+  serviceType?: string | null;
+  serviceId?: string | null;
+  type: string;
+  status: string;
+  description?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  address?: string | null;
+  sos: boolean;
+  notifiedContacts?: Array<{
+    name?: string;
+    phone?: string;
+    source?: string;
+    attemptedAt?: string;
+    status?: string;
+    provider?: string;
+    providerResult?: { messageId?: string; error?: string };
+  }>;
+  assignedToUserId?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+};
+
+export type AdminSafetyIncidentPage = {
+  items: AdminSafetyIncident[];
+  meta: { page: number; limit: number; total: number; pageCount: number };
+};
+
+export async function listAdminSafetyEmergencies(params?: {
+  page?: number;
+  limit?: number;
+}): Promise<AdminSafetyIncidentPage> {
+  const query = `page=${params?.page ?? 1}&limit=${params?.limit ?? 100}`;
+  return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
+}
+
+export async function updateAdminSafetyIncident(
+  id: string,
+  payload: { status: string; assignedToUserId?: string },
+): Promise<AdminSafetyIncident> {
+  // httpClient.request() stringifies the body; passing the payload object
+  // directly avoids double-encoding (which previously sent a quoted JSON
+  // string and made the backend reject the acknowledge/assign/resolve PATCH).
+  return request<AdminSafetyIncident>(`/safety/emergencies/${id}`, {
+    method: "PATCH",
+    body: payload,
+  });
+}
+
+// ── Analytics (backend DB-derived, not client-computed) ─────────────────────
+// Phase 12/13: charts must render real database aggregates. The backend
+// aggregates paid payments into per-day revenue/transaction buckets.
+
+export type AdminAnalyticsTimeseriesPoint = {
+  date: string;
+  revenue: number;
+  transactions: number;
+};
+
+export type AdminAnalyticsTimeseries = AdminAnalyticsTimeseriesPoint[];
+
+const ANALYTICS_PERIOD_MAP: Record<string, string> = {
+  today: "day",
+  "7days": "week",
+  "30days": "month",
+  thisMonth: "month",
+  custom: "month",
+};
+
+export function mapAnalyticsPeriod(uiPeriod: string): string {
+  return ANALYTICS_PERIOD_MAP[uiPeriod] ?? "month";
+}
+
+export async function getAdminAnalyticsTimeseries(
+  period = "month",
+): Promise<AdminAnalyticsTimeseries> {
+  const backendPeriod = mapAnalyticsPeriod(period);
+  return request<AdminAnalyticsTimeseries>(
+    `/admin/portal/analytics/timeseries?period=${backendPeriod}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminAnalyticsOperations(): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>("/admin/portal/analytics/operations", { method: "GET" });
+}
+
+export async function getAdminAnalyticsFinance(): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>("/admin/portal/analytics/finance", { method: "GET" });
+}
+
+export type AdminAnalyticsDriverPoint = {
+  driverId: string;
+  name: string;
+  rating: number;
+  trips: number;
+  completed: number;
+  cancelled: number;
+  acceptance: number;
+};
+
+export type AdminAnalyticsCompanyPoint = {
+  organizationId: string;
+  name: string;
+  trips: number;
+  completed: number;
+  cancelled: number;
+  payouts: number;
+};
+
+export async function getAdminAnalyticsDrivers(
+  period = "month",
+): Promise<AdminAnalyticsDriverPoint[]> {
+  return request<AdminAnalyticsDriverPoint[]>(
+    `/admin/portal/analytics/drivers?period=${mapAnalyticsPeriod(period)}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminAnalyticsCompanies(
+  period = "month",
+): Promise<AdminAnalyticsCompanyPoint[]> {
+  return request<AdminAnalyticsCompanyPoint[]>(
+    `/admin/portal/analytics/companies?period=${mapAnalyticsPeriod(period)}`,
+    { method: "GET" },
+  );
+}
+
 // ── Monitoring detail endpoints (observability dashboards) ──────────────────
 // NOTE: These endpoints are not fully exposed by the backend yet. The wrappers
 // below fall back to the closest existing endpoints so the UI can render real
@@ -660,10 +855,14 @@ function normalizeBookingToJob(
 }
 
 export async function listAdminOnlineDrivers(): Promise<AdminOnlineDriver[]> {
-  // Gap: backend has no dedicated /admin/monitoring/drivers/online endpoint.
-  // Closest existing endpoint is the driver list.
+  // Phase 9: "online" is a backend-driven availability status (ONLINE / BUSY),
+  // not the account approval status. Filter on availabilityStatus so only
+  // drivers actually available are counted as online.
   const drivers = await listAdminDrivers();
-  return drivers.filter((driver) => driver.status === "active");
+  const online = new Set(["ONLINE", "BUSY"]);
+  return drivers.filter(
+    (driver) => driver.availabilityStatus != null && online.has(driver.availabilityStatus.toUpperCase()),
+  );
 }
 
 export async function listAdminStaleDrivers(): Promise<AdminStaleDriver[]> {
@@ -1185,9 +1384,8 @@ export async function getAdminRiderService(requestId: string): Promise<AdminRide
 
 // ── Admin Backend Token Helpers ────────────────────────────────────────────
 
-export function saveAdminBackendTokens(accessToken: string, refreshToken: string): void {
+export function saveAdminBackendTokens(accessToken: string): void {
   writeAdminBackendAccessToken(accessToken);
-  writeAdminBackendRefreshToken(refreshToken);
 }
 
 export function isAdminBackendEnabled(): boolean {
@@ -1738,6 +1936,62 @@ export type AdminDeliveryLocation = {
   contactPhone?: string;
 };
 
+// Dynamic delivery label contract (architecture report §7.1 and §11.6).
+// All fields are optional in responses while the backend rolls out behind
+// feature flags; the UI must render gracefully when they are absent.
+
+export type DeliveryAttributeValueType =
+  | 'TEXT'
+  | 'NUMBER'
+  | 'BOOLEAN'
+  | 'ENUM'
+  | 'DATE';
+
+export type DeliveryAttributeVisibility =
+  | 'PUBLIC_LABEL'
+  | 'DRIVER_AFTER_PICKUP'
+  | 'INTERNAL_ONLY';
+
+export type DeliveryAttributeSource =
+  | 'P2P_ITEM'
+  | 'P2P_PACKAGE'
+  | 'MARKETPLACE_PRODUCT'
+  | 'MARKETPLACE_VARIANT'
+  | 'MARKETPLACE_ORDER_ITEM'
+  | 'SELLER_PACKAGE'
+  | 'SYSTEM';
+
+export type DeliveryAttributePriority = 'REQUIRED' | 'HIGH' | 'NORMAL';
+
+export type DeliveryLabelAttribute = {
+  key: string;
+  label: string;
+  value: string | number | boolean;
+  valueType: DeliveryAttributeValueType;
+  unit?: string;
+  displayOrder: number;
+  displayOnLabel: boolean;
+  visibility: DeliveryAttributeVisibility;
+  source: DeliveryAttributeSource;
+  priority: DeliveryAttributePriority;
+};
+
+export type AdminDeliveryPackageItemView = {
+  id?: string;
+  orderItemId?: string;
+  name?: string;
+  productName?: string;
+  quantity: number;
+  attributes?: DeliveryLabelAttribute[];
+};
+
+export type AdminDeliveryLabelPreview = {
+  serviceName: string;
+  trackingNumber: string;
+  printableAttributeCount: number;
+  privacyMode: string;
+};
+
 export type AdminDeliveryPackageView = {
   id: string;
   deliveryOrderId: string;
@@ -1751,7 +2005,9 @@ export type AdminDeliveryPackageView = {
   fragile?: boolean;
   status: string;
   readinessStatus: string;
-  activeLabel?: Record<string, unknown> | null;
+  attributes?: DeliveryLabelAttribute[];
+  items?: AdminDeliveryPackageItemView[];
+  activeLabel?: AdminDeliveryLabelResponse | null;
 };
 
 export type AdminDeliveryLabelResponse = {
@@ -1766,6 +2022,12 @@ export type AdminDeliveryLabelResponse = {
   generatedBy?: string;
   revokedAt?: string;
   revokeReason?: string;
+  printCount?: number | string;
+  templateVersion?: string;
+  renderSchemaVersion?: number;
+  renderWarnings?: string[];
+  preview?: AdminDeliveryLabelPreview;
+  checksum?: string;
 };
 
 export type AdminDeliveryEventResponse = {
@@ -1781,6 +2043,37 @@ export type AdminDeliveryEventResponse = {
   metadata?: Record<string, unknown>;
 };
 
+export type AdminDeliveryAuditLogResponse = {
+  id: string;
+  orderId: string;
+  actorId: string;
+  actorRole: string;
+  action: string;
+  field?: string | null;
+  oldValue?: string | null;
+  newValue?: string | null;
+  metadata?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  timestamp: string;
+  createdAt: string;
+};
+
+export async function getAdminDeliveryAuditLogs(
+  orderId: string,
+  filters?: { action?: string; actorRole?: string; page?: number; limit?: number },
+): Promise<{ items: AdminDeliveryAuditLogResponse[]; total: number }> {
+  return request<{ items: AdminDeliveryAuditLogResponse[]; total: number }>(
+    `/admin/deliveries/${orderId}/audit${toQueryString({
+      action: filters?.action,
+      actorRole: filters?.actorRole,
+      page: filters?.page,
+      limit: filters?.limit,
+    })}`,
+    { method: "GET" },
+  );
+}
+
 export type AdminDeliveryListItemResponse = {
   id: string;
   trackingCode?: string;
@@ -1792,6 +2085,7 @@ export type AdminDeliveryListItemResponse = {
   packageCount?: number;
   driverId?: string;
   createdAt?: string;
+  payment?: { status: string; timing: string; method?: string };
   sender?: AdminDeliveryContactView;
   receiver?: AdminDeliveryContactView;
 };
@@ -1812,6 +2106,7 @@ export type AdminDeliveryOrderResponse = {
   destinationLatitude?: number;
   destinationLongitude?: number;
   route?: Record<string, unknown>;
+  payment?: { status: string; timing: string; method?: string };
   driverId?: string;
   driverName?: string;
   packageCount?: number;
@@ -1941,12 +2236,677 @@ export async function markAdminLabelAttached(
 export async function bulkExportAdminLabels(
   packageIds: string[],
   reason?: string
-): Promise<{ batchId: string; packageCount: number; downloadUrl?: string }> {
-  return request<{ batchId: string; packageCount: number; downloadUrl?: string }>(
-    "/admin/delivery-labels/bulk-export",
-    {
-      method: "POST",
-      body: { packageIds, reason },
-    }
+): Promise<{
+  batchId: string;
+  actorUserId?: string;
+  reason?: string;
+  packageCount: number;
+  packageIds: string[];
+  downloadUrl?: string;
+  labels: AdminLabelExportEntry[];
+}> {
+  return request<{
+    batchId: string;
+    actorUserId?: string;
+    reason?: string;
+    packageCount: number;
+    packageIds: string[];
+    downloadUrl?: string;
+    labels: AdminLabelExportEntry[];
+  }>("/admin/delivery-labels/bulk-export", {
+    method: "POST",
+    body: { packageIds, reason },
+  });
+}
+
+export type AdminLabelExportEntry = {
+  labelId: string;
+  packageId: string;
+  packageNumber?: number;
+  packageName?: string;
+  packageIdentifier?: string;
+  trackingCode?: string;
+  downloadUrl?: string;
+  qrDownloadUrl?: string;
+};
+
+export async function getAdminLabelBatchDownload(
+  batchId: string
+): Promise<{ batchId: string; packageCount: number; labels: AdminLabelExportEntry[] }> {
+  return request<{ batchId: string; packageCount: number; labels: AdminLabelExportEntry[] }>(
+    `/admin/delivery-label-batches/${batchId}/download`,
+    { method: "GET" }
   );
+}
+
+export type AdminLabelRegistryResponse = AdminDeliveryLabelResponse & {
+  pdfDownloadUrl?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  printedAt?: string;
+  printedByUserId?: string;
+  attachedAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  replacedByVersionId?: string;
+  package: {
+    id: string;
+    deliveryOrderId: string;
+    packageNumber: number;
+    totalPackages: number;
+    packageIdentifier?: string;
+    packageName?: string;
+    size?: string;
+    weightKg?: number;
+    fragile?: boolean;
+    readinessStatus?: string;
+    status: string;
+    activeLabelVersionId?: string;
+    attributes?: DeliveryLabelAttribute[];
+  } | null;
+  delivery: {
+    id: string;
+    trackingCode?: string;
+    originType?: string;
+    status: string;
+    paymentMethod?: string;
+    paymentTiming?: string;
+    createdAt?: string;
+  } | null;
+};
+
+export type ListAdminLabelsFilters = {
+  page?: number;
+  limit?: number;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+};
+
+export async function listAdminDeliveryLabels(
+  filters: ListAdminLabelsFilters = {}
+): Promise<{
+  items: AdminLabelRegistryResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+}> {
+  return request<{
+    items: AdminLabelRegistryResponse[];
+    meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+  }>(
+    `/admin/delivery-labels${toQueryString({
+      page: filters.page,
+      limit: filters.limit,
+      status: filters.status,
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      search: filters.search,
+    })}`,
+    { method: "GET", unwrapData: false }
+  );
+}
+
+// ── Delivery Drop-off Credentials ──────────────────────────────────────────
+
+export type AdminDropoffCredentialResponse = {
+  id: string;
+  deliveryOrderId: string;
+  pin: string;
+  qrPayload: string;
+  expiresAt: string;
+  status: 'active' | 'revoked' | 'consumed' | 'expired';
+  createdAt: string;
+  revokedAt?: string;
+  revokedBy?: string;
+  revokeReason?: string;
+};
+
+export type AdminDropoffCredentialHistoryItem = {
+  id: string;
+  deliveryOrderId: string;
+  status: string;
+  createdAt: string;
+  revokedAt?: string;
+};
+
+export async function getAdminDeliveryDropoffCredential(
+  deliveryId: string,
+): Promise<AdminDropoffCredentialResponse> {
+  return request<AdminDropoffCredentialResponse>(
+    `/admin/deliveries/${deliveryId}/dropoff-credential`,
+    { method: "GET" },
+  );
+}
+
+export async function revokeAdminDeliveryDropoffCredential(
+  deliveryId: string,
+  credentialId: string,
+  reason?: string,
+): Promise<AdminDropoffCredentialResponse> {
+  return request<AdminDropoffCredentialResponse>(
+    `/admin/deliveries/${deliveryId}/dropoff-credential/${credentialId}/revoke`,
+    { method: "POST", body: { reason } },
+  );
+}
+
+export async function generateAdminDeliveryDropoffCredential(
+  deliveryId: string,
+): Promise<AdminDropoffCredentialResponse> {
+  return request<AdminDropoffCredentialResponse>(
+    `/admin/deliveries/${deliveryId}/dropoff-credential`,
+    { method: "POST" },
+  );
+}
+
+export async function listAdminDeliveryDropoffCredentialHistory(
+  deliveryId: string,
+): Promise<AdminDropoffCredentialHistoryItem[]> {
+  const response = await request<{ items: AdminDropoffCredentialHistoryItem[] }>(
+    `/admin/deliveries/${deliveryId}/dropoff-credential/history`,
+    { method: "GET" },
+  );
+  return response?.items ?? [];
+}
+
+// ── Delivery Products / Merchandise ─────────────────────────────────────────
+
+export type AdminDeliveryProduct = {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  sku?: string;
+  imageUrl?: string;
+  unitPrice: number;
+  currency: string;
+  isActive: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+export type AdminDeliveryOrderProduct = {
+  id: string;
+  orderId: string;
+  productId?: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  currency: string;
+  lineTotal: number;
+  notes?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export async function listAdminProducts(): Promise<AdminDeliveryProduct[]> {
+  return request<AdminDeliveryProduct[]>("/deliveries/products", { method: "GET" });
+}
+
+export async function createAdminProduct(data: {
+  name: string;
+  description?: string;
+  category?: string;
+  sku?: string;
+  imageUrl?: string;
+  unitPrice: number;
+  currency?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<AdminDeliveryProduct> {
+  return request<AdminDeliveryProduct>("/deliveries/products", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export async function updateAdminProduct(
+  id: string,
+  data: Partial<{
+    name: string;
+    description: string;
+    category: string;
+    sku: string;
+    imageUrl: string;
+    unitPrice: number;
+    currency: string;
+    isActive: boolean;
+    metadata: Record<string, unknown>;
+  }>,
+): Promise<AdminDeliveryProduct> {
+  return request<AdminDeliveryProduct>(`/deliveries/products/${id}`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export async function getAdminOrderProducts(orderId: string): Promise<AdminDeliveryOrderProduct[]> {
+  return request<AdminDeliveryOrderProduct[]>(`/deliveries/${orderId}/products`, { method: "GET" });
+}
+
+export async function attachAdminOrderProducts(
+  orderId: string,
+  products: Array<{
+    productId?: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    currency?: string;
+    notes?: string;
+    metadata?: Record<string, unknown>;
+  }>,
+): Promise<AdminDeliveryOrderProduct[]> {
+  return request<AdminDeliveryOrderProduct[]>(`/deliveries/${orderId}/products`, {
+    method: "PUT",
+    body: { products },
+  });
+}
+
+// ── Delivery Ledger & Reconciliation (DLV-164) ─────────────────────────────
+
+export type AdminDeliveryLedgerEntryType =
+  | "COLLECTION"
+  | "DRIVER_COMMISSION"
+  | "DRIVER_INCENTIVE"
+  | "PLATFORM_FEE"
+  | "MERCHANT_GROSS"
+  | "REFUND"
+  | "REVERSAL"
+  | "CHARGEBACK";
+
+export type AdminDeliveryLedgerRefs = {
+  journalId?: string;
+  paymentId?: string;
+  providerTransactionId?: string;
+  clientRequestId?: string;
+  sourceEntryId?: string;
+  reversalReference?: string;
+};
+
+export type AdminDeliveryLedgerEntry = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  orderId: string;
+  driverId?: string;
+  merchantOrganizationId?: string;
+  currency: string;
+  grossAmount: number;
+  entryType: AdminDeliveryLedgerEntryType;
+  accountCode: string;
+  debit: number;
+  credit: number;
+  reason?: string;
+  dedupeKey?: string;
+  refs?: AdminDeliveryLedgerRefs;
+};
+
+export type AdminDeliveryLedgerView = {
+  orderId: string;
+  entries: AdminDeliveryLedgerEntry[];
+  debits: number;
+  credits: number;
+  balanced: boolean;
+};
+
+export type AdminReconciliationAlertKind = "LEDGER_BALANCE" | "DRIVER_MISMATCH" | "MERCHANT_MISMATCH";
+export type AdminReconciliationAlertStatus = "OPEN" | "RESOLVED" | "DISMISSED";
+
+export type AdminDeliveryReconciliationAlert = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  orderId: string;
+  kind: AdminReconciliationAlertKind;
+  expectedAmount: number;
+  actualAmount: number;
+  mismatchAmount: number;
+  currency: string;
+  status: AdminReconciliationAlertStatus;
+  details?: Record<string, unknown>;
+  resolvedAt?: string;
+  resolvedByUserId?: string;
+};
+
+export type AdminDriverStatement = {
+  driverId: string;
+  currency: string;
+  netAmount: number;
+  totalGross: number;
+  entries: AdminDeliveryLedgerEntry[];
+};
+
+export async function getAdminDeliveryLedger(orderId: string): Promise<AdminDeliveryLedgerView> {
+  return request<AdminDeliveryLedgerView>(
+    `/delivery-earnings/ledger/orders/${orderId}/entries`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminDriverStatement(
+  driverId: string,
+  filters?: { start?: string; end?: string },
+): Promise<AdminDriverStatement> {
+  return request<AdminDriverStatement>(
+    `/delivery-earnings/driver/${driverId}/statement${toQueryString({
+      start: filters?.start,
+      end: filters?.end,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function runAdminDeliveryReconciliation(
+  since?: string,
+): Promise<AdminDeliveryReconciliationAlert[]> {
+  return request<AdminDeliveryReconciliationAlert[]>(
+    `/delivery-earnings/reconciliation/run${toQueryString({ since })}`,
+    { method: "POST" },
+  );
+}
+
+export async function listAdminDeliveryReconciliationAlerts(
+  status?: AdminReconciliationAlertStatus,
+): Promise<AdminDeliveryReconciliationAlert[]> {
+  return request<AdminDeliveryReconciliationAlert[]>(
+    `/delivery-earnings/reconciliation/alerts${toQueryString({ status })}`,
+    { method: "GET" },
+  );
+}
+
+export async function resolveAdminDeliveryReconciliationAlert(
+  id: string,
+): Promise<AdminDeliveryReconciliationAlert> {
+  return request<AdminDeliveryReconciliationAlert>(
+    `/delivery-earnings/reconciliation/alerts/${id}/resolve`,
+    { method: "POST" },
+  );
+}
+
+export async function dismissAdminDeliveryReconciliationAlert(
+  id: string,
+): Promise<AdminDeliveryReconciliationAlert> {
+  return request<AdminDeliveryReconciliationAlert>(
+    `/delivery-earnings/reconciliation/alerts/${id}/dismiss`,
+    { method: "POST" },
+  );
+}
+
+// ── Reverse logistics & returns (DLV-192) ──────────────────────────────────
+
+export type AdminReturnRequestStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "CANCELLED" | "COMPLETED";
+export type AdminReturnRequestSource = "CUSTOMER" | "MERCHANT" | "FAILED_DELIVERY";
+export type AdminReturnReason =
+  | "WRONG_ITEM"
+  | "DAMAGED"
+  | "DEFECTIVE"
+  | "NOT_AS_DESCRIBED"
+  | "CHANGE_OF_MIND"
+  | "MERCHANT_REQUEST"
+  | "FAILED_DELIVERY"
+  | "OTHER";
+export type AdminReturnShipmentStatus =
+  | "CREATED"
+  | "PICKUP_SCHEDULED"
+  | "IN_TRANSIT"
+  | "DELIVERED_TO_MERCHANT"
+  | "INSPECTED"
+  | "RESTOCKED"
+  | "DISPOSED"
+  | "REFUNDED"
+  | "CANCELLED";
+export type AdminReturnCredentialStatus = "ACTIVE" | "CONSUMED" | "REVOKED" | "EXPIRED";
+export type AdminReturnInspectionCondition = "ACCEPTABLE" | "DAMAGED" | "WRONG_ITEM" | "PARTIALLY_COMPLETE";
+export type AdminReturnDisposition = "RESTOCK" | "DISPOSE";
+
+export type AdminReturnRequestView = {
+  id: string;
+  orderId: string;
+  source: AdminReturnRequestSource;
+  reason: AdminReturnReason;
+  status: AdminReturnRequestStatus;
+  note?: string;
+  refundEligibleAmountCents?: number;
+  requestedByUserId?: string;
+  decidedByUserId?: string;
+  decisionNote?: string;
+  decidedAt?: string;
+  createdAt: string;
+};
+
+export type AdminReturnCredentialView = {
+  id: string;
+  returnShipmentId: string;
+  version: number;
+  purpose: string;
+  status: AdminReturnCredentialStatus;
+  issuedAt: string;
+  expiresAt: string;
+  consumedAt?: string;
+  consumedByDriverId?: string;
+};
+
+export type AdminReturnInspectionView = {
+  id: string;
+  returnShipmentId: string;
+  condition: AdminReturnInspectionCondition;
+  disposition: AdminReturnDisposition;
+  restockedQuantity?: number;
+  notes?: string;
+  inspectedByUserId?: string;
+  inspectedAt: string;
+};
+
+export type AdminReturnShipmentView = {
+  id: string;
+  returnShipmentCode: string;
+  returnRequestId: string;
+  orderId: string;
+  originalTrackingCode?: string;
+  source: AdminReturnRequestSource;
+  status: AdminReturnShipmentStatus;
+  driverId?: string;
+  merchantOrganizationId?: string;
+  pickedUpAt?: string;
+  deliveredToMerchantAt?: string;
+  inspectedAt?: string;
+  restockedAt?: string;
+  disposedAt?: string;
+  refundedAt?: string;
+  refundAmountCents?: number;
+  refundReference?: string;
+  refundClientRequestId?: string;
+  credential?: AdminReturnCredentialView;
+  inspections?: AdminReturnInspectionView[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminReturnReconciliationView = {
+  returnShipmentId: string;
+  returnShipmentCode: string;
+  orderId: string;
+  status: string;
+  eligibleCapturedCents: number;
+  refundedCents?: number;
+  refundWithinEligible: boolean;
+  paymentReconciled: boolean;
+  inventoryReconciled: boolean;
+  findings?: Record<string, unknown>;
+};
+
+export type AdminReturnDecision = "APPROVE" | "REJECT";
+
+export type AdminReturnInspectInput = {
+  condition: AdminReturnInspectionCondition;
+  disposition: AdminReturnDisposition;
+  restockTargets?: Array<{
+    productVariantId: string;
+    merchantLocationId: string;
+    quantity: number;
+  }>;
+  notes?: string;
+  evidence?: Record<string, unknown>;
+};
+
+export async function listAdminReturnRequests(filters?: {
+  orderId?: string;
+  status?: AdminReturnRequestStatus;
+}): Promise<AdminReturnRequestView[]> {
+  return request<AdminReturnRequestView[]>(
+    `/deliveries/returns/requests${toQueryString({
+      orderId: filters?.orderId,
+      status: filters?.status,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function decideAdminReturnRequest(
+  requestId: string,
+  decision: AdminReturnDecision,
+  note?: string,
+): Promise<AdminReturnRequestView> {
+  return request<AdminReturnRequestView>(
+    `/deliveries/returns/requests/${requestId}/decision`,
+    { method: "POST", body: { decision, note } },
+  );
+}
+
+export async function listAdminReturnShipments(filters?: {
+  orderId?: string;
+  status?: AdminReturnShipmentStatus;
+  source?: AdminReturnRequestSource;
+}): Promise<AdminReturnShipmentView[]> {
+  return request<AdminReturnShipmentView[]>(
+    `/deliveries/returns${toQueryString({
+      orderId: filters?.orderId,
+      status: filters?.status,
+      source: filters?.source,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminReturnShipment(shipmentId: string): Promise<AdminReturnShipmentView> {
+  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}`, { method: "GET" });
+}
+
+export async function inspectAdminReturnShipment(
+  shipmentId: string,
+  input: AdminReturnInspectInput,
+): Promise<AdminReturnShipmentView> {
+  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}/inspect`, {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function refundAdminReturnShipment(
+  shipmentId: string,
+  amountCents?: number,
+  clientRequestId?: string,
+): Promise<AdminReturnShipmentView> {
+  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}/refund`, {
+    method: "POST",
+    body: { amountCents, clientRequestId },
+  });
+}
+
+export async function listAdminReturnReconciliation(): Promise<AdminReturnReconciliationView[]> {
+  return request<AdminReturnReconciliationView[]>("/deliveries/returns/reconciliation", {
+    method: "GET",
+  });
+}
+
+// ── Delivery disputes (DLV-193) ─────────────────────────────────────────────
+
+export type AdminDisputeReason =
+  | "NOT_RECEIVED"
+  | "WRONG_ITEM"
+  | "DAMAGED"
+  | "DEFECTIVE"
+  | "MISSING_PARTS"
+  | "OVERCHARGED"
+  | "UNPROFESSIONAL_DRIVER"
+  | "POOR_SERVICE"
+  | "OTHER";
+
+export type AdminDisputeStatus =
+  | "OPEN"
+  | "UNDER_REVIEW"
+  | "RESOLVED"
+  | "REJECTED"
+  | "WITHDRAWN";
+
+export type AdminDisputeResolution =
+  | "REFUND"
+  | "PARTIAL_REFUND"
+  | "REPLACEMENT"
+  | "NO_REMEDY";
+
+export type AdminDisputeView = {
+  id: string;
+  orderId: string;
+  reason: AdminDisputeReason;
+  note?: string;
+  evidence?: Record<string, unknown>;
+  status: AdminDisputeStatus;
+  openedByUserId?: string;
+  openedByRole?: string;
+  decidedByUserId?: string;
+  resolution?: AdminDisputeResolution;
+  decisionNote?: string;
+  refundAmountCents?: number;
+  refundReference?: string;
+  refundClientRequestId?: string;
+  decidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminDisputeDecisionInput = {
+  resolution: AdminDisputeResolution;
+  note?: string;
+  amountCents?: number;
+  clientRequestId?: string;
+};
+
+export async function listAdminDisputes(filters?: {
+  orderId?: string;
+  status?: AdminDisputeStatus;
+  reason?: AdminDisputeReason;
+}): Promise<AdminDisputeView[]> {
+  return request<AdminDisputeView[]>(
+    `/deliveries/disputes${toQueryString({
+      orderId: filters?.orderId,
+      status: filters?.status,
+      reason: filters?.reason,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminDispute(disputeId: string): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}`, { method: "GET" });
+}
+
+export async function markAdminDisputeUnderReview(disputeId: string): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/review`, {
+    method: "POST",
+  });
+}
+
+export async function decideAdminDispute(
+  disputeId: string,
+  input: AdminDisputeDecisionInput,
+): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/decision`, {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function withdrawAdminDispute(disputeId: string): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/withdraw`, {
+    method: "POST",
+  });
 }

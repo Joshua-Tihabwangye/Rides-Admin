@@ -65,6 +65,8 @@ import FlagIcon from '@mui/icons-material/Flag'
 import IntegrationInstructionsIcon from '@mui/icons-material/IntegrationInstructions'
 import DnsIcon from '@mui/icons-material/Dns'
 import HistoryIcon from '@mui/icons-material/History'
+import RotateLeftIcon from '@mui/icons-material/RotateLeft'
+import ReplayIcon from '@mui/icons-material/Replay'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import WarningIcon from '@mui/icons-material/Warning'
@@ -74,10 +76,13 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import LabelIcon from '@mui/icons-material/Label'
 import PrintIcon from '@mui/icons-material/Print'
 import InventoryIcon from '@mui/icons-material/Inventory'
+import StorefrontIcon from '@mui/icons-material/Storefront'
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, isAuthed, signOut } from '../auth/auth'
 import { ADMIN_SUMMARY_UPDATED_EVENT, getAdminOperationalSummary } from '../services/api/adminApi'
+import SafetyIncidentPopup from '../components/SafetyIncidentPopup'
 
 const drawerWidth = 220
 const drawerWidthMini = 88
@@ -133,10 +138,22 @@ const NAV: NavSection[] = [
     label: 'Logistics',
     items: [
       { label: 'Deliveries', to: '/admin/deliveries', icon: <LocalShippingIcon /> },
+      { label: 'Return shipments', to: '/admin/returns', icon: <RotateLeftIcon /> },
+      { label: 'Return requests', to: '/admin/returns/requests', icon: <ReplayIcon /> },
+      { label: 'Return reconciliation', to: '/admin/returns/reconciliation', icon: <SyncAltIcon /> },
       { label: 'Package Labels', to: '/admin/delivery-labels', icon: <LabelIcon /> },
       { label: 'Print Queue', to: '/admin/delivery-labels/print-queue', icon: <PrintIcon /> },
       { label: 'Label Exceptions', to: '/admin/delivery-labels/exceptions', icon: <WarningIcon /> },
       { label: 'Blank Label Stock', to: '/admin/delivery-label-stock', icon: <InventoryIcon /> },
+    ],
+  },
+  {
+    id: 'marketplace',
+    label: 'Marketplace Simulation',
+    items: [
+      { label: 'Client Shop', to: '/admin/marketplace/client/products', icon: <StorefrontIcon /> },
+      { label: 'Client Cart', to: '/admin/marketplace/client/cart', icon: <ShoppingCartIcon /> },
+      { label: 'Seller Orders', to: '/admin/marketplace/seller/orders', icon: <InventoryIcon /> },
     ],
   },
   {
@@ -204,31 +221,11 @@ export default function AdminShell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
 
   const user = getAuthUser()
-  if (!isAuthed() || !user) {
-    navigate('/admin/login', { replace: true })
-    return null
-  }
-  const userInitials = useMemo(() => initials(user.name), [user.name])
-
-  const unreadCount = notifications.filter(n => !n.read).length
-
-  const handleDrawerToggle = () => setMobileOpen((v) => !v)
-  const handleDesktopToggle = () => setDesktopOpen((v) => !v)
-  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => setUserMenuAnchor(event.currentTarget)
-  const handleUserMenuClose = () => setUserMenuAnchor(null)
-  const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => setNotificationAnchor(event.currentTarget)
-  const handleNotificationClose = () => setNotificationAnchor(null)
-
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
-  }
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-  }
+  const userInitials = useMemo(() => (user ? initials(user.name) : ''), [user?.name])
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return undefined
+    if (!isAuthed() || !user) return undefined
 
     let cancelled = false
     const refreshSummary = async () => {
@@ -252,6 +249,28 @@ export default function AdminShell() {
       window.removeEventListener(ADMIN_SUMMARY_UPDATED_EVENT, handleSummaryUpdate as EventListener)
     }
   }, [location.pathname])
+
+  if (!isAuthed() || !user) {
+    navigate('/admin/login', { replace: true })
+    return null
+  }
+
+  const unreadCount = notifications.filter(n => !n.read).length
+
+  const handleDrawerToggle = () => setMobileOpen((v) => !v)
+  const handleDesktopToggle = () => setDesktopOpen((v) => !v)
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => setUserMenuAnchor(event.currentTarget)
+  const handleUserMenuClose = () => setUserMenuAnchor(null)
+  const handleNotificationOpen = (event: React.MouseEvent<HTMLElement>) => setNotificationAnchor(event.currentTarget)
+  const handleNotificationClose = () => setNotificationAnchor(null)
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  }
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -770,6 +789,10 @@ export default function AdminShell() {
 
         </Box>
       </Box>
+
+      {/* Global red-alert popup for live SOS / safety incidents — visible on
+          every admin page; clicking navigates to the driver in trouble. */}
+      <SafetyIncidentPopup />
     </Box>
   )
 }

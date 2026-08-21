@@ -1,14 +1,27 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs, CircularProgress, Alert } from '@mui/material'
+import { Box, Grid, Card, CardContent, Typography, Avatar, Divider, Button, Tab, Tabs, CircularProgress, Alert, Table, TableBody, TableCell, TableHead, TableRow, Chip } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EmailIcon from '@mui/icons-material/Email'
 import PhoneIcon from '@mui/icons-material/Phone'
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import StatusBadge from '../components/StatusBadge'
 import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel'
-import { getAdminDriver, patchAdminDriver } from '../services/api/adminApi'
-import type { AdminDriverResponse } from '../services/api/adminApi'
+import {
+    getAdminDriver,
+    patchAdminDriver,
+    getAdminDriverEarnings,
+    getAdminDriverEarningsSummary,
+    getAdminDriverEarningsStatement,
+    createAdminSocket,
+    isAdminBackendEnabled,
+} from '../services/api/adminApi'
+import type {
+    AdminDriverResponse,
+    AdminDriverEarningEntry,
+    AdminDriverEarningsSummary,
+    AdminDriverEarningsStatement,
+} from '../services/api/adminApi'
 
 interface TabPanelProps {
     children?: React.ReactNode
@@ -40,6 +53,18 @@ function formatRating(value: unknown): string {
     return Number.isFinite(numericValue) ? numericValue.toFixed(1) : 'N/A'
 }
 
+function formatMoney(value: unknown, currency = 'UGX'): string {
+    const numericValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
+    if (!Number.isFinite(numericValue)) return '—'
+    return `${currency} ${numericValue.toLocaleString('en-UG')}`
+}
+
+function formatDate(value: string | undefined | null): string {
+    if (!value) return '—'
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-UG', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
 export default function DriverDetail() {
     const { id } = useParams() // id is backend driver ID (string)
     const navigate = useNavigate()
@@ -49,6 +74,55 @@ export default function DriverDetail() {
     const [driver, setDriver] = useState<AdminDriverResponse | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [earnings, setEarnings] = useState<AdminDriverEarningEntry[]>([])
+    const [earningsSummary, setEarningsSummary] = useState<AdminDriverEarningsSummary | null>(null)
+    const [statement, setStatement] = useState<AdminDriverEarningsStatement | null>(null)
+    const [earningsLoading, setEarningsLoading] = useState(false)
+    const [earningsError, setEarningsError] = useState<string | null>(null)
+
+    const loadEarnings = useCallback(async () => {
+        const driverId = driver?.driverId || id
+        if (!driverId) return
+        setEarningsLoading(true)
+        setEarningsError(null)
+        try {
+            const [entries, summary, stmt] = await Promise.all([
+                getAdminDriverEarnings(driverId),
+                getAdminDriverEarningsSummary(driverId),
+                getAdminDriverEarningsStatement(driverId),
+            ])
+            setEarnings(entries ?? [])
+            setEarningsSummary(summary ?? null)
+            setStatement(stmt ?? null)
+        } catch (e: any) {
+            setEarningsError(e?.message ?? 'Failed to load earnings')
+        } finally {
+            setEarningsLoading(false)
+        }
+    }, [driver, id])
+
+    useEffect(() => {
+        if (tabValue === 3) {
+            void loadEarnings()
+        }
+    }, [tabValue, loadEarnings])
+
+    // Refresh the earnings tab in realtime when ledger/payment events land.
+    useEffect(() => {
+        if (tabValue !== 3 || !isAdminBackendEnabled()) return
+        const socket = createAdminSocket()
+        const onRealtimeEvent = () => {
+            void loadEarnings()
+        }
+        socket.on('domain.event', onRealtimeEvent)
+        socket.on('operations.service.updated', onRealtimeEvent)
+        socket.connect()
+        return () => {
+            socket.off('domain.event', onRealtimeEvent)
+            socket.off('operations.service.updated', onRealtimeEvent)
+            socket.disconnect()
+        }
+    }, [tabValue, loadEarnings])
 
     useEffect(() => {
         if (!id) return
@@ -211,6 +285,7 @@ export default function DriverDetail() {
                                 <Tab label="Documents" />
                                 <Tab label="Vehicle Info" />
                                 <Tab label="Trip History" />
+                                <Tab label="Earnings" />
                             </Tabs>
                         </Box>
 
@@ -248,6 +323,146 @@ export default function DriverDetail() {
 
                             <CustomTabPanel value={tabValue} index={2}>
                                 <Typography color="text.secondary">No trip data available.</Typography>
+                            </CustomTabPanel>
+
+                            <CustomTabPanel value={tabValue} index={3}>
+                                {earningsError ? (
+                                    <Alert severity="error" sx={{ mb: 2 }}>{earningsError}</Alert>
+                                ) : null}
+                                {earningsLoading && earnings.length === 0 ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                        <CircularProgress size={28} />
+                                    </Box>
+                                ) : (
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={6} sm={3}>
+                                                <Card variant="outlined">
+                                                    <CardContent>
+                                                        <Typography variant="caption" color="text.secondary">Total earned</Typography>
+                                                        <Typography variant="h6" fontWeight={800}>
+                                                            {formatMoney(earningsSummary?.total ?? statement?.totalGross ?? 0, earningsSummary?.currency ?? statement?.currency ?? 'UGX')}
+                                                        </Typography>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Card variant="outlined">
+                                                    <CardContent>
+                                                        <Typography variant="caption" color="text.secondary">Pending</Typography>
+                                                        <Typography variant="h6" fontWeight={800} color="warning.main">
+                                                            {formatMoney(earningsSummary?.pending ?? 0, earningsSummary?.currency ?? 'UGX')}
+                                                        </Typography>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Card variant="outlined">
+                                                    <CardContent>
+                                                        <Typography variant="caption" color="text.secondary">Settled</Typography>
+                                                        <Typography variant="h6" fontWeight={800} color="success.main">
+                                                            {formatMoney(earningsSummary?.settled ?? 0, earningsSummary?.currency ?? 'UGX')}
+                                                        </Typography>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Card variant="outlined">
+                                                    <CardContent>
+                                                        <Typography variant="caption" color="text.secondary">Payments</Typography>
+                                                        <Typography variant="h6" fontWeight={800}>{earningsSummary?.count ?? earnings.length}</Typography>
+                                                    </CardContent>
+                                                </Card>
+                                            </Grid>
+                                        </Grid>
+
+                                        <Box>
+                                            <Typography variant="h6" sx={{ mb: 1 }}>Earnings</Typography>
+                                            {earnings.length === 0 ? (
+                                                <Typography color="text.secondary">No earnings recorded yet.</Typography>
+                                            ) : (
+                                                <Table size="small">
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell>Order</TableCell>
+                                                            <TableCell align="right">Amount</TableCell>
+                                                            <TableCell>Status</TableCell>
+                                                            <TableCell>Date</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {earnings.map((entry) => (
+                                                            <TableRow key={entry.id}>
+                                                                <TableCell>
+                                                                    <Typography variant="body2" fontWeight={600}>#{entry.orderId}</Typography>
+                                                                    {entry.bonus || entry.tip ? (
+                                                                        <Typography variant="caption" color="text.secondary">
+                                                                            {entry.bonus ? `bonus ${formatMoney(entry.bonus, entry.currency)}` : ''}
+                                                                            {entry.bonus && entry.tip ? ' · ' : ''}
+                                                                            {entry.tip ? `tip ${formatMoney(entry.tip, entry.currency)}` : ''}
+                                                                        </Typography>
+                                                                    ) : null}
+                                                                </TableCell>
+                                                                <TableCell align="right">
+                                                                    <Typography variant="body2" fontWeight={700}>{formatMoney(entry.amount, entry.currency)}</Typography>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Chip
+                                                                        size="small"
+                                                                        label={entry.status}
+                                                                        color={entry.status === 'SETTLED' ? 'success' : entry.status === 'PENDING' ? 'warning' : 'default'}
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="body2" color="text.secondary">{formatDate(entry.settledAt ?? entry.createdAt)}</Typography>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            )}
+                                        </Box>
+
+                                        <Box>
+                                            <Typography variant="h6" sx={{ mb: 1 }}>Ledger statement</Typography>
+                                            {!statement || statement.entries.length === 0 ? (
+                                                <Typography color="text.secondary">No ledger entries recorded yet.</Typography>
+                                            ) : (
+                                                <Table size="small">
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell>Account</TableCell>
+                                                            <TableCell>Order</TableCell>
+                                                            <TableCell align="right">Debit</TableCell>
+                                                            <TableCell align="right">Credit</TableCell>
+                                                            <TableCell align="right">Gross</TableCell>
+                                                            <TableCell>Date</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {statement.entries.map((entry) => (
+                                                            <TableRow key={entry.id}>
+                                                                <TableCell>
+                                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: 11 }}>{entry.accountCode}</Typography>
+                                                                    {entry.description ? <Typography variant="caption" color="text.secondary">{entry.description}</Typography> : null}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="body2">{entry.orderId ? `#${entry.orderId}` : '—'}</Typography>
+                                                                </TableCell>
+                                                                <TableCell align="right">{formatMoney(entry.debit, entry.currency)}</TableCell>
+                                                                <TableCell align="right" sx={{ color: 'success.main', fontWeight: 700 }}>{formatMoney(entry.credit, entry.currency)}</TableCell>
+                                                                <TableCell align="right">{formatMoney(entry.grossAmount, entry.currency)}</TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="body2" color="text.secondary">{formatDate(entry.createdAt)}</Typography>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            )}
+                                        </Box>
+                                    </Box>
+                                )}
                             </CustomTabPanel>
                         </CardContent>
                     </Card>
