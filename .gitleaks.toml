@@ -1,0 +1,29 @@
+title = "EVzone Rides Admin Secret Scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "google-api-key"
+description = "Google API key"
+regex = '''AIza[0-9A-Za-z_-]{35}'''
+keywords = ["AIza"]
+
+[[rules]]
+id = "firebase-service-account-json"
+description = "Firebase or Google service account JSON committed to source"
+regex = '''"private_key"\s*:\s*"-----BEGIN PRIVATE KEY-----'''
+keywords = ["private_key", "BEGIN PRIVATE KEY"]
+
+[[rules]]
+id = "vite-secret-env-value"
+description = "Secret-looking Vite environment value committed to source"
+regex = '''VITE_[A-Z0-9_]*(SECRET|TOKEN|PRIVATE|PASSWORD|API_KEY)\s*=\s*['"]?([A-Za-z0-9_\-]{20,})'''
+keywords = ["VITE_", "API_KEY", "SECRET", "TOKEN"]
+secretGroup = 2
+
+[allowlist]
+paths = [
+  '''\.gitleaks\.toml$''',
+  '''scripts\/secret-scan\.mjs$''',
+]

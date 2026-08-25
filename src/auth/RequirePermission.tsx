@@ -23,15 +23,17 @@ export default function RequirePermission({
     ),
   );
   const claimRoles = new Set(getAuthRoles());
+  const isSuperAdmin = claimRoles.has("super_admin");
   const granted =
     claimPermissions.size > 0
       ? claimPermissions
       : new Set<AdminPermission>();
+  // Phase 10: a SUPER_ADMIN is unrestricted across every administrative page.
   const hasPermission =
+    isSuperAdmin ||
     anyOf.some((permission) => granted.has(permission)) ||
     (claimPermissions.size === 0 &&
-      ((claimRoles.has("super_admin") && anyOf.length > 0) ||
-        (claimRoles.has("admin") && anyOf.every((permission) => permission !== "manage_system"))));
+      (claimRoles.has("admin") && anyOf.every((permission) => permission !== "manage_system")));
   if (!hasPermission) {
     return <Navigate to="/admin/access-denied" replace state={{ from: location.pathname }} />;
   }

@@ -13,6 +13,7 @@ import {
   saveAdminBackendTokens,
   syncAdminReferenceData,
 } from "../services/api/adminApi"
+import { getUserPermissions } from "./permissions"
 
 export const ADMIN_BACKEND_ROLE_ENUMS = ["admin", "super_admin"] as const
 export type AdminBackendRole = (typeof ADMIN_BACKEND_ROLE_ENUMS)[number]
@@ -69,12 +70,6 @@ function parseAdminRoles(roles: unknown): AdminRoleClaimStatus {
   }
 }
 
-function isTokenExpired(token: string): boolean {
-  const payload = parseJwtPayload(token)
-  if (!payload?.exp) return false
-  return payload.exp * 1000 <= Date.now()
-}
-
 function resolveClaimRoles(): AdminRoleClaimStatus {
   const accessToken = readAdminBackendAccessToken()
   if (!accessToken) return { roles: [], hasUnknownRoles: false }
@@ -106,7 +101,7 @@ async function finalizeBackendAuth(backend: {
   refreshToken: string
   user: { email: string; roles?: string[] }
 }, preferredName?: string): Promise<AuthUser> {
-  saveAdminBackendTokens(backend.accessToken, backend.refreshToken)
+  saveAdminBackendTokens(backend.accessToken)
 
   const session = await backendFetchSession()
   const sessionRoles = parseAdminRoles(session.user.roles)
@@ -169,8 +164,14 @@ export function getAuthRoles(): AdminBackendRole[] {
 }
 
 export function getAuthPermissions(): string[] {
-  const user = getAuthUser()
-  return Array.isArray(user?.permissions) ? user.permissions.filter((value) => typeof value === "string") : []
+  const user = getAuthUser();
+  if (!user) return [];
+  // Phase 10: resolve the effective permission set from the user's roles. A
+  // SUPER_ADMIN (or any admin whose backend session emitted the '*' wildcard)
+  // resolves to the full permission set, so page-level guards and API checks
+  // grant unrestricted access. The backend remains authoritative for what
+  // each non-super role may do.
+  return getUserPermissions(user);
 }
 
 export function hasInvalidRoleClaims(): boolean {
@@ -194,7 +195,11 @@ export function isAuthed() {
 
   if (isBackendAuthEnabled()) {
     const token = readAdminBackendAccessToken()
-    if (!token || isTokenExpired(token) || hasInvalidRoleClaims()) {
+    // An expired access token is no longer a sign-out condition on its own:
+    // the HttpOnly refresh cookie can still recover the session. RequireAuth
+    // revalidates via /auth/session, which refreshes on 401 and only signs
+    // out when the refresh genuinely fails.
+    if (!token || hasInvalidRoleClaims()) {
       signOut()
       return false
     }

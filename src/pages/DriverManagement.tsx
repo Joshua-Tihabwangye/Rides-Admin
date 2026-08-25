@@ -74,7 +74,13 @@ export default function DriverManagement() {
       // Map backend driver to UI record
       const mapped: DriverRecord[] = data.map((driver, index) => {
         const primaryStatus: DriverRecord['primaryStatus'] = driver.status === 'active' ? 'approved' : 'suspended';
-        const activityStatus: DriverRecord['activityStatus'] = driver.status === 'active' ? 'active' : 'inactive';
+        // Phase 9: activity reflects the backend-driven availability status, not
+        // the account approval status. ONLINE / BUSY => active; anything else
+        // (OFFLINE / INACTIVE / SUSPENDED / undefined) => inactive.
+        const isAvailable =
+          driver.availabilityStatus != null &&
+          ["ONLINE", "BUSY"].includes(driver.availabilityStatus.toUpperCase());
+        const activityStatus: DriverRecord['activityStatus'] = isAvailable ? 'active' : 'inactive';
         const vehicleParts = [driver.vehicleType, driver.model, driver.licensePlate].filter(Boolean);
         const vehicle = vehicleParts.length > 0 ? vehicleParts.join(' · ') : 'N/A';
         return {

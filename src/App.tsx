@@ -69,10 +69,20 @@ import Settings from './pages/Settings'
 import AccessDenied from './pages/AccessDenied'
 import DeliveryListPage from './pages/DeliveryListPage'
 import DeliveryDetailPage from './pages/DeliveryDetailPage'
+import ReturnRequestsPage from './pages/ReturnRequestsPage'
+import DisputesPage from './pages/DisputesPage'
+import ReturnShipmentsPage from './pages/ReturnShipmentsPage'
+import ReturnShipmentDetailPage from './pages/ReturnShipmentDetailPage'
+import ReturnReconciliationPage from './pages/ReturnReconciliationPage'
 import PackageLabelPage from './pages/PackageLabelPage'
+import DeliveryLabelsPage from './pages/DeliveryLabelsPage'
 import PrintQueuePage from './pages/PrintQueuePage'
 import LabelExceptionsPage from './pages/LabelExceptionsPage'
 import BlankLabelStockPage from './pages/BlankLabelStockPage'
+import MarketplaceClientProductsPage from './pages/marketplace/MarketplaceClientProductsPage'
+import MarketplaceClientCartPage from './pages/marketplace/MarketplaceClientCartPage'
+import MarketplaceSellerOrdersPage from './pages/marketplace/MarketplaceSellerOrdersPage'
+import MarketplaceSellerOrderDetailPage from './pages/marketplace/MarketplaceSellerOrderDetailPage'
 
 export default function App() {
   return (
@@ -352,6 +362,40 @@ export default function App() {
             }
           />
 
+          {/* Marketplace simulation */}
+          <Route
+            path="marketplace/client/products"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <MarketplaceClientProductsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="marketplace/client/cart"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <MarketplaceClientCartPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="marketplace/seller/orders"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <MarketplaceSellerOrdersPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="marketplace/seller/orders/:sellerOrderId"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <MarketplaceSellerOrderDetailPage />
+              </RequirePermission>
+            }
+          />
+
           {/* Logistics / Delivery workspace */}
           <Route
             path="deliveries"
@@ -369,6 +413,47 @@ export default function App() {
               </RequirePermission>
             }
           />
+          {/* Reverse logistics & returns (DLV-192) */}
+          <Route
+            path="returns"
+            element={
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <ReturnShipmentsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="returns/requests"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <ReturnRequestsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="returns/shipments/:shipmentId"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <ReturnShipmentDetailPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="returns/reconciliation"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <ReturnReconciliationPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="disputes"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <DisputesPage />
+              </RequirePermission>
+            }
+          />
           <Route
             path="delivery-packages/:packageId/label"
             element={
@@ -381,7 +466,7 @@ export default function App() {
             path="delivery-labels"
             element={
               <RequirePermission anyOf={["view_delivery_labels"]}>
-                <PackageLabelPage />
+                <DeliveryLabelsPage />
               </RequirePermission>
             }
           />

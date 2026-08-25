@@ -17,6 +17,9 @@ concurrency:
   group: deploy-admin-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 env:
   DEPLOY_DIR: /opt/evzone/admin
   APP_USER: ${{ vars.DEPLOY_USER || 'deploy' }}

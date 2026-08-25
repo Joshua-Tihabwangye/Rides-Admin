@@ -34,6 +34,7 @@ import {
   getAdminDelivery,
 } from '../services/api/adminApi';
 import type { AdminDeliveryListItemResponse, AdminDeliveryOrderResponse, ListAdminDeliveriesFilters } from '../services/api/adminApi';
+import { DELIVERY_STATUS_FILTER_OPTIONS } from '../utils/deliveryStatus';
 
 const ORIGIN_TYPES = [
   { value: '', label: 'All origins' },
@@ -41,15 +42,15 @@ const ORIGIN_TYPES = [
   { value: 'individual', label: 'Individual' },
 ];
 
-const STATUSES = [
-  { value: '', label: 'All statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'in_transit', label: 'In transit' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'failed', label: 'Failed' },
+const LABEL_STATUSES = [
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'GENERATED', label: 'Generated' },
+  { value: 'PRINTED', label: 'Printed' },
+  { value: 'ATTACHED', label: 'Attached' },
+  { value: 'CANCELLED', label: 'Cancelled' },
 ];
+
+
 
 const READINESS_STATUSES = [
   { value: '', label: 'All readiness' },
@@ -87,6 +88,7 @@ export default function DeliveryListPage() {
           originType: filters.originType || undefined,
           status: filters.status || undefined,
           readinessStatus: filters.readinessStatus || undefined,
+          labelStatus: filters.labelStatus || undefined,
           trackingCode: filters.trackingCode || undefined,
           fromDate: filters.fromDate || undefined,
           toDate: filters.toDate || undefined,
@@ -104,10 +106,14 @@ export default function DeliveryListPage() {
           : Array.isArray(rawResponse.data)
             ? rawResponse.data
             : [];
+      const labelStatusById = new Map(
+        listItems.map((item) => [item.id, item.labelStatus])
+      );
       const detailedItems = await Promise.all(
         listItems.map(async (item) => {
           try {
-            return await getAdminDelivery(item.id);
+            const detail = await getAdminDelivery(item.id);
+            return { ...detail, labelStatus: labelStatusById.get(item.id) ?? (detail as AdminDeliveryListItemResponse).labelStatus };
           } catch {
             return item;
           }
@@ -134,7 +140,7 @@ export default function DeliveryListPage() {
   useEffect(() => {
     fetchDeliveries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.page, filters.limit, filters.originType, filters.status, filters.readinessStatus, filters.fromDate, filters.toDate]);
+  }, [filters.page, filters.limit, filters.originType, filters.status, filters.readinessStatus, filters.labelStatus, filters.fromDate, filters.toDate]);
 
   // Debounce search and tracking code inputs
   const [searchInput, setSearchInput] = useState(filters.search ?? '');
@@ -257,7 +263,7 @@ export default function DeliveryListPage() {
               onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value, page: 1 }))}
               sx={{ fontSize: 12, borderRadius: 2, height: 36 }}
             >
-              {STATUSES.map((s) => (
+              {DELIVERY_STATUS_FILTER_OPTIONS.map((s) => (
                 <MenuItem key={s.value} value={s.value}>
                   {s.label}
                 </MenuItem>
@@ -276,6 +282,23 @@ export default function DeliveryListPage() {
               {READINESS_STATUSES.map((r) => (
                 <MenuItem key={r.value} value={r.value}>
                   {r.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel id="label-status-label">Label status</InputLabel>
+            <Select
+              labelId="label-status-label"
+              value={filters.labelStatus ?? ''}
+              label="Label status"
+              onChange={(e) => setFilters((prev) => ({ ...prev, labelStatus: e.target.value, page: 1 }))}
+              sx={{ fontSize: 12, borderRadius: 2, height: 36 }}
+            >
+              <MenuItem value="">All label statuses</MenuItem>
+              {LABEL_STATUSES.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
                 </MenuItem>
               ))}
             </Select>
@@ -333,9 +356,10 @@ export default function DeliveryListPage() {
                 <TableCell>Recipient</TableCell>
                 <TableCell>Driver</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Readiness</TableCell>
-                <TableCell>Labels</TableCell>
-                <TableCell>Created</TableCell>
+                  <TableCell>Payment</TableCell>
+                  <TableCell>Readiness</TableCell>
+                  <TableCell>Labels</TableCell>
+                  <TableCell>Created</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -357,6 +381,16 @@ export default function DeliveryListPage() {
                     <StatusBadge status={delivery.status} />
                   </TableCell>
                   <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <Box sx={{ fontWeight: 600, fontSize: '0.75rem', color: delivery.payment?.status === 'PAID' ? '#10b981' : '#f59e0b' }}>
+                        {delivery.payment?.status === 'PAID' ? 'Paid' : 'Pending'}
+                      </Box>
+                      {delivery.payment?.timing === 'PAY_ON_DELIVERY' && (
+                        <Box sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>(on delivery)</Box>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
                     <StatusBadge status={delivery.readinessStatus || 'unknown'} />
                   </TableCell>
                   <TableCell>
@@ -369,7 +403,7 @@ export default function DeliveryListPage() {
               ))}
               {deliveries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     No deliveries found.
                   </TableCell>
                 </TableRow>
