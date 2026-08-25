@@ -365,7 +365,7 @@ function EventTimeline({ events }: { events?: AdminDeliveryEventResponse[] }) {
   );
 }
 
-const KAMPALA_CENTER = { lat: 0.3476, lng: 32.5825 };
+const FALLBACK_CENTER = { lat: 0.3476, lng: 32.5825 };
 
 interface DeliveryRouteMapProps {
   pickupLat?: number;
@@ -391,6 +391,16 @@ function DeliveryRouteMap({
   const rawApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
   const googleMapsApiKey = rawApiKey && !/^https?:\/\//i.test(rawApiKey) ? rawApiKey : '';
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey });
+  const [gpsFallback, setGpsFallback] = useState(FALLBACK_CENTER);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setGpsFallback({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+    );
+  }, []);
 
   const hasCoordinates =
     typeof pickupLat === 'number' &&
@@ -400,7 +410,7 @@ function DeliveryRouteMap({
 
   const center = hasCoordinates
     ? { lat: (pickupLat! + destinationLat!) / 2, lng: (pickupLng! + destinationLng!) / 2 }
-    : KAMPALA_CENTER;
+    : gpsFallback;
 
   if (loadError) {
     return (

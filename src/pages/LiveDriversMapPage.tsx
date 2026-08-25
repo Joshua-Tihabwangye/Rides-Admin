@@ -39,7 +39,18 @@ export type LiveDriverMarker = {
   plate?: string;
 };
 
-const KAMPALA_CENTER = { lat: 0.3476, lng: 32.5825 };
+const FALLBACK_CENTER = { lat: 0.3476, lng: 32.5825 };
+
+function requestBrowserCenter(): Promise<{ lat: number; lng: number }> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(FALLBACK_CENTER); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(FALLBACK_CENTER),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
+    );
+  });
+}
 
 function vehicleIcon(vehicleType?: string) {
   const type = (vehicleType ?? "").toLowerCase();
@@ -76,19 +87,29 @@ export default function LiveDriversMapPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selected, setSelected] = useState<LiveDriverMarker | null>(null);
-  const [center, setCenter] = useState(KAMPALA_CENTER);
+  const [center, setCenter] = useState(FALLBACK_CENTER);
   const [zoom, setZoom] = useState(12);
   const [filter, setFilter] = useState<"ALL" | "ONLINE" | "BUSY">("ALL");
   const mapRef = useRef<any>(null);
   const driversRef = useRef<LiveDriverMarker[]>([]);
   driversRef.current = drivers;
+  const centerRef = useRef(center);
+  centerRef.current = center;
+
+  useEffect(() => {
+    let cancelled = false;
+    requestBrowserCenter().then((gpsCenter) => {
+      if (!cancelled) setCenter(gpsCenter);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
       const { drivers: markers } = await getActiveDrivers(
-        center.lat,
-        center.lng,
+        centerRef.current.lat,
+        centerRef.current.lng,
         50,
         300,
       );
@@ -101,7 +122,7 @@ export default function LiveDriversMapPage() {
       setRefreshing(false);
       setLoading(false);
     }
-  }, [center.lat, center.lng]);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -120,7 +141,9 @@ export default function LiveDriversMapPage() {
       const location = data.location;
       setDrivers((prev) => {
         const index = prev.findIndex((d) => d.driverId === location.driverId);
-        if (index === -1) return prev;
+        if (index === -1) {
+          return [...prev, { ...location, distanceKm: 0 }];
+        }
         const next = [...prev];
         next[index] = { ...next[index], ...location };
         return next;
