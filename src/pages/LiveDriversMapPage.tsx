@@ -39,17 +39,34 @@ export type LiveDriverMarker = {
   plate?: string;
 };
 
-const FALLBACK_CENTER = { lat: 0.3476, lng: 32.5825 };
+// Server-side proximity origin used ONLY to scope the backend active-drivers
+// query. It is never used as a displayed map center and never overrides real
+// driver coordinates rendered on the map.
+const QUERY_ORIGIN = { lat: 0, lng: 0 };
 
-function requestBrowserCenter(): Promise<{ lat: number; lng: number }> {
+// Returns the operator's real browser position to seed the initial viewport,
+// or null when unavailable. No hardcoded fallback location is applied so that
+// the map only centers on real driver data.
+function requestBrowserCenter(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((resolve) => {
-    if (!navigator.geolocation) { resolve(FALLBACK_CENTER); return; }
+    if (!navigator.geolocation) { resolve(null); return; }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(FALLBACK_CENTER),
+      () => resolve(null),
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
     );
   });
+}
+
+const FRESHNESS_MS = 15 * 60 * 1000;
+
+function isValidFreshLocation(loc: { latitude?: number; longitude?: number; lastLocationAt?: string }): boolean {
+  if (typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return false;
+  if (typeof loc.lastLocationAt === "string") {
+    const age = Date.now() - new Date(loc.lastLocationAt).getTime();
+    if (!Number.isFinite(age) || age > FRESHNESS_MS) return false;
+  }
+  return true;
 }
 
 function vehicleIcon(vehicleType?: string) {
@@ -87,7 +104,7 @@ export default function LiveDriversMapPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [selected, setSelected] = useState<LiveDriverMarker | null>(null);
-  const [center, setCenter] = useState(FALLBACK_CENTER);
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [zoom, setZoom] = useState(12);
   const [filter, setFilter] = useState<"ALL" | "ONLINE" | "BUSY">("ALL");
   const mapRef = useRef<any>(null);
@@ -99,7 +116,7 @@ export default function LiveDriversMapPage() {
   useEffect(() => {
     let cancelled = false;
     requestBrowserCenter().then((gpsCenter) => {
-      if (!cancelled) setCenter(gpsCenter);
+      if (!cancelled && gpsCenter) setCenter(gpsCenter);
     });
     return () => { cancelled = true; };
   }, []);
@@ -107,13 +124,19 @@ export default function LiveDriversMapPage() {
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
+      const origin = centerRef.current ?? QUERY_ORIGIN;
       const { drivers: markers } = await getActiveDrivers(
-        centerRef.current.lat,
-        centerRef.current.lng,
+        origin.lat,
+        origin.lng,
         50,
         300,
       );
       setDrivers(markers);
+      // Seed the viewport from the first real driver when no center is set yet.
+      if (!centerRef.current && markers.length > 0) {
+        const first = markers[0];
+        setCenter({ lat: first.latitude, lng: first.longitude });
+      }
       setLastUpdated(new Date().toISOString());
       setError(null);
     } catch (err: any) {
@@ -139,9 +162,13 @@ export default function LiveDriversMapPage() {
       const data = payload?.data;
       if (data?.event !== "driver.location" || !data.location) return;
       const location = data.location;
+      if (!isValidFreshLocation(location)) return;
       setDrivers((prev) => {
         const index = prev.findIndex((d) => d.driverId === location.driverId);
         if (index === -1) {
+          if (!centerRef.current) {
+            setCenter({ lat: location.latitude, lng: location.longitude });
+          }
           return [...prev, { ...location, distanceKm: 0 }];
         }
         const next = [...prev];
@@ -243,11 +270,14 @@ export default function LiveDriversMapPage() {
         {isLoaded && (
           <GoogleMap
             mapContainerStyle={{ width: "100%", height: "100%" }}
-            center={center}
+            center={center ?? undefined}
             zoom={zoom}
             onLoad={(map) => { mapRef.current = map; }}
             onUnmount={() => { mapRef.current = null; }}
             onCenterChanged={() => {
+              // Only track operator panning once a real center exists; never
+              // let the map reset to a hardcoded/empty viewport.
+              if (!centerRef.current) return;
               const map = mapRef.current;
               if (!map) return;
               const next = map.getCenter();

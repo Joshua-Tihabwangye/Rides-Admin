@@ -62,6 +62,7 @@ import {
   runAdminDeliveryReconciliation,
   resolveAdminDeliveryReconciliationAlert,
   dismissAdminDeliveryReconciliationAlert,
+  createAdminSocket,
 } from '../services/api/adminApi';
 import type {
   AdminDeliveryOrderResponse,
@@ -76,7 +77,15 @@ import type {
   AdminDeliveryLedgerEntry,
   AdminDeliveryLedgerView,
   AdminDeliveryReconciliationAlert,
+  AdminDeliveryCourier,
+  AdminDeliveryLocation,
 } from '../services/api/adminApi';
+import {
+  driverVehicleKind,
+  vehicleMarkerIconUrl,
+  vehicleMarkerAnchor,
+  vehicleMarkerSize,
+} from '../utils/vehicleMarkerIcons';
 import { getAuthUser } from '../auth/auth';
 import { hasAnyPermission } from '../auth/permissions';
 import type { AdminPermission } from '../auth/permissions';
@@ -130,7 +139,10 @@ function CustomTabPanel(props: TabPanelProps) {
   );
 }
 
-function LocationBlock({ title, contact, address }: { title: string; contact?: AdminDeliveryOrderResponse['sender']; address?: string }) {
+function LocationBlock({ title, contact, address, location }: { title: string; contact?: AdminDeliveryOrderResponse['sender']; address?: string; location?: AdminDeliveryLocation | null }) {
+  // Prefer the canonical backend location (name + formattedAddress) over any
+  // client reverse-geocode or plain string address. Never synthesize an address.
+  const displayAddress = location?.formattedAddress || location?.name || address || 'N/A';
   return (
     <Box>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
@@ -152,7 +164,7 @@ function LocationBlock({ title, contact, address }: { title: string; contact?: A
         )}
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
           <LocationOnIcon fontSize="small" color="action" sx={{ mt: 0.3 }} />
-          <Typography variant="body2">{address || 'N/A'}</Typography>
+          <Typography variant="body2">{displayAddress}</Typography>
         </Box>
       </Box>
     </Box>
@@ -1270,11 +1282,11 @@ export default function DeliveryDetailPage() {
 
               <Divider sx={{ my: 2 }} />
 
-              <LocationBlock title="Sender" contact={delivery.sender} address={delivery.pickupAddress} />
+              <LocationBlock title="Sender" contact={delivery.sender} address={delivery.pickupAddress} location={delivery.pickup} />
 
               <Divider sx={{ my: 2 }} />
 
-              <LocationBlock title="Recipient" contact={delivery.receiver} address={delivery.destinationAddress} />
+              <LocationBlock title="Recipient" contact={delivery.receiver} address={delivery.destinationAddress} location={delivery.destination} />
 
               <Divider sx={{ my: 2 }} />
 
