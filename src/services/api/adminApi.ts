@@ -2090,6 +2090,30 @@ export type AdminDeliveryListItemResponse = {
   receiver?: AdminDeliveryContactView;
 };
 
+// Backend canonical location shape (pickup/destination each return these).
+export type AdminDeliveryLocation = {
+  name?: string;
+  placeId?: string;
+  formattedAddress?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+// Backend courier (driver + vehicle) payload. Null/absent means unassigned.
+export type AdminDeliveryCourier = {
+  driverId?: string;
+  fullName?: string;
+  rating?: number;
+  vehicleId?: string;
+  vehicleType?: string;
+  transportMode?: string;
+  plateNumber?: string;
+  latitude?: number;
+  longitude?: number;
+  heading?: number;
+  locationUpdatedAt?: string;
+};
+
 export type AdminDeliveryOrderResponse = {
   id: string;
   trackingCode?: string;
@@ -2105,6 +2129,10 @@ export type AdminDeliveryOrderResponse = {
   pickupLongitude?: number;
   destinationLatitude?: number;
   destinationLongitude?: number;
+  // Canonical backend location objects (source of truth when present).
+  pickup?: AdminDeliveryLocation;
+  destination?: AdminDeliveryLocation;
+  courier?: AdminDeliveryCourier | null;
   route?: Record<string, unknown>;
   payment?: { status: string; timing: string; method?: string };
   driverId?: string;
