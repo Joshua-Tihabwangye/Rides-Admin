@@ -2091,7 +2091,7 @@ export type AdminDeliveryListItemResponse = {
 };
 
 // Backend canonical location shape (pickup/destination each return these).
-export type AdminDeliveryLocation = {
+export type AdminDeliveryCanonicalLocation = {
   name?: string;
   placeId?: string;
   formattedAddress?: string;
@@ -2130,8 +2130,8 @@ export type AdminDeliveryOrderResponse = {
   destinationLatitude?: number;
   destinationLongitude?: number;
   // Canonical backend location objects (source of truth when present).
-  pickup?: AdminDeliveryLocation;
-  destination?: AdminDeliveryLocation;
+  pickup?: AdminDeliveryCanonicalLocation;
+  destination?: AdminDeliveryCanonicalLocation;
   courier?: AdminDeliveryCourier | null;
   route?: Record<string, unknown>;
   payment?: { status: string; timing: string; method?: string };
