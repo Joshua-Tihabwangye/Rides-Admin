@@ -79,6 +79,7 @@ import type {
   AdminDeliveryReconciliationAlert,
   AdminDeliveryCourier,
   AdminDeliveryLocation,
+  AdminDeliveryCanonicalLocation,
 } from '../services/api/adminApi';
 import {
   driverVehicleKind,
@@ -139,7 +140,7 @@ function CustomTabPanel(props: TabPanelProps) {
   );
 }
 
-function LocationBlock({ title, contact, address, location }: { title: string; contact?: AdminDeliveryOrderResponse['sender']; address?: string; location?: AdminDeliveryLocation | null }) {
+function LocationBlock({ title, contact, address, location }: { title: string; contact?: AdminDeliveryOrderResponse['sender']; address?: string; location?: AdminDeliveryCanonicalLocation | null }) {
   // Prefer the canonical backend location (name + formattedAddress) over any
   // client reverse-geocode or plain string address. Never synthesize an address.
   const displayAddress = location?.formattedAddress || location?.name || address || 'N/A';
