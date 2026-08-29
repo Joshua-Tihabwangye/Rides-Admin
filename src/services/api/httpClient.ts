@@ -287,3 +287,65 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
   return run();
 }
+
+// ── Multipart upload (e.g. `POST /files/upload`) ────────────────────────────
+// Posts FormData directly so the browser emits the multipart boundary (no
+// JSON Content-Type). Bearer auth, 401→refresh retry and envelope unwrapping
+// mirror `request`. This lets the Admin forward voice-note audio to storage.
+export async function upload<T>(
+  path: string,
+  file: File,
+  options: { query?: Record<string, QueryValue>; retryOnUnauthorized?: boolean } = {},
+): Promise<T> {
+  const url = buildRequestUrl(path, options.query);
+  const form = new FormData();
+  form.append("file", file);
+
+  const run = async (): Promise<T> => {
+    const headers: Record<string, string> = { "X-App-Id": APP_ID };
+    const accessToken = authAdapter?.getAccessToken();
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: form,
+    });
+
+    if (response.status === 401 && options.retryOnUnauthorized !== false && authAdapter) {
+      try {
+        const refreshed = await attemptRefresh();
+        authAdapter.setTokens(refreshed.accessToken, refreshed.refreshToken);
+        return upload<T>(path, file, { ...options, retryOnUnauthorized: false });
+      } catch (error) {
+        if (isDefinitiveAuthRejection(error)) {
+          handleUnauthorized();
+        }
+        throw error;
+      }
+    }
+
+    const raw = await response.text();
+    const parsed = parseJson<ApiEnvelope<T>>(raw);
+
+    if (!response.ok) {
+      const message = parsed?.message || `Upload failed with status ${response.status}`;
+      throw new ApiRequestError(message, response.status, parsed?.details);
+    }
+
+    if (parsed && "data" in parsed && parsed.data !== undefined) {
+      REQUEST_CACHE.clear();
+      return parsed.data;
+    }
+    if (parsed !== null) {
+      REQUEST_CACHE.clear();
+      return parsed as unknown as T;
+    }
+    throw new ApiRequestError("Empty response from server", response.status);
+  };
+
+  return run();
+}

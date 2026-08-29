@@ -4,7 +4,7 @@
 // calls target a specific party via calleeUserId (e.g. the driver on an SOS
 // incident) while chat always follows the ride/delivery thread.
 
-import { request } from "./httpClient";
+import { request, upload } from "./httpClient";
 
 export type AdminChatContextType = "RIDE" | "DELIVERY";
 
@@ -30,7 +30,7 @@ export type AdminChatMessage = {
   threadId: string;
   senderUserId: string;
   body: string;
-  attachments?: Record<string, unknown>[] | null;
+  attachments?: Array<string | Record<string, unknown>> | null;
   createdAt: string;
 };
 
@@ -103,11 +103,68 @@ export function adminListChatMessages(
   );
 }
 
-export function adminSendChatMessage(threadId: string, body: string): Promise<AdminChatMessage> {
+export function adminSendChatMessage(
+  threadId: string,
+  body: string,
+  attachments?: Array<string | Record<string, unknown>>,
+): Promise<AdminChatMessage> {
   return request<AdminChatMessage>(`/chat/threads/${threadId}/messages`, {
     method: "POST",
-    body: { body },
+    body: {
+      ...(attachments?.length ? { body, attachments } : { body }),
+    },
   });
+}
+
+export type AdminUploadedFile = {
+  id: string;
+  fileAssetId: string;
+  fileKey: string;
+  fileUrl: string;
+  originalFileName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+};
+
+/**
+ * Upload a chat voice note (PRIVATE, long-lived signed URL). Requires the
+ * backend to be reached via the same origin/proxy used by `request`.
+ */
+export function adminUploadChatVoiceNote(file: File): Promise<AdminUploadedFile> {
+  return upload<AdminUploadedFile>("/files/upload", file, {
+    query: {
+      visibility: "PRIVATE",
+      ttlSeconds: 30 * 24 * 60 * 60,
+    },
+  });
+}
+
+/**
+ * A voice-note attachment persisted on a chat message. `url` is a long-lived
+ * signed download URL produced by /files/upload with a chat TTL.
+ */
+export type AdminVoiceNoteAttachment = {
+  kind: "voice-note";
+  url: string;
+  mimeType: string;
+  durationMs: number;
+  sizeBytes: number;
+};
+
+export function isVoiceNoteAttachment(
+  attachment: string | Record<string, unknown>,
+): attachment is AdminVoiceNoteAttachment {
+  if (typeof attachment === "string") return false;
+  return (
+    attachment?.kind === "voice-note" &&
+    typeof attachment.url === "string" &&
+    typeof attachment.mimeType === "string"
+  );
+}
+
+export function voiceNoteUrlOf(message: AdminChatMessage): string | null {
+  const attachment = message.attachments?.find(isVoiceNoteAttachment);
+  return attachment ? attachment.url : null;
 }
 
 export function adminMarkChatThreadRead(
