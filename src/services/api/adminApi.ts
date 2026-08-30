@@ -2575,6 +2575,29 @@ export async function adminReassignRide(
   });
 }
 
+export type AdminRidePaymentResponse = {
+  id: string;
+  reference: string;
+  providerReference?: string;
+  amount: number;
+  currency: string;
+  method: string;
+  provider: string;
+  status: string;
+  purpose?: string;
+  paidAt?: string;
+  refundedAt?: string;
+  refundedAmount: number;
+};
+
+export async function getAdminRidePayments(
+  rideId: string,
+): Promise<{ payments: AdminRidePaymentResponse[] }> {
+  return request<{ payments: AdminRidePaymentResponse[] }>(`/admin/rides/${rideId}/payments`, {
+    method: 'GET',
+  });
+}
+
 export type AdminRideAnomalyItem = {
   id: string;
   rideId: string;

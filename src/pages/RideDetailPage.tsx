@@ -28,8 +28,8 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import StatusBadge from '../components/StatusBadge';
 import RideAdminActions from '../components/rides/RideAdminActions';
-import { getAdminRide } from '../services/api/adminApi';
-import type { AdminRideDetailResponse } from '../services/api/adminApi';
+import { getAdminRide, getAdminRidePayments } from '../services/api/adminApi';
+import type { AdminRideDetailResponse, AdminRidePaymentResponse } from '../services/api/adminApi';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -73,6 +73,7 @@ export default function RideDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
+  const [payments, setPayments] = useState<AdminRidePaymentResponse[]>([]);
 
   useEffect(() => {
     if (!rideId) return;
@@ -82,6 +83,13 @@ export default function RideDetailPage() {
       .then(setRide)
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load ride'))
       .finally(() => setLoading(false));
+  }, [rideId]);
+
+  useEffect(() => {
+    if (!rideId) return;
+    getAdminRidePayments(rideId)
+      .then((res) => setPayments(res.payments ?? []))
+      .catch(() => setPayments([]));
   }, [rideId]);
 
   if (loading) {
@@ -364,6 +372,46 @@ export default function RideDetailPage() {
             <Field label="Payment status" value={ride.payment ? <StatusBadge status={ride.payment.status} label={ride.payment.status} /> : '—'} />
           </Grid>
         </Grid>
+
+        <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>Payment records</Typography>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Reference</TableCell>
+                <TableCell>Provider ref</TableCell>
+                <TableCell>Amount</TableCell>
+                <TableCell>Method</TableCell>
+                <TableCell>Provider</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Purpose</TableCell>
+                <TableCell>Paid</TableCell>
+                <TableCell>Refunded</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {payments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8}>No payment records</TableCell>
+                </TableRow>
+              ) : (
+                payments.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell>{p.reference}</TableCell>
+                    <TableCell>{p.providerReference ?? '—'}</TableCell>
+                    <TableCell>{fmtMoney(p.amount, p.currency)}</TableCell>
+                    <TableCell>{p.method}</TableCell>
+                    <TableCell>{p.provider}</TableCell>
+                    <TableCell><StatusBadge status={p.status} label={p.status} /></TableCell>
+                    <TableCell>{p.purpose ?? '—'}</TableCell>
+                    <TableCell>{fmtDateTime(p.paidAt)}</TableCell>
+                    <TableCell>{p.refundedAt ? `${fmtDateTime(p.refundedAt)} (${fmtMoney(p.refundedAmount, p.currency)})` : '—'}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </CustomTabPanel>
 
       <CustomTabPanel value={tab} index={7}>
