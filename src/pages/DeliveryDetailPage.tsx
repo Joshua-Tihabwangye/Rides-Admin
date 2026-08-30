@@ -44,6 +44,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StatusBadge from '../components/StatusBadge';
 import AuditTrailViewer from '../components/AuditTrailViewer';
 import DeliveryAdminActions from '../components/deliveries/DeliveryAdminActions';
+import DeliveryAttemptsSection from '../components/deliveries/DeliveryAttemptsSection';
+import DeliverySettlementSection from '../components/deliveries/DeliverySettlementSection';
 import {
   getAdminDelivery,
   getAdminDeliveryPackages,
@@ -1361,6 +1363,8 @@ export default function DeliveryDetailPage() {
                 <Tab label="Credentials" />
                 <Tab label="Audit Trail" />
                 <Tab label="Ledger & Alerts" />
+                <Tab label="Attempts & Failures" />
+                <Tab label="Driver Settlement" />
               </Tabs>
             </Box>
             <CardContent>
@@ -1460,6 +1464,12 @@ export default function DeliveryDetailPage() {
               </CustomTabPanel>
               <CustomTabPanel value={tabValue} index={5}>
                 <DeliveryLedgerSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={6}>
+                <DeliveryAttemptsSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={7}>
+                <DeliverySettlementSection orderId={id!} />
               </CustomTabPanel>
             </CardContent>
           </Card>

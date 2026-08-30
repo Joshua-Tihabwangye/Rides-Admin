@@ -2264,6 +2264,66 @@ export async function adminCancelDelivery(
   });
 }
 
+// ---------------------------------------------------------------------------
+// Delivery attempts/failures (Phase 9) and driver earnings (Phase 11).
+// ---------------------------------------------------------------------------
+
+export type AdminDeliveryFailureResponse = {
+  id: string;
+  reason: string;
+  retryEligible: boolean;
+  nextAction: string;
+  retryCount: number;
+  terminalPolicy?: string;
+  latitude?: number;
+  longitude?: number;
+  actorUserId?: string;
+  createdAt: string;
+};
+
+export type AdminDeliveryAttemptResponse = {
+  id: string;
+  attemptNumber: number;
+  status: string;
+  driverId?: string;
+  scheduledFor?: string;
+  startedAt?: string;
+  completedAt?: string;
+  note?: string;
+  contactSnapshot?: Record<string, unknown>;
+  failures: AdminDeliveryFailureResponse[];
+};
+
+export type AdminDeliveryEarningResponse = {
+  driverId: string;
+  amount: number;
+  currency: string;
+  baseFee: number;
+  tip?: number;
+  bonus?: number;
+  status: string;
+  settledAt?: string;
+  settledById?: string;
+};
+
+export async function getAdminDeliveryAttempts(
+  orderId: string,
+): Promise<{ attempts: AdminDeliveryAttemptResponse[] }> {
+  return request<{ attempts: AdminDeliveryAttemptResponse[] }>(
+    `/admin/deliveries/orders/${orderId}/attempts`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminDeliveryEarnings(
+  orderId: string,
+): Promise<{ earnings: AdminDeliveryEarningResponse[] }> {
+  return request<{ earnings: AdminDeliveryEarningResponse[] }>(
+    `/admin/deliveries/orders/${orderId}/earnings`,
+    { method: "GET" },
+  );
+}
+
 export async function getAdminDeliveryPackages(
   id: string
 ): Promise<AdminDeliveryPackageView[]> {
