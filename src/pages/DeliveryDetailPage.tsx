@@ -46,6 +46,7 @@ import AuditTrailViewer from '../components/AuditTrailViewer';
 import DeliveryAdminActions from '../components/deliveries/DeliveryAdminActions';
 import DeliveryAttemptsSection from '../components/deliveries/DeliveryAttemptsSection';
 import DeliverySettlementSection from '../components/deliveries/DeliverySettlementSection';
+import DeliveryReturnsDisputesSection from '../components/deliveries/DeliveryReturnsDisputesSection';
 import {
   getAdminDelivery,
   getAdminDeliveryPackages,
@@ -1365,6 +1366,7 @@ export default function DeliveryDetailPage() {
                 <Tab label="Ledger & Alerts" />
                 <Tab label="Attempts & Failures" />
                 <Tab label="Driver Settlement" />
+                <Tab label="Returns & Disputes" />
               </Tabs>
             </Box>
             <CardContent>
@@ -1470,6 +1472,9 @@ export default function DeliveryDetailPage() {
               </CustomTabPanel>
               <CustomTabPanel value={tabValue} index={7}>
                 <DeliverySettlementSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={8}>
+                <DeliveryReturnsDisputesSection orderId={id!} />
               </CustomTabPanel>
             </CardContent>
           </Card>
