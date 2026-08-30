@@ -2547,6 +2547,34 @@ export async function getAdminRide(id: string): Promise<AdminRideDetailResponse>
   return request<AdminRideDetailResponse>(`/admin/rides/${id}`, { method: 'GET' });
 }
 
+export type AdminRideControlResult = {
+  id: string;
+  status?: string;
+  driverId?: string;
+  message?: string;
+};
+
+export async function adminCancelRide(
+  rideId: string,
+  reason: string,
+): Promise<AdminRideControlResult> {
+  return request<AdminRideControlResult>(`/admin/rides/${rideId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function adminReassignRide(
+  rideId: string,
+  newDriverId: string,
+  reason: string,
+): Promise<AdminRideControlResult> {
+  return request<AdminRideControlResult>(`/admin/rides/${rideId}/reassign`, {
+    method: 'POST',
+    body: JSON.stringify({ newDriverId, reason }),
+  });
+}
+
 export type AdminRideAnomalyItem = {
   id: string;
   rideId: string;

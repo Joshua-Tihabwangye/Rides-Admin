@@ -27,6 +27,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import StatusBadge from '../components/StatusBadge';
+import RideAdminActions from '../components/rides/RideAdminActions';
 import { getAdminRide } from '../services/api/adminApi';
 import type { AdminRideDetailResponse } from '../services/api/adminApi';
 
@@ -129,6 +130,8 @@ export default function RideDetailPage() {
           <Chip color="error" size="small" label="Dispatch failed" />
         )}
       </Box>
+
+      <RideAdminActions rideId={rideId} onChanged={() => {}} />
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
