@@ -69,6 +69,8 @@ import Settings from './pages/Settings'
 import AccessDenied from './pages/AccessDenied'
 import DeliveryListPage from './pages/DeliveryListPage'
 import DeliveryDetailPage from './pages/DeliveryDetailPage'
+import RidesListPage from './pages/RidesListPage'
+import RideDetailPage from './pages/RideDetailPage'
 import ReturnRequestsPage from './pages/ReturnRequestsPage'
 import DisputesPage from './pages/DisputesPage'
 import ReturnShipmentsPage from './pages/ReturnShipmentsPage'
@@ -413,6 +415,9 @@ export default function App() {
               </RequirePermission>
             }
           />
+          {/* Rides Administration (Phase 1): first-class ride list + detail */}
+          <Route path="rides" element={<RidesListPage />} />
+          <Route path="rides/:rideId" element={<RideDetailPage />} />
           {/* Reverse logistics & returns (DLV-192) */}
           <Route
             path="returns"

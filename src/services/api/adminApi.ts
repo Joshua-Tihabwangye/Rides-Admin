@@ -2200,6 +2200,219 @@ export async function getAdminDeliveryPackages(
   return Array.isArray(response?.items) ? response.items : [];
 }
 
+// ---------------------------------------------------------------------------
+// Admin Rides (Phase 1: first-class Rides Administration)
+// ---------------------------------------------------------------------------
+
+export type AdminRideContact = {
+  id?: string;
+  name?: string;
+  phone?: string;
+};
+
+export type AdminRideStopResponse = {
+  id: string;
+  sequence: number;
+  type: string;
+  address: string;
+  name?: string;
+  placeId?: string;
+  phone?: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  arrivedAt?: string;
+  departedAt?: string;
+};
+
+export type AdminRidePassengerResponse = {
+  id: string;
+  userId?: string;
+  name?: string;
+  phone?: string;
+  role: string;
+  pickupStopId?: string;
+  dropoffStopId?: string;
+  seatCount: number;
+  fareShare: number;
+  status: string;
+};
+
+export type AdminRideOfferResponse = {
+  id: string;
+  driverId: string;
+  driverName?: string;
+  status: string;
+  offeredAt: string;
+  expiresAt: string;
+  respondedAt?: string;
+  distanceToPickupKm?: number;
+};
+
+export type AdminRideEventResponse = {
+  id: string;
+  type: string;
+  actorUserId?: string;
+  data?: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type AdminRideActualsResponse = {
+  actualDistanceKm?: number;
+  actualDurationMinutes?: number;
+  confidence?: string;
+  breadcrumbCount?: number;
+  anomalyFlags: string[];
+  computedAt?: string;
+};
+
+export type AdminRideFeedbackResponse = {
+  riderId: string;
+  driverId: string;
+  rating: number;
+  message?: string;
+  tipAmount: number;
+};
+
+export type AdminRideVehicleResponse = {
+  id: string;
+  make?: string;
+  model?: string;
+  plateNumber?: string;
+  vehicleType?: string;
+  status?: string;
+};
+
+export type AdminRideDetailResponse = {
+  id: string;
+  organizationId?: string;
+  status: string;
+  mode?: string;
+  category?: string;
+  tripType?: string;
+  parentRideId?: string;
+  legIndex?: number;
+  rider?: AdminRideContact & { name?: string; phone?: string };
+  driver?: { id: string; name?: string; rating?: number };
+  vehicle?: AdminRideVehicleResponse;
+  route?: {
+    pickupAddress?: string;
+    destinationAddress?: string;
+    estimatedDistanceKm?: number;
+    estimatedDurationMinutes?: number;
+    route?: Record<string, unknown>;
+  };
+  scheduling?: { scheduledAt?: string; returnAt?: string };
+  configuration?: {
+    passengerCount: number;
+    seatCount: number;
+    luggageCount: number;
+    sharingEnabled?: boolean;
+    rideEnvironment?: string[];
+    preferences?: Record<string, unknown>;
+    bookingFor?: string;
+    beneficiary?: Record<string, unknown>;
+    serviceProductId?: string;
+    serviceProductCodeSnapshot?: string;
+    vehicleType?: string;
+    marketId?: string;
+  };
+  lifecycle?: {
+    createdAt?: string;
+    acceptedAt?: string;
+    arrivedAt?: string;
+    startedAt?: string;
+    completedAt?: string;
+    cancelledAt?: string;
+    cancelledByUserId?: string;
+    cancellationReason?: string;
+    dispatchFailureReason?: string;
+  };
+  verification?: { required?: boolean; passed?: boolean };
+  pricing?: {
+    estimatedFare: number;
+    finalFare?: number;
+    currency: string;
+    promoCode?: string;
+    discountAmount?: number;
+    pricingSnapshotId?: string;
+  };
+  payment?: { method?: string; status: string };
+  stops: AdminRideStopResponse[];
+  passengers: AdminRidePassengerResponse[];
+  offers: AdminRideOfferResponse[];
+  events: AdminRideEventResponse[];
+  actuals?: AdminRideActualsResponse;
+  feedback?: AdminRideFeedbackResponse;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AdminRideListItemResponse = {
+  id: string;
+  status: string;
+  mode?: string;
+  category?: string;
+  tripType?: string;
+  riderId?: string;
+  riderName?: string;
+  driverId?: string;
+  driverName?: string;
+  vehicleId?: string;
+  passengerCount?: number;
+  estimatedFare?: number;
+  finalFare?: number;
+  currency?: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  scheduledAt?: string;
+  createdAt?: string;
+  dispatchFailed?: boolean;
+  dispatchFailureReason?: string;
+};
+
+export type ListAdminRidesFilters = {
+  page?: number;
+  limit?: number;
+  status?: string;
+  tripType?: string;
+  paymentStatus?: string;
+  riderId?: string;
+  driverId?: string;
+  search?: string;
+  fromDate?: string;
+  toDate?: string;
+};
+
+export type AdminRideListResponse = {
+  items: AdminRideListItemResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+};
+
+export async function listAdminRides(
+  filters: ListAdminRidesFilters = {},
+): Promise<AdminRideListResponse> {
+  return request<AdminRideListResponse>(
+    `/admin/rides${toQueryString({
+      page: filters.page,
+      limit: filters.limit,
+      status: filters.status,
+      tripType: filters.tripType,
+      paymentStatus: filters.paymentStatus,
+      riderId: filters.riderId,
+      driverId: filters.driverId,
+      search: filters.search,
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+    })}`,
+    { method: 'GET' },
+  );
+}
+
+export async function getAdminRide(id: string): Promise<AdminRideDetailResponse> {
+  return request<AdminRideDetailResponse>(`/admin/rides/${id}`, { method: 'GET' });
+}
+
 export async function getAdminPackageLabels(
   packageId: string
 ): Promise<AdminDeliveryLabelResponse[]> {
