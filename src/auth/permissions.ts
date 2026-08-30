@@ -19,6 +19,7 @@ export type AdminPermission =
   // regenerate_delivery_labels → delivery-label:regenerate, bulk_print_delivery_labels → delivery-label:bulk-print,
   // activate_blank_labels → blank-label:activate.
   | "view_deliveries"
+  | "view_rides"
   | "manage_deliveries"
   | "view_delivery_labels"
   | "print_delivery_labels"
@@ -38,6 +39,7 @@ const ALL_PERMISSIONS: AdminPermission[] = [
   "manage_roles",
   "manage_system",
   "view_deliveries",
+  "view_rides",
   "manage_deliveries",
   "view_delivery_labels",
   "print_delivery_labels",
@@ -56,6 +58,7 @@ const ROLE_PERMISSIONS: Record<AdminBackendRole, readonly AdminPermission[]> = {
     "manage_pricing",
     "manage_promotions",
     "view_deliveries",
+    "view_rides",
     "view_delivery_labels",
   ],
   super_admin: ALL_PERMISSIONS,

@@ -417,9 +417,9 @@ export default function App() {
             }
           />
           {/* Rides Administration (Phase 1): first-class ride list + detail */}
-          <Route path="rides" element={<RidesListPage />} />
-          <Route path="rides/:rideId" element={<RideDetailPage />} />
-          <Route path="rides/anomalies" element={<RideAnomaliesPage />} />
+          <Route path="rides" element={<RequirePermission anyOf={["view_rides"]}><RidesListPage /></RequirePermission>} />
+          <Route path="rides/:rideId" element={<RequirePermission anyOf={["view_rides"]}><RideDetailPage /></RequirePermission>} />
+          <Route path="rides/anomalies" element={<RequirePermission anyOf={["view_rides"]}><RideAnomaliesPage /></RequirePermission>} />
           {/* Reverse logistics & returns (DLV-192) */}
           <Route
             path="returns"
