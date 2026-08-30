@@ -2324,6 +2324,51 @@ export async function getAdminDeliveryEarnings(
   );
 }
 
+export type AdminDeliveryFeedbackResponse = {
+  id: string;
+  customerId: string;
+  driverId?: string;
+  rating: number;
+  message?: string;
+  tipAmount: number;
+  createdAt: string;
+};
+
+export async function getAdminDeliveryFeedback(
+  orderId: string,
+): Promise<{ feedback: AdminDeliveryFeedbackResponse[] }> {
+  return request<{ feedback: AdminDeliveryFeedbackResponse[] }>(
+    `/admin/deliveries/orders/${orderId}/feedback`,
+    { method: "GET" },
+  );
+}
+
+export type AdminDeliveryProofResponse = {
+  id: string;
+  orderId: string;
+  attempt?: number;
+  status: string;
+  verificationMethod?: string;
+  receiverIdentityType?: string;
+  capturedAt?: string;
+  submittedAt?: string;
+  reviewState?: string;
+  reviewerId?: string;
+  reviewDecision?: string;
+  notes?: string;
+  fileAssetId?: string;
+  locationAccuracy?: number;
+};
+
+export async function getAdminDeliveryProofs(
+  orderId: string,
+): Promise<{ items: AdminDeliveryProofResponse[] }> {
+  return request<{ items: AdminDeliveryProofResponse[] }>(
+    `/admin/deliveries/proofs${toQueryString({ orderId })}`,
+    { method: "GET" },
+  );
+}
+
 export async function getAdminDeliveryPackages(
   id: string
 ): Promise<AdminDeliveryPackageView[]> {

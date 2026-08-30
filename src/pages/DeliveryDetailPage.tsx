@@ -47,6 +47,8 @@ import DeliveryAdminActions from '../components/deliveries/DeliveryAdminActions'
 import DeliveryAttemptsSection from '../components/deliveries/DeliveryAttemptsSection';
 import DeliverySettlementSection from '../components/deliveries/DeliverySettlementSection';
 import DeliveryReturnsDisputesSection from '../components/deliveries/DeliveryReturnsDisputesSection';
+import DeliveryFeedbackSection from '../components/deliveries/DeliveryFeedbackSection';
+import DeliveryProofSection from '../components/deliveries/DeliveryProofSection';
 import {
   getAdminDelivery,
   getAdminDeliveryPackages,
@@ -1367,6 +1369,8 @@ export default function DeliveryDetailPage() {
                 <Tab label="Attempts & Failures" />
                 <Tab label="Driver Settlement" />
                 <Tab label="Returns & Disputes" />
+                <Tab label="Proof & Handover" />
+                <Tab label="Feedback" />
               </Tabs>
             </Box>
             <CardContent>
@@ -1475,6 +1479,12 @@ export default function DeliveryDetailPage() {
               </CustomTabPanel>
               <CustomTabPanel value={tabValue} index={8}>
                 <DeliveryReturnsDisputesSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={9}>
+                <DeliveryProofSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={10}>
+                <DeliveryFeedbackSection orderId={id!} />
               </CustomTabPanel>
             </CardContent>
           </Card>
