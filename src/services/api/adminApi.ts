@@ -2121,6 +2121,27 @@ export type AdminDeliveryOrderResponse = {
   status: string;
   readinessStatus?: string;
   labelGenerationPolicy?: string;
+  // Phase 7: P0 delivery fields surfaced from the backend detail.
+  serviceType?: string;
+  deliveryOption?: string;
+  sourceSystem?: string;
+  externalOrderId?: string;
+  merchantOrganizationId?: string;
+  warehouseId?: string;
+  declaredValue?: number;
+  allPackagesPickedUp?: boolean;
+  readyAt?: string;
+  scheduledAt?: string;
+  timezone?: string;
+  scheduleStatus?: string;
+  scheduledDispatchAt?: string;
+  scheduleMissedAt?: string;
+  dispatchReleasedAt?: string;
+  destinationReleasedAt?: string;
+  dispatchFailureReason?: string;
+  cancellationReason?: string;
+  estimatedCost?: number;
+  finalCost?: number;
   sender?: AdminDeliveryContactView;
   receiver?: AdminDeliveryContactView;
   pickupAddress?: string;
@@ -2135,6 +2156,13 @@ export type AdminDeliveryOrderResponse = {
   courier?: AdminDeliveryCourier | null;
   route?: Record<string, unknown>;
   payment?: { status: string; timing: string; method?: string };
+  lifecycle?: {
+    pickedUpAt?: string;
+    deliveredAt?: string;
+    completedAt?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  };
   driverId?: string;
   driverName?: string;
   packageCount?: number;

@@ -1319,6 +1319,33 @@ export default function DeliveryDetailPage() {
                   </Typography>
                 </Box>
               </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+                  Schedule &amp; Financials
+                </Typography>
+                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Typography variant="body2">Service: {delivery.serviceType ?? 'N/A'}{delivery.deliveryOption ? ` / ${delivery.deliveryOption}` : ''}</Typography>
+                  <Typography variant="body2">Scheduled: {delivery.scheduledAt ? new Date(delivery.scheduledAt).toLocaleString() : 'N/A'}{delivery.timezone ? ` (${delivery.timezone})` : ''}</Typography>
+                  <Typography variant="body2">Schedule status: {delivery.scheduleStatus ?? 'N/A'}</Typography>
+                  {delivery.scheduleMissedAt && (
+                    <Typography variant="body2" color="error">Schedule missed: {new Date(delivery.scheduleMissedAt).toLocaleString()}</Typography>
+                  )}
+                  <Typography variant="body2">Est. cost: {delivery.estimatedCost ?? 'N/A'}{delivery.finalCost != null ? ` • Final: ${delivery.finalCost}` : ''}</Typography>
+                  <Typography variant="body2">Payment: {delivery.payment?.status ?? 'N/A'}{delivery.payment?.method ? ` (${delivery.payment.method})` : ''}</Typography>
+                  {delivery.dispatchFailureReason && (
+                    <Typography variant="body2" color="error">Dispatch failure: {delivery.dispatchFailureReason}</Typography>
+                  )}
+                  {delivery.cancellationReason && (
+                    <Typography variant="body2" color="error">Cancellation: {delivery.cancellationReason}</Typography>
+                  )}
+                  {delivery.lifecycle?.pickedUpAt && (<Typography variant="body2">Picked up: {new Date(delivery.lifecycle.pickedUpAt).toLocaleString()}</Typography>)}
+                  {delivery.lifecycle?.deliveredAt && (<Typography variant="body2">Delivered: {new Date(delivery.lifecycle.deliveredAt).toLocaleString()}</Typography>)}
+                  {delivery.lifecycle?.completedAt && (<Typography variant="body2">Completed: {new Date(delivery.lifecycle.completedAt).toLocaleString()}</Typography>)}
+                </Box>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
