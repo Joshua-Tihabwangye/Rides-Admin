@@ -71,6 +71,7 @@ import DeliveryListPage from './pages/DeliveryListPage'
 import DeliveryDetailPage from './pages/DeliveryDetailPage'
 import RidesListPage from './pages/RidesListPage'
 import RideDetailPage from './pages/RideDetailPage'
+import RideAnomaliesPage from './pages/RideAnomaliesPage'
 import ReturnRequestsPage from './pages/ReturnRequestsPage'
 import DisputesPage from './pages/DisputesPage'
 import ReturnShipmentsPage from './pages/ReturnShipmentsPage'
@@ -418,6 +419,7 @@ export default function App() {
           {/* Rides Administration (Phase 1): first-class ride list + detail */}
           <Route path="rides" element={<RidesListPage />} />
           <Route path="rides/:rideId" element={<RideDetailPage />} />
+          <Route path="rides/anomalies" element={<RideAnomaliesPage />} />
           {/* Reverse logistics & returns (DLV-192) */}
           <Route
             path="returns"

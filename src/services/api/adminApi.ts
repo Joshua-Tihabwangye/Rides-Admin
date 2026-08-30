@@ -2413,6 +2413,29 @@ export async function getAdminRide(id: string): Promise<AdminRideDetailResponse>
   return request<AdminRideDetailResponse>(`/admin/rides/${id}`, { method: 'GET' });
 }
 
+export type AdminRideAnomalyItem = {
+  id: string;
+  rideId: string;
+  actualDistanceKm?: number;
+  actualDurationMinutes?: number;
+  confidence?: string;
+  breadcrumbCount?: number;
+  anomalyFlags: string[];
+  computedAt?: string;
+};
+
+export type AdminRideAnomaliesResponse = {
+  items: AdminRideAnomalyItem[];
+  total: number;
+};
+
+export async function getAdminRideAnomalies(flag?: string, limit = 100): Promise<AdminRideAnomaliesResponse> {
+  return request<AdminRideAnomaliesResponse>(
+    `/admin/rides/anomalies${toQueryString({ flag, limit })}`,
+    { method: 'GET' },
+  );
+}
+
 export async function getAdminPackageLabels(
   packageId: string
 ): Promise<AdminDeliveryLabelResponse[]> {
