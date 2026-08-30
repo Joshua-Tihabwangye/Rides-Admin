@@ -2190,6 +2190,52 @@ export async function getAdminDelivery(id: string): Promise<AdminDeliveryOrderRe
   return request<AdminDeliveryOrderResponse>(`/admin/deliveries/${id}`, { method: "GET" });
 }
 
+// ---------------------------------------------------------------------------
+// Admin Delivery control commands (Phase 8): wired to the existing
+// DeliveryAdminController at /admin/deliveries/orders/:id. The backend already
+// owns validation, state machine, notifications, audit and financial
+// consequences; the Admin UI only invokes these authorized commands.
+// ---------------------------------------------------------------------------
+
+export type AdminDeliveryControlResult = {
+  id: string;
+  status?: string;
+  driverId?: string;
+  message?: string;
+};
+
+export async function adminForceDeliveryStatus(
+  orderId: string,
+  status: string,
+  reason: string,
+): Promise<AdminDeliveryControlResult> {
+  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status, reason }),
+  });
+}
+
+export async function adminReassignDelivery(
+  orderId: string,
+  newDriverId: string,
+  reason: string,
+): Promise<AdminDeliveryControlResult> {
+  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}/reassign`, {
+    method: "POST",
+    body: JSON.stringify({ newDriverId, reason }),
+  });
+}
+
+export async function adminCancelDelivery(
+  orderId: string,
+  reason: string,
+): Promise<AdminDeliveryControlResult> {
+  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ status: "CANCELLED", reason }),
+  });
+}
+
 export async function getAdminDeliveryPackages(
   id: string
 ): Promise<AdminDeliveryPackageView[]> {

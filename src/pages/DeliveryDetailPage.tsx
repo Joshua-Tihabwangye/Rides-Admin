@@ -43,6 +43,7 @@ import GppBadIcon from '@mui/icons-material/GppBad';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StatusBadge from '../components/StatusBadge';
 import AuditTrailViewer from '../components/AuditTrailViewer';
+import DeliveryAdminActions from '../components/deliveries/DeliveryAdminActions';
 import {
   getAdminDelivery,
   getAdminDeliveryPackages,
@@ -1110,6 +1111,15 @@ export default function DeliveryDetailPage() {
     }
   }, []);
 
+  const reload = React.useCallback(() => {
+    if (!id) return;
+    setLoading(true);
+    getAdminDelivery(id)
+      .then(setDelivery)
+      .catch((e: any) => setError(e?.message ?? 'Failed to load delivery'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
     const load = async () => {
@@ -1259,7 +1269,9 @@ export default function DeliveryDetailPage() {
         </Button>
       </Box>
 
-      <Grid container spacing={3}>
+        <DeliveryAdminActions orderId={id} currentStatus={delivery?.status} onChanged={reload} />
+
+        <Grid container spacing={3}>
         {/* Left column: summary */}
         <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
