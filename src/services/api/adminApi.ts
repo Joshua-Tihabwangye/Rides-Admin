@@ -588,6 +588,10 @@ export type AdminOperationsAnalytics = {
     online: number;
     total: number;
   };
+  cancellations?: {
+    rider: number;
+    driver: number;
+  };
   hourly?: Array<{ time?: string; demand?: number; supply?: number; rides?: number; deliveries?: number; bookings?: number }>;
   regions?: Array<{ region?: string; rides?: number; deliveries?: number }>;
 };
@@ -648,6 +652,7 @@ export async function getAdminOperationsAnalytics(
 
 export type AdminMonitoringSnapshot = {
   onlineDrivers: number;
+  offlineDrivers?: number;
   staleDrivers: number;
   activeRideJobs: number;
   activeDeliveryJobs: number;
@@ -659,6 +664,65 @@ export type AdminMonitoringSnapshot = {
 
 export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnapshot> {
   return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
+}
+
+export type AdminMonitoringDriver = {
+  driverId: string;
+  name: string;
+  phone?: string;
+  city?: string;
+  vehicleType?: string;
+  availabilityStatus: string;
+  online: boolean;
+  busy: boolean;
+  stale: boolean;
+  lastLatitude?: number;
+  lastLongitude?: number;
+  lastLocationAt?: string;
+  secondsSinceHeartbeat?: number;
+  heading?: number;
+  verificationStatus?: string;
+};
+
+export async function listAdminMonitoringDrivers(): Promise<AdminMonitoringDriver[]> {
+  return request<AdminMonitoringDriver[]>("/admin/monitoring/drivers", { method: "GET" });
+}
+
+export type AdminMonitoringJob = {
+  id: string;
+  serviceType: string;
+  serviceId: string;
+  status: string;
+  assignedDriverId?: string;
+  driverName?: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export async function listAdminMonitoringJobs(
+  serviceType: "ride" | "delivery",
+): Promise<AdminMonitoringJob[]> {
+  return request<AdminMonitoringJob[]>(
+    `/admin/monitoring/jobs/${serviceType}`,
+    { method: "GET" },
+  );
+}
+
+export type AdminMonitoringFailedDispatch = {
+  id: string;
+  serviceType: string;
+  serviceId: string;
+  reason: string;
+  dispatchRound: number;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  createdAt?: string;
+};
+
+export async function listAdminMonitoringFailedDispatches(): Promise<AdminMonitoringFailedDispatch[]> {
+  return request<AdminMonitoringFailedDispatch[]>("/admin/monitoring/failed-dispatches", { method: "GET" });
 }
 
 // ── Safety incidents / SOS (backend GET /safety/emergencies) ────────────────
@@ -2548,6 +2612,11 @@ export type AdminRideListItemResponse = {
   createdAt?: string;
   dispatchFailed?: boolean;
   dispatchFailureReason?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledByUserId?: string;
+  cancelledByRole?: 'RIDER' | 'DRIVER' | 'ADMIN' | 'SYSTEM';
+  cancelledByName?: string;
 };
 
 export type ListAdminRidesFilters = {

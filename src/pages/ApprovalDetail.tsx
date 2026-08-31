@@ -113,6 +113,12 @@ export default function ApprovalDetailPage() {
   };
 
   return (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Button onClick={() => navigate('/admin/approvals')} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+          Back
+        </Button>
+      </Box>
     <AdminApprovalDetailLayout>
       {/* Case header */}
       <Card
@@ -323,5 +329,6 @@ export default function ApprovalDetailPage() {
         <Alert severity={snackbar.severity}>{snackbar.msg}</Alert>
       </Snackbar>
     </AdminApprovalDetailLayout>
+    </Box>
   );
 }

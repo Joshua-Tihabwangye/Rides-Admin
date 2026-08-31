@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Alert,
 } from"@mui/material";
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   LineChart,
   Line,
@@ -127,6 +128,11 @@ export default function OperationsDashboardPage() {
 
   return (
     <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Button onClick={() => navigate(-1)} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+          Back
+        </Button>
+      </Box>
       <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
           <Typography
@@ -248,7 +254,7 @@ export default function OperationsDashboardPage() {
             {demandSupplyData.length === 0 ? (
               <Box className="flex-1 flex items-center justify-center">
                 <Typography variant="caption" className="text-[11px] text-slate-400">
-                  Hourly demand/supply data is not available from the backend yet.
+                  No demand/supply data yet for this period. Data populates within 24h of ride activity.
                 </Typography>
               </Box>
             ) : (
@@ -309,20 +315,20 @@ export default function OperationsDashboardPage() {
             <Divider className="!my-1" />
             <Box className="flex flex-col gap-2">
               <Typography variant="body2" className="text-[12px]">
-                • Rider cancellations: —
+                • Rider cancellations: {analytics?.cancellations?.rider ?? '—'}
               </Typography>
               <Typography variant="body2" className="text-[12px]">
-                • Driver cancellations: —
+                • Driver cancellations: {analytics?.cancellations?.driver ?? '—'}
               </Typography>
               <Typography variant="body2" className="text-[12px]">
-                • Support tickets (24h): —
+                • Failed dispatches: {analytics?.dispatches?.pending ?? '—'}
               </Typography>
             </Box>
             <Typography
               variant="caption"
               className="text-[11px] text-slate-500 mt-1"
             >
-              Cancellation and support metrics are not exposed by the backend yet.
+              Cancellation counts for the selected period.
             </Typography>
           </CardContent>
         </Card>

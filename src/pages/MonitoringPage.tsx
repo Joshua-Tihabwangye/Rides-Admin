@@ -20,18 +20,17 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useNavigate } from "react-router-dom";
 import {
   getAdminMonitoringSnapshot,
-  listAdminActiveDeliveryJobs,
-  listAdminActiveRideJobs,
-  listAdminFailedDispatches,
-  listAdminOnlineDrivers,
-  listAdminStaleDrivers,
-  type AdminActiveJob,
-  type AdminFailedDispatch,
+  listAdminMonitoringJobs,
+  listAdminMonitoringFailedDispatches,
+  listAdminMonitoringDrivers,
+  type AdminMonitoringDriver,
+  type AdminMonitoringJob,
+  type AdminMonitoringFailedDispatch,
   type AdminMonitoringSnapshot,
-  type AdminOnlineDriver,
-  type AdminStaleDriver,
 } from "../services/api/adminApi";
 
 type CardDef = {
@@ -41,11 +40,11 @@ type CardDef = {
 };
 
 const MONITORING_CARDS: CardDef[] = [
-  { key: "onlineDrivers", label: "Online drivers", subtitle: "Currently online" },
-  { key: "staleDrivers", label: "Stale drivers", subtitle: "Heartbeat > 30s ago" },
-  { key: "activeRideJobs", label: "Active ride jobs", subtitle: "Matching/assigned rides" },
-  { key: "activeDeliveryJobs", label: "Active delivery jobs", subtitle: "Matching/assigned deliveries" },
-  { key: "failedDispatches", label: "Failed dispatches", subtitle: "No driver available" },
+  { key: "onlineDrivers", label: "Online drivers", subtitle: "With recent heartbeat" },
+  { key: "staleDrivers", label: "Stale drivers", subtitle: "Heartbeat > 5m ago" },
+  { key: "activeRideJobs", label: "Active ride jobs", subtitle: "Assigned rides" },
+  { key: "activeDeliveryJobs", label: "Active delivery jobs", subtitle: "Assigned deliveries" },
+  { key: "failedDispatches", label: "Failed dispatches", subtitle: "Exhausted matching jobs" },
   { key: "expiredDocumentCount", label: "Expired documents", subtitle: "Driver/vehicle docs" },
   { key: "compliancePendingCount", label: "Compliance pending", subtitle: "Awaiting review" },
 ];
@@ -58,6 +57,7 @@ type PanelKey =
   | "failedDispatches";
 
 export default function MonitoringPage() {
+  const navigate = useNavigate();
   const [snapshot, setSnapshot] = useState<AdminMonitoringSnapshot | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(true);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
@@ -66,11 +66,11 @@ export default function MonitoringPage() {
   const [panelLoading, setPanelLoading] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
 
-  const [onlineDrivers, setOnlineDrivers] = useState<AdminOnlineDriver[]>([]);
-  const [staleDrivers, setStaleDrivers] = useState<AdminStaleDriver[]>([]);
-  const [rideJobs, setRideJobs] = useState<AdminActiveJob[]>([]);
-  const [deliveryJobs, setDeliveryJobs] = useState<AdminActiveJob[]>([]);
-  const [failedDispatches, setFailedDispatches] = useState<AdminFailedDispatch[]>([]);
+  const [onlineDrivers, setOnlineDrivers] = useState<AdminMonitoringDriver[]>([]);
+  const [staleDrivers, setStaleDrivers] = useState<AdminMonitoringDriver[]>([]);
+  const [rideJobs, setRideJobs] = useState<AdminMonitoringJob[]>([]);
+  const [deliveryJobs, setDeliveryJobs] = useState<AdminMonitoringJob[]>([]);
+  const [failedDispatches, setFailedDispatches] = useState<AdminMonitoringFailedDispatch[]>([]);
 
   const loadSnapshot = async () => {
     setSnapshotLoading(true);
@@ -96,20 +96,25 @@ export default function MonitoringPage() {
     setPanelError(null);
     try {
       switch (panel) {
-        case "onlineDrivers":
-          setOnlineDrivers(await listAdminOnlineDrivers());
+        case "onlineDrivers": {
+          const drivers = await listAdminMonitoringDrivers();
+          setOnlineDrivers(drivers.filter((d) => d.online));
+          setStaleDrivers(drivers.filter((d) => d.stale));
           break;
-        case "staleDrivers":
-          setStaleDrivers(await listAdminStaleDrivers());
+        }
+        case "staleDrivers": {
+          const drivers = await listAdminMonitoringDrivers();
+          setStaleDrivers(drivers.filter((d) => d.stale || (!d.online && !d.stale)));
           break;
+        }
         case "activeRideJobs":
-          setRideJobs(await listAdminActiveRideJobs());
+          setRideJobs(await listAdminMonitoringJobs("ride"));
           break;
         case "activeDeliveryJobs":
-          setDeliveryJobs(await listAdminActiveDeliveryJobs());
+          setDeliveryJobs(await listAdminMonitoringJobs("delivery"));
           break;
         case "failedDispatches":
-          setFailedDispatches(await listAdminFailedDispatches());
+          setFailedDispatches(await listAdminMonitoringFailedDispatches());
           break;
       }
     } catch (err: any) {
@@ -143,15 +148,11 @@ export default function MonitoringPage() {
 
   const formatTimestamp = (value?: string) => {
     if (!value) return "—";
-    try {
-      return new Date(value).toLocaleString();
-    } catch {
-      return value;
-    }
+    try { return new Date(value).toLocaleString(); } catch { return value; }
   };
 
-  const formatAge = (seconds: number) => {
-    if (seconds <= 0) return "N/A (backend gap)";
+  const formatAge = (seconds?: number) => {
+    if (seconds == null) return "—";
     if (seconds < 60) return `${seconds}s ago`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ago`;
@@ -159,6 +160,11 @@ export default function MonitoringPage() {
 
   return (
     <Box sx={{ p: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+        <Button onClick={() => navigate(-1)} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+          Back
+        </Button>
+      </Box>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
         <Typography variant="h5" fontWeight={700}>
           Live Operations Monitoring
@@ -169,9 +175,7 @@ export default function MonitoringPage() {
       </Box>
 
       {snapshotError ? (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          {snapshotError}
-        </Alert>
+        <Alert severity="warning" sx={{ mb: 3 }}>{snapshotError}</Alert>
       ) : null}
 
       <Grid container spacing={3}>
@@ -196,23 +200,15 @@ export default function MonitoringPage() {
                   transition: "box-shadow 0.2s, border-color 0.2s",
                   borderColor: activePanel === card.key ? "primary.main" : "divider",
                   boxShadow: activePanel === card.key ? (theme) => `0 0 0 1px ${theme.palette.primary.main}` : "none",
-                  "&:hover": clickable
-                    ? {
-                        boxShadow: (theme) => `0 0 0 1px ${theme.palette.primary.light}`,
-                      }
-                    : {},
+                  "&:hover": clickable ? { boxShadow: (theme) => `0 0 0 1px ${theme.palette.primary.light}` } : {},
                 }}
               >
                 <CardContent>
-                  <Typography variant="overline" color="text.secondary">
-                    {card.label}
-                  </Typography>
+                  <Typography variant="overline" color="text.secondary">{card.label}</Typography>
                   <Typography variant="h3" fontWeight={800} sx={{ my: 1 }}>
                     {snapshotLoading && value === undefined ? <CircularProgress size={28} /> : displayValue}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {card.subtitle}
-                  </Typography>
+                  <Typography variant="body2" color="text.secondary">{card.subtitle}</Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -223,33 +219,17 @@ export default function MonitoringPage() {
       {activePanel && (
         <Box sx={{ mt: 4 }}>
           <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
-            <Box
-              sx={{
-                px: 2,
-                py: 1.5,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                borderBottom: "1px solid",
-                borderColor: "divider",
-                bgcolor: "action.hover",
-              }}
-            >
-              <Typography variant="subtitle1" fontWeight={700}>
-                {panelTitle} details
-              </Typography>
+            <Box sx={{ px: 2, py: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
+              <Typography variant="subtitle1" fontWeight={700}>{panelTitle} details</Typography>
               <IconButton size="small" onClick={() => setActivePanel(null)} aria-label="close">
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Box>
-
             <Box sx={{ p: 2 }}>
               {panelError ? (
                 <Alert severity="error">{panelError}</Alert>
               ) : panelLoading ? (
-                <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                  <CircularProgress />
-                </Box>
+                <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}><CircularProgress /></Box>
               ) : (
                 <DetailPanel
                   activePanel={activePanel}
@@ -266,12 +246,6 @@ export default function MonitoringPage() {
           </Paper>
         </Box>
       )}
-
-      <Alert severity="info" sx={{ mt: 4 }}>
-        Backend endpoint: <code>/admin/monitoring/snapshot</code>. Once implemented, metrics will
-        populate automatically. Detail lists use the closest available backend endpoints until
-        dedicated monitoring detail endpoints are exposed.
-      </Alert>
     </Box>
   );
 }
@@ -287,20 +261,20 @@ function DetailPanel({
   formatAge,
 }: {
   activePanel: PanelKey;
-  onlineDrivers: AdminOnlineDriver[];
-  staleDrivers: AdminStaleDriver[];
-  rideJobs: AdminActiveJob[];
-  deliveryJobs: AdminActiveJob[];
-  failedDispatches: AdminFailedDispatch[];
+  onlineDrivers: AdminMonitoringDriver[];
+  staleDrivers: AdminMonitoringDriver[];
+  rideJobs: AdminMonitoringJob[];
+  deliveryJobs: AdminMonitoringJob[];
+  failedDispatches: AdminMonitoringFailedDispatch[];
   formatTimestamp: (value?: string) => string;
-  formatAge: (seconds: number) => string;
+  formatAge: (seconds?: number) => string;
 }) {
   if (activePanel === "onlineDrivers") {
     return (
       <SimpleTable
-        columns={["Name", "Phone", "City", "Vehicle", "Status"]}
-        rows={onlineDrivers.map((d) => [d.fullName, d.phone, d.city, d.vehicleType, d.status])}
-        empty="No online drivers returned from the backend."
+        columns={["Name", "Phone", "Vehicle", "Status", "Last seen"]}
+        rows={onlineDrivers.map((d) => [d.name, d.phone ?? '—', d.vehicleType ?? '—', d.availabilityStatus, formatAge(d.secondsSinceHeartbeat)])}
+        empty="No drivers are currently online with a fresh heartbeat."
       />
     );
   }
@@ -308,15 +282,13 @@ function DetailPanel({
   if (activePanel === "staleDrivers") {
     return (
       <SimpleTable
-        columns={["Name", "Phone", "City", "Last heartbeat age", "Status"]}
+        columns={["Name", "Phone", "Vehicle", "Last heartbeat", "Status"]}
         rows={staleDrivers.map((d) => [
-          d.fullName,
-          d.phone,
-          d.city,
-          d.lastHeartbeatAt ? formatTimestamp(d.lastHeartbeatAt) : formatAge(d.secondsSinceHeartbeat),
-          d.status,
+          d.name, d.phone ?? '—', d.vehicleType ?? '—',
+          d.lastLocationAt ? formatTimestamp(d.lastLocationAt) : formatAge(d.secondsSinceHeartbeat),
+          d.availabilityStatus,
         ])}
-        empty="No stale drivers returned from the backend."
+        empty="No stale drivers found."
       />
     );
   }
@@ -325,7 +297,7 @@ function DetailPanel({
     return (
       <JobTable
         jobs={rideJobs}
-        empty="No active ride jobs returned from the backend."
+        empty="No active ride jobs."
         formatTimestamp={formatTimestamp}
       />
     );
@@ -335,7 +307,7 @@ function DetailPanel({
     return (
       <JobTable
         jobs={deliveryJobs}
-        empty="No active delivery jobs returned from the backend."
+        empty="No active delivery jobs."
         formatTimestamp={formatTimestamp}
       />
     );
@@ -345,7 +317,7 @@ function DetailPanel({
     return (
       <FailedDispatchTable
         dispatches={failedDispatches}
-        empty="No failed dispatches returned from the backend."
+        empty="No failed dispatches in the system."
         formatTimestamp={formatTimestamp}
       />
     );
@@ -354,40 +326,21 @@ function DetailPanel({
   return null;
 }
 
-function SimpleTable({
-  columns,
-  rows,
-  empty,
-}: {
-  columns: string[];
-  rows: React.ReactNode[][];
-  empty: string;
-}) {
+function SimpleTable({ columns, rows, empty }: { columns: string[]; rows: React.ReactNode[][]; empty: string }) {
   if (rows.length === 0) {
-    return (
-      <Alert severity="info" sx={{ m: 2 }}>
-        {empty}
-      </Alert>
-    );
+    return <Alert severity="info" sx={{ m: 2 }}>{empty}</Alert>;
   }
-
   return (
     <TableContainer>
       <Table size="small">
         <TableHead>
           <TableRow sx={{ backgroundColor: "action.hover" }}>
-            {columns.map((c) => (
-              <TableCell key={c}>{c}</TableCell>
-            ))}
+            {columns.map((c) => <TableCell key={c}>{c}</TableCell>)}
           </TableRow>
         </TableHead>
         <TableBody>
           {rows.map((row, i) => (
-            <TableRow key={i}>
-              {row.map((cell, j) => (
-                <TableCell key={j}>{cell}</TableCell>
-              ))}
-            </TableRow>
+            <TableRow key={i}>{row.map((cell, j) => <TableCell key={j}>{cell}</TableCell>)}</TableRow>
           ))}
         </TableBody>
       </Table>
@@ -395,30 +348,17 @@ function SimpleTable({
   );
 }
 
-function JobTable({
-  jobs,
-  empty,
-  formatTimestamp,
-}: {
-  jobs: AdminActiveJob[];
-  empty: string;
-  formatTimestamp: (value?: string) => string;
-}) {
+function JobTable({ jobs, empty, formatTimestamp }: { jobs: AdminMonitoringJob[]; empty: string; formatTimestamp: (value?: string) => string }) {
   if (jobs.length === 0) {
-    return (
-      <Alert severity="info" sx={{ m: 2 }}>
-        {empty}
-      </Alert>
-    );
+    return <Alert severity="info" sx={{ m: 2 }}>{empty}</Alert>;
   }
-
   return (
     <TableContainer>
       <Table size="small">
         <TableHead>
           <TableRow sx={{ backgroundColor: "action.hover" }}>
             <TableCell>ID</TableCell>
-            <TableCell>Status</TableCell>
+            <TableCell>Driver</TableCell>
             <TableCell>Pickup</TableCell>
             <TableCell>Dropoff</TableCell>
             <TableCell>Created</TableCell>
@@ -427,10 +367,8 @@ function JobTable({
         <TableBody>
           {jobs.map((job) => (
             <TableRow key={job.id}>
-              <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{job.id}</TableCell>
-              <TableCell>
-                <Chip label={job.status} size="small" color="primary" variant="outlined" />
-              </TableCell>
+              <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{job.id.slice(0, 8)}</TableCell>
+              <TableCell>{job.driverName ?? job.assignedDriverId?.slice(0, 8) ?? '—'}</TableCell>
               <TableCell>{job.pickupAddress || "—"}</TableCell>
               <TableCell>{job.dropoffAddress || "—"}</TableCell>
               <TableCell>{formatTimestamp(job.createdAt)}</TableCell>
@@ -442,23 +380,10 @@ function JobTable({
   );
 }
 
-function FailedDispatchTable({
-  dispatches,
-  empty,
-  formatTimestamp,
-}: {
-  dispatches: AdminFailedDispatch[];
-  empty: string;
-  formatTimestamp: (value?: string) => string;
-}) {
+function FailedDispatchTable({ dispatches, empty, formatTimestamp }: { dispatches: AdminMonitoringFailedDispatch[]; empty: string; formatTimestamp: (value?: string) => string }) {
   if (dispatches.length === 0) {
-    return (
-      <Alert severity="info" sx={{ m: 2 }}>
-        {empty}
-      </Alert>
-    );
+    return <Alert severity="info" sx={{ m: 2 }}>{empty}</Alert>;
   }
-
   return (
     <TableContainer>
       <Table size="small">
@@ -473,21 +398,16 @@ function FailedDispatchTable({
           </TableRow>
         </TableHead>
         <TableBody>
-          {dispatches.map((dispatch) => (
-            <TableRow key={dispatch.id}>
-              <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{dispatch.id}</TableCell>
+          {dispatches.map((d) => (
+            <TableRow key={d.id}>
+              <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{d.id.slice(0, 8)}</TableCell>
               <TableCell>
-                <Chip
-                  label={dispatch.serviceType}
-                  size="small"
-                  color={dispatch.serviceType === "ride" ? "primary" : "secondary"}
-                  variant="outlined"
-                />
+                <Chip label={d.serviceType} size="small" color={d.serviceType === "ride" ? "primary" : "secondary"} variant="outlined" />
               </TableCell>
-              <TableCell>{dispatch.reason || "—"}</TableCell>
-              <TableCell>{dispatch.pickupAddress || "—"}</TableCell>
-              <TableCell>{dispatch.dropoffAddress || "—"}</TableCell>
-              <TableCell>{formatTimestamp(dispatch.createdAt)}</TableCell>
+              <TableCell>{d.reason || "—"}</TableCell>
+              <TableCell>{d.pickupAddress || "—"}</TableCell>
+              <TableCell>{d.dropoffAddress || "—"}</TableCell>
+              <TableCell>{formatTimestamp(d.createdAt)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
