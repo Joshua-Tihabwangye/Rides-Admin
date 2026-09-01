@@ -219,3 +219,54 @@ export function adminDisplayNameOf(user?: AdminChatUser | null): string {
   if (!user) return "User";
   return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "User";
 }
+
+export type AdminSosSessionView = {
+  id: string;
+  incidentId: string;
+  status: "RINGING" | "CONNECTED" | "ENDED" | "PARTIAL_FAILURE";
+  startedAt: string;
+  answeredAt?: string | null;
+  endedAt?: string | null;
+  latitude: number;
+  longitude: number;
+  address?: string | null;
+};
+
+export type AdminSosSessionDetail = {
+  session: AdminSosSessionView;
+  emergency: {
+    address: string | null;
+    latitude: number;
+    longitude: number;
+    mapUrl: string;
+    createdAt: string;
+  };
+  recipients: Array<{
+    id: string;
+    type: "ADMIN" | "EMERGENCY_CONTACT" | "POLICE";
+    name: string;
+    channel: "IN_APP" | "VOICE";
+    status: string;
+    callId?: string;
+    failureReason?: string;
+  }>;
+  signaling: { iceServers: unknown };
+};
+
+export function adminGetSosSession(sessionId: string): Promise<AdminSosSessionDetail> {
+  return request<AdminSosSessionDetail>(`/chat/calls/sos/session/${sessionId}`, { method: "GET" });
+}
+
+export function adminUpdateSosSessionLocation(
+  sessionId: string,
+  input: { latitude: number; longitude: number; address?: string; accuracyMeters?: number },
+): Promise<{ session: AdminSosSessionView }> {
+  return request<{ session: AdminSosSessionView }>(`/chat/calls/sos/session/${sessionId}/location`, {
+    method: "POST",
+    body: input,
+  });
+}
+
+export function adminGetSosSessionByIncident(incidentId: string): Promise<AdminSosSessionDetail> {
+  return request<AdminSosSessionDetail>(`/chat/calls/sos/by-incident/${incidentId}`, { method: "GET" });
+}

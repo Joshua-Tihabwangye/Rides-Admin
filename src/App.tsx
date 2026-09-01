@@ -23,6 +23,7 @@ import DriverManagement from './pages/DriverManagement'
 import DriverDetail from './pages/DriverDetail'
 import DriverCreate from './pages/DriverCreate'
 import SafetyOverview from './pages/SafetyOverview'
+import SosIncidentDetailPage from './pages/SosIncidentDetailPage'
 import RiskFraudCenter from './pages/RiskFraudCenter'
 import RiskDetail from './pages/RiskDetail'
 import CompanyList from './pages/CompanyList'
@@ -220,6 +221,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_people"]}>
                 <SafetyOverview />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="safety/:incidentId"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <SosIncidentDetailPage />
               </RequirePermission>
             }
           />

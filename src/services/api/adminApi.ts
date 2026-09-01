@@ -739,6 +739,9 @@ export type AdminSafetyIncident = {
   latitude?: number | null;
   longitude?: number | null;
   address?: string | null;
+  audioUrl?: string | null;
+  audioMimeType?: string | null;
+  audioDurationMs?: number | null;
   sos: boolean;
   notifiedContacts?: Array<{
     name?: string;
@@ -765,6 +768,10 @@ export async function listAdminSafetyEmergencies(params?: {
 }): Promise<AdminSafetyIncidentPage> {
   const query = `page=${params?.page ?? 1}&limit=${params?.limit ?? 100}`;
   return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
+}
+
+export async function getAdminSafetyIncident(id: string): Promise<AdminSafetyIncident> {
+  return request<AdminSafetyIncident>(`/safety/emergencies/${id}`, { method: "GET" });
 }
 
 export async function updateAdminSafetyIncident(
