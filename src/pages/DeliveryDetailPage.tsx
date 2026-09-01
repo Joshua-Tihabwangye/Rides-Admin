@@ -43,6 +43,12 @@ import GppBadIcon from '@mui/icons-material/GppBad';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StatusBadge from '../components/StatusBadge';
 import AuditTrailViewer from '../components/AuditTrailViewer';
+import DeliveryAdminActions from '../components/deliveries/DeliveryAdminActions';
+import DeliveryAttemptsSection from '../components/deliveries/DeliveryAttemptsSection';
+import DeliverySettlementSection from '../components/deliveries/DeliverySettlementSection';
+import DeliveryReturnsDisputesSection from '../components/deliveries/DeliveryReturnsDisputesSection';
+import DeliveryFeedbackSection from '../components/deliveries/DeliveryFeedbackSection';
+import DeliveryProofSection from '../components/deliveries/DeliveryProofSection';
 import {
   getAdminDelivery,
   getAdminDeliveryPackages,
@@ -1110,6 +1116,15 @@ export default function DeliveryDetailPage() {
     }
   }, []);
 
+  const reload = React.useCallback(() => {
+    if (!id) return;
+    setLoading(true);
+    getAdminDelivery(id)
+      .then(setDelivery)
+      .catch((e: any) => setError(e?.message ?? 'Failed to load delivery'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
     const load = async () => {
@@ -1259,7 +1274,9 @@ export default function DeliveryDetailPage() {
         </Button>
       </Box>
 
-      <Grid container spacing={3}>
+        <DeliveryAdminActions orderId={id} currentStatus={delivery?.status} onChanged={reload} />
+
+        <Grid container spacing={3}>
         {/* Left column: summary */}
         <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
@@ -1307,6 +1324,33 @@ export default function DeliveryDetailPage() {
                   </Typography>
                 </Box>
               </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+                  Schedule &amp; Financials
+                </Typography>
+                <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Typography variant="body2">Service: {delivery.serviceType ?? 'N/A'}{delivery.deliveryOption ? ` / ${delivery.deliveryOption}` : ''}</Typography>
+                  <Typography variant="body2">Scheduled: {delivery.scheduledAt ? new Date(delivery.scheduledAt).toLocaleString() : 'N/A'}{delivery.timezone ? ` (${delivery.timezone})` : ''}</Typography>
+                  <Typography variant="body2">Schedule status: {delivery.scheduleStatus ?? 'N/A'}</Typography>
+                  {delivery.scheduleMissedAt && (
+                    <Typography variant="body2" color="error">Schedule missed: {new Date(delivery.scheduleMissedAt).toLocaleString()}</Typography>
+                  )}
+                  <Typography variant="body2">Est. cost: {delivery.estimatedCost ?? 'N/A'}{delivery.finalCost != null ? ` • Final: ${delivery.finalCost}` : ''}</Typography>
+                  <Typography variant="body2">Payment: {delivery.payment?.status ?? 'N/A'}{delivery.payment?.method ? ` (${delivery.payment.method})` : ''}</Typography>
+                  {delivery.dispatchFailureReason && (
+                    <Typography variant="body2" color="error">Dispatch failure: {delivery.dispatchFailureReason}</Typography>
+                  )}
+                  {delivery.cancellationReason && (
+                    <Typography variant="body2" color="error">Cancellation: {delivery.cancellationReason}</Typography>
+                  )}
+                  {delivery.lifecycle?.pickedUpAt && (<Typography variant="body2">Picked up: {new Date(delivery.lifecycle.pickedUpAt).toLocaleString()}</Typography>)}
+                  {delivery.lifecycle?.deliveredAt && (<Typography variant="body2">Delivered: {new Date(delivery.lifecycle.deliveredAt).toLocaleString()}</Typography>)}
+                  {delivery.lifecycle?.completedAt && (<Typography variant="body2">Completed: {new Date(delivery.lifecycle.completedAt).toLocaleString()}</Typography>)}
+                </Box>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -1322,6 +1366,11 @@ export default function DeliveryDetailPage() {
                 <Tab label="Credentials" />
                 <Tab label="Audit Trail" />
                 <Tab label="Ledger & Alerts" />
+                <Tab label="Attempts & Failures" />
+                <Tab label="Driver Settlement" />
+                <Tab label="Returns & Disputes" />
+                <Tab label="Proof & Handover" />
+                <Tab label="Feedback" />
               </Tabs>
             </Box>
             <CardContent>
@@ -1421,6 +1470,21 @@ export default function DeliveryDetailPage() {
               </CustomTabPanel>
               <CustomTabPanel value={tabValue} index={5}>
                 <DeliveryLedgerSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={6}>
+                <DeliveryAttemptsSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={7}>
+                <DeliverySettlementSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={8}>
+                <DeliveryReturnsDisputesSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={9}>
+                <DeliveryProofSection orderId={id!} />
+              </CustomTabPanel>
+              <CustomTabPanel value={tabValue} index={10}>
+                <DeliveryFeedbackSection orderId={id!} />
               </CustomTabPanel>
             </CardContent>
           </Card>

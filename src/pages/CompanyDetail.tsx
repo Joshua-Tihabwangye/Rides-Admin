@@ -198,7 +198,13 @@ export default function CompanyDetailPage() {
   }
 
   return (
-    <AdminCompanyLayout>
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Button onClick={() => navigate('/admin/companies')} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+          Back to companies
+        </Button>
+      </Box>
+      <AdminCompanyLayout>
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}
@@ -436,6 +442,7 @@ export default function CompanyDetailPage() {
           </CardContent>
         </Card>
       </Box>
-    </AdminCompanyLayout>
+      </AdminCompanyLayout>
+    </Box>
   );
 }

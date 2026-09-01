@@ -588,6 +588,10 @@ export type AdminOperationsAnalytics = {
     online: number;
     total: number;
   };
+  cancellations?: {
+    rider: number;
+    driver: number;
+  };
   hourly?: Array<{ time?: string; demand?: number; supply?: number; rides?: number; deliveries?: number; bookings?: number }>;
   regions?: Array<{ region?: string; rides?: number; deliveries?: number }>;
 };
@@ -648,6 +652,7 @@ export async function getAdminOperationsAnalytics(
 
 export type AdminMonitoringSnapshot = {
   onlineDrivers: number;
+  offlineDrivers?: number;
   staleDrivers: number;
   activeRideJobs: number;
   activeDeliveryJobs: number;
@@ -659,6 +664,65 @@ export type AdminMonitoringSnapshot = {
 
 export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnapshot> {
   return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
+}
+
+export type AdminMonitoringDriver = {
+  driverId: string;
+  name: string;
+  phone?: string;
+  city?: string;
+  vehicleType?: string;
+  availabilityStatus: string;
+  online: boolean;
+  busy: boolean;
+  stale: boolean;
+  lastLatitude?: number;
+  lastLongitude?: number;
+  lastLocationAt?: string;
+  secondsSinceHeartbeat?: number;
+  heading?: number;
+  verificationStatus?: string;
+};
+
+export async function listAdminMonitoringDrivers(): Promise<AdminMonitoringDriver[]> {
+  return request<AdminMonitoringDriver[]>("/admin/monitoring/drivers", { method: "GET" });
+}
+
+export type AdminMonitoringJob = {
+  id: string;
+  serviceType: string;
+  serviceId: string;
+  status: string;
+  assignedDriverId?: string;
+  driverName?: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export async function listAdminMonitoringJobs(
+  serviceType: "ride" | "delivery",
+): Promise<AdminMonitoringJob[]> {
+  return request<AdminMonitoringJob[]>(
+    `/admin/monitoring/jobs/${serviceType}`,
+    { method: "GET" },
+  );
+}
+
+export type AdminMonitoringFailedDispatch = {
+  id: string;
+  serviceType: string;
+  serviceId: string;
+  reason: string;
+  dispatchRound: number;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  createdAt?: string;
+};
+
+export async function listAdminMonitoringFailedDispatches(): Promise<AdminMonitoringFailedDispatch[]> {
+  return request<AdminMonitoringFailedDispatch[]>("/admin/monitoring/failed-dispatches", { method: "GET" });
 }
 
 // ── Safety incidents / SOS (backend GET /safety/emergencies) ────────────────
@@ -675,6 +739,9 @@ export type AdminSafetyIncident = {
   latitude?: number | null;
   longitude?: number | null;
   address?: string | null;
+  audioUrl?: string | null;
+  audioMimeType?: string | null;
+  audioDurationMs?: number | null;
   sos: boolean;
   notifiedContacts?: Array<{
     name?: string;
@@ -701,6 +768,10 @@ export async function listAdminSafetyEmergencies(params?: {
 }): Promise<AdminSafetyIncidentPage> {
   const query = `page=${params?.page ?? 1}&limit=${params?.limit ?? 100}`;
   return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
+}
+
+export async function getAdminSafetyIncident(id: string): Promise<AdminSafetyIncident> {
+  return request<AdminSafetyIncident>(`/safety/emergencies/${id}`, { method: "GET" });
 }
 
 export async function updateAdminSafetyIncident(
@@ -2121,6 +2192,27 @@ export type AdminDeliveryOrderResponse = {
   status: string;
   readinessStatus?: string;
   labelGenerationPolicy?: string;
+  // Phase 7: P0 delivery fields surfaced from the backend detail.
+  serviceType?: string;
+  deliveryOption?: string;
+  sourceSystem?: string;
+  externalOrderId?: string;
+  merchantOrganizationId?: string;
+  warehouseId?: string;
+  declaredValue?: number;
+  allPackagesPickedUp?: boolean;
+  readyAt?: string;
+  scheduledAt?: string;
+  timezone?: string;
+  scheduleStatus?: string;
+  scheduledDispatchAt?: string;
+  scheduleMissedAt?: string;
+  dispatchReleasedAt?: string;
+  destinationReleasedAt?: string;
+  dispatchFailureReason?: string;
+  cancellationReason?: string;
+  estimatedCost?: number;
+  finalCost?: number;
   sender?: AdminDeliveryContactView;
   receiver?: AdminDeliveryContactView;
   pickupAddress?: string;
@@ -2135,6 +2227,13 @@ export type AdminDeliveryOrderResponse = {
   courier?: AdminDeliveryCourier | null;
   route?: Record<string, unknown>;
   payment?: { status: string; timing: string; method?: string };
+  lifecycle?: {
+    pickedUpAt?: string;
+    deliveredAt?: string;
+    completedAt?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  };
   driverId?: string;
   driverName?: string;
   packageCount?: number;
@@ -2190,6 +2289,157 @@ export async function getAdminDelivery(id: string): Promise<AdminDeliveryOrderRe
   return request<AdminDeliveryOrderResponse>(`/admin/deliveries/${id}`, { method: "GET" });
 }
 
+// ---------------------------------------------------------------------------
+// Admin Delivery control commands (Phase 8): wired to the existing
+// DeliveryAdminController at /admin/deliveries/orders/:id. The backend already
+// owns validation, state machine, notifications, audit and financial
+// consequences; the Admin UI only invokes these authorized commands.
+// ---------------------------------------------------------------------------
+
+export type AdminDeliveryControlResult = {
+  id: string;
+  status?: string;
+  driverId?: string;
+  message?: string;
+};
+
+export async function adminForceDeliveryStatus(
+  orderId: string,
+  status: string,
+  reason: string,
+): Promise<AdminDeliveryControlResult> {
+  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status, reason }),
+  });
+}
+
+export async function adminReassignDelivery(
+  orderId: string,
+  newDriverId: string,
+  reason: string,
+): Promise<AdminDeliveryControlResult> {
+  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}/reassign`, {
+    method: "POST",
+    body: JSON.stringify({ newDriverId, reason }),
+  });
+}
+
+export async function adminCancelDelivery(
+  orderId: string,
+  reason: string,
+): Promise<AdminDeliveryControlResult> {
+  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ status: "CANCELLED", reason }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Delivery attempts/failures (Phase 9) and driver earnings (Phase 11).
+// ---------------------------------------------------------------------------
+
+export type AdminDeliveryFailureResponse = {
+  id: string;
+  reason: string;
+  retryEligible: boolean;
+  nextAction: string;
+  retryCount: number;
+  terminalPolicy?: string;
+  latitude?: number;
+  longitude?: number;
+  actorUserId?: string;
+  createdAt: string;
+};
+
+export type AdminDeliveryAttemptResponse = {
+  id: string;
+  attemptNumber: number;
+  status: string;
+  driverId?: string;
+  scheduledFor?: string;
+  startedAt?: string;
+  completedAt?: string;
+  note?: string;
+  contactSnapshot?: Record<string, unknown>;
+  failures: AdminDeliveryFailureResponse[];
+};
+
+export type AdminDeliveryEarningResponse = {
+  driverId: string;
+  amount: number;
+  currency: string;
+  baseFee: number;
+  tip?: number;
+  bonus?: number;
+  status: string;
+  settledAt?: string;
+  settledById?: string;
+};
+
+export async function getAdminDeliveryAttempts(
+  orderId: string,
+): Promise<{ attempts: AdminDeliveryAttemptResponse[] }> {
+  return request<{ attempts: AdminDeliveryAttemptResponse[] }>(
+    `/admin/deliveries/orders/${orderId}/attempts`,
+    { method: "GET" },
+  );
+}
+
+export async function getAdminDeliveryEarnings(
+  orderId: string,
+): Promise<{ earnings: AdminDeliveryEarningResponse[] }> {
+  return request<{ earnings: AdminDeliveryEarningResponse[] }>(
+    `/admin/deliveries/orders/${orderId}/earnings`,
+    { method: "GET" },
+  );
+}
+
+export type AdminDeliveryFeedbackResponse = {
+  id: string;
+  customerId: string;
+  driverId?: string;
+  rating: number;
+  message?: string;
+  tipAmount: number;
+  createdAt: string;
+};
+
+export async function getAdminDeliveryFeedback(
+  orderId: string,
+): Promise<{ feedback: AdminDeliveryFeedbackResponse[] }> {
+  return request<{ feedback: AdminDeliveryFeedbackResponse[] }>(
+    `/admin/deliveries/orders/${orderId}/feedback`,
+    { method: "GET" },
+  );
+}
+
+export type AdminDeliveryProofResponse = {
+  id: string;
+  orderId: string;
+  attempt?: number;
+  status: string;
+  verificationMethod?: string;
+  receiverIdentityType?: string;
+  capturedAt?: string;
+  submittedAt?: string;
+  reviewState?: string;
+  reviewerId?: string;
+  reviewDecision?: string;
+  notes?: string;
+  fileAssetId?: string;
+  locationAccuracy?: number;
+};
+
+export async function getAdminDeliveryProofs(
+  orderId: string,
+): Promise<{ items: AdminDeliveryProofResponse[] }> {
+  return request<{ items: AdminDeliveryProofResponse[] }>(
+    `/admin/deliveries/proofs${toQueryString({ orderId })}`,
+    { method: "GET" },
+  );
+}
+
 export async function getAdminDeliveryPackages(
   id: string
 ): Promise<AdminDeliveryPackageView[]> {
@@ -2198,6 +2448,298 @@ export async function getAdminDeliveryPackages(
     { method: "GET" }
   );
   return Array.isArray(response?.items) ? response.items : [];
+}
+
+// ---------------------------------------------------------------------------
+// Admin Rides (Phase 1: first-class Rides Administration)
+// ---------------------------------------------------------------------------
+
+export type AdminRideContact = {
+  id?: string;
+  name?: string;
+  phone?: string;
+};
+
+export type AdminRideStopResponse = {
+  id: string;
+  sequence: number;
+  type: string;
+  address: string;
+  name?: string;
+  placeId?: string;
+  phone?: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  arrivedAt?: string;
+  departedAt?: string;
+};
+
+export type AdminRidePassengerResponse = {
+  id: string;
+  userId?: string;
+  name?: string;
+  phone?: string;
+  role: string;
+  pickupStopId?: string;
+  dropoffStopId?: string;
+  seatCount: number;
+  fareShare: number;
+  status: string;
+};
+
+export type AdminRideOfferResponse = {
+  id: string;
+  driverId: string;
+  driverName?: string;
+  status: string;
+  offeredAt: string;
+  expiresAt: string;
+  respondedAt?: string;
+  distanceToPickupKm?: number;
+};
+
+export type AdminRideEventResponse = {
+  id: string;
+  type: string;
+  actorUserId?: string;
+  data?: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type AdminRideActualsResponse = {
+  actualDistanceKm?: number;
+  actualDurationMinutes?: number;
+  confidence?: string;
+  breadcrumbCount?: number;
+  anomalyFlags: string[];
+  computedAt?: string;
+};
+
+export type AdminRideFeedbackResponse = {
+  riderId: string;
+  driverId: string;
+  rating: number;
+  message?: string;
+  tipAmount: number;
+};
+
+export type AdminRideVehicleResponse = {
+  id: string;
+  make?: string;
+  model?: string;
+  plateNumber?: string;
+  vehicleType?: string;
+  status?: string;
+};
+
+export type AdminRideDetailResponse = {
+  id: string;
+  organizationId?: string;
+  status: string;
+  mode?: string;
+  category?: string;
+  tripType?: string;
+  parentRideId?: string;
+  legIndex?: number;
+  rider?: AdminRideContact & { name?: string; phone?: string };
+  driver?: { id: string; name?: string; rating?: number };
+  vehicle?: AdminRideVehicleResponse;
+  route?: {
+    pickupAddress?: string;
+    destinationAddress?: string;
+    estimatedDistanceKm?: number;
+    estimatedDurationMinutes?: number;
+    route?: Record<string, unknown>;
+  };
+  scheduling?: { scheduledAt?: string; returnAt?: string };
+  configuration?: {
+    passengerCount: number;
+    seatCount: number;
+    luggageCount: number;
+    sharingEnabled?: boolean;
+    rideEnvironment?: string[];
+    preferences?: Record<string, unknown>;
+    bookingFor?: string;
+    beneficiary?: Record<string, unknown>;
+    serviceProductId?: string;
+    serviceProductCodeSnapshot?: string;
+    vehicleType?: string;
+    marketId?: string;
+  };
+  lifecycle?: {
+    createdAt?: string;
+    acceptedAt?: string;
+    arrivedAt?: string;
+    startedAt?: string;
+    completedAt?: string;
+    cancelledAt?: string;
+    cancelledByUserId?: string;
+    cancellationReason?: string;
+    dispatchFailureReason?: string;
+  };
+  verification?: { required?: boolean; passed?: boolean };
+  pricing?: {
+    estimatedFare: number;
+    finalFare?: number;
+    currency: string;
+    promoCode?: string;
+    discountAmount?: number;
+    pricingSnapshotId?: string;
+  };
+  payment?: { method?: string; status: string };
+  stops: AdminRideStopResponse[];
+  passengers: AdminRidePassengerResponse[];
+  offers: AdminRideOfferResponse[];
+  events: AdminRideEventResponse[];
+  actuals?: AdminRideActualsResponse;
+  feedback?: AdminRideFeedbackResponse;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AdminRideListItemResponse = {
+  id: string;
+  status: string;
+  mode?: string;
+  category?: string;
+  tripType?: string;
+  riderId?: string;
+  riderName?: string;
+  driverId?: string;
+  driverName?: string;
+  vehicleId?: string;
+  passengerCount?: number;
+  estimatedFare?: number;
+  finalFare?: number;
+  currency?: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  scheduledAt?: string;
+  createdAt?: string;
+  dispatchFailed?: boolean;
+  dispatchFailureReason?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledByUserId?: string;
+  cancelledByRole?: 'RIDER' | 'DRIVER' | 'ADMIN' | 'SYSTEM';
+  cancelledByName?: string;
+};
+
+export type ListAdminRidesFilters = {
+  page?: number;
+  limit?: number;
+  status?: string;
+  tripType?: string;
+  paymentStatus?: string;
+  riderId?: string;
+  driverId?: string;
+  search?: string;
+  fromDate?: string;
+  toDate?: string;
+};
+
+export type AdminRideListResponse = {
+  items: AdminRideListItemResponse[];
+  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+};
+
+export async function listAdminRides(
+  filters: ListAdminRidesFilters = {},
+): Promise<AdminRideListResponse> {
+  return request<AdminRideListResponse>(
+    `/admin/rides${toQueryString({
+      page: filters.page,
+      limit: filters.limit,
+      status: filters.status,
+      tripType: filters.tripType,
+      paymentStatus: filters.paymentStatus,
+      riderId: filters.riderId,
+      driverId: filters.driverId,
+      search: filters.search,
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+    })}`,
+    { method: 'GET' },
+  );
+}
+
+export async function getAdminRide(id: string): Promise<AdminRideDetailResponse> {
+  return request<AdminRideDetailResponse>(`/admin/rides/${id}`, { method: 'GET' });
+}
+
+export type AdminRideControlResult = {
+  id: string;
+  status?: string;
+  driverId?: string;
+  message?: string;
+};
+
+export async function adminCancelRide(
+  rideId: string,
+  reason: string,
+): Promise<AdminRideControlResult> {
+  return request<AdminRideControlResult>(`/admin/rides/${rideId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function adminReassignRide(
+  rideId: string,
+  newDriverId: string,
+  reason: string,
+): Promise<AdminRideControlResult> {
+  return request<AdminRideControlResult>(`/admin/rides/${rideId}/reassign`, {
+    method: 'POST',
+    body: JSON.stringify({ newDriverId, reason }),
+  });
+}
+
+export type AdminRidePaymentResponse = {
+  id: string;
+  reference: string;
+  providerReference?: string;
+  amount: number;
+  currency: string;
+  method: string;
+  provider: string;
+  status: string;
+  purpose?: string;
+  paidAt?: string;
+  refundedAt?: string;
+  refundedAmount: number;
+};
+
+export async function getAdminRidePayments(
+  rideId: string,
+): Promise<{ payments: AdminRidePaymentResponse[] }> {
+  return request<{ payments: AdminRidePaymentResponse[] }>(`/admin/rides/${rideId}/payments`, {
+    method: 'GET',
+  });
+}
+
+export type AdminRideAnomalyItem = {
+  id: string;
+  rideId: string;
+  actualDistanceKm?: number;
+  actualDurationMinutes?: number;
+  confidence?: string;
+  breadcrumbCount?: number;
+  anomalyFlags: string[];
+  computedAt?: string;
+};
+
+export type AdminRideAnomaliesResponse = {
+  items: AdminRideAnomalyItem[];
+  total: number;
+};
+
+export async function getAdminRideAnomalies(flag?: string, limit = 100): Promise<AdminRideAnomaliesResponse> {
+  return request<AdminRideAnomaliesResponse>(
+    `/admin/rides/anomalies${toQueryString({ flag, limit })}`,
+    { method: 'GET' },
+  );
 }
 
 export async function getAdminPackageLabels(

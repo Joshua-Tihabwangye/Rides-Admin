@@ -17,12 +17,15 @@ import {
   adminMarkChatThreadRead,
   adminRespondToChatCall,
   adminSendChatMessage,
+  adminUploadChatVoiceNote,
+  voiceNoteUrlOf,
   type AdminCallMediaType,
   type AdminCallRecord,
   type AdminChatMessage,
   type AdminChatUser,
   type AdminThreadWithParticipants,
 } from "../services/api/adminChatApi";
+import { VoiceNoteRecorder } from "./VoiceNoteRecorder";
 
 type SignalPayload = {
   rideId?: string;
@@ -95,6 +98,7 @@ export default function AdminTripCommunicationPanel({
   const [chatLoading, setChatLoading] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [voiceSending, setVoiceSending] = useState(false);
   const [call, setCall] = useState<CallUiState>({ kind: "idle" });
   const [callError, setCallError] = useState<string | null>(null);
   const [callHistory, setCallHistory] = useState<AdminCallRecord[]>([]);
@@ -385,6 +389,36 @@ export default function AdminTripCommunicationPanel({
       setSending(false);
     }
   }, [draft, sending, thread]);
+
+  const sendVoiceNote = useCallback(
+    async (blob: Blob, durationMs: number) => {
+      if (!thread || voiceSending) return;
+      const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
+      const file = new File([blob], `voice-note-${Date.now()}.${ext}`, { type: blob.type });
+      setVoiceSending(true);
+      try {
+        const uploaded = await adminUploadChatVoiceNote(file);
+        const attachment = {
+          kind: "voice-note",
+          url: uploaded.fileUrl,
+          mimeType: uploaded.mimeType || blob.type,
+          durationMs: Math.round(durationMs),
+          sizeBytes: blob.size,
+        };
+        if (!attachment.url) {
+          setCallError("Voice-note upload is unavailable right now.");
+          return;
+        }
+        // The message appears via the admin chat socket echo, as with text.
+        await adminSendChatMessage(thread.thread.id, "", [attachment]);
+      } catch (error) {
+        setCallError(error instanceof Error ? error.message : "Could not send the voice note.");
+      } finally {
+        setVoiceSending(false);
+      }
+    },
+    [thread, voiceSending],
+  );
 
   const loadCallHistory = useCallback(async () => {
     if (!serviceId) {
@@ -736,6 +770,15 @@ export default function AdminTripCommunicationPanel({
                         mine ? "rounded-br-sm bg-blue-600 text-white" : "rounded-bl-sm bg-slate-100 text-slate-800"
                       }`}
                     >
+                      {voiceNoteUrlOf(message) ? (
+                        <audio
+                          controls
+                          preload="metadata"
+                          src={voiceNoteUrlOf(message) ?? undefined}
+                          className="h-11 w-56 max-w-full"
+                          controlsList="nodownload"
+                        />
+                      ) : null}
                       <p className="text-sm leading-snug">{message.body}</p>
                       <p className={`mt-1 text-[10px] font-bold uppercase tracking-wide ${mine ? "text-blue-100" : "text-slate-400"}`}>
                         {formatTime(message.createdAt)}
@@ -759,15 +802,21 @@ export default function AdminTripCommunicationPanel({
               void sendMessage();
             }}
           >
+            <VoiceNoteRecorder
+              onSend={(blob, durationMs) => void sendVoiceNote(blob, durationMs)}
+              sending={voiceSending}
+              disabled={voiceSending || sending}
+              accentColor="blue"
+            />
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Type a message…"
+              placeholder={voiceSending ? "Sending voice note…" : "Type a message…"}
               className="flex-1 rounded-full border-2 border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-blue-600"
             />
             <button
               type="submit"
-              disabled={!draft.trim() || sending}
+              disabled={!draft.trim() || sending || voiceSending}
               className="rounded-full bg-blue-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition-all active:scale-95 disabled:opacity-40"
             >
               Send

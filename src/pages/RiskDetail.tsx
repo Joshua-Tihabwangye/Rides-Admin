@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Box, Card, CardContent, Typography, Chip, Button, Divider, TextField, Alert, CircularProgress } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { getAdminRiskCase } from "../services/api/adminApi";
 import type { AdminRiskCaseResponse } from "../services/api/adminApi";
 
@@ -11,6 +12,7 @@ const EV_COLORS = {
 
 export default function RiskCaseDetailPage() {
   const { riskId } = useParams();
+  const navigate = useNavigate();
   const [riskCase, setRiskCase] = useState<AdminRiskCaseResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,11 @@ export default function RiskCaseDetailPage() {
 
   return (
     <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Button onClick={() => navigate('/admin/risk')} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+          Back
+        </Button>
+      </Box>
       <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
           <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">

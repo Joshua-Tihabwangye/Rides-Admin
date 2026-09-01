@@ -23,6 +23,7 @@ import DriverManagement from './pages/DriverManagement'
 import DriverDetail from './pages/DriverDetail'
 import DriverCreate from './pages/DriverCreate'
 import SafetyOverview from './pages/SafetyOverview'
+import SosIncidentDetailPage from './pages/SosIncidentDetailPage'
 import RiskFraudCenter from './pages/RiskFraudCenter'
 import RiskDetail from './pages/RiskDetail'
 import CompanyList from './pages/CompanyList'
@@ -69,6 +70,9 @@ import Settings from './pages/Settings'
 import AccessDenied from './pages/AccessDenied'
 import DeliveryListPage from './pages/DeliveryListPage'
 import DeliveryDetailPage from './pages/DeliveryDetailPage'
+import RidesListPage from './pages/RidesListPage'
+import RideDetailPage from './pages/RideDetailPage'
+import RideAnomaliesPage from './pages/RideAnomaliesPage'
 import ReturnRequestsPage from './pages/ReturnRequestsPage'
 import DisputesPage from './pages/DisputesPage'
 import ReturnShipmentsPage from './pages/ReturnShipmentsPage'
@@ -217,6 +221,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["manage_people"]}>
                 <SafetyOverview />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="safety/:incidentId"
+            element={
+              <RequirePermission anyOf={["manage_people"]}>
+                <SosIncidentDetailPage />
               </RequirePermission>
             }
           />
@@ -413,6 +425,10 @@ export default function App() {
               </RequirePermission>
             }
           />
+          {/* Rides Administration (Phase 1): first-class ride list + detail */}
+          <Route path="rides" element={<RequirePermission anyOf={["view_rides"]}><RidesListPage /></RequirePermission>} />
+          <Route path="rides/:rideId" element={<RequirePermission anyOf={["view_rides"]}><RideDetailPage /></RequirePermission>} />
+          <Route path="rides/anomalies" element={<RequirePermission anyOf={["view_rides"]}><RideAnomaliesPage /></RequirePermission>} />
           {/* Reverse logistics & returns (DLV-192) */}
           <Route
             path="returns"

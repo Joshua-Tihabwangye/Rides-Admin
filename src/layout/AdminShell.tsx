@@ -107,6 +107,14 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    id: 'rides',
+    label: 'Rides',
+    items: [
+      { label: 'All rides', to: '/admin/rides', icon: <DirectionsCarIcon /> },
+      { label: 'Ride anomalies', to: '/admin/rides/anomalies', icon: <WarningIcon /> },
+    ],
+  },
+  {
     id: 'people',
     label: 'People',
     items: [

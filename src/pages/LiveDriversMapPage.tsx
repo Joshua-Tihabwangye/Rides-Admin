@@ -18,6 +18,8 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useNavigate } from "react-router-dom";
 import { createAdminSocket, getActiveDrivers } from "../services/api/adminApi";
 import {
   driverVehicleKind,
@@ -94,6 +96,7 @@ function formatLastSeen(value?: string) {
 }
 
 export default function LiveDriversMapPage() {
+  const navigate = useNavigate();
   const rawApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
   const googleMapsApiKey = rawApiKey && !/^https?:\/\//i.test(rawApiKey) ? rawApiKey : "";
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey });
@@ -212,6 +215,9 @@ export default function LiveDriversMapPage() {
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column", px: { xs: 2, md: 4 }, pb: { xs: 2, md: 4 } }}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 2, flexWrap: "wrap", gap: 1 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Button onClick={() => navigate(-1)} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+            Back
+          </Button>
           <MyLocationIcon sx={{ color: "#03CD8C" }} />
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             Live drivers map
@@ -276,13 +282,21 @@ export default function LiveDriversMapPage() {
             onUnmount={() => { mapRef.current = null; }}
             onCenterChanged={() => {
               // Only track operator panning once a real center exists; never
-              // let the map reset to a hardcoded/empty viewport.
+              // let the map reset to a hardcoded/empty viewport. Guard against
+              // the infinite re-render loop caused by setting state with a new
+              // object reference that produces the same numeric coordinates.
               if (!centerRef.current) return;
               const map = mapRef.current;
               if (!map) return;
               const next = map.getCenter();
               if (!next) return;
-              setCenter({ lat: next.lat(), lng: next.lng() });
+              const lat = next.lat();
+              const lng = next.lng();
+              if (
+                Math.abs(lat - centerRef.current.lat) < 1e-6 &&
+                Math.abs(lng - centerRef.current.lng) < 1e-6
+              ) return;
+              setCenter({ lat, lng });
             }}
             onZoomChanged={() => {
               const map = mapRef.current;

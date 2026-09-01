@@ -8,6 +8,7 @@ import {
   Chip,
   Button,
   Divider,
+  Stack,
   Table,
   TableHead,
   TableBody,
@@ -700,10 +701,23 @@ export default function SafetyOverviewDashboardPage() {
                           sx={{ cursor: "pointer" }}
                         >
                           <TableCell sx={{ fontSize: 11 }}>
-                            {incident.sos ? <Chip size="small" color="error" label="SOS" /> : null}
-                            <Typography variant="caption" className="ml-1 font-mono">
-                              {incident.id.slice(0, 8)}
-                            </Typography>
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              {incident.sos ? <Chip size="small" color="error" label="SOS" /> : null}
+                              <Typography variant="caption" className="ml-1 font-mono">
+                                {incident.id.slice(0, 8)}
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant="text"
+                                sx={{ fontSize: 10, textTransform: "none", minWidth: 0, p: 0.25 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/admin/safety/${incident.id}`);
+                                }}
+                              >
+                                View
+                              </Button>
+                            </Stack>
                           </TableCell>
                           <TableCell sx={{ fontSize: 11 }}>{incident.type}</TableCell>
                           <TableCell sx={{ fontSize: 11 }}>

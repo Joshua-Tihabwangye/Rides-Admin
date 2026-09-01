@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useMemo, useEffect } from "react";
 import {
 	Box,
@@ -26,6 +25,7 @@ import {
 	Tabs,
 	Tab,
 } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import SearchIcon from "@mui/icons-material/Search";
@@ -40,7 +40,8 @@ import {
 	Legend,
 } from "recharts";
 import DownloadIcon from "@mui/icons-material/Download";
-import PeriodSelector from "../components/PeriodSelector";
+import { useNavigate } from "react-router-dom";
+import PeriodSelector, { type PeriodOption } from "../components/PeriodSelector";
 import ExportButton from "../components/ExportButton";
 import dayjs from "dayjs";
 import {
@@ -90,8 +91,9 @@ const REPORT_GROUPS = [
 ];
 
 export default function DetailedAnalyticsPage() {
+	const navigate = useNavigate();
 	const [selectedReportId, setSelectedReportId] = useState(REPORTS[0].id);
-	const [period, setPeriod] = useState("thisMonth");
+	const [period, setPeriod] = useState<PeriodOption>("thisMonth");
 	const [filters, setFilters] = useState({
 		region: "All",
 		service: "All",
@@ -199,23 +201,9 @@ export default function DetailedAnalyticsPage() {
 		setFilters({ ...filters, [field]: event.target.value });
 	};
 
-	const periodMultiplier: Record<string, number> = {
-		today: 0.2,
-		"7days": 0.6,
-		"30days": 1,
-		thisMonth: 1.1,
-		custom: 0.8,
-	};
-
-	const reportDatasets = {
-		"TRIPS-VOLUME": { All: [] },
-		"DRIVER-PERF": { All: [] },
-		"COMPANY-PERF": { All: [] },
-	};
-
 	// Real backend-derived series for the Trips & volumes report: each payment
 	// bucket becomes a row with the transaction count and revenue.
-	const realTripsData: AdminAnalyticsTimeseriesPoint[] = realSeries.map((bucket) => ({
+	const realTripsData = realSeries.map((bucket) => ({
 		name: bucket.date,
 		rides: bucket.transactions,
 		revenue: bucket.revenue,
@@ -224,7 +212,7 @@ export default function DetailedAnalyticsPage() {
 	}));
 
 	// Real driver-performance rows (acceptance %, cancellations, rating).
-	const realDriverData: AdminAnalyticsDriverPoint[] = realDrivers.map((d) => ({
+	const realDriverData = realDrivers.map((d) => ({
 		name: d.name,
 		acceptance: d.acceptance,
 		cancellations: d.cancelled,
@@ -233,98 +221,48 @@ export default function DetailedAnalyticsPage() {
 	}));
 
 	// Real company-performance rows (trips, cancellations, payouts/revenue).
-	const realCompanyData: AdminAnalyticsCompanyPoint[] = realCompanies.map((c) => ({
+	const realCompanyData = realCompanies.map((c) => ({
 		name: c.name,
 		trips: c.trips,
 		cancellations: c.cancelled,
 		payouts: c.payouts,
 	}));
 
-	const usingRealTrips = selectedReportId === "TRIPS-VOLUME" && realTripsData.length > 0;
-	const usingRealDrivers = selectedReportId === "DRIVER-PERF" && realDriverData.length > 0;
-	const usingRealCompanies = selectedReportId === "COMPANY-PERF" && realCompanyData.length > 0;
-
-	const serviceFactor =
-		filters.service === "Rides"
-			? 1
-			: filters.service === "Delivery"
-				? 0.4
-				: filters.service === "Logistics"
-					? 0.2
-					: 1;
-
+	// Only render real backend data. No fabricated fallback charts.
 	const selectedReportData =
-		usingRealTrips
+		selectedReportId === "TRIPS-VOLUME"
 			? realTripsData
-			: usingRealDrivers
+			: selectedReportId === "DRIVER-PERF"
 			  ? realDriverData
-			  : usingRealCompanies
+			  : selectedReportId === "COMPANY-PERF"
 			    ? realCompanyData
-			    : reportDatasets[selectedReportId]?.[filters.region] ||
-			      reportDatasets[selectedReportId]?.All ||
-			      reportDatasets["TRIPS-VOLUME"].All;
+			    : [];
 
 	const chartData = selectedReportData.map((row) => {
-		const mult = periodMultiplier[period] ?? 1;
-
 		if (selectedReportId === "TRIPS-VOLUME") {
-			// Real data is already in absolute units; do not re-apply the
-			// illustrative multipliers used for the (empty) placeholder set.
-			if (usingRealTrips) {
-				return {
-					...row,
-					rides: row.rides,
-					distance: row.distance || 0,
-					duration: row.duration || 0,
-				};
-			}
 			return {
 				...row,
-				rides: Math.round(row.rides * mult * serviceFactor),
-				distance: row.distance || 7.2,
-				duration: row.duration || 25.5,
+				rides: row.rides,
+				distance: row.distance || 0,
+				duration: row.duration || 0,
 			};
 		}
 
 		if (selectedReportId === "DRIVER-PERF") {
-			// Real data: render the backend-derived acceptance/cancellations/rating
-			// directly; the illustrative multiplier is only for placeholder data.
-			if (usingRealDrivers) {
-				return {
-					...row,
-					acceptance: row.acceptance,
-					cancellations: row.cancellations,
-					rating: row.rating,
-				};
-			}
 			return {
 				...row,
-				acceptance: Math.round(row.acceptance * mult),
-				cancellations: Math.round(
-					row.cancellations * (1 + (mult - 1) * 0.6),
-				),
-				rating: Number(
-					Math.min(5, row.rating + (mult - 1) * 0.1).toFixed(1),
-				),
+				acceptance: row.acceptance,
+				cancellations: row.cancellations,
+				rating: row.rating,
 			};
 		}
 
 		if (selectedReportId === "COMPANY-PERF") {
-			if (usingRealCompanies) {
-				return {
-					...row,
-					trips: row.trips,
-					cancellations: row.cancellations,
-					payouts: row.payouts,
-				};
-			}
 			return {
 				...row,
-				trips: Math.round(row.trips * mult * serviceFactor),
-				cancellations: Math.round(
-					row.cancellations * (1 + (mult - 1) * 0.4),
-				),
-				payouts: Math.round(row.payouts * (1 + (mult - 1) * 0.07)),
+				trips: row.trips,
+				cancellations: row.cancellations,
+				payouts: row.payouts,
 			};
 		}
 
@@ -463,6 +401,11 @@ export default function DetailedAnalyticsPage() {
 			{/* Title */}
 			<Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
 				<Box>
+					<Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+						<Button onClick={() => navigate(-1)} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+							Back
+						</Button>
+					</Box>
 					<Typography
 						variant="h6"
 						className="font-semibold tracking-tight"
@@ -906,9 +849,25 @@ export default function DetailedAnalyticsPage() {
 								No data available for the selected filters.
 							</Alert>
 						)}
+						{analyticsLoading && (
+							<Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+								<CircularProgress size={24} />
+							</Box>
+						)}
+						{!analyticsLoading && chartData.length === 0 && previewState === "ready" && (
+							<Card elevation={0} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.2)", bgcolor: "background.default", minHeight: 250 }}>
+								<CardContent className="p-3">
+									<Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
+										<Alert severity="info" sx={{ maxWidth: 420 }}>
+											No real backend data available for this report yet. Reports populate from database aggregates as activity is recorded.
+										</Alert>
+									</Box>
+								</CardContent>
+							</Card>
+						)}
 
 						{/* Sample results table/chart */}
-						{previewState === "ready" && (
+						{previewState === "ready" && !analyticsLoading && chartData.length > 0 && (
 							<Card
 								elevation={0}
 								sx={{

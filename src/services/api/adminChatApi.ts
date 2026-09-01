@@ -4,7 +4,7 @@
 // calls target a specific party via calleeUserId (e.g. the driver on an SOS
 // incident) while chat always follows the ride/delivery thread.
 
-import { request } from "./httpClient";
+import { request, upload } from "./httpClient";
 
 export type AdminChatContextType = "RIDE" | "DELIVERY";
 
@@ -30,7 +30,7 @@ export type AdminChatMessage = {
   threadId: string;
   senderUserId: string;
   body: string;
-  attachments?: Record<string, unknown>[] | null;
+  attachments?: Array<string | Record<string, unknown>> | null;
   createdAt: string;
 };
 
@@ -103,11 +103,68 @@ export function adminListChatMessages(
   );
 }
 
-export function adminSendChatMessage(threadId: string, body: string): Promise<AdminChatMessage> {
+export function adminSendChatMessage(
+  threadId: string,
+  body: string,
+  attachments?: Array<string | Record<string, unknown>>,
+): Promise<AdminChatMessage> {
   return request<AdminChatMessage>(`/chat/threads/${threadId}/messages`, {
     method: "POST",
-    body: { body },
+    body: {
+      ...(attachments?.length ? { body, attachments } : { body }),
+    },
   });
+}
+
+export type AdminUploadedFile = {
+  id: string;
+  fileAssetId: string;
+  fileKey: string;
+  fileUrl: string;
+  originalFileName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+};
+
+/**
+ * Upload a chat voice note (PRIVATE, long-lived signed URL). Requires the
+ * backend to be reached via the same origin/proxy used by `request`.
+ */
+export function adminUploadChatVoiceNote(file: File): Promise<AdminUploadedFile> {
+  return upload<AdminUploadedFile>("/files/upload", file, {
+    query: {
+      visibility: "PRIVATE",
+      ttlSeconds: 30 * 24 * 60 * 60,
+    },
+  });
+}
+
+/**
+ * A voice-note attachment persisted on a chat message. `url` is a long-lived
+ * signed download URL produced by /files/upload with a chat TTL.
+ */
+export type AdminVoiceNoteAttachment = {
+  kind: "voice-note";
+  url: string;
+  mimeType: string;
+  durationMs: number;
+  sizeBytes: number;
+};
+
+export function isVoiceNoteAttachment(
+  attachment: string | Record<string, unknown>,
+): attachment is AdminVoiceNoteAttachment {
+  if (typeof attachment === "string") return false;
+  return (
+    attachment?.kind === "voice-note" &&
+    typeof attachment.url === "string" &&
+    typeof attachment.mimeType === "string"
+  );
+}
+
+export function voiceNoteUrlOf(message: AdminChatMessage): string | null {
+  const attachment = message.attachments?.find(isVoiceNoteAttachment);
+  return attachment ? attachment.url : null;
 }
 
 export function adminMarkChatThreadRead(
@@ -161,4 +218,55 @@ export function adminListChatCalls(params?: {
 export function adminDisplayNameOf(user?: AdminChatUser | null): string {
   if (!user) return "User";
   return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || "User";
+}
+
+export type AdminSosSessionView = {
+  id: string;
+  incidentId: string;
+  status: "RINGING" | "CONNECTED" | "ENDED" | "PARTIAL_FAILURE";
+  startedAt: string;
+  answeredAt?: string | null;
+  endedAt?: string | null;
+  latitude: number;
+  longitude: number;
+  address?: string | null;
+};
+
+export type AdminSosSessionDetail = {
+  session: AdminSosSessionView;
+  emergency: {
+    address: string | null;
+    latitude: number;
+    longitude: number;
+    mapUrl: string;
+    createdAt: string;
+  };
+  recipients: Array<{
+    id: string;
+    type: "ADMIN" | "EMERGENCY_CONTACT" | "POLICE";
+    name: string;
+    channel: "IN_APP" | "VOICE";
+    status: string;
+    callId?: string;
+    failureReason?: string;
+  }>;
+  signaling: { iceServers: unknown };
+};
+
+export function adminGetSosSession(sessionId: string): Promise<AdminSosSessionDetail> {
+  return request<AdminSosSessionDetail>(`/chat/calls/sos/session/${sessionId}`, { method: "GET" });
+}
+
+export function adminUpdateSosSessionLocation(
+  sessionId: string,
+  input: { latitude: number; longitude: number; address?: string; accuracyMeters?: number },
+): Promise<{ session: AdminSosSessionView }> {
+  return request<{ session: AdminSosSessionView }>(`/chat/calls/sos/session/${sessionId}/location`, {
+    method: "POST",
+    body: input,
+  });
+}
+
+export function adminGetSosSessionByIncident(incidentId: string): Promise<AdminSosSessionDetail> {
+  return request<AdminSosSessionDetail>(`/chat/calls/sos/by-incident/${incidentId}`, { method: "GET" });
 }
