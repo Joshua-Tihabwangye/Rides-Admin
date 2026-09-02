@@ -230,6 +230,8 @@ export type AdminSosSessionView = {
   latitude: number;
   longitude: number;
   address?: string | null;
+  reporterUserId?: string;
+  reporterName?: string;
 };
 
 export type AdminSosSessionDetail = {
