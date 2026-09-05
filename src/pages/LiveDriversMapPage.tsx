@@ -23,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { createAdminSocket, getActiveDrivers } from "../services/api/adminApi";
 import {
   driverVehicleKind,
+  vehicleDisplayCategory,
   vehicleMarkerAnchor,
   vehicleMarkerIconUrl,
   vehicleMarkerSize,
@@ -72,9 +73,9 @@ function isValidFreshLocation(loc: { latitude?: number; longitude?: number; last
 }
 
 function vehicleIcon(vehicleType?: string) {
-  const type = (vehicleType ?? "").toLowerCase();
-  if (type.includes("bike")) return <TwoWheelerIcon fontSize="small" />;
-  if (type.includes("truck") || type.includes("van")) return <LocalShippingIcon fontSize="small" />;
+  const category = vehicleDisplayCategory(vehicleType);
+  if (category === "bike") return <TwoWheelerIcon fontSize="small" />;
+  if (category === "shipping") return <LocalShippingIcon fontSize="small" />;
   return <DirectionsCarIcon fontSize="small" />;
 }
 

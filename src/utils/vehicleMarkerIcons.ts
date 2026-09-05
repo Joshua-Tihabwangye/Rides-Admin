@@ -30,6 +30,20 @@ export function driverVehicleKind(vehicleType?: string): DriverVehicleKind {
   return "car";
 }
 
+/**
+ * Canonical UI presentation category used by the driver detail InfoWindow.
+ * Two-wheeled types map to a bike, freight-capable types (truck/van) map to a
+ * shipping icon, and everything else is a car. Centred here (not duplicated as
+ * ad-hoc substring logic in the map page) so the marker and its popup always
+ * agree on the vehicle kind.
+ */
+export function vehicleDisplayCategory(vehicleType?: string): "bike" | "shipping" | "car" {
+  if (vehicleType && TWO_WHEELED.has(vehicleType.toUpperCase())) return "bike";
+  const t = (vehicleType ?? "").toUpperCase();
+  if (t === "TRUCK" || t === "VAN" || t === "MINIVAN") return "shipping";
+  return "car";
+}
+
 function svgInner(raw: string): string {
   const openEnd = raw.indexOf(">");
   const closeStart = raw.lastIndexOf("</svg>");
