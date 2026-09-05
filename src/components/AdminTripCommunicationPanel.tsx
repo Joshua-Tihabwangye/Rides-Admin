@@ -183,6 +183,7 @@ export default function AdminTripCommunicationPanel({
       socket.emit("call.signal", {
         serviceType: serviceType || "RIDE",
         serviceId,
+        callId: callIdRef.current ?? undefined,
         type,
         signal,
       });
