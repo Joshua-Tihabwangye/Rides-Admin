@@ -93,6 +93,7 @@ type IncomingCallState =
 
 type ActiveCall = {
   callId: string;
+  serviceId?: string;
   callerName: string;
   mediaType: AdminCallMediaType;
   state: IncomingCallState;
@@ -122,6 +123,8 @@ export default function AdminIncomingCallOverlay() {
   const [calls, setCalls] = useState<ActiveCall[]>([]);
   const callsRef = useRef<ActiveCall[]>([]);
   callsRef.current = calls;
+  const socketRef = useRef<ReturnType<typeof createAdminSocket> | null>(null);
+  const seenCallIdsRef = useRef(new Set<string>());
   const audioRefs = useRef<Map<string, HTMLAudioElement | null>>(new Map());
 
   const stopCallMedia = useCallback((callId: string) => {
@@ -150,10 +153,12 @@ export default function AdminIncomingCallOverlay() {
   );
 
   const emitSignal = useCallback((callId: string, type: string, signal: unknown) => {
-    const socket = createAdminSocket();
+    const socket = socketRef.current;
+    if (!socket) return;
+    const call = callsRef.current.find((candidate) => candidate.callId === callId);
     socket.emit("call.signal", {
       serviceType: "SOS",
-      serviceId: callId,
+      serviceId: call?.serviceId,
       callId,
       type,
       signal,
@@ -161,13 +166,14 @@ export default function AdminIncomingCallOverlay() {
   }, []);
 
   const setupPeerConnection = useCallback(
-    (callId: string) => {
+    (callId: string, localStream: MediaStream) => {
       const call = callsRef.current.find((c) => c.callId === callId);
       if (!call) return null;
       const pc = new RTCPeerConnection({ iceServers: call.iceServers ?? DEFAULT_ICE_SERVERS });
       call.refs.pc = pc;
-      call.refs.localStream?.getTracks().forEach((track) => {
-        pc.addTrack(track, call.refs.localStream!);
+      call.refs.localStream = localStream;
+      localStream.getTracks().forEach((track) => {
+        pc.addTrack(track, localStream);
       });
       if (call.refs.pendingIceCandidates.length) {
         call.refs.pendingIceCandidates.forEach((candidate) => {
@@ -193,6 +199,13 @@ export default function AdminIncomingCallOverlay() {
         if (!activeCall) return;
         if (pc.connectionState === "connected" && activeCall.refs.tick === null) {
           activeCall.refs.callStartedAt = Date.now();
+          setCalls((prev) =>
+            prev.map((c) =>
+              c.callId === callId
+                ? { ...c, state: { kind: "active", callId, peerName: c.callerName, durationSeconds: 0 } }
+                : c,
+            ),
+          );
           activeCall.refs.tick = setInterval(() => {
             const ac = callsRef.current.find((c) => c.callId === callId);
             if (!ac || ac.refs.callStartedAt === null) return;
@@ -229,7 +242,7 @@ export default function AdminIncomingCallOverlay() {
       emitSignal(callId, "answer", answer);
       setCalls((prev) =>
         prev.map((c) =>
-          c.callId === callId ? { ...c, state: { kind: "active", callId, peerName: "Driver", durationSeconds: 0 } } : c,
+          c.callId === callId ? { ...c, state: { kind: "connecting", callId, peerName: c.callerName } } : c,
         ),
       );
     },
@@ -267,14 +280,13 @@ export default function AdminIncomingCallOverlay() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch {
+        void adminEndChatCall(callId).catch(() => undefined);
         endCallUi(callId);
         return;
       }
-      setCalls((prev) =>
-        prev.map((c) => (c.callId === callId ? { ...c, refs: { ...c.refs, localStream: stream } } : c)),
-      );
-      const pc = setupPeerConnection(callId);
+      const pc = setupPeerConnection(callId, stream);
       if (!pc) return;
+      setCalls((prev) => prev.map((c) => (c.callId === callId ? { ...c } : c)));
       setCalls((prev) =>
         prev.map((c) =>
           c.callId === callId ? { ...c, state: { kind: "connecting", callId, peerName: callerName } } : c,
@@ -287,6 +299,7 @@ export default function AdminIncomingCallOverlay() {
 
   useEffect(() => {
     const socket = createAdminSocket();
+    socketRef.current = socket;
     socket.connect();
 
     const onCallInvite = (payload: CallInvitePayload) => {
@@ -296,10 +309,15 @@ export default function AdminIncomingCallOverlay() {
       // AdminTripCommunicationPanel surface.
       if (payload.serviceType !== "SOS") return;
       if (!myUserId) return;
-      if (callsRef.current.some((c) => c.callId === payload.callId)) return; // dedupe by callId
+      if (payload.calleeUserId !== myUserId) return;
+      // The Admin socket belongs to both `operations` and its user room, so a
+      // targeted invite may arrive through both routes before React renders.
+      if (seenCallIdsRef.current.has(payload.callId)) return;
+      seenCallIdsRef.current.add(payload.callId);
 
       const newCall: ActiveCall = {
         callId: payload.callId,
+        serviceId: payload.serviceId ?? payload.sosSessionId,
         callerName: payload.callerName || "SOS Caller",
         mediaType: payload.mediaType ?? "audio",
         incidentId: payload.incidentId ?? payload.emergencyContext?.incidentId,
@@ -387,11 +405,11 @@ export default function AdminIncomingCallOverlay() {
           setCalls((prev) =>
             prev.map((c) =>
               c.callId === callPayload.callId && c.state.kind === "incoming"
-                ? { ...c, state: { kind: "active", callId: c.callId, peerName: c.callerName, durationSeconds: 0 } }
+                ? { ...c, state: { kind: "connecting", callId: c.callId, peerName: c.callerName } }
                 : c,
             ),
           );
-        } else if (kind === "ended") {
+        } else if (kind === "declined" || kind === "ended") {
           endCallUi(callPayload.callId);
         }
       };
@@ -412,23 +430,28 @@ export default function AdminIncomingCallOverlay() {
       );
     };
 
+    const handleCallAnswered = onCallLifecycle("answered");
+    const handleCallDeclined = onCallLifecycle("declined");
+    const handleCallEnded = onCallLifecycle("ended");
+
     socket.on("call.invite", onCallInvite);
     socket.on("call.signal", onCallSignal);
-    socket.on("call.answered", onCallLifecycle("answered"));
-    socket.on("call.declined", onCallLifecycle("declined"));
-    socket.on("call.ended", onCallLifecycle("ended"));
+    socket.on("call.answered", handleCallAnswered);
+    socket.on("call.declined", handleCallDeclined);
+    socket.on("call.ended", handleCallEnded);
     socket.on("sos.leg.cancelled", onSosLegCancelled);
     socket.on("sos.session.update", onSosSessionUpdate);
 
     return () => {
       socket.off("call.invite", onCallInvite);
       socket.off("call.signal", onCallSignal);
-      socket.off("call.answered", onCallLifecycle("answered"));
-      socket.off("call.declined", onCallLifecycle("declined"));
-      socket.off("call.ended", onCallLifecycle("ended"));
+      socket.off("call.answered", handleCallAnswered);
+      socket.off("call.declined", handleCallDeclined);
+      socket.off("call.ended", handleCallEnded);
       socket.off("sos.leg.cancelled", onSosLegCancelled);
       socket.off("sos.session.update", onSosSessionUpdate);
       socket.disconnect();
+      if (socketRef.current === socket) socketRef.current = null;
       callsRef.current.forEach((c) => {
         c.refs.localStream?.getTracks().forEach((t) => t.stop());
         c.refs.pc?.close();

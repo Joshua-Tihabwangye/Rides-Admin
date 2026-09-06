@@ -118,9 +118,13 @@ export function adminSendChatMessage(
 
 export type AdminUploadedFile = {
   id: string;
-  fileAssetId: string;
-  fileKey: string;
-  fileUrl: string;
+  fileAssetId?: string;
+  fileKey?: string;
+  fileUrl?: string;
+  storageKey?: string;
+  url?: string;
+  accessUrl?: string;
+  downloadUrl?: string;
   originalFileName?: string;
   mimeType?: string;
   sizeBytes?: number;

@@ -44,6 +44,8 @@ type PopupAlert = {
   serviceType?: string | null
   serviceId?: string | null
   sos: boolean
+  audioUrl?: string | null
+  audioDurationMs?: number | null
   createdAt?: string | null
 }
 
@@ -72,11 +74,7 @@ export default function SafetyIncidentPopup() {
 
   const openAlert = useCallback(
     (alert: PopupAlert) => {
-      if (alert.driverId) {
-        navigate(`/admin/drivers/${alert.driverId}`)
-      } else {
-        navigate("/admin/safety")
-      }
+      navigate(`/admin/safety/${alert.incidentId}`)
     },
     [navigate],
   )
@@ -117,6 +115,8 @@ export default function SafetyIncidentPopup() {
         serviceType: incident.serviceType,
         serviceId: incident.serviceId,
         sos: Boolean(incident.sos),
+        audioUrl: incident.audioUrl,
+        audioDurationMs: incident.audioDurationMs,
         createdAt: incident.createdAt,
       }
 
@@ -206,12 +206,22 @@ export default function SafetyIncidentPopup() {
                   Time: {formatIncidentTime(alert.createdAt)}
                 </Typography>
               ) : null}
+              {alert.audioUrl ? (
+                <Box
+                  component="audio"
+                  controls
+                  preload="metadata"
+                  src={alert.audioUrl}
+                  onClick={(event) => event.stopPropagation()}
+                  sx={{ display: "block", width: "100%", mt: 1, height: 36 }}
+                />
+              ) : null}
               <Button
                 size="small"
                 variant="contained"
                 sx={{ mt: 1, fontSize: 11, fontWeight: 800, bgcolor: "#dc2626", "&:hover": { bgcolor: "#b91c1c" } }}
               >
-                {alert.driverId ? "Open driver" : "Open safety desk"}
+                Open emergency incident
               </Button>
             </Box>
             <IconButton

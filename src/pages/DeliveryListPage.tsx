@@ -106,20 +106,18 @@ export default function DeliveryListPage() {
           : Array.isArray(rawResponse.data)
             ? rawResponse.data
             : [];
+      // Build a map of labelStatus from the list items (already available).
       const labelStatusById = new Map(
         listItems.map((item) => [item.id, item.labelStatus])
       );
-      const detailedItems = await Promise.all(
-        listItems.map(async (item) => {
-          try {
-            const detail = await getAdminDelivery(item.id);
-            return { ...detail, labelStatus: labelStatusById.get(item.id) ?? (detail as AdminDeliveryListItemResponse).labelStatus };
-          } catch {
-            return item;
-          }
-        }),
+      // Use the list items directly — no per‑item getAdminDelivery calls.
+      // The list already supplies packageCount, sender, receiver, status, etc.
+      setDeliveries(
+        listItems.map((item) => ({
+          ...item,
+          labelStatus: labelStatusById.get(item.id) ?? item.labelStatus,
+        })),
       );
-      setDeliveries(detailedItems);
       const responseMeta = Array.isArray(rawResponse) ? undefined : (response as { meta?: { total?: number } }).meta;
       setTotal(responseMeta?.total ?? listItems.length);
       setDriverNamesById(

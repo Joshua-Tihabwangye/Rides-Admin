@@ -28,6 +28,7 @@ export function VoiceNoteRecorder({
   const startedAtRef = useRef<number | null>(null);
   const cancelledRef = useRef(false);
   const sentRef = useRef(false);
+  const pressedRef = useRef(false);
 
   useEffect(() => {
     if (!blob || cancelledRef.current || sentRef.current) return;
@@ -39,23 +40,22 @@ export function VoiceNoteRecorder({
 
   const handlePointerDown = useCallback(() => {
     if (disabled || sending) return;
+    pressedRef.current = true;
     cancelledRef.current = false;
     sentRef.current = false;
     startedAtRef.current = Date.now();
-    void start();
-  }, [disabled, sending, start]);
+    void start().then(() => {
+      if (!pressedRef.current) stop();
+    });
+  }, [disabled, sending, start, stop]);
 
   const handlePointerUp = useCallback(() => {
-    if (!recording) return;
+    pressedRef.current = false;
     stop();
-  }, [recording, stop]);
-
-  const handlePointerLeave = useCallback(() => {
-    if (!recording) return;
-    stop();
-  }, [recording, stop]);
+  }, [stop]);
 
   const handleCancel = useCallback(() => {
+    pressedRef.current = false;
     cancelledRef.current = true;
     startedAtRef.current = null;
     cancel();
@@ -87,14 +87,13 @@ export function VoiceNoteRecorder({
         disabled={disabled || sending}
         onPointerDown={(event) => {
           event.preventDefault();
+          try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* unsupported */ }
           handlePointerDown();
         }}
         onPointerUp={(event) => {
           event.preventDefault();
+          try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* already released */ }
           handlePointerUp();
-        }}
-        onPointerLeave={() => {
-          if (recording) handlePointerLeave();
         }}
         onPointerCancel={handleCancel}
         onContextMenu={(event) => {

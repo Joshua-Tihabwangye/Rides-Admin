@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+const RECORDING_TIMESLICE_MS = 250;
+
 export type MediaRecorderResult = {
   supported: boolean;
   recording: boolean;
@@ -62,6 +64,7 @@ export function useMediaRecorder(): MediaRecorderResult {
     chunksRef.current = [];
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const mimeType = preferredMimeType();
       mimeTypeRef.current = mimeType;
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -71,11 +74,23 @@ export function useMediaRecorder(): MediaRecorderResult {
       recorder.onstop = () => {
         const type = recorder.mimeType || mimeTypeRef.current || "audio/webm";
         const combined = new Blob(chunksRef.current, { type });
+        chunksRef.current = [];
+        stream.getTracks().forEach((track) => track.stop());
+        if (streamRef.current === stream) streamRef.current = null;
+        if (recorderRef.current === recorder) recorderRef.current = null;
         if (combined.size > 0) setBlob(combined);
       };
+      recorder.onerror = () => {
+        chunksRef.current = [];
+        stream.getTracks().forEach((track) => track.stop());
+        if (streamRef.current === stream) streamRef.current = null;
+        if (recorderRef.current === recorder) recorderRef.current = null;
+        clearTimer();
+        setRecording(false);
+        setBlob(null);
+      };
       recorderRef.current = recorder;
-      streamRef.current = stream;
-      recorder.start();
+      recorder.start(RECORDING_TIMESLICE_MS);
       setRecording(true);
       setElapsedMs(0);
       const startedAt = Date.now();
@@ -100,9 +115,8 @@ export function useMediaRecorder(): MediaRecorderResult {
       }
     }
     clearTimer();
-    stopStreams();
     setRecording(false);
-  }, [clearTimer, stopStreams]);
+  }, [clearTimer]);
 
   const cancel = useCallback(() => {
     const recorder = recorderRef.current;

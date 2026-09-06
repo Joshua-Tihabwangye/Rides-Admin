@@ -102,7 +102,7 @@ export default function LiveDriversMapPage() {
   const googleMapsApiKey = rawApiKey && !/^https?:\/\//i.test(rawApiKey) ? rawApiKey : "";
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey });
 
-  const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
+const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,13 +116,17 @@ export default function LiveDriversMapPage() {
   driversRef.current = drivers;
   const centerRef = useRef(center);
   centerRef.current = center;
+  const abortCtrl = useRef<AbortController | null>(null);
+  const locationTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    abortCtrl.current = new AbortController();
     requestBrowserCenter().then((gpsCenter) => {
-      if (!cancelled && gpsCenter) setCenter(gpsCenter);
+      if (!abortCtrl.current?.signal.aborted && gpsCenter) setCenter(gpsCenter);
     });
-    return () => { cancelled = true; };
+    return () => {
+      abortCtrl.current?.abort();
+    };
   }, []);
 
   const refresh = useCallback(async (silent = false) => {
@@ -167,18 +171,26 @@ export default function LiveDriversMapPage() {
       if (data?.event !== "driver.location" || !data.location) return;
       const location = data.location;
       if (!isValidFreshLocation(location)) return;
-      setDrivers((prev) => {
-        const index = prev.findIndex((d) => d.driverId === location.driverId);
-        if (index === -1) {
-          if (!centerRef.current) {
-            setCenter({ lat: location.latitude, lng: location.longitude });
+      // Debounce location updates so rapid socket messages don't cause
+      // excessive state re-renders.
+      if (locationTimeoutRef.current !== null) {
+        window.clearTimeout(locationTimeoutRef.current);
+      }
+      locationTimeoutRef.current = window.setTimeout(() => {
+        setDrivers((prev) => {
+          const index = prev.findIndex((d) => d.driverId === location.driverId);
+          if (index === -1) {
+            if (!centerRef.current) {
+              setCenter({ lat: location.latitude, lng: location.longitude });
+            }
+            return [...prev, { ...location, distanceKm: 0 }];
           }
-          return [...prev, { ...location, distanceKm: 0 }];
-        }
-        const next = [...prev];
-        next[index] = { ...next[index], ...location };
-        return next;
-      });
+          const next = [...prev];
+          next[index] = { ...next[index], ...location };
+          return next;
+        });
+        locationTimeoutRef.current = null;
+      }, 250);
     };
     socket.on("service.updated", onServiceUpdated);
     socket.on("operations.service.updated", onServiceUpdated);
@@ -191,10 +203,18 @@ export default function LiveDriversMapPage() {
   }, [googleMapsApiKey]);
 
   useEffect(() => {
+    return () => abortCtrl.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    abortCtrl.current = new AbortController();
     const interval = window.setInterval(() => {
       void refresh(true);
     }, 15000);
-    return () => window.clearInterval(interval);
+    return () => {
+      abortCtrl.current?.abort();
+      window.clearInterval(interval);
+    };
   }, [refresh]);
 
   const visibleDrivers = drivers.filter((driver) => filter === "ALL" || driver.availabilityStatus === filter);
@@ -316,7 +336,7 @@ export default function LiveDriversMapPage() {
               <MarkerF
                 key={driver.driverId}
                 position={{ lat: driver.latitude, lng: driver.longitude }}
-                icon={markerIcon(driver, (window as any).google?.maps)}
+                icon={markerIcon(driver, (window as any).google)}
                 title={`${driver.name ?? driver.driverId} (${driver.availabilityStatus})`}
                 onClick={() => setSelected(driver)}
               />
