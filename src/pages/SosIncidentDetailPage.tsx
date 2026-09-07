@@ -19,6 +19,7 @@ import MyLocationIcon from "@mui/icons-material/MyLocation";
 import MicIcon from "@mui/icons-material/Mic";
 import {
   getAdminSafetyIncident,
+  listAdminEmergencyMessages,
   updateAdminSafetyIncident,
   createAdminSocket,
 } from "../services/api/adminApi";
@@ -57,6 +58,7 @@ export default function SosIncidentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [patching, setPatching] = useState(false);
+  const [messages, setMessages] = useState<Awaited<ReturnType<typeof listAdminEmergencyMessages>>>([]);
 
   const [sos, setSos] = useState<AdminSosSessionDetail | null>(null);
   const [live, setLive] = useState<LiveLocation | null>(null);
@@ -70,6 +72,7 @@ export default function SosIncidentDetailPage() {
     try {
       const inc = await getAdminSafetyIncident(incidentId);
       setIncident(inc);
+      try { setMessages(await listAdminEmergencyMessages(incidentId)); } catch { setMessages([]); }
       if (inc.latitude != null && inc.longitude != null) {
         setLive({ latitude: inc.latitude, longitude: inc.longitude, address: inc.address ?? null, updatedAt: Date.now() });
       }
@@ -140,13 +143,20 @@ export default function SosIncidentDetailPage() {
       setLive({ latitude: lat, longitude: lng, address: payload.address ?? undefined, updatedAt: Date.now() });
     };
 
+    const onEmergencyMessage = (payload: any) => {
+      if (!payload || payload.incidentId !== incidentId || !payload.message) return;
+      setMessages((current) => current.some((item) => item.id === payload.message.id) ? current : [...current, payload.message]);
+    };
+
     socket.on("sos.session.update", onSessionUpdate);
     socket.on("sos.location.update", onLocationUpdate);
+    socket.on("safety.emergency.message.new", onEmergencyMessage);
     socket.on("connect", () => socket.emit("subscribe", { rooms: ["operations"] }));
 
     return () => {
       socket.off("sos.session.update", onSessionUpdate);
       socket.off("sos.location.update", onLocationUpdate);
+      socket.off("safety.emergency.message.new", onEmergencyMessage);
       socket.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,6 +261,20 @@ export default function SosIncidentDetailPage() {
                 <Typography variant="body2">{incident.description}</Typography>
               </Box>
             )}
+
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary">Emergency communication</Typography>
+              {messages.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>No text messages yet.</Typography>
+              ) : messages.map((message) => (
+                <Paper key={message.id} variant="outlined" sx={{ mt: 1, p: 1.25 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {message.senderRole} · {new Date(message.createdAt).toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2">{message.text}</Typography>
+                </Paper>
+              ))}
+            </Box>
 
             {incident.audioUrl && (
               <Box sx={{ mt: 2 }}>

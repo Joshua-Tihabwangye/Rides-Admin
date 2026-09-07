@@ -757,6 +757,16 @@ export type AdminSafetyIncident = {
   createdAt: string;
 };
 
+export type AdminEmergencyMessage = {
+  id: string;
+  incidentId: string;
+  senderUserId: string;
+  senderRole: string;
+  text: string;
+  clientEventId?: string | null;
+  createdAt: string;
+};
+
 export type AdminSafetyIncidentPage = {
   items: AdminSafetyIncident[];
   meta: { page: number; limit: number; total: number; pageCount: number };
@@ -772,6 +782,10 @@ export async function listAdminSafetyEmergencies(params?: {
 
 export async function getAdminSafetyIncident(id: string): Promise<AdminSafetyIncident> {
   return request<AdminSafetyIncident>(`/safety/emergencies/${id}`, { method: "GET" });
+}
+
+export async function listAdminEmergencyMessages(id: string): Promise<AdminEmergencyMessage[]> {
+  return request<AdminEmergencyMessage[]>(`/safety/emergencies/${id}/messages`, { method: "GET" });
 }
 
 export async function updateAdminSafetyIncident(

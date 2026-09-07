@@ -49,8 +49,13 @@ function currentAdminUserId(): string | null {
   try {
     const token = readAdminBackendAccessToken();
     if (!token) return null;
-    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return typeof payload.sub === "string" ? payload.sub : null;
+    const encodedPayload = token.split(".")[1];
+    if (!encodedPayload) return null;
+    const normalized = encodedPayload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+    const payload = JSON.parse(atob(padded));
+    const userId = payload.sub ?? payload.userId ?? payload.id;
+    return typeof userId === "string" ? userId : null;
   } catch {
     return null;
   }
