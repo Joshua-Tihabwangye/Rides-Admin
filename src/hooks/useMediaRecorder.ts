@@ -40,6 +40,8 @@ export function useMediaRecorder(): MediaRecorderResult {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
   const mimeTypeRef = useRef<string>("");
+  const startingRef = useRef(false);
+  const deferredStopRef = useRef(false);
 
   const [recording, setRecording] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -60,10 +62,18 @@ export function useMediaRecorder(): MediaRecorderResult {
 
   const start = useCallback(async () => {
     if (!supported || recorderRef.current) return;
+    if (deferredStopRef.current) return;
     setBlob(null);
     chunksRef.current = [];
+    startingRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (deferredStopRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        startingRef.current = false;
+        deferredStopRef.current = false;
+        return;
+      }
       streamRef.current = stream;
       const mimeType = preferredMimeType();
       mimeTypeRef.current = mimeType;
@@ -102,10 +112,25 @@ export function useMediaRecorder(): MediaRecorderResult {
       stopStreams();
       clearTimer();
       setRecording(false);
+    } finally {
+      startingRef.current = false;
+      if (deferredStopRef.current) {
+        deferredStopRef.current = false;
+        const recorder = recorderRef.current;
+        if (recorder && recorder.state !== "inactive") {
+          try { recorder.stop(); } catch { /* already inactive */ }
+        }
+        clearTimer();
+        setRecording(false);
+      }
     }
   }, [supported, clearTimer, stopStreams]);
 
   const stop = useCallback(() => {
+    if (startingRef.current) {
+      deferredStopRef.current = true;
+      return;
+    }
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       try {
@@ -119,6 +144,7 @@ export function useMediaRecorder(): MediaRecorderResult {
   }, [clearTimer]);
 
   const cancel = useCallback(() => {
+    deferredStopRef.current = false;
     const recorder = recorderRef.current;
     if (recorder) {
       recorder.ondataavailable = null;
