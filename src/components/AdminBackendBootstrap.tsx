@@ -39,9 +39,27 @@ export default function AdminBackendBootstrap() {
     }
 
     const socket = createAdminSocket()
-    const syncFromRealtime = () => {
-      void syncAdminReferenceData().catch(() => undefined)
+    let refreshTimer: number | null = null
+    const receivedEventIds = new Set<string>()
+    const syncFromRealtime = (payload?: unknown) => {
+      if (payload && typeof payload === "object") {
+        const eventId = (payload as Record<string, unknown>).eventId
+        if (typeof eventId === "string") {
+          if (receivedEventIds.has(eventId)) return
+          receivedEventIds.add(eventId)
+          if (receivedEventIds.size > 500) {
+            const first = receivedEventIds.values().next().value
+            if (first) receivedEventIds.delete(first)
+          }
+        }
+      }
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null
+        void syncAdminReferenceData().catch(() => undefined)
+      }, 100)
     }
+    const refreshOnResume = () => syncFromRealtime()
     const adminEventAliases: Record<string, string[]> = {
       "audit.log.entry": ["admin.audit.updated"],
       "approval.reviewed": ["approval.updated"],
@@ -80,8 +98,15 @@ export default function AdminBackendBootstrap() {
       socket.on(eventName, syncFromRealtime)
     })
     socket.connect()
+    window.addEventListener("focus", refreshOnResume)
+    window.addEventListener("online", refreshOnResume)
+    document.addEventListener("visibilitychange", refreshOnResume)
 
     return () => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer)
+      window.removeEventListener("focus", refreshOnResume)
+      window.removeEventListener("online", refreshOnResume)
+      document.removeEventListener("visibilitychange", refreshOnResume)
       syncEvents.forEach((eventName) => {
         socket.off(eventName, syncFromRealtime)
       })

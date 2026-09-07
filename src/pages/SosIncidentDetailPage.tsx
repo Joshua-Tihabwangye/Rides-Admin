@@ -134,7 +134,7 @@ export default function SosIncidentDetailPage() {
       if (!payload) return;
       if (payload.incidentId && payload.incidentId !== incidentId) return;
       if (payload.sessionId && sos && payload.sessionId !== sos.session.id) return;
-      const lat = payload.latitude ?? payload.lng;
+      const lat = payload.latitude ?? payload.lat;
       const lng = payload.longitude ?? payload.lng;
       if (lat == null || lng == null) return;
       setLive({ latitude: lat, longitude: lng, address: payload.address ?? undefined, updatedAt: Date.now() });
@@ -184,7 +184,8 @@ export default function SosIncidentDetailPage() {
 
   if (!incident) return null;
 
-  const reporterName = sos?.recipients?.find((r) => r.type === "ADMIN")?.name || "Reporter";
+  const reporterName =
+    sos?.session?.reporterName || incident.reporterUserId || "Reporter";
 
   return (
     <Box sx={{ p: 3 }}>

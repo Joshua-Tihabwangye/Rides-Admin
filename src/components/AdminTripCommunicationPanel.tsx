@@ -183,6 +183,7 @@ export default function AdminTripCommunicationPanel({
       socket.emit("call.signal", {
         serviceType: serviceType || "RIDE",
         serviceId,
+        callId: callIdRef.current ?? undefined,
         type,
         signal,
       });
@@ -190,8 +191,8 @@ export default function AdminTripCommunicationPanel({
     [getSocket, serviceId, serviceType],
   );
 
-  const setupPeerConnection = useCallback(() => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const setupPeerConnection = useCallback((servers: RTCIceServer[] = ICE_SERVERS) => {
+    const pc = new RTCPeerConnection({ iceServers: servers });
     pcRef.current = pc;
     localStreamRef.current?.getTracks().forEach((track) => {
       pc.addTrack(track, localStreamRef.current!);
@@ -393,14 +394,20 @@ export default function AdminTripCommunicationPanel({
   const sendVoiceNote = useCallback(
     async (blob: Blob, durationMs: number) => {
       if (!thread || voiceSending) return;
+      if (blob.size < 1024) {
+        setCallError("No audio was captured. Hold the microphone a little longer and try again.");
+        return;
+      }
       const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
       const file = new File([blob], `voice-note-${Date.now()}.${ext}`, { type: blob.type });
       setVoiceSending(true);
       try {
         const uploaded = await adminUploadChatVoiceNote(file);
+        const voiceNoteUrl =
+          uploaded.fileUrl || uploaded.accessUrl || uploaded.downloadUrl || uploaded.url || "";
         const attachment = {
           kind: "voice-note",
-          url: uploaded.fileUrl,
+          url: voiceNoteUrl,
           mimeType: uploaded.mimeType || blob.type,
           durationMs: Math.round(durationMs),
           sizeBytes: blob.size,

@@ -295,14 +295,25 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 export async function upload<T>(
   path: string,
   file: File,
-  options: { query?: Record<string, QueryValue>; retryOnUnauthorized?: boolean } = {},
+  options: {
+    query?: Record<string, QueryValue>;
+    retryOnUnauthorized?: boolean;
+    idempotencyKey?: string;
+  } = {},
 ): Promise<T> {
   const url = buildRequestUrl(path, options.query);
   const form = new FormData();
   form.append("file", file);
+  const idempotencyKey =
+    options.idempotencyKey ??
+    globalThis.crypto?.randomUUID?.() ??
+    `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   const run = async (): Promise<T> => {
-    const headers: Record<string, string> = { "X-App-Id": APP_ID };
+    const headers: Record<string, string> = {
+      "X-App-Id": APP_ID,
+      "Idempotency-Key": idempotencyKey,
+    };
     const accessToken = authAdapter?.getAccessToken();
     if (accessToken) {
       headers.Authorization = `Bearer ${accessToken}`;
@@ -319,7 +330,11 @@ export async function upload<T>(
       try {
         const refreshed = await attemptRefresh();
         authAdapter.setTokens(refreshed.accessToken, refreshed.refreshToken);
-        return upload<T>(path, file, { ...options, retryOnUnauthorized: false });
+        return upload<T>(path, file, {
+          ...options,
+          retryOnUnauthorized: false,
+          idempotencyKey,
+        });
       } catch (error) {
         if (isDefinitiveAuthRejection(error)) {
           handleUnauthorized();

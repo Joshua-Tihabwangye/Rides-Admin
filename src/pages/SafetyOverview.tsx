@@ -167,13 +167,18 @@ export default function SafetyOverviewDashboardPage() {
   // reload or reconnect still shows every active incident.
   useEffect(() => {
     let socket: ReturnType<typeof createAdminSocket> | null = null;
+    let refreshTimer: number | null = null;
     const refetchIncidents = () => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
       listAdminSafetyEmergencies()
         .then((page) => {
           setIncidents(page?.items ?? []);
           setError(null);
         })
         .catch(() => undefined);
+      }, 100);
     };
     try {
       socket = createAdminSocket();
@@ -184,6 +189,7 @@ export default function SafetyOverviewDashboardPage() {
       socket = null;
     }
     return () => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       if (socket) {
         socket.off("safety.incident.new", refetchIncidents);
         socket.off("admin.safety.incidents.updated", refetchIncidents);

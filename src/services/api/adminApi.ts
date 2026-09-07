@@ -2310,7 +2310,7 @@ export async function adminForceDeliveryStatus(
 ): Promise<AdminDeliveryControlResult> {
   return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}/status`, {
     method: "POST",
-    body: JSON.stringify({ status, reason }),
+    body: { status, reason },
   });
 }
 
@@ -2321,7 +2321,7 @@ export async function adminReassignDelivery(
 ): Promise<AdminDeliveryControlResult> {
   return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}/reassign`, {
     method: "POST",
-    body: JSON.stringify({ newDriverId, reason }),
+    body: { newDriverId, reason },
   });
 }
 
@@ -2331,7 +2331,7 @@ export async function adminCancelDelivery(
 ): Promise<AdminDeliveryControlResult> {
   return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}`, {
     method: "DELETE",
-    body: JSON.stringify({ status: "CANCELLED", reason }),
+    body: { status: "CANCELLED", reason },
   });
 }
 
@@ -2681,7 +2681,7 @@ export async function adminCancelRide(
 ): Promise<AdminRideControlResult> {
   return request<AdminRideControlResult>(`/admin/rides/${rideId}/cancel`, {
     method: 'POST',
-    body: JSON.stringify({ reason }),
+    body: { reason },
   });
 }
 
@@ -2692,7 +2692,7 @@ export async function adminReassignRide(
 ): Promise<AdminRideControlResult> {
   return request<AdminRideControlResult>(`/admin/rides/${rideId}/reassign`, {
     method: 'POST',
-    body: JSON.stringify({ newDriverId, reason }),
+    body: { newDriverId, reason },
   });
 }
 
