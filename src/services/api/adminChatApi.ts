@@ -52,6 +52,21 @@ export type AdminChatMessagePage = {
   meta: { page: number; limit: number; total: number; pageCount: number };
 };
 
+function normalizeMessagePage(value: unknown): AdminChatMessagePage {
+  const raw = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const items = Array.isArray(raw.items) ? raw.items : Array.isArray(value) ? value : [];
+  const meta = raw.meta && typeof raw.meta === "object" ? raw.meta as Record<string, unknown> : {};
+  return {
+    items: items as AdminChatMessage[],
+    meta: {
+      page: Number(meta.page ?? 1),
+      limit: Number(meta.limit ?? items.length),
+      total: Number(meta.total ?? items.length),
+      pageCount: Number(meta.pageCount ?? 1),
+    },
+  };
+}
+
 export type AdminCallMediaType = "audio" | "video";
 
 export type AdminCallStatus = "RINGING" | "ANSWERED" | "DECLINED" | "MISSED" | "ENDED";
@@ -97,10 +112,10 @@ export function adminListChatMessages(
   page = 1,
   limit = 50,
 ): Promise<AdminChatMessagePage> {
-  return request<AdminChatMessagePage>(
+  return request<unknown>(
     `/chat/threads/${threadId}/messages?page=${page}&limit=${limit}`,
     { method: "GET" },
-  );
+  ).then(normalizeMessagePage);
 }
 
 export function adminSendChatMessage(

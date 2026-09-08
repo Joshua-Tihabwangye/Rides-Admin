@@ -754,7 +754,94 @@ export type AdminSafetyIncident = {
   }>;
   assignedToUserId?: string | null;
   resolvedAt?: string | null;
+  contextSnapshot?: {
+    contextKind?: string | null;
+    capturedAt?: string | null;
+    activation?: {
+      count?: number;
+      lastActivationId?: string;
+      lastActivatedAt?: string;
+    } | null;
+    reporter?: {
+      userId?: string;
+      role?: string;
+      name?: string;
+      phone?: string;
+    } | null;
+    service?: { serviceId?: string; serviceType?: string } | null;
+    ride?: AdminSafetyRideSnapshot | null;
+    driver?: unknown;
+    vehicle?: unknown;
+    incidentLocation?: {
+      latitude?: number;
+      longitude?: number;
+      address?: string;
+      timestamp?: string;
+    } | null;
+  } | null;
   createdAt: string;
+};
+
+export type AdminSafetyRideSnapshot = {
+  rideId: string;
+  status?: string | null;
+  mode?: string | null;
+  category?: string | null;
+  tripType?: string | null;
+  currentTripStage?: string | null;
+  serviceProduct?: {
+    serviceProductId?: string;
+    serviceProductCodeSnapshot?: string;
+    transportMode?: string | null;
+  } | null;
+  rider?: { userId?: string; name?: string; phone?: string } | null;
+  assignedDriver?: {
+    driverProfileId?: string;
+    userId?: string;
+    name?: string;
+    phone?: string;
+    rating?: number;
+    vehicleId?: string;
+  } | null;
+  assignedVehicle?: {
+    vehicleId?: string;
+    vehicleType?: string;
+    transportMode?: string;
+    make?: string;
+    model?: string;
+    plate?: string;
+    color?: string;
+  } | null;
+  pickup?: { address?: string; latitude?: number; longitude?: number } | null;
+  destination?: { address?: string; latitude?: number; longitude?: number } | null;
+  stops?: Array<{
+    sequence?: number;
+    type?: string;
+    address?: string;
+    name?: string;
+    latitude?: number;
+    longitude?: number;
+    status?: string;
+  }>;
+  passengers?: Array<{
+    userId?: string;
+    name?: string;
+    phone?: string;
+    role?: string;
+    seatCount?: number;
+    fareShare?: number;
+  }>;
+  route?: unknown;
+  estimatedDistanceKm?: number;
+  estimatedDurationMinutes?: number;
+  fare?: {
+    estimatedFare?: number;
+    finalFare?: number;
+    currency?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    promoCode?: string;
+  } | null;
 };
 
 export type AdminEmergencyMessage = {
@@ -786,6 +873,68 @@ export async function getAdminSafetyIncident(id: string): Promise<AdminSafetyInc
 
 export async function listAdminEmergencyMessages(id: string): Promise<AdminEmergencyMessage[]> {
   return request<AdminEmergencyMessage[]>(`/safety/emergencies/${id}/messages`, { method: "GET" });
+}
+
+export type AdminIncidentEventLog = {
+  id: string;
+  incidentId: string;
+  referenceType?: string;
+  serviceType?: string | null;
+  serviceId?: string | null;
+  eventType: string;
+  actorUserId?: string | null;
+  data?: Record<string, unknown> | string | null;
+  createdAt: string;
+};
+
+export async function getAdminIncidentHistory(
+  id: string,
+): Promise<AdminIncidentEventLog[]> {
+  return request<AdminIncidentEventLog[]>(`/safety/emergencies/${id}/history`, {
+    method: "GET",
+  });
+}
+
+export type AdminRideCommunicationsCall = {
+  id: string;
+  mediaType?: string;
+  callerUserId: string;
+  calleeUserId?: string;
+  startedAt?: string;
+  answeredAt?: string;
+  endedAt?: string;
+  durationSeconds?: number;
+  status: string;
+  declinedBy?: string;
+  onHold?: boolean;
+};
+
+export async function listAdminRideCommunications(
+  rideId: string,
+): Promise<{ calls: AdminRideCommunicationsCall[] }> {
+  return request<{ calls: AdminRideCommunicationsCall[] }>(
+    `/admin/rides/${rideId}/communications`,
+    { method: "GET" },
+  );
+}
+
+export type AdminRideIncident = {
+  id: string;
+  type: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  reporterUserId: string;
+  driverId?: string;
+};
+
+export async function listAdminRideIncidents(
+  rideId: string,
+): Promise<{ incidents: AdminRideIncident[] }> {
+  return request<{ incidents: AdminRideIncident[] }>(
+    `/admin/rides/${rideId}/incidents`,
+    { method: "GET" },
+  );
 }
 
 export async function updateAdminSafetyIncident(
@@ -1605,7 +1754,10 @@ export function createAdminSocket(): Socket {
   const token = readAdminBackendAccessToken();
   const socket = io(`${SOCKET_BASE_URL}/admin`, {
     path: SOCKET_PATH,
-    transports: ["websocket"],
+    // Allow Socket.IO's HTTP polling handshake when local proxies/firewalls
+    // reject an immediate websocket upgrade. It upgrades automatically once
+    // the websocket path is reachable.
+    transports: ["websocket", "polling"],
     auth: token ? { token } : undefined,
     autoConnect: false,
     withCredentials: false,
@@ -2470,8 +2622,12 @@ export async function getAdminDeliveryPackages(
 
 export type AdminRideContact = {
   id?: string;
+  userId?: string;
   name?: string;
   phone?: string;
+  email?: string;
+  accountStatus?: string;
+  rating?: number;
 };
 
 export type AdminRideStopResponse = {
@@ -2544,12 +2700,16 @@ export type AdminRideVehicleResponse = {
   model?: string;
   plateNumber?: string;
   vehicleType?: string;
+  transportMode?: string;
+  color?: string;
+  assignmentStatus?: string;
   status?: string;
 };
 
 export type AdminRideDetailResponse = {
   id: string;
   organizationId?: string;
+  organization?: { id: string; name?: string; status?: string };
   status: string;
   mode?: string;
   category?: string;
@@ -2557,7 +2717,7 @@ export type AdminRideDetailResponse = {
   parentRideId?: string;
   legIndex?: number;
   rider?: AdminRideContact & { name?: string; phone?: string };
-  driver?: { id: string; name?: string; rating?: number };
+  driver?: { id: string; profileId?: string; userId?: string; name?: string; phone?: string; rating?: number; availabilityStatus?: string; verificationStatus?: string; lastLocationAt?: string };
   vehicle?: AdminRideVehicleResponse;
   route?: {
     pickupAddress?: string;
@@ -2578,6 +2738,8 @@ export type AdminRideDetailResponse = {
     beneficiary?: Record<string, unknown>;
     serviceProductId?: string;
     serviceProductCodeSnapshot?: string;
+    serviceProductDisplayName?: string;
+    transportModeSnapshot?: string;
     vehicleType?: string;
     marketId?: string;
   };
@@ -2610,6 +2772,7 @@ export type AdminRideDetailResponse = {
   feedback?: AdminRideFeedbackResponse;
   createdAt?: string;
   updatedAt?: string;
+  adminAudit?: Array<{ id: string; action: string; actorUserId?: string; reason?: string; route?: string; createdAt: string }>;
 };
 
 export type AdminRideListItemResponse = {
@@ -2723,6 +2886,7 @@ export type AdminRidePaymentResponse = {
   paidAt?: string;
   refundedAt?: string;
   refundedAmount: number;
+  attempts?: Array<{ id: string; attemptNumber: number; provider: string; providerReference?: string; status: string; channel?: string; initiatedAt?: string; completedAt?: string; failureCode?: string; failureReason?: string }>;
 };
 
 export async function getAdminRidePayments(

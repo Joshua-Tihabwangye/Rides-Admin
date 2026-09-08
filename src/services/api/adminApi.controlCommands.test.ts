@@ -5,6 +5,7 @@ import {
   adminCancelDelivery,
   adminCancelRide,
   adminReassignRide,
+  getAdminSafetyIncident,
 } from "./adminApi";
 
 const okResponse = {
@@ -58,5 +59,12 @@ describe("admin control command bodies are single-encoded JSON objects", () => {
   it("adminReassignRide sends {newDriverId, reason} as a plain JSON object", async () => {
     await adminReassignRide("ride-1", "driver-4", "cover shift");
     expect(parsedBodyOf()).toEqual({ newDriverId: "driver-4", reason: "cover shift" });
+  });
+
+  it("loads a safety incident directly by id for browser-reload safety detail", async () => {
+    await getAdminSafetyIncident("incident-1");
+    const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
+    expect(calls[0][0]).toContain("/safety/emergencies/incident-1");
+    expect(calls[0][1].method).toBe("GET");
   });
 });
