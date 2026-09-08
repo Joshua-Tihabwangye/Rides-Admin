@@ -1,9 +1,18 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import RequireAuth from './auth/RequireAuth'
 import RequirePermission from './auth/RequirePermission'
 import AdminShell from './layout/AdminShell'
 import AdminBackendBootstrap from './components/AdminBackendBootstrap'
+
+function ReloadAfterBrowserBack() {
+  useEffect(() => {
+    const reload = () => window.location.reload()
+    window.addEventListener('popstate', reload)
+    return () => window.removeEventListener('popstate', reload)
+  }, [])
+  return null
+}
 
 // Pages (attached)
 import AdminAuthSignIn from './pages/AdminAuthSignIn'
@@ -91,6 +100,7 @@ import MarketplaceSellerOrderDetailPage from './pages/marketplace/MarketplaceSel
 export default function App() {
   return (
     <BrowserRouter>
+      <ReloadAfterBrowserBack />
       <AdminBackendBootstrap />
       <Routes>
         <Route path="/" element={<Navigate to="/admin/login" replace />} />

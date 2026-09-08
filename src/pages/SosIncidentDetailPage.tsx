@@ -7,7 +7,6 @@ import {
   Typography,
   Chip,
   Button,
-  Divider,
   CircularProgress,
   Alert,
   Stack,
@@ -20,15 +19,20 @@ import MicIcon from "@mui/icons-material/Mic";
 import {
   getAdminSafetyIncident,
   listAdminEmergencyMessages,
+  getAdminIncidentHistory,
   updateAdminSafetyIncident,
   createAdminSocket,
+  type AdminIncidentEventLog,
 } from "../services/api/adminApi";
 import type { AdminSafetyIncident } from "../services/api/adminApi";
+import { ApiRequestError } from "../services/api/httpClient";
 import {
   adminGetSosSessionByIncident,
   type AdminSosSessionDetail,
 } from "../services/api/adminChatApi";
 import AdminTripCommunicationPanel from "../components/AdminTripCommunicationPanel";
+import RideRouteMap from "../components/rides/RideRouteMap";
+import type { AdminRideStopResponse } from "../services/api/adminApi";
 
 function mapsLink(latitude?: number | null, longitude?: number | null): string | null {
   if (latitude == null || longitude == null) return null;
@@ -57,8 +61,10 @@ export default function SosIncidentDetailPage() {
   const [incident, setIncident] = useState<AdminSafetyIncident | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [patching, setPatching] = useState(false);
   const [messages, setMessages] = useState<Awaited<ReturnType<typeof listAdminEmergencyMessages>>>([]);
+  const [history, setHistory] = useState<AdminIncidentEventLog[]>([]);
 
   const [sos, setSos] = useState<AdminSosSessionDetail | null>(null);
   const [live, setLive] = useState<LiveLocation | null>(null);
@@ -69,10 +75,15 @@ export default function SosIncidentDetailPage() {
   const load = async () => {
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
     try {
       const inc = await getAdminSafetyIncident(incidentId);
       setIncident(inc);
       try { setMessages(await listAdminEmergencyMessages(incidentId)); } catch { setMessages([]); }
+      try {
+        const historyEntries = await getAdminIncidentHistory(incidentId);
+        setHistory(historyEntries ?? []);
+      } catch { setHistory([]); }
       if (inc.latitude != null && inc.longitude != null) {
         setLive({ latitude: inc.latitude, longitude: inc.longitude, address: inc.address ?? null, updatedAt: Date.now() });
       }
@@ -93,6 +104,7 @@ export default function SosIncidentDetailPage() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load incident");
+      setErrorStatus(e instanceof ApiRequestError ? e.status : null);
     } finally {
       setLoading(false);
     }
@@ -185,9 +197,36 @@ export default function SosIncidentDetailPage() {
   }
 
   if (error && !incident) {
+    if (errorStatus === 404) {
+      return (
+        <Box sx={{ p: 3 }}>
+          <Alert severity="warning">
+            This safety incident no longer exists or could not be found.
+          </Alert>
+          <Button variant="outlined" sx={{ mt: 2 }} onClick={() => { setError(null); void load(); }}>
+            Retry
+          </Button>
+        </Box>
+      );
+    }
+    if (errorStatus === 403) {
+      return (
+        <Box sx={{ p: 3 }}>
+          <Alert severity="error">
+            You do not have permission to view this safety incident. Contact an administrator if you believe this is a mistake.
+          </Alert>
+          <Button variant="outlined" sx={{ mt: 2 }} onClick={() => { setError(null); void load(); }}>
+            Retry
+          </Button>
+        </Box>
+      );
+    }
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error">{error}</Alert>
+        <Button variant="outlined" sx={{ mt: 2 }} onClick={() => { setError(null); void load(); }}>
+          Retry
+        </Button>
       </Box>
     );
   }
@@ -252,6 +291,16 @@ export default function SosIncidentDetailPage() {
                   {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : "—"}
                 </Typography>
               </div>
+              <div>
+                <Typography variant="caption" color="text.secondary">
+                  Activations
+                </Typography>
+                <Typography variant="body2">
+                  {incident.contextSnapshot?.activation?.count
+                    ? `${incident.contextSnapshot.activation.count}`
+                    : "1"}
+                </Typography>
+              </div>
             </Box>
             {incident.description && (
               <Box sx={{ mt: 2 }}>
@@ -274,6 +323,38 @@ export default function SosIncidentDetailPage() {
                   <Typography variant="body2">{message.text}</Typography>
                 </Paper>
               ))}
+            </Box>
+
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary">Status history</Typography>
+              {history.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>No status events recorded.</Typography>
+              ) : (
+                history.map((event) => (
+                  <Stack key={event.id} direction="row" spacing={1} alignItems="baseline" sx={{ mt: 0.5 }}>
+                    <Typography variant="caption" sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                      {new Date(event.createdAt).toLocaleString()}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {event.eventType}
+                    </Typography>
+                    {event.actorUserId && (
+                      <Typography variant="caption" color="text.secondary">
+                        by {event.actorUserId}
+                      </Typography>
+                    )}
+                    {event.data && Object.keys(event.data).length > 0 && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ flexGrow: 1, textAlign: "right", fontFamily: "monospace", fontSize: 11 }}
+                      >
+                        {JSON.stringify(event.data)}
+                      </Typography>
+                    )}
+                  </Stack>
+                ))
+              )}
             </Box>
 
             {incident.audioUrl && (
@@ -306,7 +387,17 @@ export default function SosIncidentDetailPage() {
               </Box>
             )}
 
-            <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+            <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
+              {incident.contextSnapshot?.ride?.rideId && (
+                <Button
+                  onClick={() => navigate(`/admin/rides/${incident.contextSnapshot!.ride!.rideId}`)}
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ArrowBackIcon sx={{ transform: "rotate(180deg)" }} />}
+                >
+                  Open full ride
+                </Button>
+              )}
               <Button
                 disabled={patching || incident.status === "ACKNOWLEDGED"}
                 onClick={() => patchStatus("ACKNOWLEDGED")}
@@ -338,6 +429,125 @@ export default function SosIncidentDetailPage() {
             </Stack>
           </CardContent>
         </Card>
+
+        {incident.contextSnapshot?.ride ? (() => {
+          const ride = incident.contextSnapshot!.ride!;
+          const rideMapsLink =
+            ride.pickup?.latitude != null && ride.pickup?.longitude != null
+              ? mapsLink(ride.pickup.latitude, ride.pickup.longitude)
+              : undefined;
+          return (
+            <Card>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2">Linked ride</Typography>
+                  <Chip label={ride.status ?? "—"} color="primary" size="small" sx={{ ml: "auto" }} />
+                </Stack>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 2 }}>
+                  {ride.rider && (
+                    <div>
+                      <Typography variant="caption" color="text.secondary">Rider</Typography>
+                      <Typography variant="body2">
+                        {ride.rider.name || ride.rider.userId || "—"}
+                        {ride.rider.phone ? ` · ${ride.rider.phone}` : ""}
+                      </Typography>
+                    </div>
+                  )}
+                  {ride.assignedDriver && (
+                    <div>
+                      <Typography variant="caption" color="text.secondary">Driver</Typography>
+                      <Typography variant="body2">
+                        {ride.assignedDriver.name || ride.assignedDriver.userId || "—"}
+                        {ride.assignedDriver.phone ? ` · ${ride.assignedDriver.phone}` : ""}
+                      </Typography>
+                    </div>
+                  )}
+                  {ride.assignedVehicle && (
+                    <div>
+                      <Typography variant="caption" color="text.secondary">Vehicle</Typography>
+                      <Typography variant="body2">
+                        {[ride.assignedVehicle.make, ride.assignedVehicle.model].filter(Boolean).join(" ") || "—"}
+                        {ride.assignedVehicle.plate ? ` · ${ride.assignedVehicle.plate}` : ""}
+                      </Typography>
+                    </div>
+                  )}
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Route</Typography>
+                    <Typography variant="body2">
+                      {ride.pickup?.address || "Pickup"} → {ride.destination?.address || "Dropoff"}
+                    </Typography>
+                    {(ride.estimatedDistanceKm != null || ride.estimatedDurationMinutes != null) && (
+                      <Typography variant="caption" color="text.secondary">
+                        {ride.estimatedDistanceKm != null ? `~${ride.estimatedDistanceKm} km` : ""}
+                        {ride.estimatedDurationMinutes != null
+                          ? ` · ~${ride.estimatedDurationMinutes} min`
+                          : ""}
+                      </Typography>
+                    )}
+                  </div>
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Fare</Typography>
+                    <Typography variant="body2">
+                      {ride.fare?.estimatedFare != null
+                        ? `${ride.fare.estimatedFare.toLocaleString()} ${ride.fare?.currency ?? ""}`
+                        : "—"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Payment {ride.fare?.paymentStatus ?? "—"}
+                      {ride.fare?.paymentMethod ? ` · ${ride.fare.paymentMethod}` : ""}
+                    </Typography>
+                  </div>
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <RideRouteMap route={ride.route as Record<string, unknown> | undefined} stops={(ride.stops ?? []).map((stop, index) => ({
+                    id: `${ride.rideId}-sos-${index}`,
+                    sequence: stop.sequence ?? index + 1,
+                    type: stop.type ?? "STOP",
+                    address: stop.address ?? "",
+                    latitude: stop.latitude ?? 0,
+                    longitude: stop.longitude ?? 0,
+                    status: stop.status ?? "UNKNOWN",
+                  })) as AdminRideStopResponse[]} />
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" color="text.secondary">Stops</Typography>
+                  {(ride.stops ?? []).length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">No stops recorded.</Typography>
+                  ) : (ride.stops ?? []).map((stop, i) => (
+                    <Stack key={i} direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" sx={{ minWidth: 56, fontWeight: 700 }}>{stop.type ?? `#${i + 1}`}</Typography>
+                      <Typography variant="body2" sx={{ flexGrow: 1 }}>{stop.address || "—"}</Typography>
+                      {stop.latitude != null && stop.longitude != null && mapsLink(stop.latitude, stop.longitude) && (
+                        <Button
+                          href={mapsLink(stop.latitude, stop.longitude)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          size="small"
+                          variant="text"
+                        >
+                          Maps
+                        </Button>
+                      )}
+                    </Stack>
+                  ))}
+                </Box>
+                {rideMapsLink && (
+                  <Box sx={{ mt: 2 }}>
+                    <Button
+                      href={rideMapsLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      variant="outlined"
+                      size="small"
+                    >
+                      Open pickup in maps
+                    </Button>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })() : null}
 
         <Card>
           <CardContent>

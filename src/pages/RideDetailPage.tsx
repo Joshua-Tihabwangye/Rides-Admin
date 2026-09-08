@@ -27,9 +27,10 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import StatusBadge from '../components/StatusBadge';
+import RideRouteMap from '../components/rides/RideRouteMap';
 import RideAdminActions from '../components/rides/RideAdminActions';
-import { getAdminRide, getAdminRidePayments } from '../services/api/adminApi';
-import type { AdminRideDetailResponse, AdminRidePaymentResponse } from '../services/api/adminApi';
+import { getAdminRide, getAdminRidePayments, listAdminRideCommunications, listAdminRideIncidents } from '../services/api/adminApi';
+import type { AdminRideDetailResponse, AdminRidePaymentResponse, AdminRideCommunicationsCall, AdminRideIncident } from '../services/api/adminApi';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -74,6 +75,8 @@ export default function RideDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
   const [payments, setPayments] = useState<AdminRidePaymentResponse[]>([]);
+  const [calls, setCalls] = useState<AdminRideCommunicationsCall[]>([]);
+  const [incidents, setIncidents] = useState<AdminRideIncident[]>([]);
 
   useEffect(() => {
     if (!rideId) return;
@@ -83,6 +86,14 @@ export default function RideDetailPage() {
       .then(setRide)
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load ride'))
       .finally(() => setLoading(false));
+  }, [rideId]);
+
+  useEffect(() => {
+    if (!rideId) return;
+    void Promise.all([
+      listAdminRideCommunications(rideId).then((res) => setCalls(res.calls ?? [])).catch(() => setCalls([])),
+      listAdminRideIncidents(rideId).then((res) => setIncidents(res.incidents ?? [])).catch(() => setIncidents([])),
+    ]);
   }, [rideId]);
 
   useEffect(() => {
@@ -121,6 +132,7 @@ export default function RideDetailPage() {
     'Pricing & Payment',
     'Actuals & Anomalies',
     'Feedback',
+    'Safety & Communications',
   ];
 
   return (
@@ -181,6 +193,8 @@ export default function RideDetailPage() {
           <Grid item xs={12} sm={6} md={3}>
             <Field label="Payment" value={ride.payment ? <StatusBadge status={ride.payment.status} label={ride.payment.status} /> : '—'} />
           </Grid>
+          <Grid item xs={12} sm={6} md={3}><Field label="Organization" value={ride.organization?.name ?? ride.organizationId} /></Grid>
+          <Grid item xs={12} sm={6} md={3}><Field label="Product" value={ride.configuration?.serviceProductDisplayName ?? ride.configuration?.serviceProductCodeSnapshot} /></Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Field label="Verification" value={ride.verification?.passed ? 'Passed' : ride.verification?.required ? 'Required' : '—'} />
           </Grid>
@@ -203,10 +217,31 @@ export default function RideDetailPage() {
       </CustomTabPanel>
 
       <CustomTabPanel value={tab} index={1}>
-        <Field label="Pickup" value={ride.route?.pickupAddress} />
-        <Field label="Destination" value={ride.route?.destinationAddress} />
-        <Box sx={{ mt: 1 }} />
-        <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>Stops</Typography>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Field label="Pickup" value={ride.route?.pickupAddress} />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Field label="Destination" value={ride.route?.destinationAddress} />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Field
+              label="Estimated distance / duration"
+              value={`${ride.route?.estimatedDistanceKm ?? '—'} km / ${ride.route?.estimatedDurationMinutes ?? '—'} min`}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Field
+              label="Actual distance / duration"
+              value={`${ride.actuals?.actualDistanceKm ?? '—'} km / ${ride.actuals?.actualDurationMinutes ?? '—'} min`}
+            />
+          </Grid>
+        </Grid>
+
+        <RideRouteMap stops={ride.stops} route={ride.route?.route} />
+
+        <Box sx={{ mt: 3 }} />
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>Stops</Typography>
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
             <TableHead>
@@ -214,6 +249,7 @@ export default function RideDetailPage() {
                 <TableCell>#</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell>Address</TableCell>
+                <TableCell>Coordinates</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Arrived</TableCell>
                 <TableCell>Departed</TableCell>
@@ -222,7 +258,7 @@ export default function RideDetailPage() {
             <TableBody>
               {ride.stops.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6}>No stops recorded</TableCell>
+                  <TableCell colSpan={7}>No stops recorded</TableCell>
                 </TableRow>
               ) : (
                 ride.stops.map((stop) => (
@@ -230,6 +266,22 @@ export default function RideDetailPage() {
                     <TableCell>{stop.sequence}</TableCell>
                     <TableCell>{stop.type}</TableCell>
                     <TableCell>{stop.address}</TableCell>
+                    <TableCell>
+                      {Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude) ? (
+                        <Button
+                          href={`https://www.google.com/maps?q=${stop.latitude},${stop.longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          size="small"
+                          variant="text"
+                          sx={{ textTransform: 'none' }}
+                        >
+                          {stop.latitude.toFixed(6)}, {stop.longitude.toFixed(6)}
+                        </Button>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">—</Typography>
+                      )}
+                    </TableCell>
                     <TableCell><StatusBadge status={stop.status} label={stop.status} /></TableCell>
                     <TableCell>{fmtDateTime(stop.arrivedAt)}</TableCell>
                     <TableCell>{fmtDateTime(stop.departedAt)}</TableCell>
@@ -242,7 +294,13 @@ export default function RideDetailPage() {
       </CustomTabPanel>
 
       <CustomTabPanel value={tab} index={2}>
-        <Field label="Primary rider" value={ride.rider ? `${ride.rider.name ?? ''} ${ride.rider.phone ?? ''}` : '—'} />
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}><Field label="Primary rider" value={ride.rider?.name} /></Grid>
+          <Grid item xs={12} sm={6} md={3}><Field label="Phone" value={ride.rider?.phone} /></Grid>
+          <Grid item xs={12} sm={6} md={3}><Field label="Email" value={ride.rider?.email} /></Grid>
+          <Grid item xs={12} sm={6} md={3}><Field label="Account status" value={ride.rider?.accountStatus} /></Grid>
+          <Grid item xs={12} sm={6} md={3}><Field label="Rating" value={ride.rider?.rating} /></Grid>
+        </Grid>
         {ride.configuration?.bookingFor && (
           <Box sx={{ mt: 1 }}>
             <Field label="Booked for" value={ride.configuration.bookingFor} />
@@ -292,6 +350,10 @@ export default function RideDetailPage() {
             <Grid item xs={12} sm={6} md={3}><Field label="Driver ID" value={ride.driver.id.slice(0, 8)} /></Grid>
             <Grid item xs={12} sm={6} md={3}><Field label="Name" value={ride.driver.name} /></Grid>
             <Grid item xs={12} sm={6} md={3}><Field label="Rating" value={ride.driver.rating ?? '—'} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><Field label="User ID" value={ride.driver.userId} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><Field label="Phone" value={ride.driver.phone} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><Field label="Availability" value={ride.driver.availabilityStatus} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><Field label="Verification" value={ride.driver.verificationStatus} /></Grid>
           </Grid>
         )}
         {ride.vehicle && (
@@ -299,6 +361,9 @@ export default function RideDetailPage() {
             <Grid item xs={12} sm={6} md={3}><Field label="Vehicle" value={`${ride.vehicle.make ?? ''} ${ride.vehicle.model ?? ''}`} /></Grid>
             <Grid item xs={12} sm={6} md={3}><Field label="Plate" value={ride.vehicle.plateNumber} /></Grid>
             <Grid item xs={12} sm={6} md={3}><Field label="Type" value={ride.vehicle.vehicleType} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><Field label="Transport mode" value={ride.vehicle.transportMode} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><Field label="Color" value={ride.vehicle.color} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><Field label="Assignment" value={ride.vehicle.assignmentStatus} /></Grid>
             <Grid item xs={12} sm={6} md={3}><Field label="Status" value={ride.vehicle.status} /></Grid>
           </Grid>
         )}
@@ -412,6 +477,18 @@ export default function RideDetailPage() {
             </TableBody>
           </Table>
         </TableContainer>
+        <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>Payment attempts</Typography>
+        {payments.flatMap((payment) => payment.attempts ?? []).length === 0 ? <Alert severity="info">No payment attempts recorded.</Alert> : (
+          <TableContainer component={Paper} variant="outlined"><Table size="small"><TableHead><TableRow>
+            <TableCell>Payment</TableCell><TableCell>#</TableCell><TableCell>Provider</TableCell><TableCell>Status</TableCell><TableCell>Channel</TableCell><TableCell>Failure</TableCell>
+          </TableRow></TableHead><TableBody>
+            {payments.flatMap((payment) => (payment.attempts ?? []).map((attempt) => <TableRow key={attempt.id}>
+              <TableCell>{payment.reference}</TableCell><TableCell>{attempt.attemptNumber}</TableCell><TableCell>{attempt.provider}</TableCell>
+              <TableCell><StatusBadge status={attempt.status} label={attempt.status} /></TableCell><TableCell>{attempt.channel ?? '—'}</TableCell>
+              <TableCell>{attempt.failureReason ?? attempt.failureCode ?? '—'}</TableCell>
+            </TableRow>))}
+          </TableBody></Table></TableContainer>
+        )}
       </CustomTabPanel>
 
       <CustomTabPanel value={tab} index={7}>
@@ -466,6 +543,45 @@ export default function RideDetailPage() {
           </Card>
         ) : (
           <Alert severity="info">No feedback recorded for this ride.</Alert>
+        )}
+      </CustomTabPanel>
+
+      <CustomTabPanel value={tab} index={9}>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>Safety incidents</Typography>
+        {incidents.length === 0 ? (
+          <Alert severity="info" sx={{ mb: 3 }}>No SOS or emergency incidents linked to this ride.</Alert>
+        ) : (
+          <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+            <Table size="small"><TableHead><TableRow>
+              <TableCell>Incident</TableCell><TableCell>Type</TableCell><TableCell>Status</TableCell><TableCell>Created</TableCell><TableCell />
+            </TableRow></TableHead><TableBody>
+              {incidents.map((incident) => <TableRow key={incident.id}>
+                <TableCell>{incident.id.slice(0, 8)}</TableCell><TableCell>{incident.type}</TableCell>
+                <TableCell><StatusBadge status={incident.status} label={incident.status} /></TableCell>
+                <TableCell>{fmtDateTime(incident.createdAt)}</TableCell>
+                <TableCell><Button size="small" onClick={() => navigate(`/admin/safety/${incident.id}`)}>Open</Button></TableCell>
+              </TableRow>)}
+            </TableBody></Table>
+          </TableContainer>
+        )}
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>Call records</Typography>
+        {calls.length === 0 ? <Alert severity="info">No persisted rider/driver call records.</Alert> : (
+          <TableContainer component={Paper} variant="outlined"><Table size="small"><TableHead><TableRow>
+            <TableCell>Direction</TableCell><TableCell>Status</TableCell><TableCell>Started</TableCell><TableCell>Answered</TableCell><TableCell>Ended</TableCell><TableCell>Duration</TableCell>
+          </TableRow></TableHead><TableBody>{calls.map((call) => <TableRow key={call.id}>
+            <TableCell>{call.callerUserId === ride.rider?.id ? 'Rider → Driver' : 'Driver → Rider'}</TableCell>
+            <TableCell><StatusBadge status={call.status} label={call.status} /></TableCell><TableCell>{fmtDateTime(call.startedAt)}</TableCell>
+            <TableCell>{fmtDateTime(call.answeredAt)}</TableCell><TableCell>{fmtDateTime(call.endedAt)}</TableCell><TableCell>{call.durationSeconds ?? '—'}s</TableCell>
+          </TableRow>)}</TableBody></Table></TableContainer>
+        )}
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+          Normal WebRTC media is not recorded or exposed; only call metadata is shown.
+        </Typography>
+        <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>Admin audit history</Typography>
+        {(ride.adminAudit ?? []).length === 0 ? <Alert severity="info">No admin actions recorded.</Alert> : (
+          <List>{ride.adminAudit!.map((entry) => <ListItem key={entry.id} divider>
+            <ListItemText primary={entry.action} secondary={`${fmtDateTime(entry.createdAt)}${entry.actorUserId ? ` • ${entry.actorUserId}` : ''}${entry.reason ? ` • ${entry.reason}` : ''}`} />
+          </ListItem>)}</List>
         )}
       </CustomTabPanel>
     </Box>

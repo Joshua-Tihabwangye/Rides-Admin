@@ -340,7 +340,7 @@ export default function AdminTripCommunicationPanel({
     setChatLoading(true);
     try {
       const page = await adminListChatMessages(thread.thread.id);
-      setMessages(page.items);
+      setMessages(Array.isArray(page?.items) ? page.items : []);
       void adminMarkChatThreadRead(thread.thread.id).catch(() => undefined);
     } catch {
       // Keep whatever is already loaded.
@@ -368,7 +368,7 @@ export default function AdminTripCommunicationPanel({
       );
       setThread(resolved);
       const page = await adminListChatMessages(resolved.thread.id);
-      setMessages(page.items);
+      setMessages(Array.isArray(page?.items) ? page.items : []);
       void adminMarkChatThreadRead(resolved.thread.id).catch(() => undefined);
     } catch (error) {
       setCallError(error instanceof Error ? error.message : "Could not open the chat.");
@@ -441,7 +441,7 @@ export default function AdminTripCommunicationPanel({
   }, [serviceId, serviceType]);
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if ((messages ?? []).length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
@@ -466,11 +466,13 @@ export default function AdminTripCommunicationPanel({
     socket.on("connect", onConnect);
     socket.connect();
 
-    const onChatMessage = (message: AdminChatMessage) => {
-      if (!message || !thread || message.threadId !== thread.thread.id) return;
+    const onChatMessage = (message: AdminChatMessage | { message?: AdminChatMessage }) => {
+      const nextMessage = "message" in message && message.message ? message.message : message as AdminChatMessage;
+      if (!nextMessage || !thread || nextMessage.threadId !== thread.thread.id) return;
       setMessages((prev) => {
-        if (prev.some((item) => item.id === message.id)) return prev;
-        return [...prev, message];
+        const safe = Array.isArray(prev) ? prev : [];
+        if (safe.some((item) => item.id === nextMessage.id)) return safe;
+        return [...safe, nextMessage];
       });
       void adminMarkChatThreadRead(thread.thread.id).catch(() => undefined);
     };
@@ -763,12 +765,12 @@ export default function AdminTripCommunicationPanel({
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {chatLoading ? (
               <p className="text-center text-xs font-bold uppercase tracking-wide text-slate-400">Loading messages…</p>
-            ) : messages.length === 0 ? (
+            ) : (messages ?? []).length === 0 ? (
               <p className="text-center text-xs font-bold uppercase tracking-wide text-slate-400">
                 No messages yet — say hello.
               </p>
             ) : (
-              messages.map((message) => {
+              (messages ?? []).map((message) => {
                 const mine = message.senderUserId === myUserId;
                 return (
                   <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
