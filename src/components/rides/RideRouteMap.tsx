@@ -51,11 +51,11 @@ export default function RideRouteMap({ stops, route }: { stops: AdminRideStopRes
   }, [points]);
 
   const fitBounds = useMemo(() => {
-    if (points.length === 0) return undefined;
+    if (!isLoaded || points.length === 0) return undefined;
     const bounds = new google.maps.LatLngBounds();
     points.forEach((p) => bounds.extend(new google.maps.LatLng(p.lat, p.lng)));
     return bounds;
-  }, [points]);
+  }, [isLoaded, points]);
 
   if (!googleMapsApiKey) {
     return (

@@ -727,6 +727,45 @@ export async function listAdminMonitoringFailedDispatches(): Promise<AdminMonito
 
 // ── Safety incidents / SOS (backend GET /safety/emergencies) ────────────────
 
+export type AdminSafetyIncidentView = {
+  reporter: {
+    userId?: string;
+    name?: string | null;
+    phone?: string | null;
+    role?: string | null;
+  };
+  rider: { userId?: string; name?: string | null; phone?: string | null } | null;
+  driver: {
+    driverId?: string;
+    userId?: string;
+    name?: string | null;
+    phone?: string | null;
+    rating?: number;
+    currentTripId?: string;
+  } | null;
+  vehicle: {
+    vehicleId?: string;
+    vehicleType?: string;
+    make?: string;
+    model?: string;
+    plate?: string;
+    color?: string;
+  } | null;
+  ride: {
+    rideId?: string;
+    status?: string;
+    pickup?: string | null;
+    destination?: string | null;
+    estimatedFare?: number;
+    finalFare?: number;
+    currency?: string;
+  } | null;
+  placeName: string | null;
+  coordinates: { latitude?: number | null; longitude?: number | null };
+  mapsUrl: string | null;
+  capturedAt?: string | null;
+};
+
 export type AdminSafetyIncident = {
   id: string;
   reporterUserId: string;
@@ -754,6 +793,7 @@ export type AdminSafetyIncident = {
   }>;
   assignedToUserId?: string | null;
   resolvedAt?: string | null;
+  view?: AdminSafetyIncidentView | null;
   contextSnapshot?: {
     contextKind?: string | null;
     capturedAt?: string | null;

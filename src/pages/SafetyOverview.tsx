@@ -18,6 +18,8 @@ import {
   Paper,
   CircularProgress,
   Alert,
+  TextField,
+  MenuItem,
 } from "@mui/material";
 import {
   BarChart,
@@ -99,10 +101,13 @@ export default function SafetyOverviewDashboardPage() {
   const [usersUnderReview, setUsersUnderReview] = useState<UserUnderReview[]>([]);
   const [riskCases, setRiskCases] = useState<AdminRiskCaseResponse[]>([]);
   const [incidents, setIncidents] = useState<AdminSafetyIncident[]>([]);
+  const [totalIncidents, setTotalIncidents] = useState(0);
   const [expandedIncident, setExpandedIncident] = useState<string | null>(null);
   const [contactIncidentId, setContactIncidentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   useEffect(() => {
     const load = async () => {
@@ -116,6 +121,7 @@ export default function SafetyOverviewDashboardPage() {
           listAdminSafetyEmergencies(),
         ]);
         setIncidents(incidentPage?.items ?? []);
+        setTotalIncidents(incidentPage?.meta?.total ?? incidentPage?.items?.length ?? 0);
 
         // "Under review" is the real backend account status, not an invented
         // verification label. Only non-active users are listed and the shown
@@ -160,7 +166,10 @@ export default function SafetyOverviewDashboardPage() {
     // Poll so open SOS alerts show up without a manual refresh.
     const poll = window.setInterval(() => {
       listAdminSafetyEmergencies()
-        .then((page) => setIncidents(page?.items ?? []))
+        .then((page) => {
+          setIncidents(page?.items ?? []);
+          setTotalIncidents(page?.meta?.total ?? page?.items?.length ?? 0);
+        })
         .catch(() => undefined);
     }, 30000);
     return () => window.clearInterval(poll);
@@ -180,6 +189,7 @@ export default function SafetyOverviewDashboardPage() {
       listAdminSafetyEmergencies()
         .then((page) => {
           setIncidents(page?.items ?? []);
+          setTotalIncidents(page?.meta?.total ?? page?.items?.length ?? 0);
           setError(null);
         })
         .catch(() => undefined);
@@ -214,6 +224,33 @@ export default function SafetyOverviewDashboardPage() {
     [contactIncidentId, incidents],
   );
 
+  const filteredIncidents = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    return incidents.filter((i) => {
+      if (statusFilter !== "ALL" && i.status !== statusFilter) return false;
+      if (!needle) return true;
+      const v = i.view;
+      const haystack = [
+        i.id,
+        i.type,
+        v?.placeName ?? "",
+        i.address ?? "",
+        v?.reporter?.name ?? "",
+        v?.reporter?.phone ?? "",
+        v?.rider?.name ?? "",
+        v?.rider?.phone ?? "",
+        v?.driver?.name ?? "",
+        v?.driver?.phone ?? "",
+        v?.vehicle?.plate ?? "",
+        v?.vehicle?.vehicleType ?? "",
+        `${i.latitude ?? ""} ${i.longitude ?? ""}`,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [incidents, searchQuery, statusFilter]);
+
   // Auto-open the communication panel for the first active SOS incident so an
   // operator can reach the driver the moment an alert lands. One panel is
   // mounted at a time (closing it or reselecting restores a single context).
@@ -229,6 +266,7 @@ export default function SafetyOverviewDashboardPage() {
     try {
       const page = await listAdminSafetyEmergencies();
       setIncidents(page?.items ?? []);
+      setTotalIncidents(page?.meta?.total ?? page?.items?.length ?? 0);
     } catch {
       // keep current list; polling will retry
     }
@@ -267,7 +305,7 @@ export default function SafetyOverviewDashboardPage() {
     () => [
       {
         label: "Total incidents",
-        value: incidents.length,
+        value: totalIncidents,
         note: "SOS & safety incidents",
       },
       {
@@ -281,7 +319,7 @@ export default function SafetyOverviewDashboardPage() {
         note: `${usersUnderReview.filter((u) => u.type === "Rider").length} riders · ${usersUnderReview.filter((u) => u.type === "Driver").length} drivers`,
       },
     ],
-    [incidents.length, openCount, openSosCount, usersUnderReview]
+    [incidents.length, openCount, openSosCount, usersUnderReview, totalIncidents]
   );
 
   const incidentData = useMemo(() => {
@@ -449,13 +487,19 @@ export default function SafetyOverviewDashboardPage() {
                   </Box>
                   <Box className="grid gap-1 text-[12px] text-red-950/80">
                     <Typography variant="body2" className="text-[12px]">
-                      <b>Reporter:</b> {incident.reporterUserId}
-                      {incident.driverId ? ` · Driver: ${incident.driverId}` : ""}
+                      <b>Reporter:</b> {incident.view?.reporter?.name || incident.reporterUserId}
+                      {incident.view?.reporter?.phone ? ` · ${incident.view.reporter.phone}` : ""}
+                      {incident.driverId ? ` · Driver: ${incident.view?.driver?.name || incident.driverId}` : ""}
                       {incident.serviceType ? ` · Service: ${incident.serviceType}${incident.serviceId ? ` (${incident.serviceId})` : ""}` : ""}
                     </Typography>
                     <Typography variant="body2" className="text-[12px]">
+                      <b>Rider:</b> {incident.view?.rider?.name || "—"}
+                      {incident.view?.rider?.phone ? ` · ${incident.view.rider.phone}` : ""}
+                      {incident.view?.driver?.name ? ` · Driver: ${incident.view.driver.name}` : ""}
+                    </Typography>
+                    <Typography variant="body2" className="text-[12px]">
                       <b>Reported:</b> {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : "-"}
-                      {incident.address ? ` · ${incident.address}` : ""}
+                      {incident.view?.placeName ? ` · ${incident.view.placeName}` : incident.address ? ` · ${incident.address}` : ""}
                     </Typography>
                     <Typography variant="body2" className="text-[12px]">
                       <b>Location:</b>{" "}
@@ -668,7 +712,8 @@ export default function SafetyOverviewDashboardPage() {
         <CardContent className="p-4 flex flex-col gap-2">
           <Box className="flex items-center justify-between">
             <Typography variant="subtitle2" className="font-semibold" color="text.primary">
-              SOS &amp; emergency incidents ({incidents.length})
+              SOS &amp; emergency incidents (
+              {searchQuery || statusFilter !== "ALL" ? filteredIncidents.length : incidents.length})
             </Typography>
             <Chip
               size="small"
@@ -677,6 +722,28 @@ export default function SafetyOverviewDashboardPage() {
             />
           </Box>
           <Divider className="!my-1" />
+          <Box className="flex items-center gap-2 flex-wrap pb-1">
+            <TextField
+              size="small"
+              placeholder="Search id, place, reporter, rider, driver, plate…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{ width: 300, "& .MuiInputBase-input": { fontSize: 12 } }}
+            />
+            <TextField
+              select
+              size="small"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              sx={{ minWidth: 150, "& .MuiInputBase-input": { fontSize: 12 } }}
+            >
+              {["ALL", ...Array.from(new Set(incidents.map((i) => i.status)))].map((status) => (
+                <MenuItem key={status} value={status} sx={{ fontSize: 12 }}>
+                  {status === "ALL" ? "All statuses" : status}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
           {incidents.length === 0 ? (
             <Box sx={{ py: 4, textAlign: "center" }}>
               <Typography variant="body2" color="text.secondary">
@@ -688,19 +755,27 @@ export default function SafetyOverviewDashboardPage() {
             </Box>
           ) : (
             <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 380 }}>
+              {filteredIncidents.length === 0 ? (
+                <Box sx={{ py: 4, textAlign: "center" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No incidents match your filters
+                  </Typography>
+                </Box>
+              ) : null}
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell>ID</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>People</TableCell>
                     <TableCell>Location</TableCell>
                     <TableCell>Contacts</TableCell>
                     <TableCell>Reported</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {incidents.map((incident) => {
+                  {filteredIncidents.map((incident) => {
                     const attempts = incident.notifiedContacts ?? [];
                     const sent = attempts.filter((a) => a.status === "SENT").length;
                     const expanded = expandedIncident === incident.id;
@@ -735,10 +810,40 @@ export default function SafetyOverviewDashboardPage() {
                             <Chip size="small" color={incident.status === "OPEN" ? "error" : incident.status === "RESOLVED" ? "success" : "default"} label={incident.status} />
                           </TableCell>
                           <TableCell sx={{ fontSize: 11 }}>
-                            {incident.address ||
-                              (incident.latitude != null && incident.longitude != null
-                                ? `${Number(incident.latitude).toFixed(5)}, ${Number(incident.longitude).toFixed(5)}`
-                                : "Location not shared")}
+                            <Box className="flex flex-col gap-0.5">
+                              <span>
+                                {incident.view?.reporter?.name
+                                  ? `${incident.view.reporter.name} (reporter)`
+                                  : `Reporter ${incident.reporterUserId.slice(0, 8)}`}
+                              </span>
+                              {incident.view?.rider?.name ? (
+                                <span className="text-slate-500">Rider: {incident.view.rider.name}</span>
+                              ) : null}
+                              {incident.view?.driver?.name
+                                ? <span className="text-slate-500">Driver: {incident.view.driver.name}</span>
+                                : incident.driverId
+                                  ? <span className="text-slate-500">Driver {incident.driverId.slice(0, 8)}</span>
+                                  : null}
+                            </Box>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            <Box className="flex flex-col gap-0.5">
+                              <span>{incident.view?.placeName ?? incident.address ?? "Location not shared"}</span>
+                              {incident.latitude != null && incident.longitude != null ? (
+                                <a
+                                  href={mapsLink(incident.latitude, incident.longitude) ?? "#"}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[10px] font-bold text-blue-700 underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {Number(incident.latitude).toFixed(5)}, {Number(incident.longitude).toFixed(5)}
+                                </a>
+                              ) : null}
+                              {incident.view?.vehicle?.plate ? (
+                                <span className="text-slate-500">Vehicle: {incident.view.vehicle.plate}</span>
+                              ) : null}
+                            </Box>
                           </TableCell>
                           <TableCell sx={{ fontSize: 11 }}>
                             {attempts.length === 0
@@ -751,7 +856,7 @@ export default function SafetyOverviewDashboardPage() {
                         </TableRow>
                         {expanded ? (
                           <TableRow>
-                            <TableCell colSpan={6} sx={{ bgcolor: "rgba(148,163,184,0.06)", py: 1.5 }}>
+                            <TableCell colSpan={7} sx={{ bgcolor: "rgba(148,163,184,0.06)", py: 1.5 }}>
                               <Box className="grid gap-1 text-[12px]">
                                 {incident.description ? (
                                   <Typography variant="body2" className="text-[12px] text-slate-600">
@@ -759,11 +864,46 @@ export default function SafetyOverviewDashboardPage() {
                                   </Typography>
                                 ) : null}
                                 <Typography variant="body2" className="text-[12px] text-slate-600">
-                                  <b>Reporter:</b> {incident.reporterUserId}
-                                  {incident.serviceType
-                                    ? ` · Service: ${incident.serviceType}${incident.serviceId ? ` (${incident.serviceId})` : ""}`
-                                    : ""}
+                                  <b>Reporter:</b> {incident.view?.reporter?.name || incident.reporterUserId}
+                                  {incident.view?.reporter?.phone ? ` · ${incident.view.reporter.phone}` : ""}
+                                  {incident.view?.reporter?.role ? ` · ${incident.view.reporter.role}` : ""}
                                 </Typography>
+                                {incident.view?.rider?.name ? (
+                                  <Typography variant="body2" className="text-[12px] text-slate-600">
+                                    <b>Rider:</b> {incident.view.rider.name}
+                                    {incident.view.rider.phone ? ` · ${incident.view.rider.phone}` : ""}
+                                  </Typography>
+                                ) : null}
+                                {incident.view?.driver?.name ? (
+                                  <Typography variant="body2" className="text-[12px] text-slate-600">
+                                    <b>Driver:</b> {incident.view.driver.name}
+                                    {incident.view.driver.phone ? ` · ${incident.view.driver.phone}` : ""}
+                                    {incident.view.driver.rating != null ? ` · ★ ${incident.view.driver.rating.toFixed(1)}` : ""}
+                                    {incident.view.driver.driverId ? ` · ${incident.view.driver.driverId.slice(0, 8)}` : ""}
+                                  </Typography>
+                                ) : null}
+                                {incident.view?.vehicle && (incident.view.vehicle.plate || incident.view.vehicle.vehicleType) ? (
+                                  <Typography variant="body2" className="text-[12px] text-slate-600">
+                                    <b>Vehicle:</b>{" "}
+                                    {[incident.view.vehicle.vehicleType, incident.view.vehicle.make, incident.view.vehicle.model, incident.view.vehicle.plate]
+                                      .filter(Boolean)
+                                      .join(" · ") || incident.serviceId}
+                                  </Typography>
+                                ) : null}
+                                {incident.view?.ride?.pickup || incident.view?.ride?.destination ? (
+                                  <Typography variant="body2" className="text-[12px] text-slate-600">
+                                    <b>Trip:</b> {incident.view.ride.pickup || "—"} → {incident.view.ride.destination || "—"}
+                                    {incident.view.ride.status ? ` · ${incident.view.ride.status}` : ""}
+                                  </Typography>
+                                ) : null}
+                                {incident.serviceType
+                                  ? (
+                                    <Typography variant="body2" className="text-[12px] text-slate-600">
+                                      <b>Service:</b> {incident.serviceType}
+                                      {incident.serviceId ? ` (${incident.serviceId})` : ""}
+                                    </Typography>
+                                  )
+                                  : null}
                                 <Box className="mt-1">
                                   <Typography variant="caption" className="text-[11px] font-semibold text-slate-500">
                                     Contact notification attempts

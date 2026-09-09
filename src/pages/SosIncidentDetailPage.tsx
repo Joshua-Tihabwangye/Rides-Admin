@@ -269,7 +269,10 @@ export default function SosIncidentDetailPage() {
                 <Typography variant="caption" color="text.secondary">
                   Reporter
                 </Typography>
-                <Typography variant="body2">{reporterName}</Typography>
+                <Typography variant="body2">
+                  {incident.view?.reporter?.name || reporterName}
+                  {incident.view?.reporter?.phone ? ` · ${incident.view.reporter.phone}` : ""}
+                </Typography>
               </div>
               <div>
                 <Typography variant="caption" color="text.secondary">
@@ -291,6 +294,14 @@ export default function SosIncidentDetailPage() {
                   {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : "—"}
                 </Typography>
               </div>
+              {incident.view?.placeName ? (
+                <div>
+                  <Typography variant="caption" color="text.secondary">
+                    Place
+                  </Typography>
+                  <Typography variant="body2">{incident.view.placeName}</Typography>
+                </div>
+              ) : null}
               <div>
                 <Typography variant="caption" color="text.secondary">
                   Activations
@@ -552,6 +563,260 @@ export default function SosIncidentDetailPage() {
         <Card>
           <CardContent>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <Typography variant="subtitle2">People involved</Typography>
+              <Chip
+                size="small"
+                label={incident.view?.placeName ?? incident.address ?? "Location unknown"}
+                color="default"
+                sx={{ ml: "auto", fontSize: 11 }}
+              />
+            </Stack>
+            {!incident.view?.reporter && !incident.view?.rider && !incident.view?.driver && !incident.view?.vehicle ? (
+              <Typography variant="body2" color="text.secondary">
+                No linked party details recorded for this incident.
+              </Typography>
+            ) : (
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 2 }}>
+                {incident.view?.reporter?.name || incident.view?.reporter?.phone || incident.view?.reporter?.userId ? (
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Reporter</Typography>
+                    <Typography variant="body2">
+                      {incident.view.reporter.name || incident.view.reporter.userId || "Reporter"}
+                      {incident.view.reporter.phone ? ` · ${incident.view.reporter.phone}` : ""}
+                    </Typography>
+                    {incident.view.reporter.role ? (
+                      <Typography variant="caption" color="text.secondary">{incident.view.reporter.role}</Typography>
+                    ) : null}
+                  </div>
+                ) : null}
+                {incident.view?.rider ? (
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Rider</Typography>
+                    <Typography variant="body2">
+                      {incident.view.rider.name || incident.view.rider.userId || "—"}
+                      {incident.view.rider.phone ? ` · ${incident.view.rider.phone}` : ""}
+                    </Typography>
+                    {incident.view.rider.userId ? (
+                      <Typography variant="caption" color="text.secondary">{incident.view.rider.userId}</Typography>
+                    ) : null}
+                  </div>
+                ) : null}
+                {incident.view?.driver ? (
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Driver</Typography>
+                    <Typography variant="body2">
+                      {incident.view.driver.name || incident.view.driver.userId || "—"}
+                      {incident.view.driver.phone ? ` · ${incident.view.driver.phone}` : ""}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {incident.view.driver.rating != null ? `★ ${incident.view.driver.rating.toFixed(1)}` : ""}
+                      {incident.view.driver.driverId ? ` · ${incident.view.driver.driverId.slice(0, 8)}` : ""}
+                    </Typography>
+                  </div>
+                ) : null}
+                {incident.view?.vehicle ? (
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Vehicle</Typography>
+                    <Typography variant="body2">
+                      {[incident.view.vehicle.vehicleType, incident.view.vehicle.make, incident.view.vehicle.model]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                      {incident.view.vehicle.plate ? ` · ${incident.view.vehicle.plate}` : ""}
+                    </Typography>
+                    {incident.view.vehicle.color ? (
+                      <Typography variant="caption" color="text.secondary">{incident.view.vehicle.color}</Typography>
+                    ) : null}
+                  </div>
+                ) : null}
+                {incident.view?.coordinates?.latitude != null && incident.view?.coordinates?.longitude != null ? (
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Coordinates</Typography>
+                    <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                      {Number(incident.view.coordinates.latitude).toFixed(6)},{" "}
+                      {Number(incident.view.coordinates.longitude).toFixed(6)}
+                    </Typography>
+                    {incident.view.mapsUrl ? (
+                      <Button href={incident.view.mapsUrl} target="_blank" rel="noreferrer" size="small" variant="text">
+                        Open in maps
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+
+        {!incident.contextSnapshot?.ride && incident.view?.ride ? (
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Typography variant="subtitle2">Linked trip</Typography>
+                <Chip label={incident.view.ride.status ?? "—"} color="primary" size="small" sx={{ ml: "auto" }} />
+              </Stack>
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 2 }}>
+                <div>
+                  <Typography variant="caption" color="text.secondary">Route</Typography>
+                  <Typography variant="body2">
+                    {incident.view.ride.pickup || "Pickup"} → {incident.view.ride.destination || "Dropoff"}
+                  </Typography>
+                </div>
+                <div>
+                  <Typography variant="caption" color="text.secondary">Trip id</Typography>
+                  <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: 12 }}>
+                    {incident.view.ride.rideId}
+                  </Typography>
+                </div>
+                <div>
+                  <Typography variant="caption" color="text.secondary">Fare</Typography>
+                  <Typography variant="body2">
+                    {incident.view.ride.estimatedFare != null || incident.view.ride.finalFare != null
+                      ? `${(incident.view.ride.finalFare ?? incident.view.ride.estimatedFare)?.toLocaleString()} ${incident.view.ride.currency ?? ""}`
+                      : "—"}
+                  </Typography>
+                </div>
+                <div>
+                  <Typography variant="caption" color="text.secondary">Vehicle</Typography>
+                  <Typography variant="body2">
+                    {incident.view.vehicle?.plate || incident.view.vehicle?.vehicleType || "—"}
+                  </Typography>
+                </div>
+              </Box>
+              <Box sx={{ mt: 2 }}>
+                <Button
+                  onClick={() => navigate(`/admin/rides/${incident.view!.ride!.rideId}`)}
+                  variant="outlined"
+                  size="small"
+                >
+                  Open full ride
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {incident.contextSnapshot?.ride ? (() => {
+          const ride = incident.contextSnapshot!.ride!;
+          const rideMapsLink =
+            ride.pickup?.latitude != null && ride.pickup?.longitude != null
+              ? mapsLink(ride.pickup.latitude, ride.pickup.longitude)
+              : undefined;
+          return (
+            <Card>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2">Linked ride</Typography>
+                  <Chip label={ride.status ?? "—"} color="primary" size="small" sx={{ ml: "auto" }} />
+                </Stack>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 2 }}>
+                  {ride.rider && (
+                    <div>
+                      <Typography variant="caption" color="text.secondary">Rider</Typography>
+                      <Typography variant="body2">
+                        {ride.rider.name || ride.rider.userId || "—"}
+                        {ride.rider.phone ? ` · ${ride.rider.phone}` : ""}
+                      </Typography>
+                    </div>
+                  )}
+                  {ride.assignedDriver && (
+                    <div>
+                      <Typography variant="caption" color="text.secondary">Driver</Typography>
+                      <Typography variant="body2">
+                        {ride.assignedDriver.name || ride.assignedDriver.userId || "—"}
+                        {ride.assignedDriver.phone ? ` · ${ride.assignedDriver.phone}` : ""}
+                      </Typography>
+                    </div>
+                  )}
+                  {ride.assignedVehicle && (
+                    <div>
+                      <Typography variant="caption" color="text.secondary">Vehicle</Typography>
+                      <Typography variant="body2">
+                        {[ride.assignedVehicle.make, ride.assignedVehicle.model].filter(Boolean).join(" ") || "—"}
+                        {ride.assignedVehicle.plate ? ` · ${ride.assignedVehicle.plate}` : ""}
+                      </Typography>
+                    </div>
+                  )}
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Route</Typography>
+                    <Typography variant="body2">
+                      {ride.pickup?.address || "Pickup"} → {ride.destination?.address || "Dropoff"}
+                    </Typography>
+                    {(ride.estimatedDistanceKm != null || ride.estimatedDurationMinutes != null) && (
+                      <Typography variant="caption" color="text.secondary">
+                        {ride.estimatedDistanceKm != null ? `~${ride.estimatedDistanceKm} km` : ""}
+                        {ride.estimatedDurationMinutes != null
+                          ? ` · ~${ride.estimatedDurationMinutes} min`
+                          : ""}
+                      </Typography>
+                    )}
+                  </div>
+                  <div>
+                    <Typography variant="caption" color="text.secondary">Fare</Typography>
+                    <Typography variant="body2">
+                      {ride.fare?.estimatedFare != null
+                        ? `${ride.fare.estimatedFare.toLocaleString()} ${ride.fare?.currency ?? ""}`
+                        : "—"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Payment {ride.fare?.paymentStatus ?? "—"}
+                      {ride.fare?.paymentMethod ? ` · ${ride.fare.paymentMethod}` : ""}
+                    </Typography>
+                  </div>
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <RideRouteMap route={ride.route as Record<string, unknown> | undefined} stops={(ride.stops ?? []).map((stop, index) => ({
+                    id: `${ride.rideId}-sos-${index}`,
+                    sequence: stop.sequence ?? index + 1,
+                    type: stop.type ?? "STOP",
+                    address: stop.address ?? "",
+                    latitude: stop.latitude ?? 0,
+                    longitude: stop.longitude ?? 0,
+                    status: stop.status ?? "UNKNOWN",
+                  })) as AdminRideStopResponse[]} />
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" color="text.secondary">Stops</Typography>
+                  {(ride.stops ?? []).length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">No stops recorded.</Typography>
+                  ) : (ride.stops ?? []).map((stop, i) => (
+                    <Stack key={i} direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" sx={{ minWidth: 56, fontWeight: 700 }}>{stop.type ?? `#${i + 1}`}</Typography>
+                      <Typography variant="body2" sx={{ flexGrow: 1 }}>{stop.address || "—"}</Typography>
+                      {stop.latitude != null && stop.longitude != null && mapsLink(stop.latitude, stop.longitude) && (
+                        <Button
+                          href={mapsLink(stop.latitude, stop.longitude)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          size="small"
+                          variant="text"
+                        >
+                          Maps
+                        </Button>
+                      )}
+                    </Stack>
+                  ))}
+                </Box>
+                {rideMapsLink && (
+                  <Box sx={{ mt: 2 }}>
+                    <Button
+                      href={rideMapsLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      variant="outlined"
+                      size="small"
+                    >
+                      Open pickup in maps
+                    </Button>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })() : null}
+
+        <Card>
+          <CardContent>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
               <MyLocationIcon color="error" />
               <Typography variant="subtitle2">Live emergency location</Typography>
               {sessionStatus && (
@@ -560,12 +825,22 @@ export default function SosIncidentDetailPage() {
             </Stack>
             {live ? (
               <>
+                <Box sx={{ mt: 1, mb: 1 }}>
+                  <iframe
+                    title="Live emergency location map"
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(`${live.latitude},${live.longitude}`)}&z=15&output=embed`}
+                    style={{ border: 0, width: "100%", height: 240, borderRadius: 8 }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                  />
+                </Box>
                 <Typography component="div" variant="body2" sx={{ fontVariantNumeric: "tabular-nums" }}>
                   Lat {live.latitude.toFixed(6)} · Lng {live.longitude.toFixed(6)}
                 </Typography>
-                {live.address && (
+                {(live.address || incident.view?.placeName) && (
                   <Typography variant="body2" color="text.secondary">
-                    {live.address}
+                    {live.address ?? incident.view?.placeName}
                   </Typography>
                 )}
                 <Typography variant="caption" color="text.secondary">
