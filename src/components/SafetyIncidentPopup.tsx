@@ -32,10 +32,30 @@ type SafetyIncidentSocketPayload = {
   emergencyContacts?: Array<{ name?: string; phone?: string }>
 }
 
+type SafetyMessageSocketPayload = {
+  incidentId?: string | null
+  message?: {
+    id: string
+    text?: string | null
+    audioUrl?: string | null
+    senderRole?: string | null
+    senderUserId?: string | null
+    serviceType?: string | null
+    serviceId?: string | null
+    createdAt?: string | null
+  }
+}
+
 type PopupAlert = {
+  uid: string
   incidentId: string
+  kind: "incident" | "message"
   title: string
   message: string
+  audioUrl?: string | null
+  serviceType?: string | null
+  serviceId?: string | null
+  createdAt?: string | null
   driverName: string
   driverId?: string | null
   riderName?: string | null
@@ -43,12 +63,8 @@ type PopupAlert = {
   address?: string | null
   latitude?: number | null
   longitude?: number | null
-  serviceType?: string | null
-  serviceId?: string | null
   sos: boolean
-  audioUrl?: string | null
   audioDurationMs?: number | null
-  createdAt?: string | null
   vehicleInfo?: string | null
   tripStatus?: string | null
 }
@@ -67,13 +83,18 @@ export default function SafetyIncidentPopup() {
   const [alerts, setAlerts] = useState<PopupAlert[]>([])
   const seenRef = useRef<Set<string>>(new Set())
 
-  const dismissAlert = useCallback((incidentId: string) => {
-    setAlerts((prev) => prev.filter((alert) => alert.incidentId !== incidentId))
+  const dismissAlert = useCallback((uid: string) => {
+    setAlerts((prev) => prev.filter((alert) => alert.uid !== uid))
   }, [])
 
   const openAlert = useCallback(
     (alert: PopupAlert) => {
-      navigate(`/admin/safety/${alert.incidentId}`)
+      // Standalone safety communications (sent before/without an incident)
+      // have no incident page; route their alert to the safety overview.
+      const target = alert.kind === "message" && !alert.incidentId
+        ? "/admin/safety"
+        : `/admin/safety/${alert.incidentId}`
+      navigate(target)
     },
     [navigate],
   )
@@ -103,6 +124,8 @@ export default function SafetyIncidentPopup() {
       }
 
       const alert: PopupAlert = {
+        uid: `incident:${incident.id}`,
+        kind: "incident",
         incidentId: incident.id,
         title: incident.sos ? "SOS EMERGENCY ALERT" : "Emergency assistance request",
         message: incident.description || "",
@@ -133,11 +156,39 @@ export default function SafetyIncidentPopup() {
       setAlerts((prev) => [...prev.slice(-(MAX_STACKED - 1)), alert])
     }
 
+    const onEmergencyMessage = (payload: SafetyMessageSocketPayload) => {
+      const message = payload?.message
+      if (!message?.id) return
+      if (seenRef.current.has(`msg:${message.id}`)) return
+      seenRef.current.add(`msg:${message.id}`)
+
+      const isVoice = !message.text && Boolean(message.audioUrl)
+      const alert: PopupAlert = {
+        uid: `msg:${message.id}`,
+        kind: "message",
+        incidentId: payload?.incidentId ?? "",
+        title: isVoice ? "SAFETY VOICE NOTE" : "SAFETY MESSAGE",
+        message: message.text || "",
+        audioUrl: message.audioUrl,
+        audioDurationMs: null,
+        serviceType: message.serviceType,
+        serviceId: message.serviceId,
+        createdAt: message.createdAt,
+        sos: false,
+        driverName: message.senderRole || "Safety desk",
+        driverId: message.senderUserId,
+      }
+
+      setAlerts((prev) => [...prev.slice(-(MAX_STACKED - 1)), alert])
+    }
+
     socket.on("safety.incident.new", onSafetyIncident)
+    socket.on("safety.emergency.message.new", onEmergencyMessage)
     socket.connect()
 
     return () => {
       socket.off("safety.incident.new", onSafetyIncident)
+      socket.off("safety.emergency.message.new", onEmergencyMessage)
       socket.disconnect()
     }
   }, [])
@@ -160,7 +211,7 @@ export default function SafetyIncidentPopup() {
     >
       {alerts.map((alert) => (
         <Paper
-          key={alert.incidentId}
+          key={alert.uid}
           elevation={12}
           onClick={() => openAlert(alert)}
           sx={{
@@ -255,7 +306,7 @@ export default function SafetyIncidentPopup() {
               aria-label="Dismiss alert"
               onClick={(event) => {
                 event.stopPropagation()
-                dismissAlert(alert.incidentId)
+                dismissAlert(alert.uid)
               }}
               sx={{ color: "#fecaca", p: 0.5 }}
             >

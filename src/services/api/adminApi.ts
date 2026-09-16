@@ -855,10 +855,15 @@ export type AdminSafetyRideSnapshot = {
 
 export type AdminEmergencyMessage = {
   id: string;
-  incidentId: string;
+  incidentId: string | null;
   senderUserId: string;
   senderRole: string;
-  text: string;
+  text: string | null;
+  audioUrl?: string | null;
+  audioMimeType?: string | null;
+  audioDurationMs?: number | null;
+  serviceType?: string | null;
+  serviceId?: string | null;
   clientEventId?: string | null;
   createdAt: string;
 };

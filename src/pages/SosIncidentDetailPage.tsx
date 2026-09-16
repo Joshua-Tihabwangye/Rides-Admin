@@ -16,6 +16,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MyLocationIcon from "@mui/icons-material/MyLocation";
 import MicIcon from "@mui/icons-material/Mic";
+import SmsFailedIcon from "@mui/icons-material/SmsFailed";
 import {
   getAdminSafetyIncident,
   listAdminEmergencyMessages,
@@ -259,11 +260,33 @@ export default function SosIncidentDetailPage() {
       )}
 
       <Stack spacing={2}>
-        <Card>
+        <Card
+          sx={
+            incident.sos
+              ? { border: "1px solid", borderColor: "#ef4444", boxShadow: 6 }
+              : undefined
+          }
+        >
           <CardContent>
-            <Typography variant="subtitle2" color="text.secondary">
-              Incident details
-            </Typography>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <MyLocationIcon color={incident.sos ? "error" : "action"} />
+              <Typography variant="subtitle2" color="text.secondary" sx={{ flexGrow: 1 }}>
+                Incident & reporter
+              </Typography>
+              {incident.sos ? (
+                <Chip
+                  label="SOS"
+                  color="error"
+                  size="small"
+                  sx={{ fontWeight: 800 }}
+                />
+              ) : null}
+              <Chip
+                label={incident.status}
+                color={(statusColor[incident.status] as any) ?? "default"}
+                size="small"
+              />
+            </Stack>
             <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 2, mt: 1 }}>
               <div>
                 <Typography variant="caption" color="text.secondary">
@@ -277,9 +300,6 @@ export default function SosIncidentDetailPage() {
                 </Typography>
                 <Typography variant="body2">
                   {incident.type}
-                  {incident.sos ? (
-                    <Chip label="SOS" color="error" size="small" sx={{ ml: 1, height: 18, fontSize: 10 }} />
-                  ) : null}
                 </Typography>
               </div>
               <div>
@@ -353,52 +373,42 @@ export default function SosIncidentDetailPage() {
                 <Typography variant="body2">{incident.description}</Typography>
               </Box>
             )}
+          </CardContent>
+        </Card>
 
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="caption" color="text.secondary">Emergency communication</Typography>
-              {messages.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>No text messages yet.</Typography>
-              ) : messages.map((message) => (
-                <Paper key={message.id} variant="outlined" sx={{ mt: 1, p: 1.25 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {message.senderRole} · {new Date(message.createdAt).toLocaleString()}
-                  </Typography>
+        <Card>
+          <CardContent
+            sx={{
+              borderLeft: "4px solid",
+              borderLeftColor: incident.sos ? "#ef4444" : "divider",
+            }}
+          >
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+              <SmsFailedIcon color="error" />
+              <Typography variant="subtitle2" color="text.secondary" sx={{ flexGrow: 1 }}>
+                Emergency communication
+              </Typography>
+              <Chip label={`${messages.length} message(s)`} color="default" size="small" variant="outlined" />
+            </Stack>
+            {messages.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No text messages yet.</Typography>
+            ) : messages.map((message) => (
+              <Paper key={message.id} variant="outlined" sx={{ mt: 1, p: 1.25, borderLeft: "3px solid", borderLeftColor: "#ef4444" }}>
+                <Typography variant="caption" color="text.secondary">
+                  {message.senderRole} · {new Date(message.createdAt).toLocaleString()}
+                </Typography>
+                {message.text ? (
                   <Typography variant="body2">{message.text}</Typography>
-                </Paper>
-              ))}
-            </Box>
-
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="caption" color="text.secondary">Status history</Typography>
-              {history.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>No status events recorded.</Typography>
-              ) : (
-                history.map((event) => (
-                  <Stack key={event.id} direction="row" spacing={1} alignItems="baseline" sx={{ mt: 0.5 }}>
-                    <Typography variant="caption" sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {new Date(event.createdAt).toLocaleString()}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {event.eventType}
-                    </Typography>
-                    {event.actorUserId && (
-                      <Typography variant="caption" color="text.secondary">
-                        by {event.actorUserId}
-                      </Typography>
-                    )}
-                    {event.data && Object.keys(event.data).length > 0 && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ flexGrow: 1, textAlign: "right", fontFamily: "monospace", fontSize: 11 }}
-                      >
-                        {JSON.stringify(event.data)}
-                      </Typography>
-                    )}
-                  </Stack>
-                ))
-              )}
-            </Box>
+                ) : message.audioUrl ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Voice note
+                  </Typography>
+                ) : null}
+                {message.audioUrl ? (
+                  <Box component="audio" controls preload="metadata" src={message.audioUrl} sx={{ display: "block", width: "100%", mt: 1, height: 36 }} />
+                ) : null}
+              </Paper>
+            ))}
 
             {incident.audioUrl && (
               <Box sx={{ mt: 2 }}>
@@ -417,12 +427,52 @@ export default function SosIncidentDetailPage() {
                 </Button>
               </Box>
             )}
+          </CardContent>
+        </Card>
 
-            {live && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Reported location
-                </Typography>
+        <Card>
+          <CardContent>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Status history
+            </Typography>
+            {history.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No status events recorded.</Typography>
+            ) : (
+              history.map((event) => (
+                <Stack key={event.id} direction="row" spacing={1} alignItems="baseline" sx={{ mt: 0.5 }}>
+                  <Typography variant="caption" sx={{ whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                    {new Date(event.createdAt).toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {event.eventType}
+                  </Typography>
+                  {event.actorUserId && (
+                    <Typography variant="caption" color="text.secondary">
+                      by {event.actorUserId}
+                    </Typography>
+                  )}
+                  {event.data && Object.keys(event.data).length > 0 && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ flexGrow: 1, textAlign: "right", fontFamily: "monospace", fontSize: 11 }}
+                    >
+                      {JSON.stringify(event.data)}
+                    </Typography>
+                  )}
+                </Stack>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Reported location
+            </Typography>
+            {live ? (
+              <>
                 <Typography variant="body2">
                   {live.latitude.toFixed(6)}, {live.longitude.toFixed(6)}
                   {live.address ? ` — ${live.address}` : ""}
@@ -433,7 +483,9 @@ export default function SosIncidentDetailPage() {
                       Original location: {incident.contextSnapshot.incidentLocation.address}
                     </Typography>
                   )}
-              </Box>
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">No reported location.</Typography>
             )}
 
             {incident.locationHistory && incident.locationHistory.length > 0 && (
@@ -474,47 +526,6 @@ export default function SosIncidentDetailPage() {
                 </Stack>
               </Box>
             )}
-
-            <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
-              {incident.contextSnapshot?.ride?.rideId && (
-                <Button
-                  onClick={() => navigate(`/admin/rides/${incident.contextSnapshot!.ride!.rideId}`)}
-                  variant="outlined"
-                  size="small"
-                  startIcon={<ArrowBackIcon sx={{ transform: "rotate(180deg)" }} />}
-                >
-                  Open full ride
-                </Button>
-              )}
-              <Button
-                disabled={patching || incident.status === "ACKNOWLEDGED"}
-                onClick={() => patchStatus("ACKNOWLEDGED")}
-                variant="contained"
-                size="small"
-              >
-                Acknowledge
-              </Button>
-              <Button
-                disabled={patching || incident.status === "RESOLVED"}
-                onClick={() => patchStatus("RESOLVED")}
-                color="success"
-                variant="contained"
-                size="small"
-              >
-                Resolve
-              </Button>
-              {live && mapsLink(live.latitude, live.longitude) && (
-                <Button
-                  href={mapsLink(live.latitude, live.longitude)!}
-                  target="_blank"
-                  rel="noreferrer"
-                  variant="outlined"
-                  size="small"
-                >
-                  Open in maps
-                </Button>
-              )}
-            </Stack>
           </CardContent>
         </Card>
 
@@ -666,6 +677,52 @@ export default function SosIncidentDetailPage() {
                 No live location available.
               </Typography>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+              {incident.contextSnapshot?.ride?.rideId && (
+                <Button
+                  onClick={() => navigate(`/admin/rides/${incident.contextSnapshot!.ride!.rideId}`)}
+                  variant="outlined"
+                  size="small"
+                  startIcon={<ArrowBackIcon sx={{ transform: "rotate(180deg)" }} />}
+                >
+                  Open full ride
+                </Button>
+              )}
+              <Button
+                disabled={patching || incident.status === "ACKNOWLEDGED"}
+                onClick={() => patchStatus("ACKNOWLEDGED")}
+                variant="contained"
+                size="small"
+                sx={{ bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" } }}
+              >
+                Acknowledge
+              </Button>
+              <Button
+                disabled={patching || incident.status === "RESOLVED"}
+                onClick={() => patchStatus("RESOLVED")}
+                color="success"
+                variant="contained"
+                size="small"
+              >
+                Resolve
+              </Button>
+              {live && mapsLink(live.latitude, live.longitude) && (
+                <Button
+                  href={mapsLink(live.latitude, live.longitude)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  variant="outlined"
+                  size="small"
+                >
+                  Open in maps
+                </Button>
+              )}
+            </Stack>
           </CardContent>
         </Card>
       </Stack>
