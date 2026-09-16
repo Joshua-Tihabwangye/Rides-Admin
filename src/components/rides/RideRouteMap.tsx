@@ -25,10 +25,12 @@ function getGoogleMaps(): typeof google.maps | null {
   return typeof globalThis !== "undefined" ? globalThis.google?.maps ?? null : null;
 }
 
-function resolveGoogleMapsApiKey(): string {
-  const raw = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
-  return raw && !/^https?:\/\//i.test(raw) ? raw : "";
-}
+  const fitBounds = useMemo(() => {
+    if (!isLoaded || points.length === 0) return undefined;
+    const bounds = new google.maps.LatLngBounds();
+    points.forEach((p) => bounds.extend(new google.maps.LatLng(p.lat, p.lng)));
+    return bounds;
+  }, [isLoaded, points]);
 
 function CoordinateFallback({
   stops,
