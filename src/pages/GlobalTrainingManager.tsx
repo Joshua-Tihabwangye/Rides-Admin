@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -20,7 +19,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import type { AlertColor, SelectChangeEvent } from "@mui/material";
 import {
+  type AdminCreateTrainingModuleInput,
   createAdminTrainingModule,
   deleteAdminTrainingModule,
   listAdminTrainingModules,
@@ -33,19 +34,51 @@ const EV_COLORS = {
   secondary: "#f77f00",
 };
 
+type UiTrainingStatus = "Draft" | "Published" | "Archived";
+
+type TrainingModuleEditor = {
+  id: string;
+  title: string;
+  audience: string;
+  status: UiTrainingStatus;
+  language: string;
+  description: string;
+};
+
+type TrainingModuleContent = {
+  description: string;
+  audience: string;
+  language: string;
+};
+
+type SnackbarState = {
+  open: boolean;
+  message: string;
+  severity: AlertColor;
+};
+
+const emptyTrainingModule = (): TrainingModuleEditor => ({
+  id: "",
+  title: "",
+  audience: "Drivers",
+  status: "Draft",
+  language: "en",
+  description: "",
+});
+
 function backendStatusToUi(status: AdminTrainingModuleResponse["status"]) {
   if (status === "published") return "Published";
   if (status === "archived") return "Archived";
   return "Draft";
 }
 
-function uiStatusToBackend(status: string) {
+function uiStatusToBackend(status: UiTrainingStatus): AdminCreateTrainingModuleInput["status"] {
   if (status === "Published") return "published";
   if (status === "Archived") return "archived";
   return "draft";
 }
 
-function encodeContent(module) {
+function encodeContent(module: TrainingModuleEditor) {
   return JSON.stringify({
     description: module.description,
     audience: module.audience,
@@ -53,7 +86,7 @@ function encodeContent(module) {
   });
 }
 
-function decodeContent(content) {
+function decodeContent(content?: string): TrainingModuleContent {
   if (!content) {
     return { description: "", audience: "Drivers", language: "en" };
   }
@@ -70,7 +103,7 @@ function decodeContent(content) {
   }
 }
 
-function mapBackendModule(module) {
+function mapBackendModule(module: AdminTrainingModuleResponse): TrainingModuleEditor {
   const decoded = decodeContent(module.content);
   return {
     id: module.id,
@@ -82,7 +115,7 @@ function mapBackendModule(module) {
   };
 }
 
-function mapUiModuleToBackend(module) {
+function mapUiModuleToBackend(module: TrainingModuleEditor): AdminCreateTrainingModuleInput {
   return {
     title: module.title,
     category: module.audience,
@@ -91,7 +124,7 @@ function mapUiModuleToBackend(module) {
   };
 }
 
-function AdminTrainingLayout({ children }) {
+function AdminTrainingLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2">
@@ -114,20 +147,13 @@ function AdminTrainingLayout({ children }) {
 
 export default function GlobalTrainingManagerPage() {
   const navigate = useNavigate();
-  const [modules, setModules] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
-  const [editing, setEditing] = useState({
-    id: "",
-    title: "",
-    audience: "Drivers",
-    status: "Draft",
-    language: "en",
-    description: "",
-  });
+  const [modules, setModules] = useState<TrainingModuleEditor[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<TrainingModuleEditor>(() => emptyTrainingModule());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: "", severity: "success" });
 
   useEffect(() => {
     let active = true;
@@ -140,11 +166,14 @@ export default function GlobalTrainingManagerPage() {
         if (!active) return;
         const mapped = backendModules.map(mapBackendModule);
         setModules(mapped);
-        setSelectedId((prev) => (prev && mapped.some((module) => module.id === prev) ? prev : mapped[0]?.id ?? null));
-        setEditing((prev) => mapped.find((module) => module.id === (selectedId || prev.id)) || mapped[0] || prev);
+        setSelectedId((prev) => {
+          const nextId = prev && mapped.some((module) => module.id === prev) ? prev : mapped[0]?.id ?? null;
+          setEditing(mapped.find((module) => module.id === nextId) || mapped[0] || emptyTrainingModule());
+          return nextId;
+        });
       } catch (err) {
         if (!active) return;
-        setError(err?.message || "Failed to load training modules");
+        setError(err instanceof Error ? err.message : "Failed to load training modules");
       } finally {
         if (active) setLoading(false);
       }
@@ -162,29 +191,24 @@ export default function GlobalTrainingManagerPage() {
     [modules, selectedId],
   );
 
-  const persistLocalCache = (nextModules) => {
+  const persistLocalCache = (nextModules: TrainingModuleEditor[]) => {
     setModules(nextModules);
   };
 
-  const handleRowClick = (module) => {
+  const handleRowClick = (module: TrainingModuleEditor) => {
     setSelectedId(module.id);
     setEditing({ ...module });
   };
 
-  const handleFieldChange = (field) => (event) => {
+  const handleFieldChange =
+    (field: keyof TrainingModuleEditor) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>) => {
     const value = event.target.value;
     setEditing((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleNewModule = () => {
-    const draft = {
-      id: "",
-      title: "",
-      audience: "Drivers",
-      status: "Draft",
-      language: "en",
-      description: "",
-    };
+    const draft = emptyTrainingModule();
     setSelectedId(null);
     setEditing(draft);
   };
@@ -197,17 +221,10 @@ export default function GlobalTrainingManagerPage() {
       const nextModules = modules.filter((module) => module.id !== selectedModule.id);
       persistLocalCache(nextModules);
       setSelectedId(nextModules[0]?.id ?? null);
-      setEditing(nextModules[0] ? { ...nextModules[0] } : {
-        id: "",
-        title: "",
-        audience: "Drivers",
-        status: "Draft",
-        language: "en",
-        description: "",
-      });
+      setEditing(nextModules[0] ? { ...nextModules[0] } : emptyTrainingModule());
       setSnackbar({ open: true, message: "Training module deleted.", severity: "success" });
     } catch (err) {
-      setSnackbar({ open: true, message: err?.message || "Failed to delete module", severity: "error" });
+      setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to delete module", severity: "error" });
     } finally {
       setSaving(false);
     }
@@ -235,7 +252,7 @@ export default function GlobalTrainingManagerPage() {
         setSnackbar({ open: true, message: "Training module updated.", severity: "success" });
       }
     } catch (err) {
-      setSnackbar({ open: true, message: err?.message || "Failed to save module", severity: "error" });
+      setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to save module", severity: "error" });
     } finally {
       setSaving(false);
     }
@@ -419,10 +436,15 @@ export default function GlobalTrainingManagerPage() {
                       bgcolor: "#d97706",
                     },
                   }}
-                  onClick={() => {
-                    if (!editing.title) return;
-                    navigate(`/admin/training/preview?title=${encodeURIComponent(editing.title)}&desc=${encodeURIComponent(editing.description)}`);
-                  }}
+	                  onClick={() => {
+	                    if (!editing.title) return;
+	                    const query = new URLSearchParams({
+	                      title: editing.title,
+	                      desc: editing.description,
+	                    });
+	                    if (editing.id) query.set("moduleId", editing.id);
+	                    navigate(`/admin/training/preview?${query.toString()}`);
+	                  }}
                 >
                   View as User
                 </Button>

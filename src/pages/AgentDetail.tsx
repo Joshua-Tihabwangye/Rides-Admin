@@ -9,7 +9,6 @@ import {
     Avatar,
     Divider,
     Button,
-    Chip,
     Table,
     TableBody,
     TableCell,
@@ -17,10 +16,6 @@ import {
     TableRow,
     TableContainer,
     Paper,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    TextField,
     CircularProgress,
     Alert,
 } from '@mui/material'
@@ -29,10 +24,9 @@ import EmailIcon from '@mui/icons-material/Email'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn'
 import StarIcon from '@mui/icons-material/Star'
-import SendIcon from '@mui/icons-material/Send'
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
 import StatusBadge from '../components/StatusBadge'
-import { getAdminUser, type AdminUserResponse } from '../services/api/adminApi'
+import { getAdminUser, patchAdminUser, type AdminUserResponse } from '../services/api/adminApi'
 
 const EV_GREEN = "#03cd8c";
 
@@ -41,12 +35,9 @@ export default function AgentDetail() {
     const navigate = useNavigate()
     const [agent, setAgent] = useState<AdminUserResponse | null>(null)
     const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [chatOpen, setChatOpen] = React.useState(false);
-    const [chatMessage, setChatMessage] = React.useState('');
-    const [messages, setMessages] = React.useState<{ sender: string, text: string }[]>([
-        { sender: 'System', text: 'Chat session started.' }
-    ]);
+    const [notice, setNotice] = useState<string | null>(null)
 
     useEffect(() => {
         if (!id) return;
@@ -75,10 +66,20 @@ export default function AgentDetail() {
         return colors[agent.id.charCodeAt(0) % colors.length];
     }, [agent?.id]);
 
-    const handleSendChat = () => {
-        if (!chatMessage.trim() || !agent) return;
-        setMessages([...messages, { sender: 'You', text: chatMessage }]);
-        setChatMessage('');
+    const handleStatusChange = async (status: 'active' | 'suspended') => {
+        if (!agent) return;
+        setSaving(true);
+        setError(null);
+        setNotice(null);
+        try {
+            const updated = await patchAdminUser(agent.id, { status });
+            setAgent(updated);
+            setNotice(status === 'active' ? 'Agent account reactivated.' : 'Agent account suspended.');
+        } catch (err) {
+            setError((err as Error)?.message || "Failed to update agent status");
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (loading) {
@@ -105,6 +106,7 @@ export default function AgentDetail() {
     const lastLogin = agent.lastLogin ? new Date(agent.lastLogin).toLocaleString() : "—";
     const team = agent.roles?.[0] || "Admin";
     const roles = agent.roles?.join(", ") || "—";
+    const isSuspended = agent.status === 'Suspended';
 
     return (
         <Box>
@@ -117,6 +119,16 @@ export default function AgentDetail() {
                     Back to Agents
                 </Button>
             </Box>
+            {notice ? (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                    {notice}
+                </Alert>
+            ) : null}
+            {error ? (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+            ) : null}
 
             <Grid container spacing={3}>
                 {/* Left Column: Agent Profile */}
@@ -255,16 +267,21 @@ export default function AgentDetail() {
                                 Communication
                             </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                                Reach out to {agent.name.split(' ')[0]} directly via integrated channels.
+                                Agent messaging is not exposed by the admin backend contract yet. Use backend-supported
+                                user status controls below until an audited messaging endpoint exists.
                             </Typography>
+                            <Alert severity="info" sx={{ mb: 2 }}>
+                                Internal chat has been disabled because there is no admin messaging API for this record.
+                            </Alert>
                             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                                 <Button
-                                    variant="contained"
-                                    startIcon={<SendIcon />}
-                                    onClick={() => setChatOpen(true)}
-                                    sx={{ bgcolor: '#03cd8c', '&:hover': { bgcolor: '#02a16e' }, borderRadius: 2, textTransform: 'none', color: '#fff' }}
+                                    variant="outlined"
+                                    color={isSuspended ? 'success' : 'warning'}
+                                    disabled={saving}
+                                    onClick={() => void handleStatusChange(isSuspended ? 'active' : 'suspended')}
+                                    sx={{ borderRadius: 2, textTransform: 'none' }}
                                 >
-                                    Internal Chat
+                                    {isSuspended ? 'Reactivate account' : 'Suspend account'}
                                 </Button>
                             </Box>
                         </CardContent>
@@ -272,51 +289,6 @@ export default function AgentDetail() {
 
                 </Grid>
             </Grid>
-
-            {/* Chat Dialog */}
-            <Dialog open={chatOpen} onClose={() => setChatOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    Chat with {agent.name}
-                </DialogTitle>
-                <DialogContent sx={{ height: 400, display: 'flex', flexDirection: 'column', p: 0 }}>
-                    <Box sx={{ flex: 1, overflowY: 'auto', p: 2, bgcolor: 'action.hover' }}>
-                        {messages.map((msg, idx) => (
-                            <Box key={idx} sx={{
-                                display: 'flex',
-                                justifyContent: msg.sender === 'You' ? 'flex-end' : 'flex-start',
-                                mb: 1
-                            }}>
-                                <Box sx={{
-                                    p: 1.5,
-                                    borderRadius: 2,
-                                    bgcolor: msg.sender === 'You' ? '#03cd8c' : 'background.paper',
-                                    color: msg.sender === 'You' ? 'white' : 'text.primary',
-                                    boxShadow: 1,
-                                    maxWidth: '70%'
-                                }}>
-                                    <Typography variant="caption" display="block" sx={{ mb: 0.5, opacity: 0.8 }}>
-                                        {msg.sender}
-                                    </Typography>
-                                    <Typography variant="body2">{msg.text}</Typography>
-                                </Box>
-                            </Box>
-                        ))}
-                    </Box>
-                    <Box sx={{ p: 2, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
-                        <TextField
-                            fullWidth
-                            size="small"
-                            placeholder="Type a message..."
-                            value={chatMessage}
-                            onChange={(e) => setChatMessage(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendChat()}
-                        />
-                        <Button variant="contained" onClick={handleSendChat} sx={{ bgcolor: '#03cd8c' }}>
-                            <SendIcon />
-                        </Button>
-                    </Box>
-                </DialogContent>
-            </Dialog>
         </Box>
     )
 }

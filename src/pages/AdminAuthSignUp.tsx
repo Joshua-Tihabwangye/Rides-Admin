@@ -1,5 +1,5 @@
-// @ts-nocheck
 import React, { useState } from "react"
+import type { CSSProperties, FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { registerWithCredentials, signOut } from "../auth/auth"
 import { clearAuthPrefillPassword, saveAuthPrefill } from "../auth/authPrefill"
@@ -12,8 +12,8 @@ const EV = {
   white: "var(--ev-paper, #ffffff)",
 }
 
-function isValidEmail(value) {
-  return /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(value).trim().toLowerCase())
+function isValidEmail(value: string) {
+  return /[^@\s]+@[^@\s]+\.[^@\s]+/.test(value.trim().toLowerCase())
 }
 
 export default function AdminAuthSignUp() {
@@ -26,7 +26,7 @@ export default function AdminAuthSignUp() {
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
 
@@ -50,7 +50,7 @@ export default function AdminAuthSignUp() {
 
     setIsSubmitting(true)
     try {
-      const authUser = await registerWithCredentials({
+      await registerWithCredentials({
         fullName: fullName.trim(),
         email: normalizedEmail,
         phone: phone.trim() || undefined,
@@ -74,7 +74,7 @@ export default function AdminAuthSignUp() {
           <span style={styles.logoText}>EVzone</span>
         </div>
         <h1 style={styles.title}>Create admin account</h1>
-        <p style={styles.subtitle}>Register an admin account and continue straight into the portal.</p>
+        <p style={styles.subtitle}>Register an admin account, then sign in with your backend session.</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <label style={styles.field}>
@@ -151,7 +151,7 @@ export default function AdminAuthSignUp() {
   )
 }
 
-const styles = {
+const styles: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
     display: "flex",

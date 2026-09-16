@@ -1,142 +1,167 @@
-import React, { useState, useEffect } from"react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
   Chip,
-  Button,
-  Divider,
-  Tabs,
-  Tab,
-  TextField,
-  Select,
-  MenuItem,
-  Alert,
-  Snackbar,
   CircularProgress,
-} from"@mui/material";
-import { useNavigate } from"react-router-dom";
-import { listAdminPromos, createAdminPromo, patchAdminPromo } from"../services/api/adminApi";
-import type { AdminPromoResponse, AdminCreatePromoInput } from"../services/api/adminApi";
+  Divider,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Snackbar,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
+} from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material/Select";
+import { useNavigate } from "react-router-dom";
+import {
+  createAdminPromo,
+  listAdminPromos,
+  type AdminCreatePromoInput,
+  type AdminPromoResponse,
+} from "../services/api/adminApi";
 
 const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
+  primary: "#03cd8c",
 };
 
-function AdminPromotionsLayout({ children }) {
+type PromoTab = "rider" | "driver";
+type SnackbarState = {
+  open: boolean;
+  message: string;
+  severity: "success" | "error" | "info";
+};
+
+type PromoDraft = AdminCreatePromoInput;
+
+const DEFAULT_PROMO: PromoDraft = {
+  code: "",
+  description: "",
+  discountType: "percent",
+  discountValue: 10,
+};
+
+function AdminPromotionsLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
+          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
             Promotions & Incentives
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Configure rider-facing promo codes and driver incentives per
-            region, with rules that control eligibility.
+          <Typography variant="caption" color="text.secondary">
+            Configure backend-backed rider promo codes. Driver incentives are shown only when a contract exists.
           </Typography>
         </Box>
       </Box>
-      <Box className="flex-1 flex flex-col gap-3">
-        {children}
-      </Box>
+      <Box className="flex-1 flex flex-col gap-3">{children}</Box>
     </Box>
   );
 }
 
-type Campaign = {
-  id: string;
-  name: string;
-  segment: string;
-  reward: string;
-};
+function rewardLabel(promo: AdminPromoResponse) {
+  if (promo.discountType === "percent") return `${promo.discountValue}% off`;
+  return `UGX ${promo.discountValue.toLocaleString("en-UG")} off`;
+}
+
+function statusChip(status?: AdminPromoResponse["status"]) {
+  const active = status === "active";
+  return (
+    <Chip
+      size="small"
+      label={active ? "Active" : "Inactive"}
+      color={active ? "success" : "default"}
+      sx={{ fontSize: 10, height: 22 }}
+    />
+  );
+}
 
 export default function PromotionsIncentivesPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("rider");
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [tab, setTab] = useState<PromoTab>("rider");
+  const [promos, setPromos] = useState<AdminPromoResponse[]>([]);
+  const [draft, setDraft] = useState<PromoDraft>(DEFAULT_PROMO);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: "", severity: "info" });
 
-  const fetchCampaigns = async () => {
+  const fetchPromos = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await listAdminPromos();
-      const mapped: Campaign[] = data.map(promo => ({
-        id: promo.id,
-        name: promo.code,
-        segment: "All users", // backend may not have segment; could add later
-        reward: promo.discountType === "percent" ? `${promo.discountValue}% off` : `UGX ${promo.discountValue} off`,
-      }));
-      setCampaigns(mapped);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load promotions');
+      setPromos(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load promotions");
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchCampaigns();
   }, []);
 
-  const handleTabChange = (event, value) => {
+  useEffect(() => {
+    void fetchPromos();
+  }, [fetchPromos]);
+
+  const activePromos = useMemo(() => promos.filter((promo) => promo.status === "active"), [promos]);
+
+  const handleTabChange = (_event: React.SyntheticEvent, value: number) => {
     setTab(value === 0 ? "rider" : "driver");
   };
 
-  const campaignsByTab = tab === "rider"
-    ? campaigns.filter(c => c.id.startsWith("PROMO"))
-    : campaigns.filter(c => c.id.startsWith("INCENTIVE"));
+  const updateDraft =
+    (field: keyof PromoDraft) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = field === "discountValue" ? Number(event.target.value) : event.target.value;
+      setDraft((prev) => ({ ...prev, [field]: value }));
+    };
 
-  const handleCampaignClick = (campaign) => {
-    navigate(`/admin/promos/${campaign.id}`);
+  const updateDiscountType = (event: SelectChangeEvent<PromoDraft["discountType"]>) => {
+    setDraft((prev) => ({ ...prev, discountType: event.target.value as PromoDraft["discountType"] }));
   };
 
-  const handleSaveRule = async (rule: any) => {
+  const savePromo = async () => {
+    if (!draft.code.trim()) {
+      setSnackbar({ open: true, message: "Promo code is required.", severity: "error" });
+      return;
+    }
+    if (!Number.isFinite(draft.discountValue) || draft.discountValue <= 0) {
+      setSnackbar({ open: true, message: "Discount value must be greater than zero.", severity: "error" });
+      return;
+    }
+
+    setSaving(true);
     try {
-      if (tab === "rider") {
-        await createAdminPromo({
-          code: rule.audience.substring(0, 5).toUpperCase(),
-          description: rule.trigger,
-          discountType: "percent",
-          discountValue: parseInt(rule.rewardValue) || 0,
-        });
-      } else {
-        // For driver incentives, maybe use a different endpoint; for now just create a promo as placeholder
-        await createAdminPromo({
-          code: `INC-${Date.now()}`,
-          description: rule.trigger,
-          discountType: "flat",
-          discountValue: parseInt(rule.rewardValue) || 0,
-        });
-      }
-      setSnackbarOpen(true);
-      fetchCampaigns();
-    } catch (e: any) {
-      console.error("Failed to save rule:", e);
+      await createAdminPromo({
+        code: draft.code.trim().toUpperCase(),
+        description: draft.description?.trim() || undefined,
+        discountType: draft.discountType,
+        discountValue: draft.discountValue,
+      });
+      setDraft(DEFAULT_PROMO);
+      await fetchPromos();
+      setSnackbar({ open: true, message: "Promotion saved.", severity: "success" });
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : "Failed to save promotion",
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <AdminPromotionsLayout>
-      <Card
-        elevation={1}
-        sx={{
-          borderRadius: 8,
-          border: "1px solid rgba(148,163,184,0.5)",
-        }}
-      >
+      {error ? <Alert severity="error">{error}</Alert> : null}
+      <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
         <CardContent className="p-0 flex flex-col">
           <Tabs
             value={tab === "rider" ? 0 : 1}
@@ -145,218 +170,114 @@ export default function PromotionsIncentivesPage() {
             textColor="primary"
             indicatorColor="primary"
           >
-            <Tab
-              label="Rider promotions"
-              sx={{ textTransform: "none", fontSize: 13 }}
-            />
-            <Tab
-              label="Driver incentives"
-              sx={{ textTransform: "none", fontSize: 13 }}
-            />
+            <Tab label="Rider promotions" sx={{ textTransform: "none", fontSize: 13 }} />
+            <Tab label="Driver incentives" sx={{ textTransform: "none", fontSize: 13 }} />
           </Tabs>
 
           <Divider />
 
-          <Box className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {campaignsByTab.map((campaign) => (
-              <Card
-                key={campaign.id}
-                elevation={0}
-                sx={{
-                  borderRadius: 8,
-                  border: "1px solid rgba(148,163,184,0.4)",
-                  cursor: "pointer",
-                }}
-                onClick={() => handleCampaignClick(campaign)}
-              >
-                <CardContent className="p-3 flex flex-col gap-1">
-                  <Typography
-                    variant="caption"
-                    className="text-[11px] text-slate-500"
-                  >
-                    {campaign.id}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    className="text-[13px] font-semibold"
-                  >
-                    {campaign.name}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    className="text-[11px] text-slate-500"
-                  >
-                    {campaign.segment}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    className="text-[12px] text-slate-500"
-                  >
-                    {campaign.reward}
-                  </Typography>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
+          {tab === "rider" ? (
+            <Box className="p-4">
+              <Box className="flex flex-wrap gap-2 mb-3">
+                <Chip size="small" label={`${promos.length} promo codes`} />
+                <Chip size="small" color="success" label={`${activePromos.length} active`} />
+                <Button size="small" onClick={() => void fetchPromos()} disabled={loading} sx={{ textTransform: "none", ml: "auto" }}>
+                  Refresh
+                </Button>
+              </Box>
+              {loading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                  <CircularProgress size={26} />
+                </Box>
+              ) : (
+                <Box className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {promos.map((promo) => (
+                    <Card
+                      key={promo.id}
+                      elevation={0}
+                      sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.4)", cursor: "pointer" }}
+                      onClick={() => navigate(`/admin/promos/${promo.id}`)}
+                    >
+                      <CardContent className="p-3 flex flex-col gap-1">
+                        <Box className="flex items-center justify-between gap-2">
+                          <Typography variant="body2" className="text-[13px] font-semibold">
+                            {promo.code}
+                          </Typography>
+                          {statusChip(promo.status)}
+                        </Box>
+                        <Typography variant="caption" className="text-[11px] text-slate-500">
+                          {promo.description || "No description"}
+                        </Typography>
+                        <Typography variant="body2" className="text-[12px] text-slate-500">
+                          {rewardLabel(promo)}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  {promos.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center", gridColumn: "1 / -1" }}>
+                      No promotions configured.
+                    </Typography>
+                  ) : null}
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Box className="p-4">
+              <Alert severity="info">
+                Driver incentives are not exposed by the admin promotions backend contract yet. This tab will remain read-only until an incentive API exists.
+              </Alert>
+            </Box>
+          )}
         </CardContent>
       </Card>
 
-      {/* Rule builder */}
-      <RuleBuilder
-        contextLabel={tab === "rider" ? "Rider promotions" : "Driver incentives"}
-        onSave={handleSaveRule}
-      />
+      {tab === "rider" ? (
+        <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)", mt: 3 }}>
+          <CardContent className="p-4 flex flex-col gap-3">
+            <Typography variant="subtitle2" className="font-semibold">
+              New rider promo code
+            </Typography>
+            <Typography variant="caption" className="text-[11px] text-slate-500">
+              Only fields supported by the backend promo contract are editable here.
+            </Typography>
+            <Box className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              <TextField label="Promo code" size="small" value={draft.code} onChange={updateDraft("code")} />
+              <TextField label="Description" size="small" value={draft.description ?? ""} onChange={updateDraft("description")} />
+              <FormControl size="small">
+                <InputLabel>Discount type</InputLabel>
+                <Select label="Discount type" value={draft.discountType} onChange={updateDiscountType}>
+                  <MenuItem value="percent">Percent</MenuItem>
+                  <MenuItem value="flat">Flat amount</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField label="Discount value" size="small" type="number" value={draft.discountValue} onChange={updateDraft("discountValue")} />
+            </Box>
+            <Box className="flex justify-end">
+              <Button
+                variant="contained"
+                size="small"
+                disabled={saving}
+                sx={{ textTransform: "none", borderRadius: 2, fontSize: 12, bgcolor: EV_COLORS.primary, "&:hover": { bgcolor: "#0fb589" } }}
+                onClick={() => void savePromo()}
+              >
+                {saving ? "Saving..." : "Save promo"}
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Snackbar
-        open={snackbarOpen}
+        open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity="success" onClose={() => setSnackbarOpen(false)}>
-          Rule saved successfully!
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}>
+          {snackbar.message}
         </Alert>
       </Snackbar>
     </AdminPromotionsLayout>
-  );
-}
-
-function RuleBuilder({ contextLabel, onSave }) {
-  const [rule, setRule] = useState({
-    audience: "New riders",
-    trigger: "Trip completed",
-    minTrips: "",
-    window: "7d",
-    rewardType: "Percent discount",
-    rewardValue: "",
-  });
-
-  const handleChange = (field) => (event) => {
-    setRule((prev) => ({ ...prev, [field]: event.target.value }));
-  };
-
-  const handleNumberChange = (field) => (event) => {
-    const value = event.target.value;
-    setRule((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handlePreview = () => {
-    const previewText = `Rule Preview:\n\nIF ${rule.audience} ${rule.trigger === "Trip completed" ? "completes" : rule.trigger === "X trips in window" ? "completes" : "signs up"} ${rule.minTrips} ${Number(rule.minTrips) > 1 ? "trips" : "trip"} in ${rule.window},\nTHEN apply ${rule.rewardValue}${rule.rewardType === "Percent discount" ? "% discount" : rule.rewardType === "Fixed amount" ? " off" : " bonus payout"}.\n\nThis rule will be active for ${contextLabel.toLowerCase()}.`;
-    alert(previewText);
-  };
-
-  const handleSave = () => {
-    onSave(rule);
-  };
-
-  return (
-    <Card
-      elevation={1}
-      sx={{
-        borderRadius: 8,
-        border: "1px solid rgba(148,163,184,0.5)",
-        mt: 3,
-      }}
-    >
-      <CardContent className="p-4 flex flex-col gap-3">
-        <Typography
-          variant="subtitle2"
-          className="font-semibold"
-        >
-          Rule & eligibility builder ({contextLabel})
-        </Typography>
-        <Typography
-          variant="caption"
-          className="text-[11px] text-slate-500"
-        >
-          Define who qualifies and what reward they receive.
-        </Typography>
-
-        <Box className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-          <Box className="flex flex-col gap-1">
-            <Typography variant="caption" className="text-[11px] text-slate-500">Audience</Typography>
-            <Select size="small" value={rule.audience} onChange={handleChange("audience")} fullWidth>
-              <MenuItem value="New riders">New riders</MenuItem>
-              <MenuItem value="All riders">All riders</MenuItem>
-              <MenuItem value="Churned riders">Churned riders (no trips in 30d)</MenuItem>
-              <MenuItem value="EV drivers">EV drivers</MenuItem>
-            </Select>
-          </Box>
-
-          <Box className="flex flex-col gap-1">
-            <Typography variant="caption" className="text-[11px] text-slate-500">Trigger</Typography>
-            <Select size="small" value={rule.trigger} onChange={handleChange("trigger")} fullWidth>
-              <MenuItem value="Trip completed">Trip completed</MenuItem>
-              <MenuItem value="X trips in window">X trips within time window</MenuItem>
-              <MenuItem value="Signup">Signup</MenuItem>
-            </Select>
-          </Box>
-
-          <Box className="flex flex-col gap-1">
-            <Typography variant="caption" className="text-[11px] text-slate-500">Min trips in window</Typography>
-            <TextField
-              size="small"
-              type="number"
-              value={rule.minTrips}
-              onChange={handleNumberChange("minTrips")}
-              inputProps={{ min: 1 }}
-              placeholder="e.g. 1"
-            />
-          </Box>
-
-          <Box className="flex flex-col gap-1">
-            <Typography variant="caption" className="text-[11px] text-slate-500">Time window</Typography>
-            <Select size="small" value={rule.window} onChange={handleChange("window")} fullWidth>
-              <MenuItem value="24h">Last 24h</MenuItem>
-              <MenuItem value="7d">Last 7 days</MenuItem>
-              <MenuItem value="30d">Last 30 days</MenuItem>
-            </Select>
-          </Box>
-
-          <Box className="flex flex-col gap-1">
-            <Typography variant="caption" className="text-[11px] text-slate-500">Reward type</Typography>
-            <Select size="small" value={rule.rewardType} onChange={handleChange("rewardType")} fullWidth>
-              <MenuItem value="Percent discount">Percent discount</MenuItem>
-              <MenuItem value="Fixed amount">Fixed amount off</MenuItem>
-              <MenuItem value="Bonus payout">Bonus payout (drivers)</MenuItem>
-            </Select>
-          </Box>
-
-          <Box className="flex flex-col gap-1">
-            <Typography variant="caption" className="text-[11px] text-slate-500">Reward value</Typography>
-            <TextField
-              size="small"
-              value={rule.rewardValue}
-              onChange={handleChange("rewardValue")}
-              placeholder="e.g. 10 or 5.00"
-            />
-          </Box>
-        </Box>
-
-        <Box className="flex items-center justify-between mt-1">
-          <Typography variant="caption" className="text-[11px] text-slate-500">
-            Example: IF {rule.audience} completes {rule.minTrips} trips in {rule.window}, THEN apply {rule.rewardValue} {rule.rewardType === "Percent discount" ? "% discount" : ""}.
-          </Typography>
-          <Box className="flex gap-1">
-            <Button
-              variant="outlined"
-              size="small"
-              sx={{ textTransform: "none", borderRadius: 999, fontSize: 12 }}
-              onClick={handlePreview}
-            >
-              Preview rule
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              sx={{ textTransform: "none", borderRadius: 999, fontSize: 12, bgcolor: EV_COLORS.primary, "&:hover": { bgcolor: "#0fb589" } }}
-              onClick={handleSave}
-            >
-              Save rule
-            </Button>
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
   );
 }

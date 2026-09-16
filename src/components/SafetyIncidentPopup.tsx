@@ -10,6 +10,8 @@ import {
   Typography,
 } from "@mui/material"
 import CloseIcon from "@mui/icons-material/Close"
+import LocationOnIcon from "@mui/icons-material/LocationOn"
+import MapIcon from "@mui/icons-material/Map"
 import SmsFailedIcon from "@mui/icons-material/SmsFailed"
 import {
   createAdminSocket,
@@ -74,6 +76,11 @@ function formatIncidentTime(value?: string | null): string | null {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+}
+
+function mapsLink(latitude?: number | null, longitude?: number | null): string | null {
+  if (latitude == null || longitude == null) return null
+  return `https://www.google.com/maps?q=${Number(latitude)},${Number(longitude)}`
 }
 
 const MAX_STACKED = 3
@@ -205,11 +212,16 @@ export default function SafetyIncidentPopup() {
         display: "flex",
         flexDirection: "column",
         gap: 1.5,
-        maxWidth: 380,
-        width: "calc(100% - 32px)",
+        maxWidth: 420,
+        width: { xs: "calc(100% - 32px)", sm: 420 },
+        maxHeight: "calc(100vh - 96px)",
+        overflowY: "auto",
       }}
     >
-      {alerts.map((alert) => (
+      {alerts.map((alert) => {
+        const mapUrl = mapsLink(alert.latitude, alert.longitude)
+
+        return (
         <Paper
           key={alert.uid}
           elevation={12}
@@ -229,12 +241,12 @@ export default function SafetyIncidentPopup() {
             },
           }}
         >
-          <Box sx={{ bgcolor: "#fef2f2", borderBottom: "1px solid #fecaca", px: 2, py: 1.5 }}>
+          <Box sx={{ bgcolor: "#fef2f2", borderBottom: "1px solid #fecaca", px: 2, py: 1.25 }}>
             <Stack direction="row" spacing={1.25} alignItems="center">
               <Box
                 sx={{
-                  width: 38,
-                  height: 38,
+                  width: 36,
+                  height: 36,
                   borderRadius: "50%",
                   bgcolor: "#dc2626",
                   color: "#fff",
@@ -271,27 +283,31 @@ export default function SafetyIncidentPopup() {
               </IconButton>
             </Stack>
           </Box>
-          <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: 2 }}>
+          <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: 1.75 }}>
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              {alert.riderName ? (
-                <Typography variant="caption" sx={{ color: "#475569", display: "block", fontWeight: 700 }}>
-                  Rider: {alert.riderName}
-                  {alert.riderPhone ? ` · ${alert.riderPhone}` : ""}
-                </Typography>
-              ) : null}
-              {alert.vehicleInfo ? (
-                <Typography variant="caption" sx={{ color: "#475569", display: "block", mt: 0.5 }}>
-                  Vehicle: {alert.vehicleInfo}
-                </Typography>
-              ) : null}
-              {alert.tripStatus ? (
-                <Typography variant="caption" sx={{ color: "#475569", display: "block", mt: 0.5 }}>
-                  Trip status: {alert.tripStatus}
-                </Typography>
+              {(alert.riderName || alert.vehicleInfo || alert.tripStatus) ? (
+                <Box sx={{ display: "grid", gap: 0.5, p: 1.1, borderRadius: 1.5, bgcolor: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  {alert.riderName ? (
+                    <Typography variant="caption" sx={{ color: "#334155", display: "block", fontWeight: 800 }}>
+                      Rider: {alert.riderName}
+                      {alert.riderPhone ? ` · ${alert.riderPhone}` : ""}
+                    </Typography>
+                  ) : null}
+                  {alert.vehicleInfo ? (
+                    <Typography variant="caption" sx={{ color: "#475569", display: "block" }}>
+                      Vehicle: {alert.vehicleInfo}
+                    </Typography>
+                  ) : null}
+                  {alert.tripStatus ? (
+                    <Typography variant="caption" sx={{ color: "#475569", display: "block" }}>
+                      Trip status: {alert.tripStatus}
+                    </Typography>
+                  ) : null}
+                </Box>
               ) : null}
               {alert.message ? (
                 <Box sx={{ mt: 1, p: 1.25, borderRadius: 1.5, bgcolor: "#fff7ed", border: "1px solid #fed7aa" }}>
-                  <Typography variant="body2" sx={{ fontSize: 12, color: "#7c2d12", fontWeight: 700, wordBreak: "break-word" }}>
+                  <Typography variant="body2" sx={{ fontSize: 12.5, color: "#7c2d12", fontWeight: 700, lineHeight: 1.45, wordBreak: "break-word" }}>
                     {alert.message}
                   </Typography>
                 </Box>
@@ -302,16 +318,22 @@ export default function SafetyIncidentPopup() {
                   {alert.serviceId ? ` (${alert.serviceId})` : ""}
                 </Typography>
               ) : null}
-              {alert.address ? (
-                <Typography variant="caption" sx={{ color: "#334155", display: "block", mt: 0.5, fontWeight: 700 }}>
-                  Location: {alert.address}
-                </Typography>
-              ) : null}
-              {alert.latitude != null && alert.longitude != null ? (
-                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mt: 0.5, fontFamily: "monospace" }}>
-                  {alert.address ? "Coordinates: " : "Location: "}
-                  {Number(alert.latitude).toFixed(5)}, {Number(alert.longitude).toFixed(5)}
-                </Typography>
+              {(alert.address || (alert.latitude != null && alert.longitude != null)) ? (
+                <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mt: 1, p: 1.1, borderRadius: 1.5, bgcolor: "#fef2f2", border: "1px solid #fecaca" }}>
+                  <LocationOnIcon sx={{ color: "#dc2626", fontSize: 18, mt: 0.1 }} />
+                  <Box sx={{ minWidth: 0 }}>
+                    {alert.address ? (
+                      <Typography variant="caption" sx={{ color: "#334155", display: "block", fontWeight: 800, lineHeight: 1.35 }}>
+                        {alert.address}
+                      </Typography>
+                    ) : null}
+                    {alert.latitude != null && alert.longitude != null ? (
+                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mt: 0.3, fontFamily: "monospace" }}>
+                        {Number(alert.latitude).toFixed(5)}, {Number(alert.longitude).toFixed(5)}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                </Stack>
               ) : null}
               {formatIncidentTime(alert.createdAt) ? (
                 <Typography variant="caption" sx={{ color: "#64748b", display: "block", mt: 0.5 }}>
@@ -328,17 +350,34 @@ export default function SafetyIncidentPopup() {
                   sx={{ display: "block", width: "100%", mt: 1, height: 36, borderRadius: 1 }}
                 />
               ) : null}
-              <Button
-                size="small"
-                variant="contained"
-                sx={{ mt: 1.25, fontSize: 11, fontWeight: 900, textTransform: "none", bgcolor: "#dc2626", "&:hover": { bgcolor: "#b91c1c" } }}
-              >
-                Open emergency incident
-              </Button>
+              <Stack direction="row" spacing={1} sx={{ mt: 1.25 }}>
+                <Button
+                  size="small"
+                  variant="contained"
+                  sx={{ flex: 1, fontSize: 11, fontWeight: 900, textTransform: "none", bgcolor: "#dc2626", "&:hover": { bgcolor: "#b91c1c" } }}
+                >
+                  Open emergency incident
+                </Button>
+                {mapUrl ? (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    href={mapUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    startIcon={<MapIcon sx={{ fontSize: 15 }} />}
+                    onClick={(event) => event.stopPropagation()}
+                    sx={{ fontSize: 11, fontWeight: 800, textTransform: "none", borderColor: "#fecaca", color: "#b91c1c" }}
+                  >
+                    Maps
+                  </Button>
+                ) : null}
+              </Stack>
             </Box>
           </Stack>
         </Paper>
-      ))}
+        )
+      })}
     </Box>
   )
 }

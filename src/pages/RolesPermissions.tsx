@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -21,15 +20,22 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import type { AlertColor } from "@mui/material";
 import PageStateCard from "../components/PageStateCard";
 import { getAuthRoles } from "../auth/auth";
 import { hasPermissionByRoles } from "../auth/permissions";
-import { createAdminRole, listAdminRoles, patchAdminRole } from "../services/api/adminApi";
+import { createAdminRole, listAdminRoles, patchAdminRole, type AdminRoleResponse } from "../services/api/adminApi";
 
-const PERMISSIONS = ["View", "Edit", "Suspend/Block", "Configure"];
-const RESOURCES = ["Riders", "Drivers", "Companies", "Agents", "Payouts", "Roles & RBAC", "System flags"];
+const PERMISSIONS = ["View", "Edit", "Suspend/Block", "Configure"] as const;
+const RESOURCES = ["Riders", "Drivers", "Companies", "Agents", "Payouts", "Roles & RBAC", "System flags"] as const;
 
-function AdminRolesLayout({ children }) {
+type PermissionLabel = (typeof PERMISSIONS)[number];
+type ResourceLabel = (typeof RESOURCES)[number];
+type PermissionMatrix = Record<ResourceLabel, Record<PermissionLabel, boolean>>;
+type StatusState = { type: AlertColor; message: string } | null;
+type NewRoleState = { name: string; description: string };
+
+function AdminRolesLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2">
@@ -43,10 +49,10 @@ function AdminRolesLayout({ children }) {
   );
 }
 
-function parsePermissionMatrix(permissions = []) {
-  const matrix = {};
+function parsePermissionMatrix(permissions: string[] = []): PermissionMatrix {
+  const matrix = {} as PermissionMatrix;
   RESOURCES.forEach((resource) => {
-    matrix[resource] = {};
+    matrix[resource] = {} as Record<PermissionLabel, boolean>;
     PERMISSIONS.forEach((perm) => {
       matrix[resource][perm] = permissions.includes(`${resource}:${perm}`);
     });
@@ -54,8 +60,8 @@ function parsePermissionMatrix(permissions = []) {
   return matrix;
 }
 
-function flattenPermissionMatrix(matrix) {
-  const output = [];
+function flattenPermissionMatrix(matrix: PermissionMatrix) {
+  const output: string[] = [];
   RESOURCES.forEach((resource) => {
     PERMISSIONS.forEach((perm) => {
       if (matrix?.[resource]?.[perm]) output.push(`${resource}:${perm}`);
@@ -64,7 +70,15 @@ function flattenPermissionMatrix(matrix) {
   return output;
 }
 
-function RoleMatrix({ role, onToggle, disabled }) {
+function RoleMatrix({
+  role,
+  onToggle,
+  disabled,
+}: {
+  role: AdminRoleResponse;
+  onToggle: (resource: ResourceLabel, permission: PermissionLabel) => void;
+  disabled: boolean;
+}) {
   const matrix = useMemo(() => parsePermissionMatrix(role?.permissions || []), [role]);
 
   return (
@@ -101,17 +115,17 @@ function RoleMatrix({ role, onToggle, disabled }) {
 }
 
 export default function RolesPermissionsPage() {
-  const [roles, setRoles] = useState([]);
+  const [roles, setRoles] = useState<AdminRoleResponse[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [newRole, setNewRole] = useState({ name: "", description: "" });
-  const [status, setStatus] = useState(null);
+  const [newRole, setNewRole] = useState<NewRoleState>({ name: "", description: "" });
+  const [status, setStatus] = useState<StatusState>(null);
   const [loading, setLoading] = useState(true);
 
   const canManageRoles = hasPermissionByRoles(getAuthRoles(), "manage_roles");
   const selectedRole = useMemo(() => roles.find((role) => role.id === selectedRoleId) || roles[0], [roles, selectedRoleId]);
 
-  const loadRoles = async () => {
+  const loadRoles = useCallback(async () => {
     setLoading(true);
     try {
       const rows = await listAdminRoles();
@@ -124,11 +138,11 @@ export default function RolesPermissionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadRoles();
-  }, []);
+  }, [loadRoles]);
 
   const handleCreateRole = async () => {
     if (!canManageRoles) {
@@ -149,7 +163,7 @@ export default function RolesPermissionsPage() {
     }
   };
 
-  const handleTogglePermission = async (resource, perm) => {
+  const handleTogglePermission = async (resource: ResourceLabel, perm: PermissionLabel) => {
     if (!selectedRole || !canManageRoles) {
       setStatus({ type: "warning", message: "Your account cannot update role permissions." });
       return;

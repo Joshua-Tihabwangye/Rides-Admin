@@ -1,46 +1,86 @@
-// @ts-nocheck
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Box, Card, CardContent, Typography, Button, Chip, Divider, CircularProgress, Alert } from "@mui/material";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Divider,
+  Typography,
+} from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { getAdminPromo } from "../services/api/adminApi";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import {
+  getAdminPromo,
+  patchAdminPromo,
+  type AdminPromoResponse,
+} from "../services/api/adminApi";
 
 const EV_COLORS = {
   primary: "#03cd8c",
-  secondary: "#f77f00",
-  blue: "#3b82f6",
-  red: "#ef4444",
 };
+
+function formatDate(value?: number) {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleDateString();
+}
+
+function discountLabel(promo: AdminPromoResponse) {
+  if (promo.discountType === "percent") return `${promo.discountValue}% off`;
+  return `Flat ${promo.discountValue.toLocaleString("en-UG")} off`;
+}
 
 export default function PromoDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [promo, setPromo] = useState(null);
+  const [promo, setPromo] = useState<AdminPromoResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!id) {
       setLoading(false);
       setError("No promo ID provided");
       return;
     }
 
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getAdminPromo(id);
-        setPromo(data);
-      } catch (err) {
-        setError(err?.message || "Failed to load promo");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void load();
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getAdminPromo(id);
+      setPromo(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load promo");
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const updateStatus = async (status: "active" | "inactive") => {
+    if (!promo) return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const updated = await patchAdminPromo(promo.id, { status });
+      setPromo(updated);
+      setNotice(`Promo ${status === "active" ? "activated" : "paused"} successfully.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update promo status");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -54,13 +94,7 @@ export default function PromoDetail() {
     return <Alert severity="error">{error || "Promo not found"}</Alert>;
   }
 
-  const status = promo.status === "active" ? "Active" : "Inactive";
-  const discountLabel =
-    promo.discountType === "percent"
-      ? `${promo.discountValue}% off`
-      : promo.discountType === "flat"
-      ? `Flat ${promo.discountValue} off`
-      : `${promo.discountValue}`;
+  const active = promo.status === "active";
 
   return (
     <Box className="flex flex-col gap-6">
@@ -81,15 +115,18 @@ export default function PromoDetail() {
           </Typography>
         </Box>
         <Chip
-          label={status}
+          label={active ? "Active" : "Inactive"}
           size="small"
           sx={{
-            bgcolor: status === "Active" ? "#03cd8c15" : "#ef444420",
-            color: status === "Active" ? "#059669" : "#dc2626",
+            bgcolor: active ? "#03cd8c15" : "#ef444420",
+            color: active ? "#059669" : "#dc2626",
             fontWeight: 600,
           }}
         />
       </Box>
+
+      {notice ? <Alert severity="success">{notice}</Alert> : null}
+      {error ? <Alert severity="error">{error}</Alert> : null}
 
       <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
         <CardContent sx={{ p: 3 }}>
@@ -110,7 +147,7 @@ export default function PromoDetail() {
                 Discount
               </Typography>
               <Typography variant="body2" fontWeight={600} color="text.primary">
-                {discountLabel}
+                {discountLabel(promo)}
               </Typography>
             </Box>
             <Box>
@@ -118,7 +155,7 @@ export default function PromoDetail() {
                 Created
               </Typography>
               <Typography variant="body2" fontWeight={600} color="text.primary">
-                {promo.createdAt ? new Date(promo.createdAt).toLocaleDateString() : "N/A"}
+                {formatDate(promo.createdAt)}
               </Typography>
             </Box>
             <Box>
@@ -126,7 +163,7 @@ export default function PromoDetail() {
                 Updated
               </Typography>
               <Typography variant="body2" fontWeight={600} color="text.primary">
-                {promo.updatedAt ? new Date(promo.updatedAt).toLocaleDateString() : "N/A"}
+                {formatDate(promo.updatedAt)}
               </Typography>
             </Box>
           </Box>
@@ -140,8 +177,7 @@ export default function PromoDetail() {
           </Typography>
           <Divider sx={{ mb: 2 }} />
           <Typography variant="body2" color="text.secondary">
-            Detailed redemption analytics are not available from the backend for this promo. Once the backend exposes
-            promo analytics, they will be displayed here.
+            Detailed redemption analytics are not available from the backend for this promo yet.
           </Typography>
         </CardContent>
       </Card>
@@ -152,21 +188,34 @@ export default function PromoDetail() {
             Campaign Actions
           </Typography>
           <Box className="flex gap-2 flex-wrap">
-            <Button variant="outlined" size="small" sx={{ textTransform: "none", borderRadius: 2 }}>
-              Edit Campaign
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<RefreshIcon />}
+              disabled={saving}
+              onClick={() => void load()}
+              sx={{ textTransform: "none", borderRadius: 2 }}
+            >
+              Refresh
             </Button>
-            <Button variant="outlined" size="small" color="warning" sx={{ textTransform: "none", borderRadius: 2 }}>
-              Pause Campaign
-            </Button>
-            <Button variant="outlined" size="small" color="error" sx={{ textTransform: "none", borderRadius: 2 }}>
-              End Campaign
+            <Button
+              variant="outlined"
+              size="small"
+              color={active ? "warning" : "success"}
+              disabled={saving}
+              onClick={() => void updateStatus(active ? "inactive" : "active")}
+              sx={{ textTransform: "none", borderRadius: 2 }}
+            >
+              {active ? "Pause Campaign" : "Activate Campaign"}
             </Button>
             <Button
               variant="contained"
               size="small"
+              disabled={saving || !active}
+              onClick={() => void updateStatus("inactive")}
               sx={{ textTransform: "none", borderRadius: 2, bgcolor: EV_COLORS.primary, ml: "auto" }}
             >
-              Duplicate Campaign
+              End Campaign
             </Button>
           </Box>
         </CardContent>

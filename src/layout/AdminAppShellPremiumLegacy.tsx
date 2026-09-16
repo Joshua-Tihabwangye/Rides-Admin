@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from"react";
 import {
   Box,
@@ -25,6 +24,7 @@ import {
   useLocation,
   useNavigate,
 } from"react-router-dom";
+import type { SelectChangeEvent } from "@mui/material/Select";
 
 // Premium EVzone Admin App Shell
 // -------------------------------
@@ -63,7 +63,18 @@ const EV_COLORS = {
 
 const drawerWidth = 260;
 
-const NAV_SECTIONS = [
+type NavItemConfig = {
+  label: string;
+  to: string;
+};
+
+type NavSection = {
+  id: string;
+  label: string;
+  items: NavItemConfig[];
+};
+
+const NAV_SECTIONS: NavSection[] = [
   {
     id:"overview",
     label:"Overview & Ops",
@@ -119,7 +130,7 @@ const NAV_SECTIONS = [
   },
 ];
 
-function Placeholder({ title }) {
+function Placeholder({ title }: { title: string }) {
   return (
     <Box className="p-6">
       <Typography variant="h5" className="font-semibold mb-2">
@@ -133,7 +144,7 @@ function Placeholder({ title }) {
 }
 
 export default function AdminAppShell() {
-  const [mode, setMode] = useState("light");
+  const [mode, setMode] = useState<"light" | "dark">("light");
   const isDark = mode ==="dark";
 
   const toggleMode = () => {
@@ -358,7 +369,7 @@ export default function AdminAppShell() {
   );
 }
 
-function NavItem({ to, label }) {
+function NavItem({ to, label }: NavItemConfig) {
   const location = useLocation();
   const isActive = location.pathname === to;
 
@@ -401,13 +412,13 @@ function NavItem({ to, label }) {
   );
 }
 
-function ShellAppBar({ isDark, toggleMode }) {
+function ShellAppBar({ isDark, toggleMode }: { isDark: boolean; toggleMode: () => void }) {
   const [search, setSearch] = useState("");
   const [language, setLanguage] = useState("en");
   const [currency, setCurrency] = useState("USD");
   const navigate = useNavigate();
 
-  const handleSearchSubmit = (event) => {
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = search.trim();
     if (!trimmed) return;
@@ -512,7 +523,7 @@ function ShellAppBar({ isDark, toggleMode }) {
           <Select
             size="small"
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
+            onChange={(event: SelectChangeEvent<string>) => setLanguage(event.target.value)}
             sx={{
               minWidth: 80,"& .MuiOutlinedInput-root": {
                 borderRadius: 999,
@@ -527,7 +538,7 @@ function ShellAppBar({ isDark, toggleMode }) {
           <Select
             size="small"
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            onChange={(event: SelectChangeEvent<string>) => setCurrency(event.target.value)}
             sx={{
               minWidth: 80,"& .MuiOutlinedInput-root": {
                 borderRadius: 999,

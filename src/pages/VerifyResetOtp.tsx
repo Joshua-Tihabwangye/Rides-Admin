@@ -1,5 +1,5 @@
-// @ts-nocheck
 import React, { useState } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { requestPasswordReset, verifyPasswordResetOtp } from "../auth/auth";
 import { readAuthPrefill, saveAuthPrefill } from "../auth/authPrefill";
@@ -12,18 +12,28 @@ const EV = {
   white: "var(--ev-paper, #ffffff)",
 };
 
+type VerifyResetState = {
+  email?: unknown;
+  otp?: unknown;
+} | null;
+
+function stringState(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
 export default function VerifyResetOtp() {
   const navigate = useNavigate();
   const location = useLocation();
   const prefill = React.useMemo(() => readAuthPrefill(), []);
-  const state = location.state || {};
-  const [email, setEmail] = useState((state.email || prefill.email || prefill.identity || "").trim().toLowerCase());
-  const [otp, setOtp] = useState(state.otp || "");
+  const state = location.state as VerifyResetState;
+  const initialEmail = stringState(state?.email) || prefill.email || prefill.identity || "";
+  const [email, setEmail] = useState(initialEmail.trim().toLowerCase());
+  const [otp, setOtp] = useState(stringState(state?.otp));
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email) {
       setError("Please enter your email address");
@@ -120,7 +130,7 @@ export default function VerifyResetOtp() {
   );
 }
 
-const styles = {
+const styles: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
     background: "var(--ev-bg, #f8fafc)",

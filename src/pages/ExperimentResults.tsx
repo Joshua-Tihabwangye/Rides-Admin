@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -15,11 +14,6 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { listAdminFeatureFlags, type AdminFeatureFlagResponse } from "../services/api/adminApi";
-
-const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
-};
 
 export default function ExperimentResults() {
   const { id } = useParams();
@@ -38,9 +32,9 @@ export default function ExperimentResults() {
         const data = await listAdminFeatureFlags();
         if (cancelled) return;
         setFlags(data);
-      } catch (err: any) {
+      } catch (err) {
         if (cancelled) return;
-        setError(err?.message ?? "Failed to load feature flags");
+        setError(err instanceof Error ? err.message : "Failed to load feature flags");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -54,6 +48,8 @@ export default function ExperimentResults() {
 
   const selectedFlag = useMemo(() => {
     if (flags.length === 0) return null;
+    const directMatch = flags.find((flag) => flag.id === id || flag.key === id);
+    if (directMatch) return directMatch;
     const numeric = Number(id);
     if (Number.isFinite(numeric) && numeric > 0) {
       return flags[(numeric - 1) % flags.length];

@@ -1,62 +1,74 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  TextField,
+  CircularProgress,
   Chip,
+  InputAdornment,
+  Paper,
   Table,
-  TableHead,
   TableBody,
-  TableRow,
   TableCell,
   TableContainer,
-  Paper,
-  InputAdornment,
-  Button,
-  CircularProgress,
-  Alert,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import StatusBadge from "../components/StatusBadge";
-import { listAdminUsers } from "../services/api/adminApi";
+import { listAdminUsers, type AdminUserResponse } from "../services/api/adminApi";
 
 // Backend-authoritative agent list derived from admin/platform users.
 // Team is inferred from the first role claim; roles are displayed as-is.
+
+type AgentRow = {
+  id: string;
+  uniqueId: string;
+  name: string;
+  email: string;
+  team: string;
+  roles: string;
+  status: AdminUserResponse["status"];
+  lastLogin: string;
+};
+
+function mapAgent(user: AdminUserResponse): AgentRow {
+  const primaryRole = user.roles[0] || "Admin";
+  return {
+    id: user.id,
+    uniqueId: user.id,
+    name: user.name,
+    email: user.email,
+    team: primaryRole,
+    roles: user.roles.join(", ") || "Admin",
+    status: user.status,
+    lastLogin: user.lastLogin ? new Date(user.lastLogin).toLocaleString() : "—",
+  };
+}
 
 export default function AgentManagementPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeTeam, setActiveTeam] = useState("All");
-  const [agents, setAgents] = useState([]);
+  const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const loadAgents = async () => {
     setLoading(true);
     setError(null);
     try {
       const users = await listAdminUsers();
-      const mapped = users.map((user) => {
-        const primaryRole = user.roles[0] || "Admin";
-        return {
-          id: user.id,
-          uniqueId: user.id,
-          name: user.name,
-          email: user.email,
-          team: primaryRole,
-          roles: user.roles.join(", "),
-          status: user.status,
-          lastLogin: user.lastLogin ? new Date(user.lastLogin).toLocaleString() : "—",
-        };
-      });
-      setAgents(mapped);
+      setAgents(users.map(mapAgent));
     } catch (err) {
-      setError(err?.message || "Failed to load agents from backend");
+      setError(err instanceof Error ? err.message : "Failed to load agents from backend");
     } finally {
       setLoading(false);
     }
@@ -66,36 +78,34 @@ export default function AgentManagementPage() {
     void loadAgents();
   }, []);
 
-  const handleSearchSubmit = (event) => {
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
   };
 
-  const handleRowClick = (agent) => {
+  const handleRowClick = (agent: AgentRow) => {
     navigate(`/admin/agents/${agent.id}`);
   };
 
-  const handleAddAgent = () => {
-    navigate("/admin/agents/new");
-  };
-
   const filteredAgents = agents.filter((agent) => {
+    const query = search.trim().toLowerCase();
     const matchesSearch =
-      agent.name.toLowerCase().includes(search.toLowerCase()) ||
-      agent.email.toLowerCase().includes(search.toLowerCase()) ||
-      agent.uniqueId.toLowerCase().includes(search.toLowerCase());
+      query.length === 0 ||
+      agent.name.toLowerCase().includes(query) ||
+      agent.email.toLowerCase().includes(query) ||
+      agent.uniqueId.toLowerCase().includes(query);
     const matchesTeam = activeTeam === "All" || agent.team === activeTeam;
     return matchesSearch && matchesTeam;
   });
 
   const teams = useMemo(() => {
-    const all = Array.from(new Set(agents.map((a) => a.team))).sort();
+    const all = Array.from(new Set(agents.map((agent) => agent.team))).sort();
     return ["All", ...all];
   }, [agents]);
 
   const teamCounts = useMemo(() => {
-    const counts = { All: agents.length };
+    const counts: Record<string, number> = { All: agents.length };
     teams.slice(1).forEach((team) => {
-      counts[team] = agents.filter((a) => a.team === team).length;
+      counts[team] = agents.filter((agent) => agent.team === team).length;
     });
     return counts;
   }, [agents, teams]);
@@ -124,16 +134,23 @@ export default function AgentManagementPage() {
             Manage support, onboarding, dispatch and safety agents. Data is fetched from the backend.
           </Typography>
         </Box>
-        {/* Add Agent Button */}
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleAddAgent}
-          sx={{ textTransform: "none", borderRadius: 999 }}
-        >
-          Add agent
-        </Button>
+        <Tooltip title="Admin agent creation is not exposed by the admin backend contract yet.">
+          <span>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              disabled
+              sx={{ textTransform: "none", borderRadius: 999 }}
+            >
+              Add agent
+            </Button>
+          </span>
+        </Tooltip>
       </Box>
+
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Agents are shown from backend admin users. Dedicated agent profile creation is pending an admin-side API.
+      </Alert>
 
       {/* Filters */}
       <Card

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -41,7 +40,7 @@ type ZoneRow = {
   status: "active" | "inactive";
 };
 
-const DEFAULT_BOUNDARIES = {
+const DEFAULT_BOUNDARIES: AdminPricingZoneResponse["boundaries"] = {
   type: "Polygon",
   coordinates: [
     [
@@ -125,8 +124,9 @@ export default function ZonesGeofencesPage() {
 
       await createAdminPricingZone({
         name: newZone.name.trim(),
-        description: `${newZone.city.trim()} ${newZone.country.trim()}`.trim(),
-        boundaries: DEFAULT_BOUNDARIES as any,
+        city: newZone.city.trim(),
+        country: newZone.country.trim() || "Uganda",
+        boundaries: DEFAULT_BOUNDARIES,
         status: "active",
         pricingRules: {
           services,

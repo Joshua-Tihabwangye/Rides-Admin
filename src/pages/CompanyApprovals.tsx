@@ -26,7 +26,6 @@ import {
 import SearchIcon from"@mui/icons-material/Search";
 import CheckCircleIcon from"@mui/icons-material/CheckCircle";
 import BlockIcon from"@mui/icons-material/Block";
-import RestoreIcon from"@mui/icons-material/Restore";
 import MoreVertIcon from"@mui/icons-material/MoreVert";
 import StatusBadge from"../components/StatusBadge";
 import { listAdminApprovals, reviewAdminApproval } from"../services/api/adminApi";
@@ -54,8 +53,8 @@ export default function CompanyApprovals() {
       const data = await listAdminApprovals();
       // Filter to company-related approvals if needed, or show all
       setApprovals(data);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load approvals');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load approvals');
     } finally {
       setLoading(false);
     }
@@ -76,24 +75,13 @@ export default function CompanyApprovals() {
     setSelectedCompany(null);
   };
 
-  const handleAction = async (action: "approve" | "suspend" | "recall", approvalId: string) => {
+  const handleAction = async (action: "approve" | "suspend", approvalId: string) => {
     try {
-      if (action === "approve" || action === "suspend") {
-        await reviewAdminApproval(approvalId, { decision: action === "approve" ? "approved" : "rejected" });
-      }
-      // For recall, we might need a different endpoint; for now just update local state
-      setApprovals(prev =>
-        prev.map((approval) => {
-          if (approval.id === approvalId) {
-            if (action === "approve") return { ...approval, status: "approved" as const };
-            if (action === "suspend") return { ...approval, status: "rejected" as const };
-          }
-          return approval;
-        })
-      );
-       setSnackbar({ open: true, message: `Case ${approvalId} ${action === 'approve' ? 'Approved' : 'Suspended'}`, severity: 'success' });
-    } catch (e: any) {
-      setSnackbar({ open: true, message: `Failed: ${e?.message}`, severity: 'error' });
+      await reviewAdminApproval(approvalId, { decision: action === "approve" ? "approved" : "rejected" });
+      await fetchApprovals();
+      setSnackbar({ open: true, message: `Case ${approvalId} ${action === 'approve' ? 'approved' : 'rejected'}`, severity: 'success' });
+    } catch (e: unknown) {
+      setSnackbar({ open: true, message: `Failed: ${e instanceof Error ? e.message : "Review failed"}`, severity: 'error' });
     }
     handleMenuClose();
   };
@@ -269,13 +257,6 @@ export default function CompanyApprovals() {
             >
               <BlockIcon sx={{ mr: 1, fontSize: 18 }} />
               Suspend
-            </MenuItem>
-            <MenuItem
-              onClick={() => handleAction("recall", selectedCompany)}
-              sx={{ color: EV_COLORS.primary }}
-            >
-              <RestoreIcon sx={{ mr: 1, fontSize: 18 }} />
-              Recall
             </MenuItem>
           </>
         )}
