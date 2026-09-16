@@ -217,10 +217,11 @@ export default function SafetyIncidentPopup() {
           sx={{
             cursor: "pointer",
             borderRadius: 2,
-            border: "2px solid #dc2626",
-            bgcolor: "#7f1d1d",
-            color: "#fecaca",
-            p: 2,
+            border: "1px solid #dc2626",
+            bgcolor: "#ffffff",
+            color: "#0f172a",
+            overflow: "hidden",
+            boxShadow: "0 18px 45px rgba(15,23,42,0.22)",
             animation: "safetyPopupIn 0.25s ease-out",
             "@keyframes safetyPopupIn": {
               from: { opacity: 0, transform: "translateX(24px)" },
@@ -228,58 +229,92 @@ export default function SafetyIncidentPopup() {
             },
           }}
         >
-          <Stack direction="row" spacing={1.5} alignItems="flex-start">
-            <SmsFailedIcon sx={{ fontSize: 28, color: "#fecaca", mt: 0.25 }} />
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="subtitle1" className="font-black tracking-wide text-red-100" sx={{ fontSize: 13 }}>
-                  {alert.title}
+          <Box sx={{ bgcolor: "#fef2f2", borderBottom: "1px solid #fecaca", px: 2, py: 1.5 }}>
+            <Stack direction="row" spacing={1.25} alignItems="center">
+              <Box
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: "50%",
+                  bgcolor: "#dc2626",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flex: "0 0 auto",
+                }}
+              >
+                <SmsFailedIcon sx={{ fontSize: 22 }} />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "#111827", lineHeight: 1.2 }}>
+                    {alert.title}
+                  </Typography>
+                  {alert.sos ? <Chip size="small" label="SOS" sx={{ height: 20, fontSize: 10, fontWeight: 900, color: "#fff", bgcolor: "#dc2626" }} /> : null}
+                  {alert.kind === "message" ? <Chip size="small" label={alert.audioUrl ? "VOICE" : "MESSAGE"} sx={{ height: 20, fontSize: 10, fontWeight: 900 }} /> : null}
+                </Stack>
+                <Typography variant="body2" sx={{ fontSize: 12, color: "#334155", fontWeight: 800, mt: 0.25 }}>
+                  {alert.driverName}
                 </Typography>
-                {alert.sos ? <Chip size="small" color="error" label="SOS" sx={{ height: 20, fontSize: 10 }} /> : null}
-              </Stack>
-              <Typography variant="body2" sx={{ fontSize: 12, color: "#fecaca", fontWeight: 700, mt: 0.5 }}>
-                {alert.driverName}
-              </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                aria-label="Dismiss alert"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  dismissAlert(alert.uid)
+                }}
+                sx={{ color: "#64748b", p: 0.5 }}
+              >
+                <CloseIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Stack>
+          </Box>
+          <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: 2 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               {alert.riderName ? (
-                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.9, display: "block", mt: 0.5, fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: "#475569", display: "block", fontWeight: 700 }}>
                   Rider: {alert.riderName}
                   {alert.riderPhone ? ` · ${alert.riderPhone}` : ""}
                 </Typography>
               ) : null}
               {alert.vehicleInfo ? (
-                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "#475569", display: "block", mt: 0.5 }}>
                   Vehicle: {alert.vehicleInfo}
                 </Typography>
               ) : null}
               {alert.tripStatus ? (
-                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "#475569", display: "block", mt: 0.5 }}>
                   Trip status: {alert.tripStatus}
                 </Typography>
               ) : null}
               {alert.message ? (
-                <Typography variant="body2" sx={{ fontSize: 12, color: "#fde68a", mt: 0.5, wordBreak: "break-word" }}>
-                  {alert.message}
-                </Typography>
+                <Box sx={{ mt: 1, p: 1.25, borderRadius: 1.5, bgcolor: "#fff7ed", border: "1px solid #fed7aa" }}>
+                  <Typography variant="body2" sx={{ fontSize: 12, color: "#7c2d12", fontWeight: 700, wordBreak: "break-word" }}>
+                    {alert.message}
+                  </Typography>
+                </Box>
               ) : null}
               {alert.serviceType ? (
-                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mt: 0.75 }}>
                   Service: {alert.serviceType}
                   {alert.serviceId ? ` (${alert.serviceId})` : ""}
                 </Typography>
               ) : null}
               {alert.address ? (
-                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.9, display: "block", mt: 0.5, fontWeight: 700 }}>
+                <Typography variant="caption" sx={{ color: "#334155", display: "block", mt: 0.5, fontWeight: 700 }}>
                   Location: {alert.address}
                 </Typography>
               ) : null}
               {alert.latitude != null && alert.longitude != null ? (
-                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mt: 0.5, fontFamily: "monospace" }}>
                   {alert.address ? "Coordinates: " : "Location: "}
                   {Number(alert.latitude).toFixed(5)}, {Number(alert.longitude).toFixed(5)}
                 </Typography>
               ) : null}
               {formatIncidentTime(alert.createdAt) ? (
-                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mt: 0.5 }}>
                   Time: {formatIncidentTime(alert.createdAt)}
                 </Typography>
               ) : null}
@@ -290,28 +325,17 @@ export default function SafetyIncidentPopup() {
                   preload="metadata"
                   src={alert.audioUrl}
                   onClick={(event) => event.stopPropagation()}
-                  sx={{ display: "block", width: "100%", mt: 1, height: 36 }}
+                  sx={{ display: "block", width: "100%", mt: 1, height: 36, borderRadius: 1 }}
                 />
               ) : null}
               <Button
                 size="small"
                 variant="contained"
-                sx={{ mt: 1, fontSize: 11, fontWeight: 800, bgcolor: "#dc2626", "&:hover": { bgcolor: "#b91c1c" } }}
+                sx={{ mt: 1.25, fontSize: 11, fontWeight: 900, textTransform: "none", bgcolor: "#dc2626", "&:hover": { bgcolor: "#b91c1c" } }}
               >
                 Open emergency incident
               </Button>
             </Box>
-            <IconButton
-              size="small"
-              aria-label="Dismiss alert"
-              onClick={(event) => {
-                event.stopPropagation()
-                dismissAlert(alert.uid)
-              }}
-              sx={{ color: "#fecaca", p: 0.5 }}
-            >
-              <CloseIcon sx={{ fontSize: 18 }} />
-            </IconButton>
           </Stack>
         </Paper>
       ))}

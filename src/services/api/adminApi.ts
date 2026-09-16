@@ -160,6 +160,21 @@ export type ActiveDriverMarker = {
   availabilityStatus: string;
   lastLocationAt?: string;
   distanceKm: number;
+  name?: string;
+  plate?: string;
+  serviceType?: string;
+  serviceId?: string;
+  activeAssignment?: {
+    serviceType: "RIDE" | "DELIVERY";
+    serviceId: string;
+    status?: string;
+    pickup?: string;
+    destination?: string;
+    distanceKm?: number;
+    durationMinutes?: number;
+    trackingCode?: string;
+    routeId?: string;
+  };
 };
 
 export async function getActiveDrivers(

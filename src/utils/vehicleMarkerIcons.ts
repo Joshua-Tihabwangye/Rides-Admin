@@ -51,20 +51,23 @@ function svgInner(raw: string): string {
   return raw.slice(openEnd + 1, closeStart);
 }
 
-export function vehicleMarkerIconUrl(kind: DriverVehicleKind, heading?: number | null, isBusy = false): string {
+export function vehicleMarkerIconUrl(kind: DriverVehicleKind, heading?: number | null, status?: string | null): string {
   const raw = VEHICLE_RAW_SVG[kind];
   const rotation = typeof heading === "number" && Number.isFinite(heading) ? heading : 0;
   const viewBox = VEHICLE_VIEWBOX[kind];
   const [vbW, vbH] = viewBox.split(" ").slice(2).map(Number);
   const cx = vbW / 2;
   const cy = vbH / 2;
+  const normalizedStatus = (status ?? "").toUpperCase();
+  const statusColor = normalizedStatus === "BUSY" ? "#f59e0b" : "#10b981";
   // The Google Maps marker API cannot rotate icons, so the heading is baked
   // into the SVG itself: the vehicle art (drawn facing north) is rotated
   // around the center of the viewBox. The halo is a translucent ring so
   // vehicles stay visible on any map background.
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">` +
-    `<circle cx="${cx}" cy="${cy}" r="${Math.max(vbW, vbH) / 2 - 6}" fill="none" stroke="${isBusy ? "#f59e0b" : "#ffffff"}" stroke-width="6" stroke-opacity="0.9" />` +
+    `<circle cx="${cx}" cy="${cy}" r="${Math.max(vbW, vbH) / 2 - 8}" fill="${statusColor}" fill-opacity="0.18" stroke="${statusColor}" stroke-width="10" stroke-opacity="0.92" />` +
+    `<circle cx="${vbW - 42}" cy="42" r="24" fill="${statusColor}" stroke="#ffffff" stroke-width="8" />` +
     `<g transform="rotate(${rotation} ${cx} ${cy})">${svgInner(raw)}</g>` +
     `</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
