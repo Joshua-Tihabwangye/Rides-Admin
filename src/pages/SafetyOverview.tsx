@@ -99,10 +99,15 @@ export default function SafetyOverviewDashboardPage() {
   const [usersUnderReview, setUsersUnderReview] = useState<UserUnderReview[]>([]);
   const [riskCases, setRiskCases] = useState<AdminRiskCaseResponse[]>([]);
   const [incidents, setIncidents] = useState<AdminSafetyIncident[]>([]);
+  const [historicalIncidents, setHistoricalIncidents] = useState<AdminSafetyIncident[]>([]);
+  const [historicalPage, setHistoricalPage] = useState(1);
+  const [historicalTotal, setHistoricalTotal] = useState(0);
+  const [historicalLoading, setHistoricalLoading] = useState(false);
   const [expandedIncident, setExpandedIncident] = useState<string | null>(null);
   const [contactIncidentId, setContactIncidentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<"ALL" | "RESOLVED" | "OPEN" | "ACKNOWLEDGED">("ALL");
 
   useEffect(() => {
     const load = async () => {
@@ -203,6 +208,11 @@ export default function SafetyOverviewDashboardPage() {
     };
   }, []);
 
+  // Load historical incidents when page or filter changes
+  useEffect(() => {
+    void loadHistoricalIncidents(historicalPage, historyFilter);
+  }, [historicalPage, historyFilter]);
+
   const openSosCount = useMemo(() => incidents.filter((i) => i.sos && i.status === "OPEN").length, [incidents]);
   const openCount = useMemo(() => incidents.filter((i) => i.status === "OPEN").length, [incidents]);
   const activeSos = useMemo(
@@ -231,6 +241,25 @@ export default function SafetyOverviewDashboardPage() {
       setIncidents(page?.items ?? []);
     } catch {
       // keep current list; polling will retry
+    }
+  };
+
+  const loadHistoricalIncidents = async (page: number, statusFilter?: string) => {
+    setHistoricalLoading(true);
+    try {
+      const params: { page?: number; limit?: number; status?: string } = { page, limit: 20 };
+      if (statusFilter && statusFilter !== "ALL") {
+        params.status = statusFilter;
+      }
+      const result = await listAdminSafetyEmergencies(params);
+      const items = result?.items ?? [];
+      setHistoricalIncidents(items);
+      setHistoricalTotal(result?.meta?.total ?? items.length);
+    } catch {
+      setHistoricalIncidents([]);
+      setHistoricalTotal(0);
+    } finally {
+      setHistoricalLoading(false);
     }
   };
 
@@ -810,6 +839,161 @@ export default function SafetyOverviewDashboardPage() {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card
+        elevation={2}
+        sx={{
+          borderRadius: 2,
+          border: "1px solid rgba(148,163,184,0.3)",
+          bgcolor: "background.paper",
+          mt: 3,
+        }}
+      >
+        <CardContent className="p-4 flex flex-col gap-2">
+          <Box className="flex items-center justify-between gap-2 flex-wrap">
+            <Typography variant="subtitle2" className="font-semibold" color="text.primary">
+              Incident History
+            </Typography>
+            <Box className="flex items-center gap-1">
+              {(["ALL", "RESOLVED", "OPEN", "ACKNOWLEDGED"] as const).map((filter) => (
+                <Button
+                  key={filter}
+                  size="small"
+                  variant={historyFilter === filter ? "contained" : "outlined"}
+                  onClick={() => { setHistoryFilter(filter); setHistoricalPage(1); }}
+                  sx={{ textTransform: "none", fontSize: 10, minWidth: 0, borderRadius: 2 }}
+                >
+                  {filter}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+          <Divider className="!my-1" />
+          {historicalLoading ? (
+            <Box sx={{ py: 4, textAlign: "center" }}>
+              <CircularProgress size={24} />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Loading incident history…
+              </Typography>
+            </Box>
+          ) : historicalIncidents.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: "center" }}>
+              <Typography variant="body2" color="text.secondary">
+                No historical incidents found
+              </Typography>
+              <Typography variant="caption" color="text.disabled">
+                {historyFilter === "ALL" ? "All resolved and past incidents appear here" : `No incidents with status "${historyFilter}"`}
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 400 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ID</TableCell>
+                      <TableCell>Type</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Reporter</TableCell>
+                      <TableCell>Location</TableCell>
+                      <TableCell>Reported</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {historicalIncidents.map((incident) => {
+                      return (
+                        <TableRow
+                          key={incident.id}
+                          hover
+                          sx={{ cursor: "pointer" }}
+                          onClick={() => navigate(`/admin/safety/${incident.id}`)}
+                        >
+                          <TableCell sx={{ fontSize: 11 }}>
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              {incident.sos ? <Chip size="small" color="error" label="SOS" sx={{ fontSize: 9 }} /> : null}
+                              <Typography variant="caption" className="font-mono">
+                                {incident.id.slice(0, 8)}
+                              </Typography>
+                            </Stack>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>{incident.type}</TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            <Chip
+                              size="small"
+                              color={
+                                incident.status === "OPEN"
+                                  ? "error"
+                                  : incident.status === "RESOLVED"
+                                    ? "success"
+                                    : incident.status === "ACKNOWLEDGED"
+                                      ? "info"
+                                      : "default"
+                              }
+                              label={incident.status}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>{incident.reporterUserId}</TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            {incident.address ||
+                              (incident.latitude != null && incident.longitude != null
+                                ? `${Number(incident.latitude).toFixed(5)}, ${Number(incident.longitude).toFixed(5)}`
+                                : "—")}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 11 }}>
+                            {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="small"
+                              variant="text"
+                              sx={{ fontSize: 10, textTransform: "none", minWidth: 0, p: 0.25 }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/admin/safety/${incident.id}`);
+                              }}
+                            >
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <Box className="flex items-center justify-between mt-2">
+                <Typography variant="caption" color="text.secondary">
+                  Showing {historicalIncidents.length} of {historicalTotal} incidents
+                </Typography>
+                <Box className="flex items-center gap-1">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={historicalPage <= 1}
+                    onClick={() => setHistoricalPage((p) => Math.max(1, p - 1))}
+                    sx={{ textTransform: "none", fontSize: 10 }}
+                  >
+                    Previous
+                  </Button>
+                  <Typography variant="caption" color="text.secondary">
+                    Page {historicalPage}
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={historicalIncidents.length < 20}
+                    onClick={() => setHistoricalPage((p) => p + 1)}
+                    sx={{ textTransform: "none", fontSize: 10 }}
+                  >
+                    Next
+                  </Button>
+                </Box>
+              </Box>
+            </>
           )}
         </CardContent>
       </Card>

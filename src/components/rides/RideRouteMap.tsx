@@ -1,9 +1,14 @@
 import { useMemo } from "react";
 import { GoogleMap, MarkerF, PolylineF, useJsApiLoader } from "@react-google-maps/api";
 import { Box, Chip, Stack, Typography } from "@mui/material";
+import MapErrorBoundary from "../MapErrorBoundary";
 import type { AdminRideStopResponse } from "../../services/api/adminApi";
-
-type MapPoint = { lat: number; lng: number };
+import {
+  rideRouteMapCenter,
+  rideRouteMapPoints,
+  validRideRouteStops,
+  type MapPoint,
+} from "./rideRouteMapModel";
 
 const markerColorByType: Record<string, string> = {
   PICKUP: "#10b981",
@@ -16,55 +21,30 @@ function mapsLink(latitude: number, longitude: number): string {
   return `https://www.google.com/maps?q=${latitude},${longitude}`;
 }
 
-export default function RideRouteMap({ stops, route }: { stops: AdminRideStopResponse[]; route?: Record<string, unknown> }) {
-  const rawApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
-  const googleMapsApiKey = rawApiKey && !/^https?:\/\//i.test(rawApiKey) ? rawApiKey : "";
-  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey });
+function getGoogleMaps(): typeof google.maps | null {
+  return typeof globalThis !== "undefined" ? globalThis.google?.maps ?? null : null;
+}
 
-  const ordered = useMemo(() => [...stops].sort((a, b) => a.sequence - b.sequence), [stops]);
-  const geoStops = useMemo(
-    () => ordered.filter((s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude) && !(s.latitude === 0 && s.longitude === 0)),
-    [ordered],
-  );
-  const routePoints = useMemo<MapPoint[]>(() => {
-    const raw = route?.path ?? route?.points ?? route?.polyline;
-    if (!Array.isArray(raw)) return [];
-    return raw.flatMap((point) => {
-      if (!point || typeof point !== "object") return [];
-      const value = point as Record<string, unknown>;
-      const lat = Number(value.lat ?? value.latitude);
-      const lng = Number(value.lng ?? value.longitude);
-      return Number.isFinite(lat) && Number.isFinite(lng) ? [{ lat, lng }] : [];
-    });
-  }, [route]);
-  const points = useMemo<MapPoint[]>(
-    () => routePoints.length > 1 ? routePoints : geoStops.map((s) => ({ lat: s.latitude, lng: s.longitude })),
-    [geoStops, routePoints],
-  );
+function resolveGoogleMapsApiKey(): string {
+  const raw = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
+  return raw && !/^https?:\/\//i.test(raw) ? raw : "";
+}
 
-  const center = useMemo<MapPoint | undefined>(() => {
-    if (points.length === 0) return undefined;
-    return {
-      lat: points.reduce((sum, p) => sum + p.lat, 0) / points.length,
-      lng: points.reduce((sum, p) => sum + p.lng, 0) / points.length,
-    };
-  }, [points]);
-
-  const fitBounds = useMemo(() => {
-    if (points.length === 0) return undefined;
-    const bounds = new google.maps.LatLngBounds();
-    points.forEach((p) => bounds.extend(new google.maps.LatLng(p.lat, p.lng)));
-    return bounds;
-  }, [points]);
-
-  if (!googleMapsApiKey) {
-    return (
-      <Box>
-        <Typography variant="caption" color="text.secondary">
-          Interactive map unavailable — set VITE_GOOGLE_MAPS_API_KEY to enable. Stop coordinates:
-        </Typography>
+function CoordinateFallback({
+  stops,
+  message,
+}: {
+  stops: AdminRideStopResponse[];
+  message: string;
+}) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary">
+        {message}
+      </Typography>
+      {stops.length > 0 ? (
         <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap", gap: 1 }}>
-          {ordered.map((stop) => (
+          {stops.map((stop) => (
             <Chip
               key={stop.id}
               size="small"
@@ -77,69 +57,144 @@ export default function RideRouteMap({ stops, route }: { stops: AdminRideStopRes
             />
           ))}
         </Stack>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          No valid stop coordinates are available.
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+export default function RideRouteMap({ stops, route }: { stops: AdminRideStopResponse[]; route?: Record<string, unknown> }) {
+  const googleMapsApiKey = resolveGoogleMapsApiKey();
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: "ride-route-map",
+    googleMapsApiKey,
+    preventGoogleFontsLoading: true,
+    version: "weekly",
+  });
+  const googleMaps = isLoaded ? getGoogleMaps() : null;
+  const mapsReady = Boolean(googleMaps);
+
+  const ordered = useMemo(() => [...stops].sort((a, b) => a.sequence - b.sequence), [stops]);
+  const geoStops = useMemo(() => validRideRouteStops(ordered), [ordered]);
+  const points = useMemo<MapPoint[]>(() => rideRouteMapPoints(ordered, route), [ordered, route]);
+
+  const center = useMemo<MapPoint | undefined>(() => rideRouteMapCenter(points), [points]);
+
+  const fitBounds = useMemo(() => {
+    if (points.length === 0 || !googleMaps) return undefined;
+    const bounds = new googleMaps.LatLngBounds();
+    points.forEach((p) => bounds.extend(new googleMaps.LatLng(p.lat, p.lng)));
+    return bounds;
+  }, [googleMaps, points]);
+
+  if (!googleMapsApiKey) {
+    return (
+      <CoordinateFallback
+        stops={geoStops}
+        message="Interactive map unavailable — set VITE_GOOGLE_MAPS_API_KEY to enable. Stop coordinates:"
+      />
+    );
+  }
+
+  if (!isLoaded && !loadError) {
+    return (
+      <Box
+        sx={{
+          width: "100%",
+          height: 340,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "grey.50",
+        }}
+      >
+        <Typography variant="caption" color="text.secondary">Loading map…</Typography>
       </Box>
     );
   }
 
-  if (loadError) {
+  if (isLoaded && !mapsReady) {
     return (
-      <Box sx={{ p: 2 }}>
+      <CoordinateFallback
+        stops={geoStops}
+        message="Interactive map unavailable. Stop coordinates:"
+      />
+    );
+  }
+
+  if (loadError && !isLoaded) {
+    return (
+      <Box>
         <Typography variant="body2" color="error">
           Map load error: {loadError.message}
         </Typography>
+        <Box sx={{ mt: 1 }}>
+          <CoordinateFallback
+            stops={geoStops}
+            message="Use stop coordinates while the interactive map is unavailable:"
+          />
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ borderRadius: 2, overflow: "hidden", border: "1px solid", borderColor: "divider" }}>
-      {isLoaded && (
-        <GoogleMap
-          mapContainerStyle={{ width: "100%", height: 340 }}
-          center={center ?? { lat: 0.3476, lng: 32.5825 }}
-          zoom={center ? 13 : 10}
-          options={{
-            fullscreenControl: false,
-            mapTypeControl: false,
-            streetViewControl: false,
-          }}
-          onLoad={(map) => {
-            if (fitBounds) map.fitBounds(fitBounds);
-          }}
-        >
-          {points.length > 1 && (
-            <PolylineF
-              path={points}
-              options={{
-                strokeColor: "#0ea5e9",
-                strokeOpacity: 0.85,
-                strokeWeight: 4,
-              }}
-            />
-          )}
-          {geoStops.map((stop) => (
-            <MarkerF
-              key={stop.id}
-              position={{ lat: stop.latitude, lng: stop.longitude }}
-              title={`${stop.type} #${stop.sequence}: ${stop.address || ""}`}
-              label={{
-                text: String(stop.sequence),
-                color: "#ffffff",
-                fontSize: "11px",
-                fontWeight: "700",
-              }}
-              icon={{
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 13,
-                fillColor: markerColorByType[stop.type] ?? "#0ea5e9",
-                fillOpacity: 1,
-                strokeColor: "#ffffff",
-                strokeWeight: 2,
-              }}
-            />
-          ))}
-        </GoogleMap>
-      )}
-    </Box>
+    <MapErrorBoundary>
+      <Box sx={{ borderRadius: 2, overflow: "hidden", border: "1px solid", borderColor: "divider" }}>
+        {mapsReady && googleMaps && (
+          <GoogleMap
+            mapContainerStyle={{ width: "100%", height: 340 }}
+            center={center ?? { lat: 0.3476, lng: 32.5825 }}
+            zoom={center ? 13 : 10}
+            options={{
+              fullscreenControl: false,
+              mapTypeControl: false,
+              streetViewControl: false,
+            }}
+            onLoad={(map) => {
+              if (fitBounds) map.fitBounds(fitBounds);
+            }}
+          >
+            {points.length > 1 && (
+              <PolylineF
+                path={points}
+                options={{
+                  strokeColor: "#0ea5e9",
+                  strokeOpacity: 0.85,
+                  strokeWeight: 4,
+                }}
+              />
+            )}
+            {geoStops.map((stop) => (
+              <MarkerF
+                key={stop.id}
+                position={{ lat: stop.latitude, lng: stop.longitude }}
+                title={`${stop.type} #${stop.sequence}: ${stop.address || ""}`}
+                label={{
+                  text: String(stop.sequence),
+                  color: "#ffffff",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                }}
+                icon={{
+                  path: googleMaps.SymbolPath.CIRCLE,
+                  scale: 13,
+                  fillColor: markerColorByType[stop.type] ?? "#0ea5e9",
+                  fillOpacity: 1,
+                  strokeColor: "#ffffff",
+                  strokeWeight: 2,
+                }}
+              />
+            ))}
+          </GoogleMap>
+        )}
+      </Box>
+    </MapErrorBoundary>
   );
 }

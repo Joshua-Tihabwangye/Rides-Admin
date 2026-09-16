@@ -275,7 +275,12 @@ export default function SosIncidentDetailPage() {
                 <Typography variant="caption" color="text.secondary">
                   Type
                 </Typography>
-                <Typography variant="body2">{incident.type}</Typography>
+                <Typography variant="body2">
+                  {incident.type}
+                  {incident.sos ? (
+                    <Chip label="SOS" color="error" size="small" sx={{ ml: 1, height: 18, fontSize: 10 }} />
+                  ) : null}
+                </Typography>
               </div>
               <div>
                 <Typography variant="caption" color="text.secondary">
@@ -301,6 +306,44 @@ export default function SosIncidentDetailPage() {
                     : "1"}
                 </Typography>
               </div>
+              {incident.driverId && (
+                <div>
+                  <Typography variant="caption" color="text.secondary">
+                    Driver ID
+                  </Typography>
+                  <Typography variant="body2">{incident.driverId}</Typography>
+                </div>
+              )}
+              {sos?.session?.reporterName && (
+                <div>
+                  <Typography variant="caption" color="text.secondary">
+                    SOS Reporter
+                  </Typography>
+                  <Typography variant="body2">{sos.session.reporterName}</Typography>
+                </div>
+              )}
+              {incident.contextSnapshot?.ride?.rider && (
+                <div>
+                  <Typography variant="caption" color="text.secondary">
+                    Rider
+                  </Typography>
+                  <Typography variant="body2">
+                    {incident.contextSnapshot.ride.rider.name || "—"}
+                    {incident.contextSnapshot.ride.rider.phone ? ` · ${incident.contextSnapshot.ride.rider.phone}` : ""}
+                  </Typography>
+                </div>
+              )}
+              {incident.contextSnapshot?.ride?.assignedDriver && (
+                <div>
+                  <Typography variant="caption" color="text.secondary">
+                    Assigned Driver
+                  </Typography>
+                  <Typography variant="body2">
+                    {incident.contextSnapshot.ride.assignedDriver.name || "—"}
+                    {incident.contextSnapshot.ride.assignedDriver.phone ? ` · ${incident.contextSnapshot.ride.assignedDriver.phone}` : ""}
+                  </Typography>
+                </div>
+              )}
             </Box>
             {incident.description && (
               <Box sx={{ mt: 2 }}>
@@ -384,6 +427,51 @@ export default function SosIncidentDetailPage() {
                   {live.latitude.toFixed(6)}, {live.longitude.toFixed(6)}
                   {live.address ? ` — ${live.address}` : ""}
                 </Typography>
+                {incident.contextSnapshot?.incidentLocation?.address &&
+                  incident.contextSnapshot.incidentLocation.address !== live.address && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                      Original location: {incident.contextSnapshot.incidentLocation.address}
+                    </Typography>
+                  )}
+              </Box>
+            )}
+
+            {incident.locationHistory && incident.locationHistory.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Location history
+                </Typography>
+                <Stack spacing={1} sx={{ mt: 0.75 }}>
+                  {incident.locationHistory.map((point, index) => {
+                    const link = mapsLink(point.latitude, point.longitude);
+                    return (
+                      <Paper key={`${point.recordedAt}-${index}`} variant="outlined" sx={{ p: 1.25 }}>
+                        <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {point.source === "INCIDENT_CREATED" ? "SOS started" : "Location update"}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(point.recordedAt).toLocaleString()}
+                          </Typography>
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary">
+                          {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+                          {point.accuracyMeters != null ? ` · ±${Math.round(point.accuracyMeters)}m` : ""}
+                        </Typography>
+                        {point.address && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                            {point.address}
+                          </Typography>
+                        )}
+                        {link && (
+                          <Button href={link} target="_blank" rel="noreferrer" size="small" sx={{ mt: 0.5, px: 0 }}>
+                            Open point
+                          </Button>
+                        )}
+                      </Paper>
+                    );
+                  })}
+                </Stack>
               </Box>
             )}
 

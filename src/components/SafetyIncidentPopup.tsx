@@ -38,6 +38,8 @@ type PopupAlert = {
   message: string
   driverName: string
   driverId?: string | null
+  riderName?: string | null
+  riderPhone?: string | null
   address?: string | null
   latitude?: number | null
   longitude?: number | null
@@ -47,11 +49,8 @@ type PopupAlert = {
   audioUrl?: string | null
   audioDurationMs?: number | null
   createdAt?: string | null
-}
-
-function mapsLink(latitude: number | null | undefined, longitude: number | null | undefined): string | null {
-  if (latitude == null || longitude == null) return null
-  return `https://maps.google.com/?q=${latitude},${longitude}`
+  vehicleInfo?: string | null
+  tripStatus?: string | null
 }
 
 function formatIncidentTime(value?: string | null): string | null {
@@ -109,15 +108,26 @@ export default function SafetyIncidentPopup() {
         message: incident.description || "",
         driverName: driverName || reporterName,
         driverId: incident.driverId,
-        address: incident.address ?? null,
-        latitude: incident.latitude,
-        longitude: incident.longitude,
+        riderName: incident.contextSnapshot?.ride?.rider?.name ?? null,
+        riderPhone: incident.contextSnapshot?.ride?.rider?.phone ?? null,
+        address: incident.address ?? incident.contextSnapshot?.incidentLocation?.address ?? null,
+        latitude: incident.latitude ?? incident.contextSnapshot?.incidentLocation?.latitude ?? null,
+        longitude: incident.longitude ?? incident.contextSnapshot?.incidentLocation?.longitude ?? null,
         serviceType: incident.serviceType,
         serviceId: incident.serviceId,
         sos: Boolean(incident.sos),
         audioUrl: incident.audioUrl,
         audioDurationMs: incident.audioDurationMs,
         createdAt: incident.createdAt,
+        vehicleInfo: incident.contextSnapshot?.ride?.assignedVehicle
+          ? [
+              incident.contextSnapshot.ride.assignedVehicle.make,
+              incident.contextSnapshot.ride.assignedVehicle.model,
+            ]
+              .filter(Boolean)
+              .join(" ") + (incident.contextSnapshot.ride.assignedVehicle.plate ? ` (${incident.contextSnapshot.ride.assignedVehicle.plate})` : "")
+          : null,
+        tripStatus: incident.contextSnapshot?.ride?.status ?? null,
       }
 
       setAlerts((prev) => [...prev.slice(-(MAX_STACKED - 1)), alert])
@@ -179,6 +189,22 @@ export default function SafetyIncidentPopup() {
               <Typography variant="body2" sx={{ fontSize: 12, color: "#fecaca", fontWeight: 700, mt: 0.5 }}>
                 {alert.driverName}
               </Typography>
+              {alert.riderName ? (
+                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.9, display: "block", mt: 0.5, fontWeight: 600 }}>
+                  Rider: {alert.riderName}
+                  {alert.riderPhone ? ` · ${alert.riderPhone}` : ""}
+                </Typography>
+              ) : null}
+              {alert.vehicleInfo ? (
+                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
+                  Vehicle: {alert.vehicleInfo}
+                </Typography>
+              ) : null}
+              {alert.tripStatus ? (
+                <Typography variant="caption" sx={{ color: "#fecaca", opacity: 0.85, display: "block", mt: 0.5 }}>
+                  Trip status: {alert.tripStatus}
+                </Typography>
+              ) : null}
               {alert.message ? (
                 <Typography variant="body2" sx={{ fontSize: 12, color: "#fde68a", mt: 0.5, wordBreak: "break-word" }}>
                   {alert.message}

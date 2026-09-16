@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   GoogleMap,
   InfoWindowF,
@@ -21,6 +21,7 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
 import { createAdminSocket, getActiveDrivers } from "../services/api/adminApi";
+import MapErrorBoundary from "../components/MapErrorBoundary";
 import {
   driverVehicleKind,
   vehicleDisplayCategory,
@@ -81,10 +82,11 @@ function vehicleIcon(vehicleType?: string) {
 
 function markerIcon(driver: LiveDriverMarker, google: any) {
   const kind = driverVehicleKind(driver.vehicleType);
+  const safeGoogle = typeof google !== "undefined" && google?.maps ? google : null;
   return {
     url: vehicleMarkerIconUrl(kind, driver.heading, driver.availabilityStatus === "BUSY"),
-    anchor: vehicleMarkerAnchor(kind, google),
-    scaledSize: vehicleMarkerSize(kind, google),
+    anchor: vehicleMarkerAnchor(kind, safeGoogle),
+    scaledSize: vehicleMarkerSize(kind, safeGoogle),
   };
 }
 
@@ -100,7 +102,11 @@ export default function LiveDriversMapPage() {
   const navigate = useNavigate();
   const rawApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
   const googleMapsApiKey = rawApiKey && !/^https?:\/\//i.test(rawApiKey) ? rawApiKey : "";
-  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey });
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: "live-drivers-map",
+    googleMapsApiKey,
+    preventGoogleFontsLoading: true,
+  });
 
 const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,9 +223,26 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
     };
   }, [refresh]);
 
-  const visibleDrivers = drivers.filter((driver) => filter === "ALL" || driver.availabilityStatus === filter);
-  const onlineCount = drivers.filter((d) => d.availabilityStatus === "ONLINE").length;
-  const busyCount = drivers.filter((d) => d.availabilityStatus === "BUSY").length;
+  const visibleDrivers = useMemo(
+    () => drivers.filter((driver) => filter === "ALL" || driver.availabilityStatus === filter),
+    [drivers, filter],
+  );
+  const driverMarkerEntries = useMemo(
+    () =>
+      visibleDrivers.map((driver) => ({
+        driver,
+        icon: markerIcon(driver, isLoaded ? (window as any).google : null),
+      })),
+    [visibleDrivers, isLoaded],
+  );
+  const onlineCount = useMemo(
+    () => drivers.filter((d) => d.availabilityStatus === "ONLINE").length,
+    [drivers],
+  );
+  const busyCount = useMemo(
+    () => drivers.filter((d) => d.availabilityStatus === "BUSY").length,
+    [drivers],
+  );
 
   if (!googleMapsApiKey) {
     return (
@@ -284,6 +307,7 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
       ) : null}
 
       <Box sx={{ flex: 1, position: "relative", borderRadius: 2, overflow: "hidden", border: "1px solid rgba(148,163,184,0.5)" }}>
+        <MapErrorBoundary>
         {!isLoaded && (
           <Box sx={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "background.paper", zIndex: 2 }}>
             <CircularProgress />
@@ -332,11 +356,11 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
               mapId: (import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || "").trim() || undefined,
             }}
           >
-            {visibleDrivers.map((driver) => (
+            {driverMarkerEntries.map(({ driver, icon }) => (
               <MarkerF
                 key={driver.driverId}
                 position={{ lat: driver.latitude, lng: driver.longitude }}
-                icon={markerIcon(driver, (window as any).google)}
+                icon={icon}
                 title={`${driver.name ?? driver.driverId} (${driver.availabilityStatus})`}
                 onClick={() => setSelected(driver)}
               />
@@ -361,6 +385,7 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
             ) : null}
           </GoogleMap>
         )}
+        </MapErrorBoundary>
       </Box>
 
       <Box sx={{ mt: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
