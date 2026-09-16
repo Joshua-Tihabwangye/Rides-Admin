@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from 'react'
 import {
   Box,
@@ -9,6 +8,7 @@ import {
   Button,
   Popover,
 } from '@mui/material'
+import type { SelectChangeEvent } from '@mui/material/Select'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
@@ -38,16 +38,12 @@ export default function PeriodSelector({
   customEnd,
 }: PeriodSelectorProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
-  const [tempStart, setTempStart] = useState<Dayjs | null>(customStart || dayjs().subtract(7, 'day'))
-  const [tempEnd, setTempEnd] = useState<Dayjs | null>(customEnd || dayjs())
+  const [tempStart, setTempStart] = useState<Dayjs | null>(customStart ?? dayjs().subtract(7, 'day'))
+  const [tempEnd, setTempEnd] = useState<Dayjs | null>(customEnd ?? dayjs())
 
-  const handleChange = (event: any) => {
+  const handleChange = (event: SelectChangeEvent<PeriodOption>) => {
     const newValue = event.target.value as PeriodOption
-    if (newValue === 'custom') {
-      onChange(newValue)
-    } else {
-      onChange(newValue)
-    }
+    onChange(newValue)
   }
 
   const handleCustomClick = (event: React.MouseEvent<HTMLElement>) => {

@@ -1,15 +1,33 @@
-// @ts-nocheck
-import React, { useEffect, useState } from "react";
-import { Alert, Box, Button, Card, CardContent, Chip, Divider, Snackbar, Typography } from "@mui/material";
-import { listAdminServices, patchAdminService } from "../services/api/adminApi";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Divider,
+  Stack,
+  Typography,
+} from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import {
+  getAdminIntegrationsHealth,
+  type AdminIntegrationHealthResponse,
+} from "../services/api/adminApi";
 
-function AdminIntegrationsLayout({ children }) {
+function AdminIntegrationsLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
-          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">Integrations</Typography>
-          <Typography variant="caption" color="text.secondary">Monitor and control backend service integrations.</Typography>
+          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
+            Integrations
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Monitor backend integration health from the authoritative Admin API.
+          </Typography>
         </Box>
       </Box>
       <Box className="flex-1 flex flex-col gap-3">{children}</Box>
@@ -17,70 +35,176 @@ function AdminIntegrationsLayout({ children }) {
   );
 }
 
-export default function IntegrationsPage() {
-  const [integrations, setIntegrations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [feedback, setFeedback] = useState({ open: false, message: "", severity: "info" });
+function formatDate(value: AdminIntegrationHealthResponse["generatedAt"] | undefined) {
+  if (!value) return "Unknown";
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
+}
 
-  const load = async () => {
+function recordText(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "number") return String(value);
+  }
+  return null;
+}
+
+function HealthCard({
+  title,
+  status,
+  statusColor,
+  children,
+}: {
+  title: string;
+  status: string;
+  statusColor: "success" | "warning" | "error" | "default";
+  children: React.ReactNode;
+}) {
+  return (
+    <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+      <CardContent className="p-4 flex flex-col gap-2">
+        <Box className="flex items-center justify-between gap-2">
+          <Typography variant="subtitle2" className="font-semibold">
+            {title}
+          </Typography>
+          <Chip size="small" label={status} color={statusColor} sx={{ fontSize: 10, height: 22 }} />
+        </Box>
+        <Divider className="!my-1" />
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function IntegrationsPage() {
+  const [health, setHealth] = useState<AdminIntegrationHealthResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const rows = await listAdminServices();
-      setIntegrations(rows);
-    } catch (error) {
-      console.error("Failed to load admin services", error);
-      setFeedback({ open: true, message: "Failed to load integrations", severity: "error" });
+      setHealth(await getAdminIntegrationsHealth());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load integration health");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
-  const handleToggle = async (integration) => {
-    try {
-      await patchAdminService(integration.id, { enabled: !integration.enabled });
-      setFeedback({ open: true, message: `${integration.name || integration.key} updated`, severity: "success" });
-      await load();
-    } catch (error) {
-      console.error("Failed to update integration", error);
-      setFeedback({ open: true, message: "Failed to update integration", severity: "error" });
+  const outboxStatus = useMemo(() => {
+    if (!health) return { label: "Unknown", color: "default" as const };
+    if (health.outbox.failed > 0) return { label: "Attention", color: "error" as const };
+    if (health.outbox.pending > 0) return { label: "Pending", color: "warning" as const };
+    return { label: "Healthy", color: "success" as const };
+  }, [health]);
+
+  const dispatchStatus = useMemo(() => {
+    if (!health) return { label: "Unknown", color: "default" as const };
+    if (health.dispatch.desks === 0 || health.dispatch.agents === 0) {
+      return { label: "Incomplete", color: "warning" as const };
     }
-  };
+    return { label: "Available", color: "success" as const };
+  }, [health]);
 
   return (
     <AdminIntegrationsLayout>
-      <Snackbar open={feedback.open} autoHideDuration={4000} onClose={() => setFeedback({ ...feedback, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "right" }}>
-        <Alert onClose={() => setFeedback({ ...feedback, open: false })} severity={feedback.severity} sx={{ width: "100%" }}>{feedback.message}</Alert>
-      </Snackbar>
+      <Box className="flex items-center justify-between gap-2">
+        <Typography variant="caption" color="text.secondary">
+          Last checked: {formatDate(health?.generatedAt)}
+        </Typography>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<RefreshIcon />}
+          onClick={() => void load()}
+          disabled={loading}
+          sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }}
+        >
+          Refresh
+        </Button>
+      </Box>
+
+      {error ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void load()}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      ) : null}
 
       {loading ? (
-        <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}><CardContent><Typography variant="body2" color="text.secondary">Loading integrations...</Typography></CardContent></Card>
-      ) : (
+        <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+          <CardContent>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="text.secondary">
+                Loading integration health...
+              </Typography>
+            </Stack>
+          </CardContent>
+        </Card>
+      ) : health ? (
         <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {integrations.map((integration) => (
-            <Card key={integration.id} elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
-              <CardContent className="p-4 flex flex-col gap-2">
-                <Box className="flex items-center justify-between gap-2">
-                  <Box>
-                    <Typography variant="subtitle2" className="font-semibold">{integration.name || integration.key}</Typography>
-                    <Typography variant="caption" className="text-[11px] text-slate-500">Key: {integration.key}</Typography>
+          <HealthCard
+            title="School connections"
+            status={health.schoolConnections.length > 0 ? "Configured" : "None"}
+            statusColor={health.schoolConnections.length > 0 ? "success" : "default"}
+          >
+            <Typography variant="body2" color="text.primary" fontWeight={800}>
+              {health.schoolConnections.length} connection{health.schoolConnections.length === 1 ? "" : "s"}
+            </Typography>
+            {health.schoolConnections.length > 0 ? (
+              <Stack spacing={0.75} sx={{ mt: 0.5 }}>
+                {health.schoolConnections.slice(0, 4).map((connection, index) => (
+                  <Box key={recordText(connection, ["id", "schoolId", "name"]) ?? index}>
+                    <Typography variant="caption" sx={{ display: "block", fontWeight: 800 }}>
+                      {recordText(connection, ["schoolName", "name", "schoolId", "id"]) ?? `Connection ${index + 1}`}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Updated: {formatDate(recordText(connection, ["updatedAt", "createdAt"]) ?? undefined)}
+                    </Typography>
                   </Box>
-                  <Chip size="small" label={integration.enabled ? "Connected" : "Disconnected"} color={integration.enabled ? "success" : "default"} sx={{ fontSize: 10, height: 22 }} />
-                </Box>
-                <Divider className="!my-1" />
-                <Typography variant="caption" className="text-[11px] text-slate-500">{integration.description || "No description"}</Typography>
-                <Box className="flex justify-end mt-1">
-                  <Button variant="outlined" size="small" sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }} onClick={() => void handleToggle(integration)}>
-                    {integration.enabled ? "Disable" : "Enable"}
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          ))}
+                ))}
+              </Stack>
+            ) : (
+              <Typography variant="caption" color="text.secondary">
+                The backend reported no school integrations.
+              </Typography>
+            )}
+          </HealthCard>
+
+          <HealthCard title="Integration outbox" status={outboxStatus.label} statusColor={outboxStatus.color}>
+            <Typography variant="body2" color="text.primary" fontWeight={800}>
+              {health.outbox.pending} pending
+            </Typography>
+            <Typography variant="body2" color={health.outbox.failed > 0 ? "error.main" : "text.secondary"}>
+              {health.outbox.failed} failed
+            </Typography>
+          </HealthCard>
+
+          <HealthCard title="Dispatch infrastructure" status={dispatchStatus.label} statusColor={dispatchStatus.color}>
+            <Typography variant="body2" color="text.primary" fontWeight={800}>
+              {health.dispatch.desks} dispatch desk{health.dispatch.desks === 1 ? "" : "s"}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {health.dispatch.agents} agent{health.dispatch.agents === 1 ? "" : "s"}
+            </Typography>
+          </HealthCard>
         </Box>
+      ) : (
+        <Alert severity="info">No integration health data was returned by the backend.</Alert>
       )}
     </AdminIntegrationsLayout>
   );

@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Alert,
@@ -10,18 +9,51 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  FormControlLabel,
+  MenuItem,
   Paper,
+  Snackbar,
+  Switch,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from "@mui/material";
-import { getAdminCompany, listAdminCompanies, listAdminPayouts, type AdminCompanyResponse } from "../services/api/adminApi";
+import SaveIcon from "@mui/icons-material/Save";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import {
+  getAdminCompany,
+  getAdminCompanyPayoutSettings,
+  listAdminCompanies,
+  listAdminCompanyPayouts,
+  patchAdminCompanyPayoutSettings,
+  type AdminCompanyPayoutSettings,
+  type AdminCompanyResponse,
+  type AdminPayout,
+} from "../services/api/adminApi";
 
-function AdminFinanceCompanyLayout({ children }) {
+type SnackbarState = {
+  open: boolean;
+  message: string;
+  severity: "success" | "error" | "info";
+};
+
+type PayoutSettingsForm = {
+  schedule: string;
+  minimumAmount: string;
+  currency: string;
+  destination: string;
+  enabled: boolean;
+};
+
+const SCHEDULES = ["daily", "weekly", "biweekly", "monthly"];
+const CURRENCIES = ["UGX", "USD", "KES", "RWF"];
+
+function AdminFinanceCompanyLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2">
@@ -30,7 +62,7 @@ function AdminFinanceCompanyLayout({ children }) {
             Company Payout Config & History
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Live company metadata only. Payout configuration persistence is not exposed by the backend yet.
+            Backend-authoritative company payout settings and payout history.
           </Typography>
         </Box>
       </Box>
@@ -40,62 +72,110 @@ function AdminFinanceCompanyLayout({ children }) {
   );
 }
 
+function settingsToForm(settings: AdminCompanyPayoutSettings): PayoutSettingsForm {
+  return {
+    schedule: settings.schedule || "weekly",
+    minimumAmount: Number.isFinite(settings.minimumAmount) ? String(settings.minimumAmount) : "0",
+    currency: settings.currency || "UGX",
+    destination: settings.destination ?? "",
+    enabled: settings.enabled,
+  };
+}
+
+function formatMoney(amount: number | undefined, currency: string | undefined) {
+  return `${currency || "UGX"} ${(amount ?? 0).toLocaleString()}`;
+}
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
 export default function CompanyPayoutConfigPage() {
   const { companyId } = useParams();
-  const [companies, setCompanies] = useState<AdminCompanyResponse[]>([]);
   const [company, setCompany] = useState<AdminCompanyResponse | null>(null);
-  const [payouts, setPayouts] = useState<any[]>([]);
+  const [settings, setSettings] = useState<AdminCompanyPayoutSettings | null>(null);
+  const [form, setForm] = useState<PayoutSettingsForm | null>(null);
+  const [payouts, setPayouts] = useState<AdminPayout[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: "", severity: "info" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let selectedCompanyId = companyId;
+      if (!selectedCompanyId) {
+        const list = await listAdminCompanies();
+        selectedCompanyId = list[0]?.id;
+      }
+
+      if (!selectedCompanyId) {
+        setCompany(null);
+        setSettings(null);
+        setForm(null);
+        setPayouts([]);
+        return;
+      }
+
+      const [companyResponse, settingsResponse, payoutRows] = await Promise.all([
+        getAdminCompany(selectedCompanyId),
+        getAdminCompanyPayoutSettings(selectedCompanyId),
+        listAdminCompanyPayouts(selectedCompanyId),
+      ]);
+
+      setCompany(companyResponse);
+      setSettings(settingsResponse);
+      setForm(settingsToForm(settingsResponse));
+      setPayouts(payoutRows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load company payouts");
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const list = await listAdminCompanies();
-        if (cancelled) return;
-        setCompanies(list);
-
-        const fromRoute = companyId ? list.find((item) => item.id === companyId) : null;
-        if (fromRoute) {
-          setCompany(fromRoute);
-          return;
-        }
-
-        if (companyId) {
-          const co = await getAdminCompany(companyId);
-          setCompany(co);
-          const payoutRows = await listAdminPayouts({ search: co?.id || companyId, limit: 50 }).then(r => r.items).catch(() => []);
-          setPayouts(payoutRows);
-          return;
-        }
-
-        setCompany(list[0] ?? null);
-        if (list[0]) {
-          const payoutRows = await listAdminPayouts({ search: list[0].id, limit: 50 }).then(r => r.items).catch(() => []);
-          setPayouts(payoutRows);
-        }
-      } catch (err: any) {
-        if (cancelled) return;
-        setError(err?.message ?? "Failed to load company payouts");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
     void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [companyId]);
+  }, [load]);
 
   const activeVerticals = useMemo(() => {
     if (!company) return [];
     return Object.entries(company.verticals).filter(([, enabled]) => enabled).map(([key]) => key);
   }, [company]);
+
+  const saveSettings = async () => {
+    if (!company || !form) return;
+    const minimumAmount = Number(form.minimumAmount);
+    if (!Number.isFinite(minimumAmount) || minimumAmount < 0) {
+      setSnackbar({ open: true, message: "Minimum payout amount must be a valid non-negative number", severity: "error" });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await patchAdminCompanyPayoutSettings(company.id, {
+        schedule: form.schedule,
+        minimumAmount,
+        currency: form.currency,
+        destination: form.destination.trim() ? form.destination.trim() : null,
+        enabled: form.enabled,
+      });
+      await load();
+      setSnackbar({ open: true, message: "Payout settings saved", severity: "success" });
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : "Failed to save payout settings",
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -105,123 +185,197 @@ export default function CompanyPayoutConfigPage() {
     );
   }
 
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
-
-  if (!company) {
-    return <Alert severity="info">No company returned from the backend.</Alert>;
-  }
-
   return (
     <AdminFinanceCompanyLayout>
-      <Alert severity="info">
-        This screen is now bound to live company metadata only. Payout configuration and payout history endpoints are still pending on the backend.
-      </Alert>
-
-      <Box className="flex flex-col lg:flex-row gap-4">
-        <Card
-          elevation={1}
-          sx={{
-            flex: 1,
-            borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-          }}
+      {error ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void load()}>
+              Retry
+            </Button>
+          }
         >
-          <CardContent className="p-4 flex flex-col gap-3">
-            <Box className="flex items-center justify-between gap-2">
-              <Box>
+          {error}
+        </Alert>
+      ) : null}
+
+      {!company || !form || !settings ? (
+        <Alert severity="info">No company returned from the backend.</Alert>
+      ) : (
+        <>
+          <Box className="flex items-center justify-between gap-2">
+            <Typography variant="caption" color="text.secondary">
+              Settings source: `/admin/companies/{company.id}/payout-settings`
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<RefreshIcon />}
+              onClick={() => void load()}
+              disabled={saving}
+              sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }}
+            >
+              Refresh
+            </Button>
+          </Box>
+
+          <Box className="flex flex-col lg:flex-row gap-4">
+            <Card elevation={1} sx={{ flex: 1, borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+              <CardContent className="p-4 flex flex-col gap-3">
+                <Box className="flex items-center justify-between gap-2">
+                  <Box>
+                    <Typography variant="subtitle2" className="font-semibold">
+                      {company.companyName}
+                    </Typography>
+                    <Typography variant="caption" className="text-[11px] text-slate-500">
+                      Contact {company.contactEmail || "not set"} · {company.contactPhone || "no phone"}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={company.status}
+                    color={company.status === "active" ? "success" : company.status === "suspended" ? "warning" : "default"}
+                    sx={{ fontSize: 10, height: 22 }}
+                  />
+                </Box>
+
+                <Divider className="!my-1" />
+
+                <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <InfoField label="Registration number" value={company.registrationNumber || "n/a"} />
+                  <InfoField label="Tax ID" value={company.taxId || "n/a"} />
+                  <InfoField label="Active verticals" value={activeVerticals.length ? activeVerticals.join(", ") : "none"} />
+                  <InfoField label="Backend company ID" value={company.id} />
+                </Box>
+
+                <Divider className="!my-1" />
+
                 <Typography variant="subtitle2" className="font-semibold">
-                  {company.companyName}
+                  Payout settings
                 </Typography>
-                <Typography variant="caption" className="text-[11px] text-slate-500">
-                  Contact {company.contactEmail || "not set"} · {company.contactPhone || "no phone"}
-                </Typography>
-              </Box>
-              <Chip
-                size="small"
-                label={company.status}
-                color={company.status === "active" ? "success" : company.status === "suspended" ? "warning" : "default"}
-                sx={{ fontSize: 10, height: 22 }}
-              />
-            </Box>
-
-            <Divider className="!my-1" />
-
-            <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <InfoField label="Registration number" value={company.registrationNumber || "n/a"} />
-              <InfoField label="Tax ID" value={company.taxId || "n/a"} />
-              <InfoField label="Active verticals" value={activeVerticals.length ? activeVerticals.join(", ") : "none"} />
-              <InfoField label="Backend company ID" value={company.id} />
-            </Box>
-
-            <Typography variant="caption" className="text-[11px] text-slate-500">
-              Commission, holdback, and payout schedule persistence are not available yet from the backend.
-            </Typography>
-
-            <Box className="flex gap-2 mt-1 justify-end">
-              <Button variant="outlined" size="small" sx={{ textTransform: "none", borderRadius: 999, fontSize: 12 }} disabled>
-                Test payout
-              </Button>
-              <Button
-                variant="contained"
-                size="small"
-                sx={{
-                  textTransform: "none",
-                  borderRadius: 999,
-                  fontSize: 12,
-                  bgcolor: "#03cd8c",
-                }}
-                disabled
-              >
-                Save payout config
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Card
-          elevation={1}
-          sx={{
-            flex: 1,
-            borderRadius: 8,
-            border: "1px solid rgba(148,163,184,0.5)",
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography variant="subtitle2" className="font-semibold">
-              Payout history
-            </Typography>
-            <Divider className="!my-1" />
-            {payouts.length === 0 ? (
-              <Alert severity="info">No live payout history available yet.</Alert>
-            ) : (
-              <TableContainer component={Paper} elevation={0}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: "action.hover" }}>
-                      <TableCell>ID</TableCell>
-                      <TableCell>Amount</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Created</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {payouts.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell sx={{ fontSize: 12, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>{p.id}</TableCell>
-                        <TableCell>{p.currency} {p.amount?.toLocaleString()}</TableCell>
-                        <TableCell>{p.status}</TableCell>
-                        <TableCell>{p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '-'}</TableCell>
-                      </TableRow>
+                <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <TextField
+                    select
+                    size="small"
+                    label="Schedule"
+                    value={form.schedule}
+                    onChange={(event) => setForm((prev) => prev && { ...prev, schedule: event.target.value })}
+                  >
+                    {SCHEDULES.map((schedule) => (
+                      <MenuItem key={schedule} value={schedule}>
+                        {schedule}
+                      </MenuItem>
                     ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </CardContent>
-        </Card>
-      </Box>
+                  </TextField>
+                  <TextField
+                    select
+                    size="small"
+                    label="Currency"
+                    value={form.currency}
+                    onChange={(event) => setForm((prev) => prev && { ...prev, currency: event.target.value })}
+                  >
+                    {CURRENCIES.map((currency) => (
+                      <MenuItem key={currency} value={currency}>
+                        {currency}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    size="small"
+                    label="Minimum amount"
+                    type="number"
+                    value={form.minimumAmount}
+                    onChange={(event) => setForm((prev) => prev && { ...prev, minimumAmount: event.target.value })}
+                  />
+                  <TextField
+                    size="small"
+                    label="Destination"
+                    value={form.destination}
+                    onChange={(event) => setForm((prev) => prev && { ...prev, destination: event.target.value })}
+                  />
+                </Box>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={form.enabled}
+                      onChange={(event) => setForm((prev) => prev && { ...prev, enabled: event.target.checked })}
+                    />
+                  }
+                  label={<Typography variant="body2">Payouts enabled</Typography>}
+                />
+
+                <Box className="flex gap-2 mt-1 justify-end">
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<SaveIcon />}
+                    sx={{ textTransform: "none", borderRadius: 999, fontSize: 12, bgcolor: "#03cd8c" }}
+                    disabled={saving}
+                    onClick={() => void saveSettings()}
+                  >
+                    {saving ? "Saving..." : "Save payout config"}
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card elevation={1} sx={{ flex: 1, borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+              <CardContent className="p-4 flex flex-col gap-2">
+                <Typography variant="subtitle2" className="font-semibold">
+                  Payout history
+                </Typography>
+                <Divider className="!my-1" />
+                {payouts.length === 0 ? (
+                  <Alert severity="info">No company payouts were returned by the backend.</Alert>
+                ) : (
+                  <TableContainer component={Paper} elevation={0}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ backgroundColor: "action.hover" }}>
+                          <TableCell>ID</TableCell>
+                          <TableCell>Recipient</TableCell>
+                          <TableCell>Amount</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Created</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {payouts.map((payout) => (
+                          <TableRow key={payout.id}>
+                            <TableCell sx={{ fontSize: 12, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {payout.id}
+                            </TableCell>
+                            <TableCell>{payout.recipientId}</TableCell>
+                            <TableCell>{formatMoney(payout.amount, payout.currency)}</TableCell>
+                            <TableCell>{payout.status}</TableCell>
+                            <TableCell>{formatDate(payout.createdAt)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
+        </>
+      )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3500}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </AdminFinanceCompanyLayout>
   );
 }

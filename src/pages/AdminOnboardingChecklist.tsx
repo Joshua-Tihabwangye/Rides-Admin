@@ -1,5 +1,5 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -11,7 +11,6 @@ import {
   List,
   ListItem,
   ListItemIcon,
-  ListItemText,
   Tooltip,
   CircularProgress,
   Alert,
@@ -52,10 +51,11 @@ const areaIcon = (area: string) => {
 };
 
 export default function AdminOnboardingChecklistPage() {
-  const [mode, setMode] = useState("light");
+  const [mode, setMode] = useState<"light" | "dark">("light");
   const [modules, setModules] = useState<AdminTrainingModuleResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
@@ -64,8 +64,8 @@ export default function AdminOnboardingChecklistPage() {
       try {
         const data = await listAdminTrainingModules();
         setModules(data);
-      } catch (err: any) {
-        setError(err?.message ?? "Failed to load training modules");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to load training modules");
         setModules([]);
       } finally {
         setLoading(false);
@@ -76,12 +76,11 @@ export default function AdminOnboardingChecklistPage() {
 
   const isDark = mode === "dark";
 
-  const totalRequired = useMemo(() => modules.filter((m) => m.required).length, [modules]);
-  const totalDoneRequired = useMemo(() => modules.filter((m) => m.required && m.completedAt).length, [modules]);
-  const totalDoneAll = useMemo(() => modules.filter((m) => m.completedAt).length, [modules]);
-
-  const progressRequired = totalRequired ? Math.round((totalDoneRequired / totalRequired) * 100) : 0;
-  const progressAll = modules.length ? Math.round((totalDoneAll / modules.length) * 100) : 0;
+  const publishedModules = useMemo(() => modules.filter((m) => m.status === "published"), [modules]);
+  const totalRequired = publishedModules.length;
+  const totalConfigured = modules.length;
+  const progressRequired = 0;
+  const progressAll = totalConfigured ? Math.round((publishedModules.length / totalConfigured) * 100) : 0;
 
   const toggleMode = () => {
     setMode((prev) => (prev === "light" ? "dark" : "light"));
@@ -192,7 +191,7 @@ export default function AdminOnboardingChecklistPage() {
                     variant="body2"
                     className={`font-semibold text-sm ${isDark ? "text-slate-50" : ""}`}
                   >
-                    {totalDoneRequired} / {totalRequired} completed
+                    {totalRequired} published
                   </Typography>
                 </Box>
                 <Box className="w-full sm:w-48">
@@ -226,7 +225,7 @@ export default function AdminOnboardingChecklistPage() {
                     Training modules
                   </Typography>
                   <Typography variant="caption" className="text-[11px] text-slate-400">
-                    Modules are loaded from the training system.
+                    Modules are loaded from the backend training system.
                   </Typography>
                 </Box>
 
@@ -251,7 +250,9 @@ export default function AdminOnboardingChecklistPage() {
               ) : (
                 <List dense className="px-2 pb-1">
                   {modules.map((module) => {
-                    const done = !!module.completedAt;
+                    const published = module.status === "published";
+                    const archived = module.status === "archived";
+                    const moduleDescription = module.content?.trim() || "No training content has been published for this module yet.";
                     return (
                       <ListItem
                         key={module.id}
@@ -264,7 +265,7 @@ export default function AdminOnboardingChecklistPage() {
                         alignItems="flex-start"
                       >
                         <ListItemIcon sx={{ minWidth: 32 }}>
-                          {done ? (
+                          {published ? (
                             <CheckCircleIcon fontSize="small" sx={{ color: EV_COLORS.primary }} />
                           ) : (
                             <RadioButtonUncheckedIcon fontSize="small" sx={{ color: "#64748b" }} />
@@ -279,8 +280,8 @@ export default function AdminOnboardingChecklistPage() {
                             <Chip
                               size="small"
                               variant="outlined"
-                              icon={areaIcon(module.area)}
-                              label={module.area}
+                              icon={areaIcon(module.category)}
+                              label={module.category}
                               sx={{
                                 borderColor: "#1f2937",
                                 color: "#cbd5f5",
@@ -288,45 +289,44 @@ export default function AdminOnboardingChecklistPage() {
                                 "& .MuiChip-icon": { color: "#64748b" },
                               }}
                             />
-                            {module.required && (
-                              <Chip
-                                size="small"
-                                label="Required"
-                                sx={{
-                                  bgcolor: "rgba(248,250,252,0.05)",
-                                  border: "1px solid #fbbf24",
-                                  color: "#facc15",
-                                  fontSize: "10px",
-                                }}
-                              />
-                            )}
+                            <Chip
+                              size="small"
+                              label={module.status}
+                              sx={{
+                                bgcolor: "rgba(248,250,252,0.05)",
+                                border: `1px solid ${published ? EV_COLORS.primary : archived ? "#64748b" : "#fbbf24"}`,
+                                color: published ? "#6ee7b7" : archived ? "#94a3b8" : "#facc15",
+                                fontSize: "10px",
+                                textTransform: "capitalize",
+                              }}
+                            />
                           </Box>
                           <Typography variant="body2" className="text-[11px] text-slate-400">
-                            {module.description}
+                            {moduleDescription}
                           </Typography>
                         </Box>
 
                         <Box className="flex items-center gap-2 self-stretch sm:self-auto">
-                          <Tooltip title="Completion status is managed by the training system">
+                          <Tooltip title="Admin completion tracking is not exposed by the current backend contract">
                             <Button
-                              variant={done ? "contained" : "outlined"}
+                              variant={published ? "contained" : "outlined"}
                               size="small"
                               disabled
                               sx={{
                                 textTransform: "none",
                                 borderRadius: 2,
                                 minWidth: 96,
-                                borderColor: done ? "transparent" : "#1f2937",
-                                bgcolor: done ? EV_COLORS.primary : "transparent",
-                                color: done ? "#020617" : "#e5e7eb",
+                                borderColor: published ? "transparent" : "#1f2937",
+                                bgcolor: published ? EV_COLORS.primary : "transparent",
+                                color: published ? "#020617" : "#e5e7eb",
                                 "&.Mui-disabled": {
-                                  color: done ? "#020617" : "#e5e7eb",
-                                  borderColor: done ? "transparent" : "#1f2937",
-                                  bgcolor: done ? EV_COLORS.primary : "transparent",
+                                  color: published ? "#020617" : "#e5e7eb",
+                                  borderColor: published ? "transparent" : "#1f2937",
+                                  bgcolor: published ? EV_COLORS.primary : "transparent",
                                 },
                               }}
                             >
-                              {done ? "Completed" : "Pending"}
+                              {published ? "Available" : "Not active"}
                             </Button>
                           </Tooltip>
                         </Box>
@@ -342,8 +342,8 @@ export default function AdminOnboardingChecklistPage() {
                 variant="caption"
                 className={`text-[10px] max-w-xl ${isDark ? "text-slate-500" : "text-slate-500"}`}
               >
-                When all required modules are completed, your supervisor or Super Admin can switch your access level
-                from read-only to full write access for the regions and modules assigned to you.
+                Admin completion tracking is not exposed by the current backend contract. Until that contract exists,
+                full write access must be assigned by a Super Admin through roles and permissions.
               </Typography>
 
               <Box className="flex flex-row gap-2 justify-end">
@@ -357,9 +357,7 @@ export default function AdminOnboardingChecklistPage() {
                     color: "#e5e7eb",
                     "&:hover": { borderColor: EV_COLORS.primary },
                   }}
-                  onClick={() => {
-                    // Allow user to view portal in read-only mode
-                  }}
+                  onClick={() => navigate("/admin/home")}
                 >
                   Enter portal (read-only)
                 </Button>
@@ -367,18 +365,15 @@ export default function AdminOnboardingChecklistPage() {
                 <Button
                   variant="contained"
                   size="small"
-                  disabled={totalDoneRequired !== totalRequired}
+                  disabled
                   sx={{
                     textTransform: "none",
                     borderRadius: 2,
                     px: 3,
-                    bgcolor: totalDoneRequired === totalRequired ? EV_COLORS.primary : "#1f2937",
+                    bgcolor: "#1f2937",
                     "&:hover": {
-                      bgcolor: totalDoneRequired === totalRequired ? "#0fb589" : "#020617",
+                      bgcolor: "#020617",
                     },
-                  }}
-                  onClick={() => {
-                    if (totalDoneRequired !== totalRequired) return;
                   }}
                 >
                   Unlock full Admin access

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -22,11 +21,6 @@ import {
   type AdminFeatureFlagResponse,
   type AdminServiceResponse,
 } from "../services/api/adminApi";
-
-const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
-};
 
 type SystemOverviewState = {
   totals: { users: number; riders: number; drivers: number; trips: number };
@@ -60,9 +54,9 @@ export default function SystemOverviewPage() {
         setServices(liveServices);
         setFlags(liveFlags);
         setAudits(liveAudits);
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (cancelled) return;
-        setError(err?.message ?? "Failed to load system overview");
+        setError(err instanceof Error ? err.message : "Failed to load system overview");
       } finally {
         if (!cancelled) setLoading(false);
       }
