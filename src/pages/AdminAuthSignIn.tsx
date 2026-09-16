@@ -1,13 +1,9 @@
-// @ts-nocheck
 import React, { useEffect, useState } from"react";
+import type { CSSProperties, FormEvent } from "react";
 import { useLocation, useNavigate } from"react-router-dom";
 import { loginWithCredentials } from"../auth/auth";
 import { ApiRequestError } from"../services/api/httpClient";
 import { clearAuthPrefillPassword, readAuthPrefill, saveAuthPrefill } from"../auth/authPrefill";
-
-// Professional Auth page for EVzone Admin Portal
-// Clean, enterprise style with real SSO provider icons
-// ✅ Hover added for Google, Microsoft, Apple, EVzone buttons (inline style friendly)
 
 const EV = {
   green:"#03CD8C",
@@ -20,7 +16,12 @@ const EV = {
   white:"var(--ev-paper, #ffffff)",
 };
 
-const track = (e, p = {}) => console.debug("[track]", e, { ...p, ts: Date.now() });
+type SsoProvider = "Google" | "Microsoft" | "Apple" | "EVzone";
+type HoveredButton = "google" | "microsoft" | "apple" | "evzone" | null;
+type LocationState = { from?: unknown } | null;
+
+const track = (eventName: string, payload: Record<string, unknown> = {}) =>
+  console.debug("[track]", eventName, { ...payload, ts: Date.now() });
 
 // SVG Icons for SSO providers
 const GoogleIcon = () => (
@@ -75,7 +76,8 @@ const EVzoneIcon = () => (
 export default function AuthSignIn() {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state && location.state.from ? location.state.from :"/admin/home";
+  const locationState = location.state as LocationState;
+  const from = typeof locationState?.from === "string" ? locationState.from :"/admin/home";
 
   const prefill = React.useMemo(() => readAuthPrefill(), []);
   const [email, setEmail] = useState(prefill.email || prefill.identity || "");
@@ -87,8 +89,7 @@ export default function AuthSignIn() {
   const [loginError, setLoginError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ Hover tracking
-  const [hoveredBtn, setHoveredBtn] = useState(null);
+  const [hoveredBtn, setHoveredBtn] = useState<HoveredButton>(null);
 
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !=="undefined" ? window.innerWidth < 980 : false
@@ -100,13 +101,13 @@ export default function AuthSignIn() {
     return () => window.removeEventListener("resize", onR);
   }, []);
 
-  const validateEmail = (val) => /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(val).trim().toLowerCase());
+  const validateEmail = (val: string) => /[^@\s]+@[^@\s]+\.[^@\s]+/.test(val.trim().toLowerCase());
 
   const onEmailBlur = () => {
     setEmailErr(email && !validateEmail(email) ? "Email is required" : "");
   };
 
-  const login = async (e) => {
+  const login = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoginError("");
 
@@ -141,7 +142,7 @@ export default function AuthSignIn() {
     }
   };
 
-  const sso = (provider) => {
+  const sso = (provider: SsoProvider) => {
     track("auth_sso", { provider });
     setIsLoading(true);
     setTimeout(() => {
@@ -150,8 +151,7 @@ export default function AuthSignIn() {
     }, 500);
   };
 
-  // ✅ Hover styles
-  const hoverStyles = {
+  const hoverStyles: Record<"big" | "small", CSSProperties> = {
     big: {
       background: EV.lightGray,
       borderColor:"#cbd5e1",
@@ -484,7 +484,7 @@ function iconRing() {
 }
 
 // Styles
-const styles = {
+const styles: Record<string, CSSProperties> = {
   page: {
     display:"flex",
     minHeight:"100vh",

@@ -41,6 +41,19 @@ export type LiveDriverMarker = {
   distanceKm: number;
   name?: string;
   plate?: string;
+  serviceType?: string;
+  serviceId?: string;
+  activeAssignment?: {
+    serviceType: "RIDE" | "DELIVERY";
+    serviceId: string;
+    status?: string;
+    pickup?: string;
+    destination?: string;
+    distanceKm?: number;
+    durationMinutes?: number;
+    trackingCode?: string;
+    routeId?: string;
+  };
 };
 
 // Server-side proximity origin used ONLY to scope the backend active-drivers
@@ -84,7 +97,7 @@ function markerIcon(driver: LiveDriverMarker, google: any) {
   const kind = driverVehicleKind(driver.vehicleType);
   const safeGoogle = typeof google !== "undefined" && google?.maps ? google : null;
   return {
-    url: vehicleMarkerIconUrl(kind, driver.heading, driver.availabilityStatus === "BUSY"),
+    url: vehicleMarkerIconUrl(kind, driver.heading, driver.availabilityStatus),
     anchor: vehicleMarkerAnchor(kind, safeGoogle),
     scaledSize: vehicleMarkerSize(kind, safeGoogle),
   };
@@ -96,6 +109,22 @@ function formatLastSeen(value?: string) {
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes} min ago`;
   return `${Math.floor(minutes / 60)}h ago`;
+}
+
+function formatAssignmentDistance(driver: LiveDriverMarker) {
+  const distance = driver.activeAssignment?.distanceKm;
+  if (typeof distance === "number" && Number.isFinite(distance) && distance > 0) {
+    return `${distance.toFixed(1)} km`;
+  }
+  return null;
+}
+
+function formatAssignmentDuration(driver: LiveDriverMarker) {
+  const duration = driver.activeAssignment?.durationMinutes;
+  if (typeof duration === "number" && Number.isFinite(duration) && duration > 0) {
+    return `${Math.round(duration)} min`;
+  }
+  return null;
 }
 
 export default function LiveDriversMapPage() {
@@ -192,7 +221,13 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
             return [...prev, { ...location, distanceKm: 0 }];
           }
           const next = [...prev];
-          next[index] = { ...next[index], ...location };
+          next[index] = {
+            ...next[index],
+            ...location,
+            activeAssignment: location.activeAssignment ?? next[index].activeAssignment,
+            serviceType: location.serviceType ?? next[index].serviceType,
+            serviceId: location.serviceId ?? next[index].serviceId,
+          };
           return next;
         });
         locationTimeoutRef.current = null;
@@ -370,16 +405,65 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
                 position={{ lat: selected.latitude, lng: selected.longitude }}
                 onCloseClick={() => setSelected(null)}
               >
-                <Box sx={{ py: 0.5, minWidth: 200 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                    {vehicleIcon(selected.vehicleType)} {selected.name ?? selected.driverId}
-                  </Typography>
-                  <Typography variant="caption" display="block" color="text.secondary">
+                <Box sx={{ py: 0.5, minWidth: 240 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                      {vehicleIcon(selected.vehicleType)} {selected.name ?? selected.driverId}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={selected.availabilityStatus}
+                      sx={{ backgroundColor: selected.availabilityStatus === "BUSY" ? "#f59e0b" : "#10b981", color: "#fff" }}
+                    />
+                  </Box>
+                  <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
                     {selected.plate ? `${selected.plate} · ` : ""}{selected.vehicleType ?? "—"} · {selected.driverId}
                   </Typography>
-                  <Typography variant="caption" display="block" color="text.secondary">
+                  <Typography variant="caption" display="block" color="text.secondary" sx={{ mb: 0.5 }}>
                     Status: {selected.availabilityStatus} · Last seen: {formatLastSeen(selected.lastLocationAt)}
                   </Typography>
+                  {selected.availabilityStatus === "BUSY" && (
+                    <Box sx={{ mt: 1, mb: 1, p: 1, borderRadius: 1.5, bgcolor: "#fffbeb", border: "1px solid #fde68a" }}>
+                      <Typography variant="caption" display="block" color="warning.dark" sx={{ fontWeight: 800, textTransform: "uppercase" }}>
+                        Active {selected.activeAssignment?.serviceType?.toLowerCase() || selected.serviceType?.toLowerCase() || "job"}
+                      </Typography>
+                      {selected.activeAssignment ? (
+                        <>
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            Status: {selected.activeAssignment.status || "In progress"}
+                            {selected.activeAssignment.trackingCode ? ` · ${selected.activeAssignment.trackingCode}` : ""}
+                          </Typography>
+                          {selected.activeAssignment.pickup ? (
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              Pickup: {selected.activeAssignment.pickup}
+                            </Typography>
+                          ) : null}
+                          {selected.activeAssignment.destination ? (
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              Destination: {selected.activeAssignment.destination}
+                            </Typography>
+                          ) : null}
+                          {formatAssignmentDistance(selected) || formatAssignmentDuration(selected) ? (
+                            <Typography variant="caption" display="block" color="text.secondary">
+                              {[formatAssignmentDistance(selected), formatAssignmentDuration(selected)].filter(Boolean).join(" · ")}
+                            </Typography>
+                          ) : null}
+                        </>
+                      ) : (
+                        <Typography variant="caption" display="block" color="text.secondary">
+                          Driver is busy, but route details are not available yet.
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => { setSelected(null); navigate(`/admin/drivers/${selected.driverId}`); }}
+                    sx={{ mt: 1, width: "100%" }}
+                  >
+                    View driver details
+                  </Button>
                 </Box>
               </InfoWindowF>
             ) : null}

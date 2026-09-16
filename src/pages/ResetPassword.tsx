@@ -1,5 +1,5 @@
-// @ts-nocheck
 import React, { useState } from"react";
+import type { CSSProperties, FormEvent } from "react";
 import { useLocation, useNavigate } from"react-router-dom";
 import { readAuthPrefill, saveAuthPrefill } from "../auth/authPrefill";
 import { requestPasswordReset, resetPasswordWithOtp } from "../auth/auth";
@@ -16,6 +16,22 @@ const EV = {
   white:"var(--ev-paper, #ffffff)",
 };
 
+type ResetLocationState = {
+  email?: unknown;
+  otp?: unknown;
+} | null;
+
+type ResetErrors = Partial<Record<"email" | "otp" | "password" | "confirmPassword", string>>;
+
+type StrengthLabel = {
+  label: "Weak" | "Fair" | "Good" | "Strong";
+  color: string;
+};
+
+function stringState(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
 const LockIcon = () => (
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
     <rect x="3" y="11" width="18" height="11" rx="2" stroke={EV.green} strokeWidth="1.5"/>
@@ -31,7 +47,7 @@ const CheckCircleIcon = () => (
   </svg>
 );
 
-const EyeIcon = ({ open }) => (
+const EyeIcon = ({ open }: { open: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
     {open ? (
       <>
@@ -51,16 +67,17 @@ export default function ResetPassword() {
   const navigate = useNavigate();
   const location = useLocation();
   const prefill = React.useMemo(() => readAuthPrefill(), []);
-  const state = location.state || {};
+  const state = location.state as ResetLocationState;
 
-  const [email, setEmail] = useState((state.email || prefill.email || prefill.identity || "").trim().toLowerCase());
-  const verifiedOtp = typeof state.otp === "string" ? state.otp : "";
+  const initialEmail = stringState(state?.email) || prefill.email || prefill.identity || "";
+  const [email, setEmail] = useState(initialEmail.trim().toLowerCase());
+  const verifiedOtp = stringState(state?.otp);
   const [otp, setOtp] = useState(verifiedOtp);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<ResetErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [resendMessage, setResendMessage] = useState("");
@@ -73,16 +90,16 @@ export default function ResetPassword() {
   const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
   const strengthScore = [hasMinLength, hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
 
-  const getStrengthLabel = () => {
+  const getStrengthLabel = (): StrengthLabel => {
     if (strengthScore <= 2) return { label:"Weak", color:"#dc2626" };
     if (strengthScore <= 3) return { label:"Fair", color:"#d97706" };
     if (strengthScore <= 4) return { label:"Good", color:"#2563eb" };
     return { label:"Strong", color: EV.green };
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const newErrors = {};
+    const newErrors: ResetErrors = {};
 
     if (!email) {
       newErrors.email = "Please enter your email address";
@@ -369,7 +386,7 @@ export default function ResetPassword() {
   );
 }
 
-function RequirementItem({ met, text }) {
+function RequirementItem({ met, text }: { met: boolean; text: string }) {
   return (
     <div style={{ display:"flex", alignItems:"center", gap: 8 }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -384,7 +401,7 @@ function RequirementItem({ met, text }) {
   );
 }
 
-const styles = {
+const styles: Record<string, CSSProperties> = {
   page: {
     minHeight:"100vh",
     background: 'var(--ev-bg, #f8fafc)',

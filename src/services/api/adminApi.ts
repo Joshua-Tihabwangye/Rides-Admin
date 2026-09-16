@@ -61,6 +61,19 @@ export type AdminAuditEventResponse = {
   metadata?: Record<string, any>;
 };
 
+export type AdminIntegrationHealthResponse = {
+  schoolConnections: Array<Record<string, unknown>>;
+  outbox: {
+    pending: number;
+    failed: number;
+  };
+  dispatch: {
+    desks: number;
+    agents: number;
+  };
+  generatedAt: string | number | Date;
+};
+
 export type AdminUserResponse = {
   id: string;
   name: string;
@@ -160,6 +173,21 @@ export type ActiveDriverMarker = {
   availabilityStatus: string;
   lastLocationAt?: string;
   distanceKm: number;
+  name?: string;
+  plate?: string;
+  serviceType?: string;
+  serviceId?: string;
+  activeAssignment?: {
+    serviceType: "RIDE" | "DELIVERY";
+    serviceId: string;
+    status?: string;
+    pickup?: string;
+    destination?: string;
+    distanceKm?: number;
+    durationMinutes?: number;
+    trackingCode?: string;
+    routeId?: string;
+  };
 };
 
 export async function getActiveDrivers(
@@ -895,10 +923,15 @@ export type AdminSafetyRideSnapshot = {
 
 export type AdminEmergencyMessage = {
   id: string;
-  incidentId: string;
+  incidentId: string | null;
   senderUserId: string;
   senderRole: string;
-  text: string;
+  text: string | null;
+  audioUrl?: string | null;
+  audioMimeType?: string | null;
+  audioDurationMs?: number | null;
+  serviceType?: string | null;
+  serviceId?: string | null;
   clientEventId?: string | null;
   createdAt: string;
 };
@@ -1606,6 +1639,44 @@ export async function patchAdminPromo(
   });
 }
 
+// ── Generic Admin Content ──────────────────────────────────────────────────
+
+export type AdminContentItem<T extends Record<string, unknown> = Record<string, unknown>> = T & {
+  id: string;
+  kind?: string;
+  title?: string;
+  status?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export async function listAdminContent<T extends Record<string, unknown> = Record<string, unknown>>(
+  kind: string,
+): Promise<Array<AdminContentItem<T>>> {
+  return request<Array<AdminContentItem<T>>>(`/admin/content/${encodeURIComponent(kind)}`, { method: "GET" });
+}
+
+export async function createAdminContent<T extends Record<string, unknown> = Record<string, unknown>>(
+  kind: string,
+  input: T,
+): Promise<AdminContentItem<T>> {
+  return request<AdminContentItem<T>>(`/admin/content/${encodeURIComponent(kind)}`, {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function patchAdminContent<T extends Record<string, unknown> = Record<string, unknown>>(
+  kind: string,
+  id: string,
+  input: Partial<T>,
+): Promise<AdminContentItem<T>> {
+  return request<AdminContentItem<T>>(`/admin/content/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
 // ── Risk Cases ──────────────────────────────────────────────────────────────
 
 export type AdminRiskCaseResponse = {
@@ -1686,6 +1757,10 @@ export function isAdminBackendEnabled(): boolean {
 
 export async function listAdminAuditEvents(): Promise<AdminAuditEventResponse[]> {
   return request<AdminAuditEventResponse[]>("/admin/system/audit-log", { method: "GET" });
+}
+
+export async function getAdminIntegrationsHealth(): Promise<AdminIntegrationHealthResponse> {
+  return request<AdminIntegrationHealthResponse>("/admin/integrations/health", { method: "GET" });
 }
 
 export async function getAdminSystemOverview(): Promise<{
@@ -1986,6 +2061,41 @@ export async function patchAdminCompany(
     method: "PATCH",
     body: input,
   });
+}
+
+export type AdminCompanyPayoutSettings = {
+  companyId: string;
+  schedule: string;
+  minimumAmount: number;
+  currency: string;
+  destination: string | null;
+  enabled: boolean;
+};
+
+export type AdminUpdateCompanyPayoutSettingsInput = Partial<{
+  schedule: string;
+  minimumAmount: number;
+  currency: string;
+  destination: string | null;
+  enabled: boolean;
+}>;
+
+export async function getAdminCompanyPayoutSettings(companyId: string): Promise<AdminCompanyPayoutSettings> {
+  return request<AdminCompanyPayoutSettings>(`/admin/companies/${companyId}/payout-settings`, { method: "GET" });
+}
+
+export async function patchAdminCompanyPayoutSettings(
+  companyId: string,
+  input: AdminUpdateCompanyPayoutSettingsInput,
+): Promise<AdminCompanyPayoutSettings> {
+  return request<AdminCompanyPayoutSettings>(`/admin/companies/${companyId}/payout-settings`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+export async function listAdminCompanyPayouts(companyId: string): Promise<AdminPayout[]> {
+  return request<AdminPayout[]>(`/admin/companies/${companyId}/payouts`, { method: "GET" });
 }
 
 // ── Centralized Pricing Management ─────────────────────────────────────────

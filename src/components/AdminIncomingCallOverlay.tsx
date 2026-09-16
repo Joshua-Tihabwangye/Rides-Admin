@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
+  Chip,
+  Paper,
   Stack,
   Typography,
   Link,
@@ -116,6 +118,12 @@ type ActiveCall = {
     tick: ReturnType<typeof setInterval> | null;
   };
 };
+
+type VisibleCall = ActiveCall & { state: Exclude<IncomingCallState, { kind: "idle" }> };
+
+function isVisibleCall(call: ActiveCall): call is VisibleCall {
+  return call.state.kind !== "idle";
+}
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -476,12 +484,8 @@ export default function AdminIncomingCallOverlay() {
     [],
   );
 
-  const visibleCalls = calls.filter((c) => c.state.kind !== "idle");
+  const visibleCalls = calls.filter(isVisibleCall);
   if (visibleCalls.length === 0) return null;
-
-  const isSingle = visibleCalls.length === 1;
-  const isPair = visibleCalls.length === 2;
-  const isGrid = visibleCalls.length > 2;
 
   return (
     <>
@@ -500,307 +504,204 @@ export default function AdminIncomingCallOverlay() {
       <Box
         sx={{
           position: "fixed",
-          inset: 0,
+          top: { xs: 72, md: 92 },
+          right: { xs: 12, md: 20 },
+          left: { xs: 12, md: "auto" },
+          width: { xs: "auto", md: 390 },
+          maxHeight: "calc(100vh - 112px)",
           zIndex: (theme) => theme.zIndex.modal + 100,
-          bgcolor: "rgba(0,0,0,0.85)",
-          display: isGrid ? "grid" : "flex",
-          ...(isGrid
-            ? {
-                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-                gridAutoRows: "minmax(280px, 1fr)",
-                overflowY: "auto",
-                p: 2,
-                gap: 2,
-                alignContent: "start",
-              }
-            : {
-                flexDirection: { xs: "column", md: "row" },
-                alignItems: "stretch",
-                justifyContent: "center",
-                overflowY: "auto",
-              }),
-          color: "white",
-          animation: "fadeIn 0.2s ease-out",
-          "@keyframes fadeIn": {
-            from: { opacity: 0 },
-            to: { opacity: 1 },
+          display: "flex",
+          flexDirection: "column",
+          gap: 1.5,
+          overflowY: "auto",
+          pointerEvents: "none",
+          animation: "emergencyCallPanelIn 0.22s ease-out",
+          "@keyframes emergencyCallPanelIn": {
+            from: { opacity: 0, transform: "translateX(20px)" },
+            to: { opacity: 1, transform: "translateX(0)" },
           },
         }}
       >
-        {visibleCalls.map((call, index) => {
-          if (isPair) {
-            return (
-              <Box
-                key={call.callId}
-                sx={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRight: {
-                    xs: "none",
-                    md: index !== visibleCalls.length - 1 ? "1px solid rgba(255,255,255,0.15)" : "none",
-                  },
-                  borderBottom: {
-                    xs: index !== visibleCalls.length - 1 ? "1px solid rgba(255,255,255,0.15)" : "none",
-                    md: "none",
-                  },
-                  p: 2,
-                  overflowY: "auto",
-                  minHeight: { xs: 320, md: "auto" },
-                }}
-              >
-                {renderCallContent(call, index)}
-              </Box>
-            );
-          }
-          if (isGrid) {
-            return (
-              <Box
-                key={call.callId}
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  p: 2,
-                  overflowY: "auto",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: 2,
-                  bgcolor: "rgba(255,255,255,0.04)",
-                }}
-              >
-                {renderCallContent(call, index)}
-              </Box>
-            );
-          }
-          return (
-            <Box
-              key={call.callId}
-              sx={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                p: 2,
-                overflowY: "auto",
-              }}
-            >
-              {renderCallContent(call, index)}
-            </Box>
-          );
-        })}
+        {visibleCalls.map((call) => renderCallContent(call))}
       </Box>
     </>
   );
 
-  function renderCallContent(call: ActiveCall, index: number) {
+  function renderCallContent(call: VisibleCall) {
     const state = call.state;
     const ctx = call.emergencyContext;
+    const incomingState = state.kind === "incoming" ? state : null;
+    const connectingState = state.kind === "connecting" ? state : null;
+    const activeState = state.kind === "active" ? state : null;
+    const headerLabel = incomingState
+      ? "SOS emergency call"
+      : connectingState
+        ? "Connecting emergency call"
+        : "Active emergency call";
+    const peerName = incomingState?.callerName ?? connectingState?.peerName ?? activeState?.peerName ?? "Emergency caller";
+    const statusColor = activeState ? "#16a34a" : connectingState ? "#f59e0b" : "#dc2626";
+    const softStatusBg = activeState ? "#f0fdf4" : connectingState ? "#fffbeb" : "#fef2f2";
+
     return (
-      <>
-        {state.kind === "incoming" && (
-          <>
+      <Paper
+        key={call.callId}
+        elevation={12}
+        sx={{
+          pointerEvents: "auto",
+          overflow: "hidden",
+          borderRadius: 2,
+          border: `1px solid ${statusColor}`,
+          bgcolor: "#ffffff",
+          color: "#0f172a",
+          boxShadow: "0 18px 45px rgba(15, 23, 42, 0.22)",
+        }}
+      >
+        <Box sx={{ bgcolor: softStatusBg, borderBottom: "1px solid rgba(148,163,184,0.25)", px: 2, py: 1.5 }}>
+          <Stack direction="row" alignItems="center" spacing={1.25}>
             <Box
               sx={{
-                width: 80,
-                height: 80,
+                width: 40,
+                height: 40,
                 borderRadius: "50%",
-                bgcolor: "error.main",
+                bgcolor: statusColor,
+                color: "#fff",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                mb: 2,
-                animation: "pulse 1.5s ease-in-out infinite",
-                "@keyframes pulse": {
+                flex: "0 0 auto",
+                animation: incomingState ? "callPulse 1.5s ease-in-out infinite" : "none",
+                "@keyframes callPulse": {
                   "0%": { boxShadow: "0 0 0 0 rgba(220,38,38,0.7)" },
-                  "70%": { boxShadow: "0 0 0 20px rgba(220,38,38,0)" },
+                  "70%": { boxShadow: "0 0 0 12px rgba(220,38,38,0)" },
                   "100%": { boxShadow: "0 0 0 0 rgba(220,38,38,0)" },
                 },
               }}
             >
-              <PhoneIcon sx={{ fontSize: 40 }} />
+              <PhoneIcon sx={{ fontSize: 22 }} />
             </Box>
-            <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>
-              SOS EMERGENCY CALL
-            </Typography>
-            <Typography variant="body1" sx={{ color: "rgba(255,255,255,0.8)", mb: 1, fontWeight: 700 }}>
-              {state.callerName}
-            </Typography>
-            {ctx && (
-              <Box sx={{ mb: 2, textAlign: "center" }}>
-                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
-                  <LocationOnIcon sx={{ fontSize: 16 }} /> {ctx.address ?? "Unknown location"}
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap">
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "#111827", lineHeight: 1.2 }}>
+                  {headerLabel}
                 </Typography>
-                <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", fontFamily: "monospace" }}>
-                  {ctx.latitude.toFixed(5)}, {ctx.longitude.toFixed(5)}
+                <Chip
+                  size="small"
+                  label={activeState ? "LIVE" : connectingState ? "CONNECTING" : "INCOMING"}
+                  sx={{
+                    height: 20,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: "#fff",
+                    bgcolor: statusColor,
+                  }}
+                />
+              </Stack>
+              <Typography variant="body2" sx={{ color: "#334155", fontWeight: 800, mt: 0.25 }}>
+                {peerName}
+              </Typography>
+              {activeState ? (
+                <Typography variant="caption" sx={{ color: "#16a34a", fontWeight: 900 }}>
+                  Call time {formatTime(activeState.durationSeconds)}
                 </Typography>
-                <Box sx={{ mt: 0.5 }}>
-                  <Link href={ctx.mapUrl} target="_blank" rel="noreferrer" sx={{ color: "#90caf9", fontWeight: 700 }}>
-                    <MapIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: "middle" }} /> Open in Maps
+              ) : null}
+            </Box>
+          </Stack>
+        </Box>
+
+        <Box sx={{ px: 2, py: 1.5 }}>
+          {ctx ? (
+            <Box sx={{ border: "1px solid #e2e8f0", bgcolor: "#f8fafc", borderRadius: 1.5, p: 1.25, mb: 1.5 }}>
+              <Stack direction="row" spacing={1} alignItems="flex-start">
+                <LocationOnIcon sx={{ color: "#dc2626", fontSize: 18, mt: 0.2 }} />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 800, textTransform: "uppercase" }}>
+                    Incident location
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "#0f172a", fontWeight: 700, lineHeight: 1.35 }}>
+                    {ctx.address ?? "Unknown location"}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "#64748b", fontFamily: "monospace", display: "block", mt: 0.25 }}>
+                    {ctx.latitude.toFixed(5)}, {ctx.longitude.toFixed(5)}
+                  </Typography>
+                  <Link
+                    href={ctx.mapUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(event) => event.stopPropagation()}
+                    sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 0.5, fontSize: 12, fontWeight: 800 }}
+                  >
+                    <MapIcon sx={{ fontSize: 15 }} /> Open in Maps
                   </Link>
                 </Box>
-                {call.incidentId && (
-                  <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.4)", display: "block", mt: 0.5 }}>
-                    Incident: {call.incidentId}
-                  </Typography>
-                )}
-              </Box>
-            )}
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.6)", mb: 3 }}>
-              Incoming emergency call — answer to respond
-            </Typography>
-            <Stack direction="row" spacing={5}>
+              </Stack>
+            </Box>
+          ) : null}
+
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+            {call.incidentId ? (
+              <Chip size="small" label={`Incident ${call.incidentId.slice(0, 8)}`} sx={{ fontSize: 11, fontWeight: 700 }} />
+            ) : null}
+            {call.recipientLabel ? (
+              <Chip size="small" label={call.recipientLabel} sx={{ fontSize: 11, fontWeight: 700 }} />
+            ) : null}
+            {call.recipientType ? (
+              <Chip size="small" label={call.recipientType} sx={{ fontSize: 11, fontWeight: 700 }} />
+            ) : null}
+          </Stack>
+
+          <Typography variant="body2" sx={{ color: "#475569", mb: 1.5 }}>
+            {incomingState
+              ? "Incoming emergency call. Answer to join the incident response."
+              : connectingState
+                ? "Establishing the secure audio connection..."
+                : "Emergency audio channel is live."}
+          </Typography>
+
+          {incomingState ? (
+            <Stack direction="row" spacing={1}>
               <Button
                 variant="contained"
+                startIcon={<PhoneIcon />}
                 onClick={() => {
-                  void answerCall(call.callId, state.callerName, state.mediaType);
+                  void answerCall(call.callId, incomingState.callerName, incomingState.mediaType);
                 }}
                 sx={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  minWidth: 0,
-                  bgcolor: "success.main",
-                  "&:hover": { bgcolor: "success.dark" },
+                  flex: 1,
+                  textTransform: "none",
+                  fontWeight: 900,
+                  bgcolor: "#16a34a",
+                  "&:hover": { bgcolor: "#15803d" },
                 }}
               >
-                <PhoneIcon sx={{ fontSize: 32 }} />
+                Answer
               </Button>
               <Button
-                variant="contained"
+                variant="outlined"
+                color="error"
+                startIcon={<PhoneDisabledIcon />}
                 onClick={() => {
                   void adminRespondToChatCall(call.callId, "DECLINE").catch(() => undefined);
                   endCallUi(call.callId);
                 }}
-                sx={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  minWidth: 0,
-                  bgcolor: "error.main",
-                  "&:hover": { bgcolor: "error.dark" },
-                }}
+                sx={{ flex: 1, textTransform: "none", fontWeight: 900 }}
               >
-                <PhoneDisabledIcon sx={{ fontSize: 32 }} />
+                Decline
               </Button>
             </Stack>
-          </>
-        )}
-
-        {state.kind === "connecting" && (
-          <>
-            <Box
-              sx={{
-                width: 80,
-                height: 80,
-                borderRadius: "50%",
-                bgcolor: "warning.main",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                mb: 2,
-                animation: "pulse 1.5s ease-in-out infinite",
-              }}
-            >
-              <PhoneIcon sx={{ fontSize: 40 }} />
-            </Box>
-            <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>CONNECTING</Typography>
-            <Typography variant="body1" sx={{ color: "rgba(255,255,255,0.8)", mb: 1, fontWeight: 700 }}>
-              {state.peerName}
-            </Typography>
-            {ctx && (
-              <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", fontFamily: "monospace" }}>
-                {ctx.latitude.toFixed(5)}, {ctx.longitude.toFixed(5)}
-              </Typography>
-            )}
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.6)", mb: 3, mt: 1 }}>
-              Establishing secure connection...
-            </Typography>
+          ) : (
             <Button
+              fullWidth
               variant="contained"
+              color="error"
+              startIcon={<PhoneDisabledIcon />}
               onClick={() => void hangUp(call.callId)}
-              sx={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                minWidth: 0,
-                bgcolor: "error.main",
-                "&:hover": { bgcolor: "error.dark" },
-              }}
+              sx={{ textTransform: "none", fontWeight: 900 }}
             >
-              <PhoneDisabledIcon sx={{ fontSize: 32 }} />
+              End call
             </Button>
-          </>
-        )}
-
-        {state.kind === "active" && (
-          <>
-            <Box
-              sx={{
-                width: 80,
-                height: 80,
-                borderRadius: "50%",
-                bgcolor: "success.main",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                mb: 2,
-              }}
-            >
-              <PhoneIcon sx={{ fontSize: 40 }} />
-            </Box>
-            <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>ACTIVE EMERGENCY CALL</Typography>
-            <Typography variant="body1" sx={{ color: "rgba(255,255,255,0.8)", mb: 1, fontWeight: 700 }}>
-              {state.peerName}
-            </Typography>
-            {ctx && (
-              <Box sx={{ mb: 1, textAlign: "center" }}>
-                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5 }}>
-                  <LocationOnIcon sx={{ fontSize: 16 }} /> {ctx.address ?? "Unknown location"}
-                </Typography>
-                <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", fontFamily: "monospace" }}>
-                  {ctx.latitude.toFixed(5)}, {ctx.longitude.toFixed(5)}
-                </Typography>
-                <Box sx={{ mt: 0.5 }}>
-                  <Link href={ctx.mapUrl} target="_blank" rel="noreferrer" sx={{ color: "#90caf9", fontWeight: 700 }}>
-                    <MapIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: "middle" }} /> Open in Maps
-                  </Link>
-                </Box>
-              </Box>
-            )}
-            <Box
-              sx={{
-                bgcolor: "rgba(255,255,255,0.1)",
-                px: 2,
-                py: 0.5,
-                borderRadius: 2,
-                mb: 3,
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                {formatTime(state.durationSeconds)}
-              </Typography>
-            </Box>
-            <Button
-              variant="contained"
-              onClick={() => void hangUp(call.callId)}
-              sx={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                minWidth: 0,
-                bgcolor: "error.main",
-                "&:hover": { bgcolor: "error.dark" },
-              }}
-            >
-              <PhoneDisabledIcon sx={{ fontSize: 32 }} />
-            </Button>
-          </>
-        )}
-      </>
+          )}
+        </Box>
+      </Paper>
     );
   }
 }

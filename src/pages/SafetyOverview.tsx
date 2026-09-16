@@ -44,7 +44,7 @@ import {
   readAdminBackendAccessToken,
   createAdminSocket,
 } from "../services/api/adminApi";
-import type { AdminRiskCaseResponse, AdminSafetyIncident } from "../services/api/adminApi";
+import type { AdminRiskCaseResponse, AdminSafetyIncident, AdminEmergencyMessage } from "../services/api/adminApi";
 import AdminTripCommunicationPanel from "../components/AdminTripCommunicationPanel";
 
 function currentAdminUserId(): string | null {
@@ -199,6 +199,17 @@ export default function SafetyOverviewDashboardPage() {
       socket = createAdminSocket();
       socket.on("safety.incident.new", refetchIncidents);
       socket.on("admin.safety.incidents.updated", refetchIncidents);
+      socket.on("safety.emergency.message.new", (payload: any) => {
+        if (!payload || !payload.message) return;
+        const message = payload.message as AdminEmergencyMessage;
+        // Only handle standalone communications (no incidentId)
+        if (message.incidentId) return;
+        setStandaloneComms((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [message, ...prev].slice(0, 50);
+        });
+        setUnreadCommsCount((prev) => prev + 1);
+      });
       socket.connect();
     } catch {
       socket = null;
@@ -208,6 +219,7 @@ export default function SafetyOverviewDashboardPage() {
       if (socket) {
         socket.off("safety.incident.new", refetchIncidents);
         socket.off("admin.safety.incidents.updated", refetchIncidents);
+        socket.off("safety.emergency.message.new", refetchIncidents);
         socket.disconnect();
       }
     };
@@ -422,6 +434,31 @@ export default function SafetyOverviewDashboardPage() {
           View risk queue
         </Button>
       </Box>
+
+      {unreadCommsCount > 0 ? (
+        <Box sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              bgcolor: "#7f1d1d",
+              border: "2px solid #dc2626",
+              borderRadius: 2,
+              px: 2.5,
+              py: 1.5,
+            }}
+            onClick={() => setUnreadCommsCount(0)}
+            role="button"
+            tabIndex={0}
+          >
+            <SmsFailedIcon sx={{ color: "#fecaca", fontSize: 28 }} />
+            <Typography variant="subtitle1" className="font-black tracking-wide text-red-100">
+              {unreadCommsCount === 1 ? "1 NEW SAFETY MESSAGE" : `${unreadCommsCount} NEW SAFETY MESSAGES`} — click to clear
+            </Typography>
+          </Box>
+        </Box>
+      ) : null}
 
       {activeSos.length > 0 ? (
         <Box className="mb-4 flex flex-col gap-3">

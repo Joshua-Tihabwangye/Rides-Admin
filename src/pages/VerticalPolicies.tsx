@@ -1,443 +1,515 @@
-// @ts-nocheck
-import React, { useState } from"react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  Chip,
-  Button,
+  CircularProgress,
   Divider,
   FormControlLabel,
+  Snackbar,
+  Stack,
   Switch,
   TextField,
-  Snackbar,
-  Alert
-} from"@mui/material";
-
-// F5 – Vertical Service Policies (Light/Dark, EVzone themed)
-// Route suggestion: /admin/services/policies
-// Defines additional constraints per vertical: Rental, School shuttle, EMS,
-// Tours. References the same services as in F1 (Ride, Delivery, Rental,
-// School shuttles, Tours, EMS) but adds vertical-specific rules such as
-// training requirements and EV exceptions.
-//
-// Manual test cases:
-// 1) Initial render
-//    - Light mode by default.
-//    - Header shows EVZONE ADMIN and subtitle"Vertical service policies".
-//    - Four vertical cards are visible: Rental, School shuttles, EMS, Tours.
-// 2) Theme toggle
-//    - Toggle Light/Dark; cards and background update while all switches and
-//      text field values remain intact.
-// 3) Switches
-//    - Toggle the switches (e.g. Allow non-EV exceptions for Rental). Expect
-//      local state to update and a console log summarizing the vertical
-//      policy state.
-// 4) Limits & requirements
-//    - Edit numeric/text fields (e.g. Min driver rating for Tours) and click
-//"Save policies"; expect a console log with the full policies object.
+  Typography,
+} from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import SaveIcon from "@mui/icons-material/Save";
+import {
+  createAdminContent,
+  listAdminContent,
+  patchAdminContent,
+  type AdminContentItem,
+} from "../services/api/adminApi";
 
 const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
+  primary: "#03cd8c",
+  secondary: "#f77f00",
 };
 
-function AdminVerticalPoliciesLayout({ children }) {
+const CONTENT_KIND = "vertical-policies";
+
+type RentalPolicy = {
+  allowNonEvException: boolean;
+  maxVehicleAgeYears: string;
+  minDriverRating: string;
+};
+
+type SchoolPolicy = {
+  requireBackgroundCheck: boolean;
+  minTrainingModules: string;
+  maxKidsPerVehicle: string;
+};
+
+type EmsPolicy = {
+  allowNonEvForAmbulance: boolean;
+  responseTimeTargetMin: string;
+  requireMedicalPartnerApproval: boolean;
+};
+
+type ToursPolicy = {
+  minDriverRating: string;
+  requireLocalGuide: boolean;
+  maxDailyDrivingHours: string;
+};
+
+type VerticalPolicies = {
+  rental: RentalPolicy;
+  school: SchoolPolicy;
+  ems: EmsPolicy;
+  tours: ToursPolicy;
+};
+
+type VerticalPolicyDocument = Record<string, unknown> & {
+  title: string;
+  status: "published";
+  policies: VerticalPolicies;
+};
+
+type SnackbarState = {
+  open: boolean;
+  message: string;
+  severity: "success" | "error" | "info";
+};
+
+const DEFAULT_POLICIES: VerticalPolicies = {
+  rental: {
+    allowNonEvException: false,
+    maxVehicleAgeYears: "",
+    minDriverRating: "",
+  },
+  school: {
+    requireBackgroundCheck: true,
+    minTrainingModules: "",
+    maxKidsPerVehicle: "",
+  },
+  ems: {
+    allowNonEvForAmbulance: true,
+    responseTimeTargetMin: "",
+    requireMedicalPartnerApproval: true,
+  },
+  tours: {
+    minDriverRating: "",
+    requireLocalGuide: false,
+    maxDailyDrivingHours: "",
+  },
+};
+
+function AdminVerticalPoliciesLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
-      {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
+          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
             Vertical Service Policies
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Additional rules applied on top of core service configuration for
-            Rental, School, EMS and Tours.
+          <Typography variant="caption" color="text.secondary">
+            Additional backend-persisted rules applied on top of core service configuration.
           </Typography>
         </Box>
       </Box>
 
-      <Box className="flex-1 flex flex-col gap-3">
-        {children}
-      </Box>
+      <Box className="flex-1 flex flex-col gap-3">{children}</Box>
     </Box>
   );
 }
 
-export default function VerticalPoliciesPage() {
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [policies, setPolicies] = useState({
+function textValue(value: unknown, fallback = "") {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return fallback;
+}
+
+function boolValue(value: unknown, fallback: boolean) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function normalizePolicies(value: unknown): VerticalPolicies {
+  const root = recordValue(value);
+  const rental = recordValue(root.rental);
+  const school = recordValue(root.school);
+  const ems = recordValue(root.ems);
+  const tours = recordValue(root.tours);
+
+  return {
     rental: {
-      allowNonEvException: false,
-      maxVehicleAgeYears: "",
-      minDriverRating: "",
+      allowNonEvException: boolValue(rental.allowNonEvException, DEFAULT_POLICIES.rental.allowNonEvException),
+      maxVehicleAgeYears: textValue(rental.maxVehicleAgeYears),
+      minDriverRating: textValue(rental.minDriverRating),
     },
     school: {
-      requireBackgroundCheck: true,
-      minTrainingModules: "",
-      maxKidsPerVehicle: "",
+      requireBackgroundCheck: boolValue(school.requireBackgroundCheck, DEFAULT_POLICIES.school.requireBackgroundCheck),
+      minTrainingModules: textValue(school.minTrainingModules),
+      maxKidsPerVehicle: textValue(school.maxKidsPerVehicle),
     },
     ems: {
-      allowNonEvForAmbulance: true,
-      responseTimeTargetMin: "",
-      requireMedicalPartnerApproval: true,
+      allowNonEvForAmbulance: boolValue(ems.allowNonEvForAmbulance, DEFAULT_POLICIES.ems.allowNonEvForAmbulance),
+      responseTimeTargetMin: textValue(ems.responseTimeTargetMin),
+      requireMedicalPartnerApproval: boolValue(
+        ems.requireMedicalPartnerApproval,
+        DEFAULT_POLICIES.ems.requireMedicalPartnerApproval,
+      ),
     },
     tours: {
-      minDriverRating: "",
-      requireLocalGuide: false,
-      maxDailyDrivingHours: "",
+      minDriverRating: textValue(tours.minDriverRating),
+      requireLocalGuide: boolValue(tours.requireLocalGuide, DEFAULT_POLICIES.tours.requireLocalGuide),
+      maxDailyDrivingHours: textValue(tours.maxDailyDrivingHours),
     },
-  });
-
-  const handleToggle = (vertical, field) => (event) => {
-    const checked = event.target.checked;
-    setPolicies((prev) => {
-      const next = {
-        ...prev,
-        [vertical]: { ...prev[vertical], [field]: checked },
-      };
-      console.log("Updated vertical policies:", vertical, next[vertical]);
-      return next;
-    });
   };
+}
 
-  const handleNumberChange = (vertical, field) => (event) => {
-    const value = event.target.value;
+function formatUpdatedAt(value?: number) {
+  if (!value) return "Not saved yet";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
+}
+
+export default function VerticalPoliciesPage() {
+  const [policyRecord, setPolicyRecord] = useState<AdminContentItem<VerticalPolicyDocument> | null>(null);
+  const [policies, setPolicies] = useState<VerticalPolicies>(DEFAULT_POLICIES);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: "", severity: "info" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await listAdminContent<VerticalPolicyDocument>(CONTENT_KIND);
+      const latest = rows[0] ?? null;
+      setPolicyRecord(latest);
+      setPolicies(latest ? normalizePolicies(latest.policies) : DEFAULT_POLICIES);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load vertical policies");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const updatePolicy = <Section extends keyof VerticalPolicies, Field extends keyof VerticalPolicies[Section]>(
+    section: Section,
+    field: Field,
+    value: VerticalPolicies[Section][Field],
+  ) => {
     setPolicies((prev) => ({
       ...prev,
-      [vertical]: { ...prev[vertical], [field]: value },
+      [section]: {
+        ...prev[section],
+        [field]: value,
+      },
     }));
   };
 
-  const handleSave = () => {
-    console.log("Saving vertical policies:", policies);
-    setSnackbarOpen(true);
+  const savePolicies = async () => {
+    setSaving(true);
+    setError(null);
+    const payload: VerticalPolicyDocument = {
+      title: "Vertical service policies",
+      status: "published",
+      policies,
+    };
+
+    try {
+      if (policyRecord) {
+        await patchAdminContent<VerticalPolicyDocument>(CONTENT_KIND, policyRecord.id, payload);
+      } else {
+        await createAdminContent<VerticalPolicyDocument>(CONTENT_KIND, payload);
+      }
+      await load();
+      setSnackbar({ open: true, message: "Vertical policies saved", severity: "success" });
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : "Unable to save vertical policies",
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const { rental, school, ems, tours } = policies;
 
   return (
     <AdminVerticalPoliciesLayout>
-      <Box className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Rental */}
-        <Card
-          elevation={1}
-          sx={{
-            borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-            >
-              Rental policies
-            </Typography>
-            <Typography
-              variant="caption"
-              className="text-[11px] text-slate-500"
-            >
-              Applies on top of Ride & Rental services. Rental vehicles should
-              be EV-only except where explicitly allowed.
-            </Typography>
-            <Divider className="!my-1" />
-
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={rental.allowNonEvException}
-                  onChange={handleToggle("rental","allowNonEvException")}
-                />
-              }
-              label={
-                <Typography
-                  variant="body2"
-                  className="text-[12px] text-slate-500"
-                >
-                  Allow non-EV exception for specific partners (tours etc.)
-                </Typography>
-              }
-            />
-
-            <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <NumberField
-                label="Max vehicle age (years)"
-                value={rental.maxVehicleAgeYears}
-                onChange={handleNumberChange("rental","maxVehicleAgeYears")}
-                placeholder="e.g. 6"
-              />
-              <NumberField
-                label="Min driver rating"
-                value={rental.minDriverRating}
-                step="0.1"
-                onChange={handleNumberChange("rental","minDriverRating")}
-                placeholder="e.g. 4.2"
-              />
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* School shuttles */}
-        <Card
-          elevation={1}
-          sx={{
-            borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-            >
-              School shuttle policies
-            </Typography>
-            <Typography
-              variant="caption"
-              className="text-[11px] text-slate-500"
-            >
-              Extra safeguards for School shuttles: vetting, training and
-              capacity constraints.
-            </Typography>
-            <Divider className="!my-1" />
-
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={school.requireBackgroundCheck}
-                  onChange={handleToggle("school","requireBackgroundCheck")}
-                />
-              }
-              label={
-                <Typography
-                  variant="body2"
-                  className="text-[12px] text-slate-500"
-                >
-                  Require background check for all School drivers
-                </Typography>
-              }
-            />
-
-            <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <NumberField
-                label="Min training modules"
-                value={school.minTrainingModules}
-                onChange={handleNumberChange("school","minTrainingModules")}
-                placeholder="e.g. 3"
-              />
-              <NumberField
-                label="Max kids per vehicle"
-                value={school.maxKidsPerVehicle}
-                onChange={handleNumberChange("school","maxKidsPerVehicle")}
-                placeholder="e.g. 24"
-              />
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* EMS */}
-        <Card
-          elevation={1}
-          sx={{
-            borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-            >
-              EMS / Ambulance policies
-            </Typography>
-            <Typography
-              variant="caption"
-              className="text-[11px] text-slate-500"
-            >
-              EMS may permit non-EV vehicles for mission-critical cases, but
-              still enforces strict response targets.
-            </Typography>
-            <Divider className="!my-1" />
-
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={ems.allowNonEvForAmbulance}
-                  onChange={handleToggle("ems","allowNonEvForAmbulance")}
-                />
-              }
-              label={
-                <Typography
-                  variant="body2"
-                  className="text-[12px] text-slate-500"
-                >
-                  Allow non-EV vehicles for Ambulance category
-                </Typography>
-              }
-            />
-
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={ems.requireMedicalPartnerApproval}
-                  onChange={handleToggle("ems","requireMedicalPartnerApproval")}
-                />
-              }
-              label={
-                <Typography
-                  variant="body2"
-                  className="text-[12px] text-slate-500"
-                >
-                  Require approval from Medical module partners
-                </Typography>
-              }
-            />
-
-            <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <NumberField
-                label="Response time target (minutes)"
-                value={ems.responseTimeTargetMin}
-                onChange={handleNumberChange("ems","responseTimeTargetMin")}
-                placeholder="e.g. 8"
-              />
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Tours */}
-        <Card
-          elevation={1}
-          sx={{
-            borderRadius: 8,
-            border:"1px solid rgba(148,163,184,0.5)",
-            
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-            >
-              Tours & tourism policies
-            </Typography>
-            <Typography
-              variant="caption"
-              className="text-[11px] text-slate-500"
-            >
-              Extra expectations for tour operators: driver rating thresholds,
-              guide presence and maximum daily hours.
-            </Typography>
-            <Divider className="!my-1" />
-
-            <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <NumberField
-                label="Min driver rating"
-                value={tours.minDriverRating}
-                step="0.1"
-                onChange={handleNumberChange("tours","minDriverRating")}
-                placeholder="e.g. 4.5"
-              />
-              <NumberField
-                label="Max daily driving hours"
-                value={tours.maxDailyDrivingHours}
-                onChange={handleNumberChange("tours","maxDailyDrivingHours")}
-                placeholder="e.g. 10"
-              />
-            </Box>
-
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={tours.requireLocalGuide}
-                  onChange={handleToggle("tours","requireLocalGuide")}
-                />
-              }
-              label={
-                <Typography
-                  variant="body2"
-                  className="text-[12px] text-slate-500"
-                >
-                  Require certified local guide for long tours
-                </Typography>
-              }
-            />
-          </CardContent>
-        </Card>
-      </Box>
-
-      <Box className="mt-2 flex items-center justify-between">
-        <Typography
-          variant="caption"
-          className="text-[11px] text-slate-500"
-        >
-          These policies are enforced in addition to per-city service toggles
-          and pricing rules.
+      <Box className="flex items-center justify-between gap-2">
+        <Typography variant="caption" color="text.secondary">
+          Source: `/admin/content/{CONTENT_KIND}` · Last updated: {formatUpdatedAt(policyRecord?.updatedAt)}
         </Typography>
         <Button
-          variant="contained"
+          variant="outlined"
           size="small"
-          sx={{
-            textTransform:"none",
-            borderRadius: 999,
-            fontSize: 12,
-            bgcolor: EV_COLORS.primary,"&:hover": { bgcolor:"#0fb589" },
-          }}
-          onClick={handleSave}
+          startIcon={<RefreshIcon />}
+          onClick={() => void load()}
+          disabled={loading || saving}
+          sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }}
         >
-          Save policies
+          Refresh
         </Button>
       </Box>
+
+      {error ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void load()}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      ) : null}
+
+      {!loading && !policyRecord ? (
+        <Alert severity="info">
+          No saved vertical policy record exists yet. Review the defaults below and save to create the authoritative backend record.
+        </Alert>
+      ) : null}
+
+      {loading ? (
+        <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+          <CardContent>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="text.secondary">
+                Loading vertical policies...
+              </Typography>
+            </Stack>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Box className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <PolicyCard
+              title="Rental policies"
+              description="Rules applied on top of Ride & Rental services."
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={rental.allowNonEvException}
+                    onChange={(event) => updatePolicy("rental", "allowNonEvException", event.target.checked)}
+                  />
+                }
+                label={<PolicyLabel>Allow non-EV exception for specific partners</PolicyLabel>}
+              />
+              <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <NumberField
+                  label="Max vehicle age (years)"
+                  value={rental.maxVehicleAgeYears}
+                  onChange={(value) => updatePolicy("rental", "maxVehicleAgeYears", value)}
+                />
+                <NumberField
+                  label="Min driver rating"
+                  value={rental.minDriverRating}
+                  step="0.1"
+                  onChange={(value) => updatePolicy("rental", "minDriverRating", value)}
+                />
+              </Box>
+            </PolicyCard>
+
+            <PolicyCard
+              title="School shuttle policies"
+              description="Extra safeguards for School shuttles: vetting, training and capacity constraints."
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={school.requireBackgroundCheck}
+                    onChange={(event) => updatePolicy("school", "requireBackgroundCheck", event.target.checked)}
+                  />
+                }
+                label={<PolicyLabel>Require background check for all School drivers</PolicyLabel>}
+              />
+              <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <NumberField
+                  label="Min training modules"
+                  value={school.minTrainingModules}
+                  onChange={(value) => updatePolicy("school", "minTrainingModules", value)}
+                />
+                <NumberField
+                  label="Max kids per vehicle"
+                  value={school.maxKidsPerVehicle}
+                  onChange={(value) => updatePolicy("school", "maxKidsPerVehicle", value)}
+                />
+              </Box>
+            </PolicyCard>
+
+            <PolicyCard
+              title="EMS / Ambulance policies"
+              description="Mission-critical service rules and partner approval requirements."
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={ems.allowNonEvForAmbulance}
+                    onChange={(event) => updatePolicy("ems", "allowNonEvForAmbulance", event.target.checked)}
+                  />
+                }
+                label={<PolicyLabel>Allow non-EV vehicles for Ambulance category</PolicyLabel>}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={ems.requireMedicalPartnerApproval}
+                    onChange={(event) => updatePolicy("ems", "requireMedicalPartnerApproval", event.target.checked)}
+                  />
+                }
+                label={<PolicyLabel>Require approval from Medical module partners</PolicyLabel>}
+              />
+              <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <NumberField
+                  label="Response time target (minutes)"
+                  value={ems.responseTimeTargetMin}
+                  onChange={(value) => updatePolicy("ems", "responseTimeTargetMin", value)}
+                />
+              </Box>
+            </PolicyCard>
+
+            <PolicyCard
+              title="Tours & tourism policies"
+              description="Expectations for tour operators, guides, driver thresholds and daily limits."
+            >
+              <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <NumberField
+                  label="Min driver rating"
+                  value={tours.minDriverRating}
+                  step="0.1"
+                  onChange={(value) => updatePolicy("tours", "minDriverRating", value)}
+                />
+                <NumberField
+                  label="Max daily driving hours"
+                  value={tours.maxDailyDrivingHours}
+                  onChange={(value) => updatePolicy("tours", "maxDailyDrivingHours", value)}
+                />
+              </Box>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={tours.requireLocalGuide}
+                    onChange={(event) => updatePolicy("tours", "requireLocalGuide", event.target.checked)}
+                  />
+                }
+                label={<PolicyLabel>Require certified local guide for long tours</PolicyLabel>}
+              />
+            </PolicyCard>
+          </Box>
+
+          <Box className="mt-2 flex items-center justify-between gap-3">
+            <Typography variant="caption" className="text-[11px] text-slate-500">
+              Saved policies are stored as Admin content and should be enforced by the relevant backend domain services.
+            </Typography>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<SaveIcon />}
+              disabled={saving}
+              sx={{
+                textTransform: "none",
+                borderRadius: 999,
+                fontSize: 12,
+                bgcolor: EV_COLORS.primary,
+                "&:hover": { bgcolor: "#0fb589" },
+              }}
+              onClick={() => void savePolicies()}
+            >
+              {saving ? "Saving..." : "Save policies"}
+            </Button>
+          </Box>
+        </>
+      )}
+
       <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        open={snackbar.open}
+        autoHideDuration={3500}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%' }}>
-          Policies saved successfully!
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
         </Alert>
       </Snackbar>
-    </AdminVerticalPoliciesLayout >
+    </AdminVerticalPoliciesLayout>
   );
 }
 
-function NumberField({ label, value, onChange, step ="1", placeholder = "" }) {
+function PolicyCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+      <CardContent className="p-4 flex flex-col gap-2">
+        <Typography variant="subtitle2" className="font-semibold">
+          {title}
+        </Typography>
+        <Typography variant="caption" className="text-[11px] text-slate-500">
+          {description}
+        </Typography>
+        <Divider className="!my-1" />
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PolicyLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography variant="body2" className="text-[12px] text-slate-500">
+      {children}
+    </Typography>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  onChange,
+  step = "1",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  step?: string;
+}) {
   return (
     <Box className="flex flex-col gap-1">
-      <Typography
-        variant="caption"
-        className="text-[11px] text-slate-500"
-      >
+      <Typography variant="caption" className="text-[11px] text-slate-500">
         {label}
       </Typography>
       <TextField
         size="small"
         fullWidth
         value={value}
-        onChange={onChange}
+        onChange={(event) => onChange(event.target.value)}
         type="number"
-        placeholder={placeholder}
         inputProps={{ step }}
-        sx={{"& .MuiOutlinedInput-root": {  },"& .MuiInputBase-input": { fontSize: 12 },
-        }}
+        sx={{ "& .MuiInputBase-input": { fontSize: 12 } }}
       />
     </Box>
   );

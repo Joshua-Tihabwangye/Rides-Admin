@@ -1,5 +1,5 @@
-// @ts-nocheck
 import React, { useState } from"react";
+import type { CSSProperties, FormEvent } from "react";
 import { useNavigate } from"react-router-dom";
 import { requestPasswordReset } from "../auth/auth";
 import { readAuthPrefill, saveAuthPrefill } from "../auth/authPrefill";
@@ -37,10 +37,10 @@ export default function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const validateEmail = (val) =>
-    /[^@\s]+@[^@\s]+\.[^@\s]+/.test(String(val).toLowerCase());
+  const validateEmail = (val: string) =>
+    /[^@\s]+@[^@\s]+\.[^@\s]+/.test(val.trim().toLowerCase());
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!email) {
@@ -176,7 +176,7 @@ export default function ForgotPassword() {
   );
 }
 
-const styles = {
+const styles: Record<string, CSSProperties> = {
   page: {
     minHeight:"100vh",
     background: 'var(--ev-bg, #f8fafc)',

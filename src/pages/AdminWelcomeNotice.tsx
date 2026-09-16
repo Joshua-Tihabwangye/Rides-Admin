@@ -1,5 +1,4 @@
-// @ts-nocheck
-import React, { useState } from"react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -12,7 +11,9 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
-} from"@mui/material";
+  Checkbox,
+  FormControlLabel,
+} from "@mui/material";
 
 // A3 – Admin Welcome & Responsibility Notice (Light/Dark)
 // Route suggestion: /admin/onboarding/welcome
@@ -43,6 +44,8 @@ const EV_COLORS = {
   secondary:"#f77f00",
 };
 
+const ACKNOWLEDGEMENT_STORAGE_KEY = "evzone.admin.responsibilityAcknowledged";
+
 const bulletPoints = [
   {
     title:"High-impact workspace",
@@ -63,13 +66,32 @@ const bulletPoints = [
 ];
 
 export default function AdminWelcomeNoticePage() {
-  const [mode, setMode] = useState("light"); //"light" |"dark"
+  const [mode, setMode] = useState<"light" | "dark">("light");
+  const [acknowledged, setAcknowledged] = useState(false);
   const navigate = useNavigate();
 
   const isDark = mode ==="dark";
 
+  useEffect(() => {
+    setAcknowledged(window.localStorage.getItem(ACKNOWLEDGEMENT_STORAGE_KEY) === "true");
+  }, []);
+
   const handleContinue = () => {
+    window.localStorage.setItem(ACKNOWLEDGEMENT_STORAGE_KEY, "true");
     navigate("/admin/onboarding/checklist");
+  };
+
+  const handleAcknowledgementChange = (checked: boolean) => {
+    setAcknowledged(checked);
+    if (checked) {
+      window.localStorage.setItem(ACKNOWLEDGEMENT_STORAGE_KEY, "true");
+    } else {
+      window.localStorage.removeItem(ACKNOWLEDGEMENT_STORAGE_KEY);
+    }
+  };
+
+  const handlePolicyCentre = () => {
+    navigate("/admin/vertical-policies");
   };
 
   const toggleMode = () => {
@@ -261,7 +283,7 @@ export default function AdminWelcomeNoticePage() {
                 control={
                   <Checkbox
                     checked={acknowledged}
-                    onChange={(e) => setAcknowledged(e.target.checked)}
+                    onChange={(e) => handleAcknowledgementChange(e.target.checked)}
                     sx={{
                       color:"#64748b","&.Mui-checked": { color: EV_COLORS.primary },
                     }}
@@ -290,10 +312,7 @@ export default function AdminWelcomeNoticePage() {
                     color:"#e5e7eb",
                     px: 2.5,"&:hover": { borderColor: EV_COLORS.secondary },
                   }}
-                  onClick={() => {
-                    // TODO: open policies modal or route to /admin/policies
-                    console.log("TODO: open admin policy center");
-                  }}
+                  onClick={handlePolicyCentre}
                 >
                   View policy centre
                 </Button>

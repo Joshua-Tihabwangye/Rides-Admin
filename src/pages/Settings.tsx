@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from 'react'
 import {
     Box,
@@ -15,17 +14,25 @@ import {
     MenuItem,
     FormControl,
     InputLabel,
-    Chip,
-} from '@mui/material'
-import { getAdminPortalSettings, patchAdminPortalSettings } from '../services/api/adminApi'
+	Chip,
+	} from '@mui/material'
+	import type { AlertColor, SelectChangeEvent } from '@mui/material'
+	import {
+	    getAdminPortalSettings,
+	    patchAdminPortalSettings,
+	    type AdminPortalSettingsResponse,
+	} from '../services/api/adminApi'
 
 const EV_COLORS = {
     primary: '#03cd8c',
     secondary: '#f77f00',
 }
 
+type NotificationSettings = AdminPortalSettingsResponse['notifications']
+type SaveStatus = { type: AlertColor; message: string } | null
+
 export default function Settings() {
-    const [notifications, setNotifications] = useState({
+    const [notifications, setNotifications] = useState<NotificationSettings>({
         email: true,
         push: true,
         sms: false,
@@ -34,7 +41,7 @@ export default function Settings() {
     const [language, setLanguage] = useState('')
     const [timezone, setTimezone] = useState('')
     const [saving, setSaving] = useState(false)
-    const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+    const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
 
     React.useEffect(() => {
         const load = async () => {
@@ -50,7 +57,7 @@ export default function Settings() {
         void load()
     }, [])
 
-    const handleNotificationChange = (key: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleNotificationChange = (key: keyof NotificationSettings) => (event: React.ChangeEvent<HTMLInputElement>) => {
         setNotifications((prev) => ({ ...prev, [key]: event.target.checked }))
     }
 
@@ -203,7 +210,7 @@ export default function Settings() {
                                 <Select
                                     value={language}
                                     label="Language"
-                                    onChange={(e) => setLanguage(e.target.value)}
+                                    onChange={(e: SelectChangeEvent) => setLanguage(e.target.value)}
                                 >
                                     <MenuItem value=""><em>Select language</em></MenuItem>
                                     <MenuItem value="en">English</MenuItem>
@@ -217,7 +224,7 @@ export default function Settings() {
                                 <Select
                                     value={timezone}
                                     label="Timezone"
-                                    onChange={(e) => setTimezone(e.target.value)}
+                                    onChange={(e: SelectChangeEvent) => setTimezone(e.target.value)}
                                 >
                                     <MenuItem value=""><em>Select timezone</em></MenuItem>
                                     <MenuItem value="Africa/Kampala">East Africa Time (EAT)</MenuItem>
@@ -262,21 +269,24 @@ export default function Settings() {
                                     type="password"
                                     size="small"
                                     placeholder="Current password"
-                                    fullWidth
-                                    sx={{ mb: 1 }}
+	                                    fullWidth
+	                                    disabled
+	                                    sx={{ mb: 1 }}
                                 />
                                 <TextField
                                     type="password"
                                     size="small"
                                     placeholder="New password"
-                                    fullWidth
-                                    sx={{ mb: 1 }}
+	                                    fullWidth
+	                                    disabled
+	                                    sx={{ mb: 1 }}
                                 />
                                 <TextField
                                     type="password"
                                     size="small"
                                     placeholder="Confirm new password"
-                                    fullWidth
+	                                    fullWidth
+	                                    disabled
                                 />
                             </Box>
                             <Divider />
@@ -289,8 +299,9 @@ export default function Settings() {
                                 </Typography>
                                 <Button
                                     variant="outlined"
-                                    size="small"
-                                    sx={{ textTransform: 'none', borderRadius: 999 }}
+	                                    size="small"
+	                                    disabled
+	                                    sx={{ textTransform: 'none', borderRadius: 999 }}
                                 >
                                     Enable 2FA
                                 </Button>
@@ -346,7 +357,7 @@ export default function Settings() {
                                 size="small"
                                 sx={{ textTransform: 'none', color: 'error.main', alignSelf: 'flex-start' }}
                             >
-                                Sign out all other sessions
+	                                Sign out all other sessions
                             </Button>
                         </Box>
                     </CardContent>

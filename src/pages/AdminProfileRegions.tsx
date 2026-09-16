@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from"react";
 import {
   Alert,
@@ -13,40 +12,46 @@ import {
   FormControlLabel,
   Divider,
 } from"@mui/material";
+import type { AlertColor, SxProps, Theme } from "@mui/material";
 import {
   getAdminMyProfile,
   getAdminPortalSettings,
   patchAdminProfileRegions,
+  type AdminPortalSettingsResponse,
 } from "../services/api/adminApi";
-
-// A5 – Admin Profile & Region Settings (v2, tighter card corners)
-// Route: /admin/profile
-// Inline AdminMainLayoutShell so this canvas is previewable standalone.
 
 const EV_COLORS = {
   primary:"#03cd8c",
   secondary:"#f77f00",
 };
 
+type ProfileState = {
+  name: string;
+  email: string;
+  phone: string;
+};
 
+type RegionSettings = AdminPortalSettingsResponse["regions"];
+type SaveStatus = { type: AlertColor; message: string } | null;
 
+const DEFAULT_REGIONS: RegionSettings = {
+  eastAfrica: true,
+  westAfrica: false,
+  global: false,
+};
 
 export default function AdminProfileRegionSettingsPage() {
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<ProfileState>({
     name: "",
     email: "",
     phone: "",
   });
 
-  const [regions, setRegions] = useState({
-    eastAfrica: true,
-    westAfrica: false,
-    global: false,
-  });
+  const [regions, setRegions] = useState<RegionSettings>(DEFAULT_REGIONS);
 
   const [limitAssignedOnly, setLimitAssignedOnly] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>(null);
 
   React.useEffect(() => {
     const load = async () => {
@@ -72,19 +77,19 @@ export default function AdminProfileRegionSettingsPage() {
     void load();
   }, []);
 
-  const handleProfileChange = (field) => (event) => {
+  const handleProfileChange = (field: keyof Pick<ProfileState, "name" | "phone">) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setProfile((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
-  const handleRegionToggle = (field) => (event) => {
+  const handleRegionToggle = (field: keyof RegionSettings) => (event: React.ChangeEvent<HTMLInputElement>) => {
     setRegions((prev) => ({ ...prev, [field]: event.target.checked }));
   };
 
-  const handleLimitToggle = (event) => {
+  const handleLimitToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
     setLimitAssignedOnly(event.target.checked);
   };
 
-  const regionChipVariant = (active) =>
+  const regionChipVariant = (active: boolean): SxProps<Theme> =>
     active
       ? {
         bgcolor: '#03cd8c15',
@@ -96,6 +101,25 @@ export default function AdminProfileRegionSettingsPage() {
         borderColor:"divider",
         color:"text.secondary",
       };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveStatus(null);
+    try {
+      await patchAdminProfileRegions({
+        name: profile.name,
+        phone: profile.phone,
+        regions,
+        limitAssignedOnly,
+      });
+      setSaveStatus({ type: 'success', message: 'Profile and region settings saved.' });
+    } catch (error) {
+      console.error("Failed to save admin profile/region settings.", error);
+      setSaveStatus({ type: 'error', message: 'Failed to save profile changes. Please try again.' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Box>
@@ -398,24 +422,7 @@ export default function AdminProfileRegionSettingsPage() {
         <Button
           variant="contained"
           disabled={saving}
-          onClick={async () => {
-            setSaving(true);
-            setSaveStatus(null);
-            try {
-              await patchAdminProfileRegions({
-                name: profile.name,
-                phone: profile.phone,
-                regions,
-                limitAssignedOnly,
-              });
-              setSaveStatus({ type: 'success', message: 'Profile and region settings saved.' });
-            } catch (error) {
-              console.error("Failed to save admin profile/region settings.", error);
-              setSaveStatus({ type: 'error', message: 'Failed to save profile changes. Please try again.' });
-            } finally {
-              setSaving(false);
-            }
-          }}
+          onClick={() => void handleSave()}
           sx={{
             textTransform: 'none',
             borderRadius: 2,

@@ -1,508 +1,333 @@
-// @ts-nocheck
-import React, { useState, useMemo } from"react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
   Chip,
+  CircularProgress,
   Divider,
-  Tabs,
+  FormControl,
+  InputAdornment,
+  MenuItem,
+  Paper,
+  Select,
   Tab,
   Table,
-  TableHead,
   TableBody,
-  TableRow,
   TableCell,
   TableContainer,
-  Paper,
-  FormControl,
-  Select,
-  MenuItem,
+  TableHead,
+  TableRow,
+  Tabs,
   TextField,
-  InputAdornment,
-} from"@mui/material";
-import SearchIcon from"@mui/icons-material/Search";
-import { useNavigate, useSearchParams } from"react-router-dom";
-import { isAdminBackendEnabled, listAdminCompanies, listAdminDrivers, listAdminRiders, listAdminSafetyEmergencies } from "../services/api/adminApi";
-
-// B1 – Global Search (v2, with Trips + Incidents, tabs, and filters)
-// Route: /admin/search
+  Typography,
+} from "@mui/material";
+import type { ChipProps, SelectChangeEvent } from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import SearchIcon from "@mui/icons-material/Search";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  isAdminBackendEnabled,
+  listAdminCompanies,
+  listAdminDrivers,
+  listAdminRiders,
+  listAdminRides,
+  listAdminSafetyEmergencies,
+} from "../services/api/adminApi";
+import type {
+  AdminCompanyResponse,
+  AdminDriverResponse,
+  AdminRideListItemResponse,
+  AdminRiderResponse,
+  AdminSafetyIncident,
+} from "../services/api/adminApi";
 
 const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
-  trips:"#3b82f6",
-  incidents:"#ef4444",
+  primary: "#03cd8c",
+  secondary: "#f77f00",
+  trips: "#3b82f6",
+  incidents: "#ef4444",
 };
 
-// Trips are not exposed by the backend for global search yet, so they are
-// returned empty. Incidents come from the live safety queue.
+type TabKey = "all" | "riders" | "drivers" | "companies" | "trips" | "incidents";
+type RegionFilter = "all" | "kampala" | "lagos" | "nairobi" | "kigali" | "accra";
+type StatusFilter = "all" | "active" | "pending" | "suspended" | "completed" | "cancelled" | "open";
+type ServiceFilter = "all" | "rides";
+
+type SearchRow = {
+  id: string;
+  displayId: string;
+  title: string;
+  city: string;
+  status: string;
+  subtitle?: string;
+};
+
+type RideRow = SearchRow & {
+  rider: string;
+  driver: string;
+  route: string;
+  date: string;
+};
+
+type IncidentRow = SearchRow & {
+  user: string;
+  type: string;
+  date: string;
+  severity: string;
+};
+
+const TAB_KEYS: TabKey[] = ["all", "riders", "drivers", "companies", "trips", "incidents"];
+const REGION_LABELS: Record<RegionFilter, string> = {
+  all: "All Regions",
+  kampala: "Kampala",
+  lagos: "Lagos",
+  nairobi: "Nairobi",
+  kigali: "Kigali",
+  accra: "Accra",
+};
+
+function displayId(prefix: string, id: string) {
+  return `${prefix}-${id.slice(0, 8)}`;
+}
+
+function textMatches(value: unknown, query: string) {
+  return String(value ?? "").toLowerCase().includes(query);
+}
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
+function riderName(rider: AdminRiderResponse) {
+  return (
+    rider.fullName ||
+    `${rider.firstName ?? ""} ${rider.lastName ?? ""}`.trim() ||
+    rider.email ||
+    rider.phone ||
+    "Unnamed rider"
+  );
+}
+
+function normalizeUserStatus(status?: string) {
+  if (status === "active") return "Active";
+  if (status === "suspended") return "Suspended";
+  if (status === "deleted") return "Deleted";
+  return "Pending";
+}
+
+function normalizeIncidentStatus(status?: string) {
+  if (!status) return "Open";
+  return status
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function incidentLocation(incident: AdminSafetyIncident) {
+  if (incident.address) return incident.address;
+  if (incident.latitude != null && incident.longitude != null) {
+    return `${Number(incident.latitude).toFixed(4)}, ${Number(incident.longitude).toFixed(4)}`;
+  }
+  return "Unknown";
+}
+
+function routeLabel(ride: AdminRideListItemResponse) {
+  if (ride.riderName && ride.driverName) return `${ride.riderName} to ${ride.driverName}`;
+  if (ride.riderName) return `${ride.riderName} ride`;
+  if (ride.driverName) return `Driver ${ride.driverName}`;
+  return ride.category || ride.tripType || ride.mode || "Ride";
+}
+
+function getStatusColor(status: string): ChipProps["color"] {
+  switch (status.toLowerCase()) {
+    case "active":
+    case "completed":
+    case "resolved":
+      return "success";
+    case "pending":
+    case "in progress":
+    case "open":
+    case "investigating":
+      return "warning";
+    case "suspended":
+    case "deleted":
+    case "cancelled":
+    case "failed":
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    case "low":
+      return "info";
+    default:
+      return "default";
+  }
+}
 
 export default function AdminGlobalSearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const queryParam = searchParams.get("query") ||"";
-
-  const [activeTab, setActiveTab] = useState(0);
-  const [searchQuery, setSearchQuery] = useState(queryParam);
-  
-  // Filter states
-  const [regionFilter, setRegionFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [serviceFilter, setServiceFilter] = useState("all");
   const backendMode = isAdminBackendEnabled();
+  const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("query") || "");
+  const [regionFilter, setRegionFilter] = useState<RegionFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("all");
+  const [riders, setRiders] = useState<SearchRow[]>([]);
+  const [drivers, setDrivers] = useState<SearchRow[]>([]);
+  const [companies, setCompanies] = useState<SearchRow[]>([]);
+  const [trips, setTrips] = useState<RideRow[]>([]);
+  const [incidents, setIncidents] = useState<IncidentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Get data from stores
-  const [allRiders, setAllRiders] = useState(() => []);
-  const [allDrivers, setAllDrivers] = useState(() => []);
-  const [allCompanies, setAllCompanies] = useState(() => []);
-  const allTrips = useMemo(() => [], [allRiders, allDrivers]);
-  const [allIncidents, setAllIncidents] = useState(() => []);
+  const loadData = useCallback(async () => {
+    if (!backendMode) {
+      setRiders([]);
+      setDrivers([]);
+      setCompanies([]);
+      setTrips([]);
+      setIncidents([]);
+      setError("Admin backend is disabled, so global search cannot load live data.");
+      setLoading(false);
+      return;
+    }
 
-  React.useEffect(() => {
-    const loadData = async () => {
-      if (!backendMode) {
-        setAllRiders([]);
-        setAllDrivers([]);
-        setAllCompanies([]);
-        setAllIncidents([]);
-        return;
-      }
-      try {
-        const [backendRiders, backendDrivers, backendCompanies, incidentPage] = await Promise.all([
-          listAdminRiders(),
-          listAdminDrivers(),
-          listAdminCompanies(),
-          listAdminSafetyEmergencies().catch(() => ({ items: [], meta: { total: 0 } })),
-        ]);
+    setLoading(true);
+    setError(null);
+    try {
+      const [backendRiders, backendDrivers, backendCompanies, ridePage, incidentPage] = await Promise.all([
+        listAdminRiders(),
+        listAdminDrivers(),
+        listAdminCompanies(),
+        listAdminRides({ page: 1, limit: 100, search: searchQuery.trim() || undefined }),
+        listAdminSafetyEmergencies({ page: 1, limit: 100 }),
+      ]);
 
-        setAllRiders(backendRiders.map((rider, idx) => ({
-          id: idx + 1,
-          name: rider.fullName || `${rider.firstName || ""} ${rider.lastName || ""}`.trim() || rider.email || "Rider",
-          city: rider.city || "Unknown",
-          phone: rider.phone || "-",
-          vehicle: "N/A",
-          vehicleType: "Bike",
-          trips: rider.totalTrips || 0,
-          spend: "N/A",
-          risk: "N/A",
-          primaryStatus: rider.status === "active" ? "approved" : "suspended",
-          activityStatus: rider.status === "active" ? "active" : "inactive",
-        })));
+      setRiders(backendRiders.map(mapRider));
+      setDrivers(backendDrivers.map(mapDriver));
+      setCompanies(backendCompanies.map(mapCompany));
+      setTrips(ridePage.items.map(mapRide));
+      setIncidents(incidentPage.items.map(mapIncident));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load global search data");
+      setRiders([]);
+      setDrivers([]);
+      setCompanies([]);
+      setTrips([]);
+      setIncidents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [backendMode, searchQuery]);
 
-        setAllDrivers(backendDrivers.map((driver, idx) => ({
-          id: idx + 1,
-          name: driver.fullName,
-          city: driver.city || "Unknown",
-          phone: driver.phone || "-",
-          vehicle: driver.model || "N/A",
-          vehicleType: driver.vehicleType || "Car",
-          trips: driver.totalTrips || 0,
-          spend: "N/A",
-          risk: "N/A",
-          primaryStatus: driver.status === "active" ? "approved" : "suspended",
-          activityStatus: driver.status === "active" ? "active" : "inactive",
-        })));
-
-        setAllCompanies(backendCompanies.map((company, idx) => ({
-          id: idx + 1,
-          name: company.companyName,
-          regions: "N/A",
-          type: "N/A",
-          drivers: "N/A",
-          vehicles: "N/A",
-          commission: "N/A",
-          status: company.status === "active" ? "Active" : company.status === "suspended" ? "Suspended" : "Inactive",
-        })));
-
-        setAllIncidents((incidentPage?.items ?? []).map((incident, idx) => ({
-          id: idx + 1,
-          user: incident.reporterUserId,
-          type: incident.sos ? `SOS · ${incident.type}` : incident.type,
-          city: incident.address || (incident.latitude != null ? `${Number(incident.latitude).toFixed(4)}, ${Number(incident.longitude).toFixed(4)}` : "Unknown"),
-          status: incident.status === "OPEN" ? "open" : incident.status.toLowerCase(),
-          rawId: incident.id,
-        })));
-      } catch (error) {
-        console.warn("Failed to load backend global search datasets.", error);
-        setAllRiders([]);
-        setAllDrivers([]);
-        setAllCompanies([]);
-        setAllIncidents([]);
-      }
-    };
+  useEffect(() => {
     void loadData();
-  }, [backendMode]);
+  }, [loadData]);
 
-  // Transform data to display format
-  const riders = useMemo(() => allRiders.map(r => ({
-    id: `RDR-${String(r.id).padStart(3, '0')}`,
-    rawId: r.id,
-    name: r.name,
-    city: r.city,
-    phone: r.phone,
-    status: r.primaryStatus === 'approved' ? 'Active' : r.primaryStatus === 'under_review' ? 'Pending' : 'Suspended',
-  })), [allRiders]);
+  const query = searchQuery.trim().toLowerCase();
 
-  const drivers = useMemo(() => allDrivers.map(d => ({
-    id: `DRV-${String(d.id).padStart(3, '0')}`,
-    rawId: d.id,
-    name: d.name,
-    city: d.city,
-    vehicle: d.vehicle,
-    rating: "N/A",
-    status: d.primaryStatus === 'approved' ? 'Active' : d.primaryStatus === 'under_review' ? 'Pending' : 'Suspended',
-  })), [allDrivers]);
-
-  const companies = useMemo(() => allCompanies.map(c => ({
-    id: `CMP-${String(c.id).padStart(3, '0')}`,
-    rawId: c.id,
-    name: c.name,
-    city: c.regions?.split(',')[0]?.trim() || 'Unknown',
-    drivers: c.drivers,
-    status: c.status,
-  })), [allCompanies]);
-
-  // Filter data based on search and filters
-  const filterBySearch = (items, fields) => {
-    if (!searchQuery) return items;
-    const query = searchQuery.toLowerCase();
-    return items.filter(item => 
-      fields.some(field => String(item[field] || '').toLowerCase().includes(query))
-    );
-  };
-
-  const filterByRegion = (items) => {
-    if (regionFilter === 'all') return items;
-    const regionMap = { kla: 'Kampala', lagos: 'Lagos', nairobi: 'Nairobi', accra: 'Accra', kigali: 'Kigali' };
-    const region = regionMap[regionFilter] || regionFilter;
-    return items.filter(item => item.city?.toLowerCase().includes(region.toLowerCase()));
-  };
-
-  const filterByStatus = (items) => {
-    if (statusFilter === 'all') return items;
-    return items.filter(item => item.status?.toLowerCase() === statusFilter.toLowerCase());
-  };
-
-  const filteredRiders = filterByStatus(filterByRegion(filterBySearch(riders, ['name', 'phone', 'city', 'id'])));
-  const filteredDrivers = filterByStatus(filterByRegion(filterBySearch(drivers, ['name', 'city', 'vehicle', 'id'])));
-  const filteredCompanies = filterByStatus(filterByRegion(filterBySearch(companies, ['name', 'city', 'id'])));
-  const filteredTrips = filterByStatus(filterByRegion(filterBySearch(allTrips, ['rider', 'driver', 'route', 'id'])));
-  const filteredIncidents = filterByRegion(filterBySearch(allIncidents, ['user', 'type', 'city', 'id']));
-
-  const tabs = [
-    { label:"All", count: filteredRiders.length + filteredDrivers.length + filteredCompanies.length + filteredTrips.length + filteredIncidents.length },
-    { label:"Riders", count: filteredRiders.length },
-    { label:"Drivers", count: filteredDrivers.length },
-    { label:"Companies", count: filteredCompanies.length },
-    { label:"Trips", count: filteredTrips.length },
-    { label:"Incidents", count: filteredIncidents.length },
-  ];
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case"active":
-      case"completed":
-        return"success";
-      case"pending":
-      case"in progress":
-        return"warning";
-      case"suspended":
-      case"cancelled":
-      case"high":
-        return"error";
-      case"medium":
-        return"warning";
-      case"low":
-        return"info";
-      default:
-        return"default";
-    }
-  };
-
-  const renderEntityPanel = (title: string, color: string, items: any[], onClick: () => void) => (
-    <Card
-      elevation={2}
-      onClick={onClick}
-      sx={{
-        borderRadius: 2,
-        cursor: 'pointer',
-        border: `1px solid ${color}44`,
-        bgcolor:"background.paper",
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: 4,
-        }
-      }}
-    >
-      <CardContent className="p-4 flex flex-col gap-2">
-        <Box className="flex items-center justify-between">
-          <Typography variant="subtitle2" className="font-semibold" color="text.primary">
-            {title}
-          </Typography>
-          <Chip size="small" label={`${items.length} matches`} sx={{ fontSize: 10 }} />
-        </Box>
-        <Divider className="!my-1" />
-        <Box className="flex flex-col gap-1 text-[12px]">
-          {items.slice(0, 2).map((item, idx) => (
-            <Box key={idx} className="flex flex-col rounded-md px-2 py-1 hover:bg-black/5">
-              <span className="font-medium">{item.name || item.id}</span>
-              <span style={{ color: "var(--ev-text-secondary, #64748b)" }} className="text-[11px] ">
-                {item.city || item.route || item.type} · {item.phone || item.vehicle || (item.drivers ? `${item.drivers} drivers` : '') || item.rider || item.user}
-              </span>
-              <Chip 
-                size="small" 
-                label={item.status || item.severity} 
-                color={getStatusColor(item.status || item.severity)} 
-                sx={{ fontSize: 9, height: 18, width: 'fit-content', mt: 0.5 }} 
-              />
-            </Box>
-          ))}
-          {items.length === 0 && (
-            <Typography variant="caption" color="text.secondary" sx={{ py: 1 }}>
-              No results found
-            </Typography>
-          )}
-        </Box>
-      </CardContent>
-    </Card>
+  const filterBySearch = useCallback(
+    <T extends SearchRow>(items: T[], fields: Array<keyof T>) => {
+      if (!query) return items;
+      return items.filter((item) => fields.some((field) => textMatches(item[field], query)));
+    },
+    [query],
   );
 
-  const renderAllTab = () => (
-    <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-      {renderEntityPanel("Riders", EV_COLORS.primary, filteredRiders, () => navigate('/admin/riders'))}
-      {renderEntityPanel("Drivers", EV_COLORS.secondary, filteredDrivers, () => navigate('/admin/drivers'))}
-      {renderEntityPanel("Companies","#94a3b8", filteredCompanies, () => navigate('/admin/companies'))}
-      {renderEntityPanel("Trips", EV_COLORS.trips, filteredTrips, () => navigate('/admin/ops'))}
-      {renderEntityPanel("Incidents", EV_COLORS.incidents, filteredIncidents, () => navigate('/admin/risk'))}
-    </Box>
+  const filterByRegion = useCallback(
+    <T extends SearchRow>(items: T[]) => {
+      if (regionFilter === "all") return items;
+      const region = REGION_LABELS[regionFilter].toLowerCase();
+      return items.filter((item) => item.city.toLowerCase().includes(region));
+    },
+    [regionFilter],
   );
 
-  const renderRidersTab = () => (
-    <TableContainer component={Paper} elevation={0} sx={{ mt: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>ID</TableCell>
-            <TableCell>Name</TableCell>
-            <TableCell>City</TableCell>
-            <TableCell>Phone</TableCell>
-            <TableCell>Status</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredRiders.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                No riders found matching your search criteria
-              </TableCell>
-            </TableRow>
-          ) : (
-            filteredRiders.map((rider) => (
-              <TableRow key={rider.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/riders/${rider.rawId}`)}>
-                <TableCell sx={{ fontFamily: 'monospace', fontSize: 11 }}>{rider.id}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{rider.name}</TableCell>
-                <TableCell>{rider.city}</TableCell>
-                <TableCell>{rider.phone}</TableCell>
-                <TableCell><Chip size="small" label={rider.status} color={getStatusColor(rider.status)} sx={{ fontSize: 10 }} /></TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+  const filterByStatus = useCallback(
+    <T extends SearchRow>(items: T[]) => {
+      if (statusFilter === "all") return items;
+      return items.filter((item) => item.status.toLowerCase() === statusFilter);
+    },
+    [statusFilter],
   );
 
-  const renderDriversTab = () => (
-    <TableContainer component={Paper} elevation={0} sx={{ mt: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>ID</TableCell>
-            <TableCell>Name</TableCell>
-            <TableCell>City</TableCell>
-            <TableCell>Vehicle</TableCell>
-            <TableCell>Rating</TableCell>
-            <TableCell>Status</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredDrivers.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                No drivers found matching your search criteria
-              </TableCell>
-            </TableRow>
-          ) : (
-            filteredDrivers.map((driver) => (
-              <TableRow key={driver.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/drivers/${driver.rawId}`)}>
-                <TableCell sx={{ fontFamily: 'monospace', fontSize: 11 }}>{driver.id}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{driver.name}</TableCell>
-                <TableCell>{driver.city}</TableCell>
-                <TableCell>{driver.vehicle}</TableCell>
-                <TableCell>{driver.rating.toFixed(2)}</TableCell>
-                <TableCell><Chip size="small" label={driver.status} color={getStatusColor(driver.status)} sx={{ fontSize: 10 }} /></TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+  const filteredRiders = filterByStatus(filterByRegion(filterBySearch(riders, ["title", "subtitle", "city", "displayId"])));
+  const filteredDrivers = filterByStatus(filterByRegion(filterBySearch(drivers, ["title", "subtitle", "city", "displayId"])));
+  const filteredCompanies = filterByStatus(filterByRegion(filterBySearch(companies, ["title", "subtitle", "city", "displayId"])));
+  const filteredTrips =
+    serviceFilter === "all" || serviceFilter === "rides"
+      ? filterByStatus(filterByRegion(filterBySearch(trips, ["title", "rider", "driver", "route", "displayId"])))
+      : [];
+  const filteredIncidents = filterByStatus(
+    filterByRegion(filterBySearch(incidents, ["title", "user", "type", "city", "displayId"])),
   );
 
-  const renderCompaniesTab = () => (
-    <TableContainer component={Paper} elevation={0} sx={{ mt: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>ID</TableCell>
-            <TableCell>Name</TableCell>
-            <TableCell>City</TableCell>
-            <TableCell>Drivers</TableCell>
-            <TableCell>Status</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredCompanies.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                No companies found matching your search criteria
-              </TableCell>
-            </TableRow>
-          ) : (
-            filteredCompanies.map((company) => (
-              <TableRow key={company.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/companies/${company.rawId}`)}>
-                <TableCell sx={{ fontFamily: 'monospace', fontSize: 11 }}>{company.id}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{company.name}</TableCell>
-                <TableCell>{company.city}</TableCell>
-                <TableCell>{company.drivers}</TableCell>
-                <TableCell><Chip size="small" label={company.status} color={getStatusColor(company.status)} sx={{ fontSize: 10 }} /></TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+  const tabs = useMemo(
+    () => [
+      {
+        key: "all" as const,
+        label: "All",
+        count:
+          filteredRiders.length +
+          filteredDrivers.length +
+          filteredCompanies.length +
+          filteredTrips.length +
+          filteredIncidents.length,
+      },
+      { key: "riders" as const, label: "Riders", count: filteredRiders.length },
+      { key: "drivers" as const, label: "Drivers", count: filteredDrivers.length },
+      { key: "companies" as const, label: "Companies", count: filteredCompanies.length },
+      { key: "trips" as const, label: "Trips", count: filteredTrips.length },
+      { key: "incidents" as const, label: "Incidents", count: filteredIncidents.length },
+    ],
+    [filteredCompanies.length, filteredDrivers.length, filteredIncidents.length, filteredRiders.length, filteredTrips.length],
   );
 
-  const renderTripsTab = () => (
-    <TableContainer component={Paper} elevation={0} sx={{ mt: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Trip ID</TableCell>
-            <TableCell>Rider</TableCell>
-            <TableCell>Driver</TableCell>
-            <TableCell>Route</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell>Status</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredTrips.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                No trips found matching your search criteria
-              </TableCell>
-            </TableRow>
-          ) : (
-            filteredTrips.map((trip) => (
-              <TableRow key={trip.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/ops?trip=${trip.id}`)}>
-                <TableCell sx={{ fontFamily: 'monospace', fontSize: 11 }}>{trip.id}</TableCell>
-                <TableCell>{trip.rider}</TableCell>
-                <TableCell>{trip.driver}</TableCell>
-                <TableCell>{trip.route}</TableCell>
-                <TableCell>{trip.date}</TableCell>
-                <TableCell><Chip size="small" label={trip.status} color={getStatusColor(trip.status)} sx={{ fontSize: 10 }} /></TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-
-  const renderIncidentsTab = () => (
-    <TableContainer component={Paper} elevation={0} sx={{ mt: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Incident ID</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell>User</TableCell>
-            <TableCell>City</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell>Severity</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filteredIncidents.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                No incidents found matching your search criteria
-              </TableCell>
-            </TableRow>
-          ) : (
-            filteredIncidents.map((incident) => (
-              <TableRow key={incident.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/admin/risk/${incident.id}`)}>
-                <TableCell sx={{ fontFamily: 'monospace', fontSize: 11 }}>{incident.id}</TableCell>
-                <TableCell>{incident.type}</TableCell>
-                <TableCell>{incident.user}</TableCell>
-                <TableCell>{incident.city}</TableCell>
-                <TableCell>{incident.date}</TableCell>
-                <TableCell><Chip size="small" label={incident.severity} color={getStatusColor(incident.severity)} sx={{ fontSize: 10 }} /></TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 0: return renderAllTab();
-      case 1: return renderRidersTab();
-      case 2: return renderDriversTab();
-      case 3: return renderCompaniesTab();
-      case 4: return renderTripsTab();
-      case 5: return renderIncidentsTab();
-      default: return renderAllTab();
-    }
-  };
+  const tabIndex = TAB_KEYS.indexOf(activeTab);
 
   return (
     <Box>
-      {/* Title */}
       <Box className="pb-4 flex items-center justify-between gap-2">
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
+          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
             Global Search
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Find riders, drivers, companies, trips and incidents across all regions.
+          <Typography variant="caption" color="text.secondary">
+            Find riders, drivers, companies, trips and incidents across live admin datasets.
           </Typography>
         </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<RefreshIcon />}
+          onClick={() => void loadData()}
+          disabled={loading}
+          sx={{ textTransform: "none", borderRadius: 999, fontSize: 12 }}
+        >
+          Refresh
+        </Button>
       </Box>
 
-      {/* Search Bar */}
+      {error ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
+
       <Card sx={{ mb: 3, borderRadius: 2 }}>
         <CardContent sx={{ p: 2 }}>
           <TextField
             fullWidth
             size="small"
-            placeholder="Search across all entities..."
+            placeholder="Search live admin records..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(event) => setSearchQuery(event.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -510,102 +335,370 @@ export default function AdminGlobalSearchPage() {
                 </InputAdornment>
               ),
             }}
-            sx={{"& .MuiOutlinedInput-root": { borderRadius: 2 },
-            }}
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
           />
         </CardContent>
       </Card>
 
-      {/* Admin Filter Row */}
       <Card sx={{ mb: 3, borderRadius: 2 }}>
-        <CardContent sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <CardContent sx={{ p: 2, display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             Filters:
           </Typography>
-          
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <Select
-              value={regionFilter}
-              onChange={(e) => setRegionFilter(e.target.value)}
-              displayEmpty
-              sx={{ fontSize: 12, borderRadius: 2, height: 36 }}
-            >
-              <MenuItem value="all">All Regions</MenuItem>
-              <MenuItem value="kla">Kampala</MenuItem>
-              <MenuItem value="lagos">Lagos</MenuItem>
-              <MenuItem value="nairobi">Nairobi</MenuItem>
-              <MenuItem value="kigali">Kigali</MenuItem>
-              <MenuItem value="accra">Accra</MenuItem>
+
+          <FormControl size="small" sx={{ minWidth: 136 }}>
+            <Select value={regionFilter} onChange={(event: SelectChangeEvent) => setRegionFilter(event.target.value as RegionFilter)}>
+              {(Object.keys(REGION_LABELS) as RegionFilter[]).map((region) => (
+                <MenuItem key={region} value={region}>
+                  {REGION_LABELS[region]}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              displayEmpty
-              sx={{ fontSize: 12, borderRadius: 2, height: 36 }}
-            >
+          <FormControl size="small" sx={{ minWidth: 136 }}>
+            <Select value={statusFilter} onChange={(event: SelectChangeEvent) => setStatusFilter(event.target.value as StatusFilter)}>
               <MenuItem value="all">All Status</MenuItem>
               <MenuItem value="active">Active</MenuItem>
               <MenuItem value="pending">Pending</MenuItem>
               <MenuItem value="suspended">Suspended</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+              <MenuItem value="cancelled">Cancelled</MenuItem>
+              <MenuItem value="open">Open</MenuItem>
             </Select>
           </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <Select
-              value={serviceFilter}
-              onChange={(e) => setServiceFilter(e.target.value)}
-              displayEmpty
-              sx={{ fontSize: 12, borderRadius: 2, height: 36 }}
-            >
+          <FormControl size="small" sx={{ minWidth: 136 }}>
+            <Select value={serviceFilter} onChange={(event: SelectChangeEvent) => setServiceFilter(event.target.value as ServiceFilter)}>
               <MenuItem value="all">All Services</MenuItem>
               <MenuItem value="rides">Rides</MenuItem>
-              <MenuItem value="deliveries">Deliveries</MenuItem>
             </Select>
           </FormControl>
         </CardContent>
       </Card>
 
-      {/* Tabs */}
       <Card sx={{ borderRadius: 2 }}>
         <Tabs
-          value={activeTab}
-          onChange={(_, newValue) => setActiveTab(newValue)}
+          value={Math.max(tabIndex, 0)}
+          onChange={(_, value: number) => setActiveTab(TAB_KEYS[value] ?? "all")}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
             borderBottom: 1,
-            borderColor: 'divider',
-            '& .MuiTab-root': { textTransform: 'none', minHeight: 48 },
+            borderColor: "divider",
+            "& .MuiTab-root": { textTransform: "none", minHeight: 48 },
           }}
         >
-          {tabs.map((tab, idx) => (
+          {tabs.map((tab) => (
             <Tab
-              key={tab.label}
+              key={tab.key}
               label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   {tab.label}
-                  <Chip
-                    size="small"
-                    label={tab.count}
-                    sx={{
-                      fontSize: 10,
-                      height: 20,
-                      bgcolor: activeTab === idx ? 'primary.main' : 'action.selected',
-                      color: activeTab === idx ? 'white' : 'text.primary',
-                    }}
-                  />
+                  <Chip size="small" label={tab.count} sx={{ fontSize: 10, height: 20 }} />
                 </Box>
               }
             />
           ))}
         </Tabs>
-        <CardContent>
-          {renderTabContent()}
-        </CardContent>
+        <CardContent>{loading ? <LoadingState /> : renderTabContent(activeTab)}</CardContent>
       </Card>
     </Box>
+  );
+
+  function renderTabContent(tab: TabKey) {
+    switch (tab) {
+      case "all":
+        return (
+          <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+            {renderEntityPanel("Riders", EV_COLORS.primary, filteredRiders, () => navigate("/admin/riders"))}
+            {renderEntityPanel("Drivers", EV_COLORS.secondary, filteredDrivers, () => navigate("/admin/drivers"))}
+            {renderEntityPanel("Companies", "#94a3b8", filteredCompanies, () => navigate("/admin/companies"))}
+            {renderEntityPanel("Trips", EV_COLORS.trips, filteredTrips, () => navigate("/admin/rides"))}
+            {renderEntityPanel("Incidents", EV_COLORS.incidents, filteredIncidents, () => navigate("/admin/safety"))}
+          </Box>
+        );
+      case "riders":
+        return (
+          <EntityTable
+            rows={filteredRiders}
+            columns={["Name", "City", "Phone", "Status"]}
+            emptyText="No riders found matching your search criteria"
+            onRowClick={(row) => navigate(`/admin/riders/${row.id}`)}
+            renderCells={(row) => (
+              <>
+                <TableCell sx={{ fontWeight: 600 }}>{row.title}</TableCell>
+                <TableCell>{row.city}</TableCell>
+                <TableCell>{row.subtitle || "-"}</TableCell>
+                <TableCell>
+                  <StatusChip status={row.status} />
+                </TableCell>
+              </>
+            )}
+          />
+        );
+      case "drivers":
+        return (
+          <EntityTable
+            rows={filteredDrivers}
+            columns={["Name", "City", "Vehicle", "Status"]}
+            emptyText="No drivers found matching your search criteria"
+            onRowClick={(row) => navigate(`/admin/drivers/${row.id}`)}
+            renderCells={(row) => (
+              <>
+                <TableCell sx={{ fontWeight: 600 }}>{row.title}</TableCell>
+                <TableCell>{row.city}</TableCell>
+                <TableCell>{row.subtitle || "-"}</TableCell>
+                <TableCell>
+                  <StatusChip status={row.status} />
+                </TableCell>
+              </>
+            )}
+          />
+        );
+      case "companies":
+        return (
+          <EntityTable
+            rows={filteredCompanies}
+            columns={["Name", "Primary Region", "Contact", "Status"]}
+            emptyText="No companies found matching your search criteria"
+            onRowClick={(row) => navigate(`/admin/companies/${row.id}`)}
+            renderCells={(row) => (
+              <>
+                <TableCell sx={{ fontWeight: 600 }}>{row.title}</TableCell>
+                <TableCell>{row.city}</TableCell>
+                <TableCell>{row.subtitle || "-"}</TableCell>
+                <TableCell>
+                  <StatusChip status={row.status} />
+                </TableCell>
+              </>
+            )}
+          />
+        );
+      case "trips":
+        return (
+          <EntityTable
+            rows={filteredTrips}
+            columns={["Rider", "Driver", "Route", "Date", "Status"]}
+            emptyText="No trips found matching your search criteria"
+            onRowClick={(row) => navigate(`/admin/rides/${row.id}`)}
+            renderCells={(row) => (
+              <>
+                <TableCell>{row.rider}</TableCell>
+                <TableCell>{row.driver}</TableCell>
+                <TableCell>{row.route}</TableCell>
+                <TableCell>{row.date}</TableCell>
+                <TableCell>
+                  <StatusChip status={row.status} />
+                </TableCell>
+              </>
+            )}
+          />
+        );
+      case "incidents":
+        return (
+          <EntityTable
+            rows={filteredIncidents}
+            columns={["Type", "User", "Location", "Date", "Status"]}
+            emptyText="No incidents found matching your search criteria"
+            onRowClick={(row) => navigate(`/admin/safety/${row.id}`)}
+            renderCells={(row) => (
+              <>
+                <TableCell>{row.type}</TableCell>
+                <TableCell>{row.user}</TableCell>
+                <TableCell>{row.city}</TableCell>
+                <TableCell>{row.date}</TableCell>
+                <TableCell>
+                  <StatusChip status={row.severity} />
+                </TableCell>
+              </>
+            )}
+          />
+        );
+      default:
+        return null;
+    }
+  }
+
+  function renderEntityPanel(title: string, color: string, items: SearchRow[], onClick: () => void) {
+    return (
+      <Card
+        elevation={2}
+        onClick={onClick}
+        sx={{
+          borderRadius: 2,
+          cursor: "pointer",
+          border: `1px solid ${color}44`,
+          bgcolor: "background.paper",
+          transition: "transform 0.2s, box-shadow 0.2s",
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: 4,
+          },
+        }}
+      >
+        <CardContent className="p-4 flex flex-col gap-2">
+          <Box className="flex items-center justify-between">
+            <Typography variant="subtitle2" className="font-semibold" color="text.primary">
+              {title}
+            </Typography>
+            <Chip size="small" label={`${items.length} matches`} sx={{ fontSize: 10 }} />
+          </Box>
+          <Divider className="!my-1" />
+          <Box className="flex flex-col gap-1 text-[12px]">
+            {items.slice(0, 2).map((item) => (
+              <Box key={item.id} className="flex flex-col rounded-md px-2 py-1 hover:bg-black/5">
+                <span className="font-medium">{item.title}</span>
+                <span style={{ color: "var(--ev-text-secondary, #64748b)" }} className="text-[11px]">
+                  {item.city} · {item.subtitle || item.displayId}
+                </span>
+                <StatusChip status={item.status} />
+              </Box>
+            ))}
+            {items.length === 0 ? (
+              <Typography variant="caption" color="text.secondary" sx={{ py: 1 }}>
+                No results found
+              </Typography>
+            ) : null}
+          </Box>
+        </CardContent>
+      </Card>
+    );
+  }
+}
+
+function mapRider(rider: AdminRiderResponse): SearchRow {
+  const id = rider.userId || rider.id;
+  return {
+    id,
+    displayId: displayId("RDR", id),
+    title: riderName(rider),
+    city: rider.city || rider.country || "Unknown",
+    status: normalizeUserStatus(rider.status),
+    subtitle: rider.phone || rider.email || undefined,
+  };
+}
+
+function mapDriver(driver: AdminDriverResponse): SearchRow {
+  const id = driver.userId || driver.driverId;
+  return {
+    id,
+    displayId: displayId("DRV", id),
+    title: driver.fullName || `${driver.firstName ?? ""} ${driver.lastName ?? ""}`.trim() || driver.phone || "Unnamed driver",
+    city: driver.city || "Unknown",
+    status: normalizeUserStatus(driver.status),
+    subtitle: [driver.vehicleType, driver.model, driver.licensePlate].filter(Boolean).join(" · ") || driver.phone,
+  };
+}
+
+function mapCompany(company: AdminCompanyResponse): SearchRow {
+  const verticals = Object.entries(company.verticals ?? {})
+    .filter(([, enabled]) => enabled)
+    .map(([vertical]) => vertical);
+  return {
+    id: company.id,
+    displayId: displayId("CMP", company.id),
+    title: company.companyName,
+    city: verticals.length ? verticals.join(", ") : "Company",
+    status: normalizeUserStatus(company.status),
+    subtitle: company.contactEmail || company.contactPhone || verticals.join(", ") || undefined,
+  };
+}
+
+function mapRide(ride: AdminRideListItemResponse): RideRow {
+  const rider = ride.riderName || ride.riderId || "Unassigned rider";
+  const driver = ride.driverName || ride.driverId || "Unassigned driver";
+  const route = routeLabel(ride);
+  return {
+    id: ride.id,
+    displayId: displayId("TRP", ride.id),
+    title: route,
+    city: ride.tripType || ride.category || ride.mode || "Rides",
+    status: normalizeIncidentStatus(ride.status),
+    subtitle: ride.currency && ride.estimatedFare != null ? `${ride.currency} ${ride.estimatedFare.toLocaleString()}` : ride.paymentStatus,
+    rider,
+    driver,
+    route,
+    date: formatDate(ride.scheduledAt || ride.createdAt),
+  };
+}
+
+function mapIncident(incident: AdminSafetyIncident): IncidentRow {
+  const status = normalizeIncidentStatus(incident.status);
+  return {
+    id: incident.id,
+    displayId: displayId("SOS", incident.id),
+    title: incident.sos ? `SOS · ${incident.type}` : incident.type,
+    city: incidentLocation(incident),
+    status,
+    subtitle: incident.serviceId || incident.reporterUserId,
+    user: incident.reporterUserId || "Unknown",
+    type: incident.sos ? `SOS · ${incident.type}` : incident.type,
+    date: formatDate(incident.createdAt),
+    severity: status,
+  };
+}
+
+function StatusChip({ status }: { status: string }) {
+  return (
+    <Chip
+      size="small"
+      label={status}
+      color={getStatusColor(status)}
+      sx={{ fontSize: 10, height: 20, width: "fit-content", mt: 0.5 }}
+    />
+  );
+}
+
+function LoadingState() {
+  return (
+    <Box sx={{ py: 5, display: "flex", justifyContent: "center" }}>
+      <CircularProgress size={28} />
+    </Box>
+  );
+}
+
+function EntityTable<T extends SearchRow>({
+  rows,
+  columns,
+  emptyText,
+  onRowClick,
+  renderCells,
+}: {
+  rows: T[];
+  columns: string[];
+  emptyText: string;
+  onRowClick: (row: T) => void;
+  renderCells: (row: T) => React.ReactNode;
+}) {
+  return (
+    <TableContainer component={Paper} elevation={0} sx={{ mt: 2, bgcolor: "background.paper", borderRadius: 2 }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>ID</TableCell>
+            {columns.map((column) => (
+              <TableCell key={column}>{column}</TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={columns.length + 1} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                {emptyText}
+              </TableCell>
+            </TableRow>
+          ) : (
+            rows.map((row) => (
+              <TableRow key={row.id} hover sx={{ cursor: "pointer" }} onClick={() => onRowClick(row)}>
+                <TableCell sx={{ fontFamily: "monospace", fontSize: 11 }}>{row.displayId}</TableCell>
+                {renderCells(row)}
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

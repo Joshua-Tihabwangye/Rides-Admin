@@ -73,9 +73,12 @@ check(
 check(
   "Company payouts avoid demo history rows",
   companyPayouts.includes("listAdminCompanies") &&
-    companyPayouts.includes("No live payout history available yet") &&
-    companyPayouts.includes("Payout configuration persistence is not exposed by the backend yet"),
-  "CompanyPayouts should stop rendering fake payout history"
+    companyPayouts.includes("getAdminCompanyPayoutSettings") &&
+    companyPayouts.includes("patchAdminCompanyPayoutSettings") &&
+    companyPayouts.includes("listAdminCompanyPayouts") &&
+    companyPayouts.includes("No company payouts were returned by the backend.") &&
+    !companyPayouts.includes("payout-001"),
+  "CompanyPayouts should keep settings and payout rows backend-backed without fake payout history"
 );
 
 check(
