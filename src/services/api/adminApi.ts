@@ -819,6 +819,15 @@ export type AdminSafetyIncident = {
       timestamp?: string;
     } | null;
   } | null;
+  locationHistory?: Array<{
+    latitude: number;
+    longitude: number;
+    accuracyMeters?: number;
+    address?: string | null;
+    sessionId?: string;
+    source: "INCIDENT_CREATED" | "SOS_LOCATION_UPDATED";
+    recordedAt: string;
+  }>;
   createdAt: string;
 };
 
@@ -902,8 +911,15 @@ export type AdminSafetyIncidentPage = {
 export async function listAdminSafetyEmergencies(params?: {
   page?: number;
   limit?: number;
+  status?: string;
+  sos?: boolean;
 }): Promise<AdminSafetyIncidentPage> {
-  const query = `page=${params?.page ?? 1}&limit=${params?.limit ?? 100}`;
+  const query = new URLSearchParams({
+    page: String(params?.page ?? 1),
+    limit: String(params?.limit ?? 100),
+  });
+  if (params?.status && params.status !== "ALL") query.set("status", params.status);
+  if (params?.sos !== undefined) query.set("sos", String(params.sos));
   return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
 }
 
@@ -2683,6 +2699,38 @@ export type AdminRideStopResponse = {
   status: string;
   arrivedAt?: string;
   departedAt?: string;
+  stopRequestedAt?: string;
+  stopApprovedAt?: string;
+  continueRequestedAt?: string;
+  continueApprovedAt?: string;
+};
+
+export type AdminRideTemporaryStopResponse = {
+  id: string;
+  rideId: string;
+  status: string;
+  note?: string;
+  requestedByUserId?: string;
+  respondedByUserId?: string;
+  resumeRequestedByUserId?: string;
+  requestedAt?: string;
+  approvedAt?: string;
+  declinedAt?: string;
+  resumeRequestedAt?: string;
+  resumeApprovedAt?: string;
+  resumedAt?: string;
+  durationSeconds?: number;
+  stoppedAt?: string;
+  stoppedLocation?: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters?: number;
+  };
+  resumedLocation?: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters?: number;
+  };
 };
 
 export type AdminRidePassengerResponse = {
@@ -2805,6 +2853,7 @@ export type AdminRideDetailResponse = {
   };
   payment?: { method?: string; status: string };
   stops: AdminRideStopResponse[];
+  temporaryStops?: AdminRideTemporaryStopResponse[];
   passengers: AdminRidePassengerResponse[];
   offers: AdminRideOfferResponse[];
   events: AdminRideEventResponse[];

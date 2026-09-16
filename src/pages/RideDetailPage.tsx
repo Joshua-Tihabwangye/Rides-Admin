@@ -67,6 +67,14 @@ function fmtMoney(amount?: number, currency?: string) {
   return `${amount.toLocaleString()} ${currency ?? ''}`.trim();
 }
 
+function fmtDurationSeconds(seconds?: number) {
+  if (seconds === undefined || seconds === null) return '—';
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes === 0) return `${remainder}s`;
+  return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`;
+}
+
 export default function RideDetailPage() {
   const { rideId } = useParams<{ rideId: string }>();
   const navigate = useNavigate();
@@ -253,12 +261,16 @@ export default function RideDetailPage() {
                 <TableCell>Status</TableCell>
                 <TableCell>Arrived</TableCell>
                 <TableCell>Departed</TableCell>
+                <TableCell>Stop requested</TableCell>
+                <TableCell>Stop approved</TableCell>
+                <TableCell>Continue requested</TableCell>
+                <TableCell>Continue approved</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {ride.stops.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7}>No stops recorded</TableCell>
+                  <TableCell colSpan={11}>No stops recorded</TableCell>
                 </TableRow>
               ) : (
                 ride.stops.map((stop) => (
@@ -267,7 +279,7 @@ export default function RideDetailPage() {
                     <TableCell>{stop.type}</TableCell>
                     <TableCell>{stop.address}</TableCell>
                     <TableCell>
-                      {Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude) ? (
+                      {Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude) && !(stop.latitude === 0 && stop.longitude === 0) ? (
                         <Button
                           href={`https://www.google.com/maps?q=${stop.latitude},${stop.longitude}`}
                           target="_blank"
@@ -285,6 +297,10 @@ export default function RideDetailPage() {
                     <TableCell><StatusBadge status={stop.status} label={stop.status} /></TableCell>
                     <TableCell>{fmtDateTime(stop.arrivedAt)}</TableCell>
                     <TableCell>{fmtDateTime(stop.departedAt)}</TableCell>
+                    <TableCell>{fmtDateTime(stop.stopRequestedAt)}</TableCell>
+                    <TableCell>{fmtDateTime(stop.stopApprovedAt)}</TableCell>
+                    <TableCell>{fmtDateTime(stop.continueRequestedAt)}</TableCell>
+                    <TableCell>{fmtDateTime(stop.continueApprovedAt)}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -410,6 +426,80 @@ export default function RideDetailPage() {
       </CustomTabPanel>
 
       <CustomTabPanel value={tab} index={5}>
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>Temporary stops</Typography>
+        {ride.temporaryStops?.length ? (
+          <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Requested</TableCell>
+                  <TableCell>Approved</TableCell>
+                  <TableCell>Continue requested</TableCell>
+                  <TableCell>Continue approved</TableCell>
+                  <TableCell>Duration</TableCell>
+                  <TableCell>Location</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {ride.temporaryStops.map((stop) => (
+                  <TableRow key={stop.id}>
+                    <TableCell><StatusBadge status={stop.status} label={stop.status} /></TableCell>
+                    <TableCell>{fmtDateTime(stop.requestedAt)}</TableCell>
+                    <TableCell>{fmtDateTime(stop.approvedAt)}</TableCell>
+                    <TableCell>{fmtDateTime(stop.resumeRequestedAt)}</TableCell>
+                    <TableCell>{fmtDateTime(stop.resumeApprovedAt ?? stop.resumedAt)}</TableCell>
+                    <TableCell>{fmtDurationSeconds(stop.durationSeconds)}</TableCell>
+                    <TableCell>
+                      {stop.stoppedLocation ? (
+                        <Button
+                          href={`https://www.google.com/maps?q=${stop.stoppedLocation.latitude},${stop.stoppedLocation.longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          size="small"
+                          variant="text"
+                          sx={{ textTransform: 'none' }}
+                        >
+                          {stop.stoppedLocation.latitude.toFixed(6)}, {stop.stoppedLocation.longitude.toFixed(6)}
+                        </Button>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">—</Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Alert severity="info" sx={{ mb: 2 }}>No temporary stops recorded for this trip.</Alert>
+        )}
+
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>Temporary stop timeline</Typography>
+        {ride.events.filter((e) => /stop|pause|halt|wait/i.test(e.type)).length === 0 ? (
+          <Alert severity="info" sx={{ mb: 2 }}>No temporary stop events recorded for this trip.</Alert>
+        ) : (
+          <List sx={{ mb: 2 }}>
+            {ride.events
+              .filter((e) => /stop|pause|halt|wait/i.test(e.type))
+              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+              .map((e) => (
+                <ListItem key={e.id} dense divider>
+                  <ListItemText
+                    primary={<Typography variant="body2" fontWeight={600}>{e.type}</Typography>}
+                    secondary={
+                      <>
+                        {fmtDateTime(e.createdAt)}
+                        {e.actorUserId ? ` • actor ${e.actorUserId.slice(0, 8)}` : ''}
+                        {e.data ? ` • ${JSON.stringify(e.data)}` : ''}
+                      </>
+                    }
+                  />
+                </ListItem>
+              ))}
+          </List>
+        )}
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>Full event history</Typography>
         <List>
           {ride.events.length === 0 ? (
             <ListItem><ListItemText primary="No events recorded" /></ListItem>
