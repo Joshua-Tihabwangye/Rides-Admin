@@ -1,4 +1,4 @@
-import React, { type ChangeEvent, useState } from "react";
+import React, { type ChangeEvent, useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -17,13 +17,12 @@ import {
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import { useNavigate } from "react-router-dom";
-import { createAdminPricingZone } from "../services/api/adminApi";
+import { createAdminPricingZone, listAdminServices } from "../services/api/adminApi";
+import type { AdminServiceResponse } from "../services/api/adminApi";
 
 const EV_COLORS = {
   primary: "#03cd8c",
 };
-
-const SERVICES = ["Ride", "Delivery", "Rental", "School Shuttle", "EMS / Ambulance", "Tours"];
 
 type ZoneFormData = {
   name: string;
@@ -46,6 +45,25 @@ export default function ZoneCreate() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [services, setServices] = useState<AdminServiceResponse[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+
+  const loadServices = useCallback(async () => {
+    setServicesLoading(true);
+    try {
+      const rows = await listAdminServices();
+      setServices(rows.filter((service) => service.enabled));
+    } catch (loadError) {
+      setError(getErrorMessage(loadError, "Failed to load backend services"));
+      setServices([]);
+    } finally {
+      setServicesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadServices();
+  }, [loadServices]);
 
   const handleServicesChange = (event: SelectChangeEvent<string[]>) => {
     const value = event.target.value;
@@ -142,12 +160,17 @@ export default function ZoneCreate() {
               input={<OutlinedInput label="Services" />}
               renderValue={(selected) => selected.join(", ")}
             >
-              {SERVICES.map((name) => (
-                <MenuItem key={name} value={name}>
-                  <Checkbox checked={formData.services.indexOf(name) > -1} />
-                  <ListItemText primary={name} />
+              {services.map((service) => (
+                <MenuItem key={service.id} value={service.key}>
+                  <Checkbox checked={formData.services.indexOf(service.key) > -1} />
+                  <ListItemText primary={service.name} secondary={service.key} />
                 </MenuItem>
               ))}
+              {!servicesLoading && services.length === 0 ? (
+                <MenuItem disabled value="">
+                  No backend services available
+                </MenuItem>
+              ) : null}
             </Select>
           </FormControl>
 
@@ -166,7 +189,7 @@ export default function ZoneCreate() {
             <Button
               variant="contained"
               onClick={handleSubmit}
-              disabled={saving || !formData.name.trim() || !formData.country.trim() || !formData.city.trim()}
+              disabled={saving || servicesLoading || !formData.name.trim() || !formData.country.trim() || !formData.city.trim()}
               sx={{
                 textTransform: "none",
                 borderRadius: 2,

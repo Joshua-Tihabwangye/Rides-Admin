@@ -40,10 +40,14 @@ import {
   createPromoCode,
   createSurgeZone,
   deletePricingRule,
+  deletePromoCode,
+  deleteSurgeZone,
   listPricingRules,
   listPromoCodes,
   listSurgeZones,
+  patchPromoCode,
   patchPricingRule,
+  patchSurgeZone,
 } from "../services/api/adminApi";
 
 const EV_GREEN = "#03cd8c";
@@ -52,8 +56,19 @@ function fmtUGX(n: number | string) {
   return `${Number(n).toLocaleString("en-UG")} UGX`;
 }
 
-const SERVICE_TYPES = ["RIDE", "DELIVERY", "AMBULANCE", "CAR_RENTAL", "TOURIST_VEHICLE", "SCHOOL_SHUTTLE"];
-const VEHICLE_TYPES = ["EV_LITE", "EV_COMFORT", "EV_XL", "BIKE", "VAN", "AMBULANCE", "SEDAN", "SUV"];
+type PricingRuleNumberField = "baseFare" | "perKm" | "perMinute" | "minimumFare" | "bookingFee";
+
+const PRICING_RULE_NUMBER_FIELDS: { label: string; key: PricingRuleNumberField }[] = [
+  { label: "Base Fare", key: "baseFare" },
+  { label: "Per KM", key: "perKm" },
+  { label: "Per Minute", key: "perMinute" },
+  { label: "Minimum Fare", key: "minimumFare" },
+  { label: "Booking Fee", key: "bookingFee" },
+];
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 function StatusChip({ active }: { active: boolean }) {
   return <Chip label={active ? "Active" : "Inactive"} size="small" color={active ? "success" : "default"} sx={{ fontSize: 10 }} />;
@@ -65,6 +80,7 @@ function PricingRulesTab() {
   const [rows, setRows] = useState<PricingRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [editRow, setEditRow] = useState<Partial<PricingRule> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PricingRule | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -73,8 +89,8 @@ function PricingRulesTab() {
     try {
       const rules = await listPricingRules();
       setRows(rules);
-    } catch {
-      setToast("Failed to load pricing rules");
+    } catch (error) {
+      setToast(getErrorMessage(error, "Failed to load pricing rules"));
     } finally {
       setLoading(false);
     }
@@ -105,22 +121,22 @@ function PricingRulesTab() {
       } else {
         await createPricingRule(editRow);
       }
-      setToast("Saved successfully");
+      setToast("Pricing rule saved");
       setDialogOpen(false);
-      load();
-    } catch {
-      setToast("Save failed");
+      void load();
+    } catch (error) {
+      setToast(getErrorMessage(error, "Save failed"));
     }
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm("Delete this pricing rule?")) return;
     try {
       await deletePricingRule(id);
-      setToast("Deleted");
-      load();
-    } catch {
-      setToast("Delete failed");
+      setDeleteTarget(null);
+      setToast("Pricing rule deleted");
+      void load();
+    } catch (error) {
+      setToast(getErrorMessage(error, "Delete failed"));
     }
   };
 
@@ -169,7 +185,7 @@ function PricingRulesTab() {
                 <TableCell><StatusChip active={row.active} /></TableCell>
                 <TableCell align="right">
                   <Tooltip title="Edit"><IconButton size="small" onClick={() => { setEditRow({ ...row }); setDialogOpen(true); }}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                  <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => remove(row.id)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => setDeleteTarget(row)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                 </TableCell>
               </TableRow>
             ))}
@@ -181,26 +197,22 @@ function PricingRulesTab() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editRow?.id ? "Edit Pricing Rule" : "New Pricing Rule"}</DialogTitle>
         <DialogContent sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, pt: 2 }}>
-          <FormControl size="small" sx={{ gridColumn: "1 / -1" }}>
-            <InputLabel>Service Type</InputLabel>
-            <Select label="Service Type" value={editRow?.serviceType ?? "RIDE"} onChange={(e) => setEditRow((p) => ({ ...p, serviceType: e.target.value }))}>
-              {SERVICE_TYPES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ gridColumn: "1 / -1" }}>
-            <InputLabel>Vehicle Type</InputLabel>
-            <Select label="Vehicle Type" value={editRow?.vehicleType ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, vehicleType: e.target.value }))}>
-              {VEHICLE_TYPES.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-            </Select>
-          </FormControl>
-          {[
-            { label: "Base Fare", key: "baseFare" },
-            { label: "Per KM", key: "perKm" },
-            { label: "Per Minute", key: "perMinute" },
-            { label: "Minimum Fare", key: "minimumFare" },
-            { label: "Booking Fee", key: "bookingFee" },
-          ].map(({ label, key }) => (
-            <TextField key={key} label={`${label} (UGX)`} type="number" size="small" value={(editRow as any)?.[key] ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, [key]: +e.target.value }))} />
+          <TextField
+            label="Service Type"
+            size="small"
+            sx={{ gridColumn: "1 / -1" }}
+            value={editRow?.serviceType ?? ""}
+            onChange={(e) => setEditRow((p) => ({ ...p, serviceType: e.target.value }))}
+          />
+          <TextField
+            label="Vehicle Type"
+            size="small"
+            sx={{ gridColumn: "1 / -1" }}
+            value={editRow?.vehicleType ?? ""}
+            onChange={(e) => setEditRow((p) => ({ ...p, vehicleType: e.target.value }))}
+          />
+          {PRICING_RULE_NUMBER_FIELDS.map(({ label, key }) => (
+            <TextField key={key} label={`${label} (UGX)`} type="number" size="small" value={editRow?.[key] ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, [key]: +e.target.value }))} />
           ))}
           <TextField label="Currency" size="small" value={editRow?.currency ?? "UGX"} onChange={(e) => setEditRow((p) => ({ ...p, currency: e.target.value }))} />
           <FormControl size="small">
@@ -216,6 +228,20 @@ function PricingRulesTab() {
           <Button variant="contained" onClick={save} sx={{ bgcolor: EV_GREEN, "&:hover": { bgcolor: "#0fb589" } }}>Save</Button>
         </DialogActions>
       </Dialog>
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete pricing rule</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Delete {deleteTarget?.serviceType} {deleteTarget?.vehicleType ? `· ${deleteTarget.vehicleType}` : ""} pricing?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => deleteTarget && void remove(deleteTarget.id)}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={!!toast} autoHideDuration={3000} onClose={() => setToast("")} message={toast} />
     </>
   );
@@ -227,6 +253,7 @@ function SurgeZonesTab() {
   const [rows, setRows] = useState<SurgeZone[]>([]);
   const [loading, setLoading] = useState(true);
   const [editRow, setEditRow] = useState<Partial<SurgeZone> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SurgeZone | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -235,8 +262,8 @@ function SurgeZonesTab() {
     try {
       const zones = await listSurgeZones();
       setRows(zones);
-    } catch {
-      setToast("Failed to load surge zones");
+    } catch (error) {
+      setToast(getErrorMessage(error, "Failed to load surge zones"));
     } finally {
       setLoading(false);
     }
@@ -247,12 +274,27 @@ function SurgeZonesTab() {
   const save = async () => {
     if (!editRow) return;
     try {
-      await createSurgeZone(editRow);
-      setToast("Saved successfully");
+      if (editRow.id) {
+        await patchSurgeZone(editRow.id, editRow);
+      } else {
+        await createSurgeZone(editRow);
+      }
+      setToast("Surge zone saved");
       setDialogOpen(false);
-      load();
-    } catch {
-      setToast("Save failed");
+      void load();
+    } catch (error) {
+      setToast(getErrorMessage(error, "Save failed"));
+    }
+  };
+
+  const remove = async (id: string) => {
+    try {
+      await deleteSurgeZone(id);
+      setDeleteTarget(null);
+      setToast("Surge zone deleted");
+      void load();
+    } catch (error) {
+      setToast(getErrorMessage(error, "Delete failed"));
     }
   };
 
@@ -274,6 +316,7 @@ function SurgeZonesTab() {
               <TableCell>Service</TableCell>
               <TableCell>Multiplier</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -283,23 +326,22 @@ function SurgeZonesTab() {
                 <TableCell>{row.serviceType}</TableCell>
                 <TableCell>{row.multiplier}×</TableCell>
                 <TableCell><StatusChip active={row.active} /></TableCell>
+                <TableCell align="right">
+                  <Tooltip title="Edit"><IconButton size="small" onClick={() => { setEditRow({ ...row }); setDialogOpen(true); }}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => setDeleteTarget(row)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                </TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && <TableRow><TableCell colSpan={4} align="center" sx={{ color: "text.secondary", py: 3 }}>No surge zones configured.</TableCell></TableRow>}
+            {rows.length === 0 && <TableRow><TableCell colSpan={5} align="center" sx={{ color: "text.secondary", py: 3 }}>No surge zones configured.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </TableContainer>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New Surge Zone</DialogTitle>
+        <DialogTitle>{editRow?.id ? "Edit Surge Zone" : "New Surge Zone"}</DialogTitle>
         <DialogContent sx={{ display: "grid", gap: 2, pt: 2 }}>
           <TextField label="Name" size="small" value={editRow?.name ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, name: e.target.value }))} />
-          <FormControl size="small">
-            <InputLabel>Service Type</InputLabel>
-            <Select label="Service Type" value={editRow?.serviceType ?? "RIDE"} onChange={(e) => setEditRow((p) => ({ ...p, serviceType: e.target.value }))}>
-              {SERVICE_TYPES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-            </Select>
-          </FormControl>
+          <TextField label="Service Type" size="small" value={editRow?.serviceType ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, serviceType: e.target.value }))} />
           <TextField label="Multiplier" type="number" size="small" value={editRow?.multiplier ?? 1} onChange={(e) => setEditRow((p) => ({ ...p, multiplier: +e.target.value }))} />
           <FormControl size="small">
             <InputLabel>Status</InputLabel>
@@ -314,6 +356,18 @@ function SurgeZonesTab() {
           <Button variant="contained" onClick={save} sx={{ bgcolor: EV_GREEN, "&:hover": { bgcolor: "#0fb589" } }}>Save</Button>
         </DialogActions>
       </Dialog>
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete surge zone</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">Delete surge zone {deleteTarget?.name || deleteTarget?.id}?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => deleteTarget && void remove(deleteTarget.id)}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={!!toast} autoHideDuration={3000} onClose={() => setToast("")} message={toast} />
     </>
   );
@@ -325,6 +379,7 @@ function PromoCodesTab() {
   const [rows, setRows] = useState<PromoCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [editRow, setEditRow] = useState<Partial<PromoCode> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PromoCode | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -333,8 +388,8 @@ function PromoCodesTab() {
     try {
       const promos = await listPromoCodes();
       setRows(promos);
-    } catch {
-      setToast("Failed to load promo codes");
+    } catch (error) {
+      setToast(getErrorMessage(error, "Failed to load promo codes"));
     } finally {
       setLoading(false);
     }
@@ -345,12 +400,27 @@ function PromoCodesTab() {
   const save = async () => {
     if (!editRow) return;
     try {
-      await createPromoCode(editRow);
-      setToast("Saved successfully");
+      if (editRow.id) {
+        await patchPromoCode(editRow.id, editRow);
+      } else {
+        await createPromoCode(editRow);
+      }
+      setToast("Promo code saved");
       setDialogOpen(false);
-      load();
-    } catch {
-      setToast("Save failed");
+      void load();
+    } catch (error) {
+      setToast(getErrorMessage(error, "Save failed"));
+    }
+  };
+
+  const remove = async (id: string) => {
+    try {
+      await deletePromoCode(id);
+      setDeleteTarget(null);
+      setToast("Promo code deleted");
+      void load();
+    } catch (error) {
+      setToast(getErrorMessage(error, "Delete failed"));
     }
   };
 
@@ -373,6 +443,7 @@ function PromoCodesTab() {
               <TableCell>Type</TableCell>
               <TableCell>Value</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -383,24 +454,22 @@ function PromoCodesTab() {
                 <TableCell>{row.discountType}</TableCell>
                 <TableCell>{row.discountType === "PERCENT" ? `${row.value}%` : fmtUGX(row.value)}</TableCell>
                 <TableCell><StatusChip active={row.active} /></TableCell>
+                <TableCell align="right">
+                  <Tooltip title="Edit"><IconButton size="small" onClick={() => { setEditRow({ ...row }); setDialogOpen(true); }}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => setDeleteTarget(row)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                </TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && <TableRow><TableCell colSpan={5} align="center" sx={{ color: "text.secondary", py: 3 }}>No promo codes configured.</TableCell></TableRow>}
+            {rows.length === 0 && <TableRow><TableCell colSpan={6} align="center" sx={{ color: "text.secondary", py: 3 }}>No promo codes configured.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </TableContainer>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New Promo Code</DialogTitle>
+        <DialogTitle>{editRow?.id ? "Edit Promo Code" : "New Promo Code"}</DialogTitle>
         <DialogContent sx={{ display: "grid", gap: 2, pt: 2 }}>
           <TextField label="Code" size="small" value={editRow?.code ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, code: e.target.value.toUpperCase() }))} />
-          <FormControl size="small">
-            <InputLabel>Service Type</InputLabel>
-            <Select label="Service Type" value={editRow?.serviceType ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, serviceType: e.target.value }))}>
-              <MenuItem value="">All services</MenuItem>
-              {SERVICE_TYPES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-            </Select>
-          </FormControl>
+          <TextField label="Service Type" size="small" value={editRow?.serviceType ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, serviceType: e.target.value || undefined }))} helperText="Leave empty for all services if supported by the backend." />
           <FormControl size="small">
             <InputLabel>Discount Type</InputLabel>
             <Select label="Discount Type" value={editRow?.discountType ?? "PERCENT"} onChange={(e) => setEditRow((p) => ({ ...p, discountType: e.target.value as PromoCode["discountType"] }))}>
@@ -420,6 +489,18 @@ function PromoCodesTab() {
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={save} sx={{ bgcolor: EV_GREEN, "&:hover": { bgcolor: "#0fb589" } }}>Save</Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete promo code</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">Delete promo code {deleteTarget?.code || deleteTarget?.id}?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={() => deleteTarget && void remove(deleteTarget.id)}>
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
       <Snackbar open={!!toast} autoHideDuration={3000} onClose={() => setToast("")} message={toast} />

@@ -79,7 +79,6 @@ export default function AdminOnboardingChecklistPage() {
   const publishedModules = useMemo(() => modules.filter((m) => m.status === "published"), [modules]);
   const totalRequired = publishedModules.length;
   const totalConfigured = modules.length;
-  const progressRequired = 0;
   const progressAll = totalConfigured ? Math.round((publishedModules.length / totalConfigured) * 100) : 0;
 
   const toggleMode = () => {
@@ -197,7 +196,7 @@ export default function AdminOnboardingChecklistPage() {
                 <Box className="w-full sm:w-48">
                   <LinearProgress
                     variant="determinate"
-                    value={progressRequired}
+                    value={progressAll}
                     sx={{
                       height: 6,
                       borderRadius: 2,
@@ -212,9 +211,15 @@ export default function AdminOnboardingChecklistPage() {
                     variant="caption"
                     className={`text-[10px] mt-1 float-right ${isDark ? "text-slate-500" : "text-slate-600"}`}
                   >
-                    {progressRequired}%
+                    {progressAll}% published
                   </Typography>
                 </Box>
+                <Typography
+                  variant="caption"
+                  className={`text-[10px] text-right ${isDark ? "text-slate-500" : "text-slate-600"}`}
+                >
+                  Completion tracking is not exposed by the backend yet.
+                </Typography>
               </Box>
             </Box>
 

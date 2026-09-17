@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -13,31 +13,10 @@ import {
   Chip,
   Checkbox,
   FormControlLabel,
+  Alert,
+  CircularProgress,
 } from "@mui/material";
-
-// A3 – Admin Welcome & Responsibility Notice (Light/Dark)
-// Route suggestion: /admin/onboarding/welcome
-//
-// Manual test cases:
-// 1) Initial render
-//    - Expect light mode by default (light background, dark text).
-//    - Page shows a welcome heading, description, and 4 responsibility items
-//      with small green bullet icons.
-//    - Acknowledgement checkbox should be unchecked.
-//    -"Continue to onboarding" button must be disabled.
-// 2) Acknowledge responsibilities
-//    - Tick the acknowledgement checkbox.
-//    - Expect the"Continue to onboarding" button to become enabled.
-//    - Clicking the button should log"Admin responsibility notice acknowledged"
-//      to the console (until real navigation is wired).
-// 3) Theme toggle
-//    - Click the theme toggle in the top-right.
-//    - Expect the UI to switch between light and dark palettes.
-//    - Content and checkbox state must be preserved while switching theme.
-// 4) Policy centre button
-//    - Click"View policy centre".
-//    - Expect a placeholder console log, with no errors (you will replace this
-//      with navigation to the policy / rule management pages later).
+import { listAdminContent, type AdminContentItem } from "../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
@@ -45,29 +24,20 @@ const EV_COLORS = {
 };
 
 const ACKNOWLEDGEMENT_STORAGE_KEY = "evzone.admin.responsibilityAcknowledged";
+const NOTICE_CONTENT_KIND = "admin-responsibility-notices";
 
-const bulletPoints = [
-  {
-    title:"High-impact workspace",
-    body:"Changes here flow to riders, drivers, companies, and agents in real time.",
-  },
-  {
-    title:"Full audit logging",
-    body:"Every admin action is recorded with timestamp, actor, and before/after values.",
-  },
-  {
-    title:"Policy-first operations",
-    body:"Follow EVzone's governance, privacy, and safety policies for every decision.",
-  },
-  {
-    title:"Production vs staging",
-    body:"Test risky changes in staging before rolling out to live regions.",
-  },
-];
+type ResponsibilityNoticeDocument = Record<string, unknown> & {
+  title?: string;
+  body?: string;
+  status?: string;
+};
 
 export default function AdminWelcomeNoticePage() {
   const [mode, setMode] = useState<"light" | "dark">("light");
   const [acknowledged, setAcknowledged] = useState(false);
+  const [notices, setNotices] = useState<Array<AdminContentItem<ResponsibilityNoticeDocument>>>([]);
+  const [noticesLoading, setNoticesLoading] = useState(true);
+  const [noticesError, setNoticesError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const isDark = mode ==="dark";
@@ -75,6 +45,24 @@ export default function AdminWelcomeNoticePage() {
   useEffect(() => {
     setAcknowledged(window.localStorage.getItem(ACKNOWLEDGEMENT_STORAGE_KEY) === "true");
   }, []);
+
+  const loadNotices = useCallback(async () => {
+    setNoticesLoading(true);
+    setNoticesError(null);
+    try {
+      const rows = await listAdminContent<ResponsibilityNoticeDocument>(NOTICE_CONTENT_KIND);
+      setNotices(rows.filter((row) => row.status !== "archived"));
+    } catch (error) {
+      setNoticesError(error instanceof Error ? error.message : "Failed to load responsibility notices");
+      setNotices([]);
+    } finally {
+      setNoticesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNotices();
+  }, [loadNotices]);
 
   const handleContinue = () => {
     window.localStorage.setItem(ACKNOWLEDGEMENT_STORAGE_KEY, "true");
@@ -231,10 +219,34 @@ export default function AdminWelcomeNoticePage() {
                 />
               </Box>
 
+              {noticesError ? (
+                <Box className="px-4 pb-4">
+                  <Alert
+                    severity="error"
+                    action={
+                      <Button color="inherit" size="small" onClick={() => void loadNotices()}>
+                        Retry
+                      </Button>
+                    }
+                  >
+                    {noticesError}
+                  </Alert>
+                </Box>
+              ) : noticesLoading ? (
+                <Box className="px-4 py-6 flex justify-center">
+                  <CircularProgress size={24} />
+                </Box>
+              ) : notices.length === 0 ? (
+                <Box className="px-4 pb-4">
+                  <Alert severity="info">
+                    No admin responsibility notices have been published by the backend yet.
+                  </Alert>
+                </Box>
+              ) : (
               <List dense className="px-2 pb-1">
-                {bulletPoints.map((item) => (
+                {notices.map((item) => (
                   <ListItem
-                    key={item.title}
+                    key={item.id}
                     className="rounded-xl px-2 py-1.5"
                     sx={{"&:hover": {
                         backgroundColor:"rgba(15,23,42,0.9)",
@@ -260,7 +272,7 @@ export default function AdminWelcomeNoticePage() {
                           variant="body2"
                           className="text-[13px] font-medium text-slate-100"
                         >
-                          {item.title}
+                          {item.title || "Responsibility notice"}
                         </Typography>
                       }
                       secondary={
@@ -268,13 +280,14 @@ export default function AdminWelcomeNoticePage() {
                           variant="body2"
                           className="text-[11px] text-slate-400"
                         >
-                          {item.body}
+                          {item.body || "No notice body was provided."}
                         </Typography>
                       }
                     />
                   </ListItem>
                 ))}
               </List>
+              )}
             </Box>
 
             {/* Acknowledgement + actions */}

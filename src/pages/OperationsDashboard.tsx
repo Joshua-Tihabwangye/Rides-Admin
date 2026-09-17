@@ -110,7 +110,7 @@ export default function OperationsDashboardPage() {
   }, [analytics]);
 
   // Demand/supply and service-mix charts are shown only when the backend supplies
-  // hourly / regional breakdowns. Static demo data has been removed.
+  // hourly / regional breakdowns.
   const demandSupplyData = useMemo(() => analytics?.hourly ?? [], [analytics]);
   const serviceMixData = useMemo(() => analytics?.regions ?? [], [analytics]);
 

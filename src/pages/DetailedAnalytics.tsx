@@ -810,7 +810,7 @@ export default function DetailedAnalyticsPage() {
 							</Card>
 						)}
 
-						{/* Sample results table/chart */}
+						{/* Backend results table/chart */}
 						{!analyticsLoading && chartData.length > 0 && (
 							<Card
 								elevation={0}

@@ -2270,12 +2270,24 @@ export async function listSurgeZones(): Promise<SurgeZone[]> {
 export async function createSurgeZone(input: Partial<SurgeZone>): Promise<SurgeZone> {
   return request<SurgeZone>("/pricing/surges", { method: "POST", body: input });
 }
+export async function patchSurgeZone(id: string, input: Partial<SurgeZone>): Promise<SurgeZone> {
+  return request<SurgeZone>(`/pricing/surges/${id}`, { method: "PATCH", body: input });
+}
+export async function deleteSurgeZone(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/pricing/surges/${id}`, { method: "DELETE" });
+}
 
 export async function listPromoCodes(): Promise<PromoCode[]> {
   return request<PromoCode[]>("/pricing/promos");
 }
 export async function createPromoCode(input: Partial<PromoCode>): Promise<PromoCode> {
   return request<PromoCode>("/pricing/promos", { method: "POST", body: input });
+}
+export async function patchPromoCode(id: string, input: Partial<PromoCode>): Promise<PromoCode> {
+  return request<PromoCode>(`/pricing/promos/${id}`, { method: "PATCH", body: input });
+}
+export async function deletePromoCode(id: string): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/pricing/promos/${id}`, { method: "DELETE" });
 }
 
 // ── Delivery Workspace & Package Labels ───────────────────────────────────

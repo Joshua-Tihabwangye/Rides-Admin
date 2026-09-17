@@ -62,8 +62,7 @@ export type LiveDriverMarker = {
 const QUERY_ORIGIN = { lat: 0, lng: 0 };
 
 // Returns the operator's real browser position to seed the initial viewport,
-// or null when unavailable. No hardcoded fallback location is applied so that
-// the map only centers on real driver data.
+// or null when unavailable. The map only centers on real driver data.
 function requestBrowserCenter(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((resolve) => {
     if (!navigator.geolocation) { resolve(null); return; }
@@ -361,8 +360,7 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
             onLoad={(map) => { mapRef.current = map; }}
             onUnmount={() => { mapRef.current = null; }}
             onCenterChanged={() => {
-              // Only track operator panning once a real center exists; never
-              // let the map reset to a hardcoded/empty viewport. Guard against
+              // Only track operator panning once a real center exists. Guard against
               // the infinite re-render loop caused by setting state with a new
               // object reference that produces the same numeric coordinates.
               if (!centerRef.current) return;

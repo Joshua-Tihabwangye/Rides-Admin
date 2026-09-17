@@ -125,7 +125,6 @@ export default function AdminHomeDashboardPage() {
   }, [period, navigate, overview, operationsAnalytics, financeAnalytics, loading]);
 
   // Hourly trip trends are shown only when the backend supplies them.
-  // Static demo data has been removed to meet production-readiness requirements.
   const tripTrends = useMemo(() => {
     const hourly = operationsAnalytics?.hourly;
     if (!Array.isArray(hourly) || hourly.length === 0) return [];

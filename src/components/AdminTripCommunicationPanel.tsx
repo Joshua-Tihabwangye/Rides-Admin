@@ -66,6 +66,10 @@ type CallUiState =
   | { kind: "incoming"; callId: string; callerName: string; mediaType: AdminCallMediaType }
   | { kind: "active"; callId: string; peerName: string; durationSeconds: number };
 
+type FailedSend =
+  | { kind: "text"; body: string }
+  | { kind: "voice"; blob: Blob; durationMs: number };
+
 function currentAdminUserId(): string | null {
   try {
     const token = readAdminBackendAccessToken();
@@ -99,6 +103,7 @@ export default function AdminTripCommunicationPanel({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [voiceSending, setVoiceSending] = useState(false);
+  const [failedSend, setFailedSend] = useState<FailedSend | null>(null);
   const [call, setCall] = useState<CallUiState>({ kind: "idle" });
   const [callError, setCallError] = useState<string | null>(null);
   const [callHistory, setCallHistory] = useState<AdminCallRecord[]>([]);
@@ -125,6 +130,14 @@ export default function AdminTripCommunicationPanel({
   myUserIdRef.current = myUserId;
 
   const canCall = Boolean(serviceId && myUserId);
+
+  const appendMessage = useCallback((message: AdminChatMessage) => {
+    setMessages((prev) => {
+      const safe = Array.isArray(prev) ? prev : [];
+      if (safe.some((item) => item.id === message.id)) return safe;
+      return [...safe, message];
+    });
+  }, []);
 
   useEffect(() => {
     if (!driverId) return;
@@ -381,15 +394,19 @@ export default function AdminTripCommunicationPanel({
     const body = draft.trim();
     if (!body || !thread || sending) return;
     setSending(true);
+    setCallError(null);
     try {
-      await adminSendChatMessage(thread.thread.id, body);
+      const sent = await adminSendChatMessage(thread.thread.id, body);
+      appendMessage(sent);
+      setFailedSend(null);
       setDraft("");
     } catch (error) {
+      setFailedSend({ kind: "text", body });
       setCallError(error instanceof Error ? error.message : "Could not send the message.");
     } finally {
       setSending(false);
     }
-  }, [draft, sending, thread]);
+  }, [appendMessage, draft, sending, thread]);
 
   const sendVoiceNote = useCallback(
     async (blob: Blob, durationMs: number) => {
@@ -401,6 +418,7 @@ export default function AdminTripCommunicationPanel({
       const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
       const file = new File([blob], `voice-note-${Date.now()}.${ext}`, { type: blob.type });
       setVoiceSending(true);
+      setCallError(null);
       try {
         const uploaded = await adminUploadChatVoiceNote(file);
         const voiceNoteUrl =
@@ -416,16 +434,39 @@ export default function AdminTripCommunicationPanel({
           setCallError("Voice-note upload is unavailable right now.");
           return;
         }
-        // The message appears via the admin chat socket echo, as with text.
-        await adminSendChatMessage(thread.thread.id, "", [attachment]);
+        const sent = await adminSendChatMessage(thread.thread.id, "", [attachment]);
+        appendMessage(sent);
+        setFailedSend(null);
       } catch (error) {
+        setFailedSend({ kind: "voice", blob, durationMs });
         setCallError(error instanceof Error ? error.message : "Could not send the voice note.");
       } finally {
         setVoiceSending(false);
       }
     },
-    [thread, voiceSending],
+    [appendMessage, thread, voiceSending],
   );
+
+  const retryFailedSend = useCallback(async () => {
+    if (!failedSend || !thread || sending || voiceSending) return;
+    if (failedSend.kind === "text") {
+      setDraft(failedSend.body);
+      setSending(true);
+      setCallError(null);
+      try {
+        const sent = await adminSendChatMessage(thread.thread.id, failedSend.body);
+        appendMessage(sent);
+        setFailedSend(null);
+        setDraft("");
+      } catch (error) {
+        setCallError(error instanceof Error ? error.message : "Could not resend the message.");
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+    await sendVoiceNote(failedSend.blob, failedSend.durationMs);
+  }, [appendMessage, failedSend, sendVoiceNote, sending, thread, voiceSending]);
 
   const loadCallHistory = useCallback(async () => {
     if (!serviceId) {
@@ -469,11 +510,7 @@ export default function AdminTripCommunicationPanel({
     const onChatMessage = (message: AdminChatMessage | { message?: AdminChatMessage }) => {
       const nextMessage = "message" in message && message.message ? message.message : message as AdminChatMessage;
       if (!nextMessage || !thread || nextMessage.threadId !== thread.thread.id) return;
-      setMessages((prev) => {
-        const safe = Array.isArray(prev) ? prev : [];
-        if (safe.some((item) => item.id === nextMessage.id)) return safe;
-        return [...safe, nextMessage];
-      });
+      appendMessage(nextMessage);
       void adminMarkChatThreadRead(thread.thread.id).catch(() => undefined);
     };
 
@@ -577,7 +614,7 @@ export default function AdminTripCommunicationPanel({
       socket.off("call.declined", onCallLifecycle("declined"));
       socket.off("call.ended", onCallLifecycle("ended"));
     };
-  }, [chatOpen, emitSignal, endCallUi, getSocket, hangUp, serviceId, serviceType, thread]);
+  }, [appendMessage, chatOpen, emitSignal, endCallUi, getSocket, hangUp, serviceId, serviceType, thread]);
 
   const peerNameLabel = driver?.name || "Driver";
   const formatDuration = (total: number) => {
@@ -591,6 +628,14 @@ export default function AdminTripCommunicationPanel({
     } catch {
       return "";
     }
+  };
+  const deliveryLabel = (message: AdminChatMessage, mine: boolean) => {
+    if (!mine) return null;
+    if (message.readAt) return `Read ${formatTime(message.readAt)}`;
+    if (message.deliveredAt) return `Delivered ${formatTime(message.deliveredAt)}`;
+    if (message.failedAt || message.status?.toLowerCase() === "failed") return "Failed";
+    if (message.status) return message.status;
+    return "Sent";
   };
 
   const canChat = Boolean(serviceId);
@@ -772,6 +817,7 @@ export default function AdminTripCommunicationPanel({
             ) : (
               (messages ?? []).map((message) => {
                 const mine = message.senderUserId === myUserId;
+                const delivery = deliveryLabel(message, mine);
                 return (
                   <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                     <div
@@ -791,6 +837,7 @@ export default function AdminTripCommunicationPanel({
                       <p className="text-sm leading-snug">{message.body}</p>
                       <p className={`mt-1 text-[10px] font-bold uppercase tracking-wide ${mine ? "text-blue-100" : "text-slate-400"}`}>
                         {formatTime(message.createdAt)}
+                        {delivery ? ` · ${delivery}` : ""}
                       </p>
                     </div>
                   </div>
@@ -801,7 +848,19 @@ export default function AdminTripCommunicationPanel({
           </div>
 
           {callError ? (
-            <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-xs font-bold text-red-600">{callError}</p>
+            <div className="flex items-center justify-between gap-3 border-t border-red-100 bg-red-50 px-4 py-2 text-xs font-bold text-red-600">
+              <span>{callError}</span>
+              {failedSend ? (
+                <button
+                  type="button"
+                  onClick={() => void retryFailedSend()}
+                  disabled={sending || voiceSending}
+                  className="rounded-full border border-red-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-wide text-red-600 disabled:opacity-50"
+                >
+                  Retry
+                </button>
+              ) : null}
+            </div>
           ) : null}
 
           <form

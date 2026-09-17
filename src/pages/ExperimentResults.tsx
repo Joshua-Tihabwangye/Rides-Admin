@@ -111,7 +111,7 @@ export default function ExperimentResults() {
             <DetailItem label="Updated" value={selectedFlag.updatedAt ? new Date(selectedFlag.updatedAt).toLocaleString() : "n/a"} />
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
-            Experiment metrics and A/B variant series are not exposed by the backend yet. This page now shows the live flag record instead of demo data.
+            Experiment metrics and A/B variant series are not exposed by the backend yet. This page shows the live flag record only.
           </Typography>
         </CardContent>
       </Card>

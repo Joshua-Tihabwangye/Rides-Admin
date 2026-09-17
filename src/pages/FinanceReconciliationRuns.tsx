@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -27,7 +27,6 @@ import {
 import {
   listAdminReconciliationRuns,
   startAdminReconciliationRun,
-  getAdminReconciliationRun,
   listAdminReconciliationRecords,
   resolveAdminReconciliationRecord,
   listAdminReconciliationProviders,
@@ -72,7 +71,7 @@ export default function FinanceReconciliationRunsPage() {
   const [recordResolution, setRecordResolution] = useState('');
   const [resolving, setResolving] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -82,15 +81,28 @@ export default function FinanceReconciliationRunsPage() {
       ]);
       setRuns(runsRes);
       setProviders(providersRes.providers || []);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load reconciliation runs');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load reconciliation runs');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  const loadRecords = useCallback(async (runId: string) => {
+    setRecordsLoading(true);
+    setError(null);
+    try {
+      const res = await listAdminReconciliationRecords(runId);
+      setRecords(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load records');
+    } finally {
+      setRecordsLoading(false);
+    }
   }, []);
 
   const handleStart = async () => {
@@ -107,8 +119,8 @@ export default function FinanceReconciliationRunsPage() {
       setPeriodStart('');
       setPeriodEnd('');
       await load();
-    } catch (err: any) {
-      setError(err?.message ?? 'Start run failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Start run failed');
     } finally {
       setSubmitting(false);
     }
@@ -121,15 +133,7 @@ export default function FinanceReconciliationRunsPage() {
       return;
     }
     setExpandedRunId(runId);
-    setRecordsLoading(true);
-    try {
-      const res = await listAdminReconciliationRecords(runId);
-      setRecords(res);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load records');
-    } finally {
-      setRecordsLoading(false);
-    }
+    await loadRecords(runId);
   };
 
   const handleResolve = async () => {
@@ -138,10 +142,11 @@ export default function FinanceReconciliationRunsPage() {
     try {
       await resolveAdminReconciliationRecord(expandedRunId, selectedRecord.id, { status: recordStatus, resolution: recordResolution });
       setSelectedRecord(null);
-      if (expandedRunId) await toggleRecords(expandedRunId);
+      setRecordResolution('');
+      await loadRecords(expandedRunId);
       await load();
-    } catch (err: any) {
-      setError(err?.message ?? 'Resolve failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Resolve failed');
     } finally {
       setResolving(false);
     }
@@ -167,7 +172,7 @@ export default function FinanceReconciliationRunsPage() {
           </Typography>
         </Box>
         <Box className="flex gap-2">
-          <Button variant="outlined" size="small" onClick={load} sx={{ textTransform: 'none' }}>
+          <Button variant="outlined" size="small" onClick={() => void load()} sx={{ textTransform: 'none' }}>
             Refresh
           </Button>
           <Button variant="contained" size="small" onClick={() => setOpen(true)} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>
@@ -191,7 +196,7 @@ export default function FinanceReconciliationRunsPage() {
                 </Box>
                 <Box className="flex items-center gap-2">
                   <Chip size="small" label={run.status} color={statusColor(run.status) as any} sx={{ fontSize: 11 }} />
-                  <Button size="small" variant="outlined" sx={{ textTransform: 'none', borderRadius: 999, fontSize: 12 }} onClick={() => toggleRecords(run.id)}>
+                  <Button size="small" variant="outlined" sx={{ textTransform: 'none', borderRadius: 999, fontSize: 12 }} onClick={() => void toggleRecords(run.id)}>
                     {expandedRunId === run.id ? 'Hide records' : 'Records'}
                   </Button>
                 </Box>
@@ -274,7 +279,7 @@ export default function FinanceReconciliationRunsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)} size="small" sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button onClick={handleStart} variant="contained" size="small" disabled={submitting || !periodStart || !periodEnd} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>
+          <Button onClick={() => void handleStart()} variant="contained" size="small" disabled={submitting || !periodStart || !periodEnd} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>
             {submitting ? 'Starting...' : 'Start'}
           </Button>
         </DialogActions>
@@ -292,7 +297,7 @@ export default function FinanceReconciliationRunsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSelectedRecord(null)} size="small" sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button onClick={handleResolve} variant="contained" size="small" disabled={resolving} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>
+          <Button onClick={() => void handleResolve()} variant="contained" size="small" disabled={resolving} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>
             {resolving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
