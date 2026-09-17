@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
+  DrawingManager,
   GoogleMap,
-  useJsApiLoader,
   Polygon,
+  useJsApiLoader,
 } from "@react-google-maps/api";
 import {
   Box,
@@ -25,7 +26,32 @@ const EV_COLORS = {
   primary: "#03CD8C",
 };
 
-const googleMapsLibraries: ("places" | "drawing")[] = ["places"];
+const googleMapsLibraries: "drawing"[] = ["drawing"];
+const defaultCenter = { lat: 0.3476, lng: 32.5825 };
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function normalizeBoundaryPoint(point: number[]): google.maps.LatLngLiteral | null {
+  const [lng, lat] = point;
+  if (typeof lat !== "number" || typeof lng !== "number") return null;
+  return { lat, lng };
+}
+
+function pointsEqual(
+  a: google.maps.LatLngLiteral | undefined,
+  b: google.maps.LatLngLiteral | undefined,
+) {
+  return !!a && !!b && a.lat === b.lat && a.lng === b.lng;
+}
+
+function closeRing(points: google.maps.LatLngLiteral[]) {
+  if (points.length === 0) return points;
+  const first = points[0];
+  const last = points[points.length - 1];
+  return pointsEqual(first, last) ? points : [...points, first];
+}
 
 export default function ZoneMapView() {
   const { id } = useParams<{ id: string }>();
@@ -67,17 +93,20 @@ export default function ZoneMapView() {
         // GeoJSON: { type: "Polygon", coordinates: [[[lng, lat], ...]] }
         const geoCoords = data.boundaries?.coordinates?.[0];
         if (Array.isArray(geoCoords)) {
-          const converted = geoCoords.map((ringPoint) => ({
-            lng: ringPoint[0],
-            lat: ringPoint[1],
-          }));
+          const converted = geoCoords
+            .map(normalizeBoundaryPoint)
+            .filter((point): point is google.maps.LatLngLiteral => Boolean(point));
+          if (pointsEqual(converted[0], converted[converted.length - 1])) {
+            converted.pop();
+          }
           setPaths(converted);
           setOriginalPaths(converted);
         } else {
-          setError("Zone has no valid boundary data");
+          setPaths([]);
+          setOriginalPaths([]);
         }
-      } catch (e: any) {
-        setError(e?.message ?? "Failed to load zone");
+      } catch (error) {
+        setError(getErrorMessage(error, "Failed to load zone"));
       } finally {
         setLoading(false);
       }
@@ -92,39 +121,64 @@ export default function ZoneMapView() {
     };
   }, []);
 
-  const handlePolygonLoad = (polygon: google.maps.Polygon) => {
-    polygonRef.current = polygon;
-    const events: ("set_at" | "insert_at" | "remove_at")[] = [
-      "set_at",
-      "insert_at",
-      "remove_at",
-    ];
-    const added = events.map((ev) =>
-      polygon.addListener(ev, onPathChanged),
-    );
-    listenersRef.current = added;
+  const clearPathListeners = () => {
+    listenersRef.current.forEach((listener) => listener.remove());
+    listenersRef.current = [];
   };
 
-  const onPathChanged = () => {
-    if (!polygonRef.current) return;
-    const path = polygonRef.current.getPath();
+  const readPolygonPath = (polygon: google.maps.Polygon) => {
+    const path = polygon.getPath();
     const newPaths: google.maps.LatLngLiteral[] = [];
-    for (let i = 0; i < path.getLength(); i++) {
+    for (let i = 0; i < path.getLength(); i += 1) {
       const latLng = path.getAt(i);
       newPaths.push({ lat: latLng.lat(), lng: latLng.lng() });
     }
     setPaths(newPaths);
   };
 
+  const handlePolygonLoad = (polygon: google.maps.Polygon) => {
+    clearPathListeners();
+    polygonRef.current = polygon;
+    const path = polygon.getPath();
+    const events: ("set_at" | "insert_at" | "remove_at")[] = [
+      "set_at",
+      "insert_at",
+      "remove_at",
+    ];
+    const added = events.map((ev) =>
+      path.addListener(ev, () => readPolygonPath(polygon)),
+    );
+    listenersRef.current = added;
+  };
+
+  const handlePolygonUnmount = () => {
+    clearPathListeners();
+    polygonRef.current = null;
+  };
+
+  const handlePolygonComplete = (polygon: google.maps.Polygon) => {
+    readPolygonPath(polygon);
+    polygon.setMap(null);
+  };
+
+  const handleOverlayComplete = (event: google.maps.drawing.OverlayCompleteEvent) => {
+    if (event.type !== google.maps.drawing.OverlayType.POLYGON) {
+      event.overlay?.setMap(null);
+      return;
+    }
+    handlePolygonComplete(event.overlay as google.maps.Polygon);
+  };
+
   const hasChanges = JSON.stringify(paths) !== JSON.stringify(originalPaths);
 
   const handleSave = async () => {
-    if (!id || !paths.length) return;
+    if (!id || paths.length < 3) return;
     setSaving(true);
     try {
+      const closedPaths = closeRing(paths);
       const boundaries: { type: "Polygon"; coordinates: number[][][] } = {
         type: "Polygon",
-        coordinates: [[...paths.map((p) => [p.lng, p.lat])]],
+        coordinates: [closedPaths.map((p) => [p.lng, p.lat])],
       };
       await patchAdminPricingZone(id, { boundaries });
       setSnackbar({
@@ -133,11 +187,10 @@ export default function ZoneMapView() {
         severity: "success",
       });
       setOriginalPaths(paths);
-      setTimeout(() => navigate(-1), 1500);
-    } catch (e: any) {
+    } catch (error) {
       setSnackbar({
         open: true,
-        message: e.message || "Save failed",
+        message: getErrorMessage(error, "Save failed"),
         severity: "error",
       });
     } finally {
@@ -148,7 +201,7 @@ export default function ZoneMapView() {
   const handleBack = () => navigate(-1);
 
   const getCenter = (): google.maps.LatLngLiteral => {
-    if (paths.length === 0) return { lat: 0, lng: 0 };
+    if (paths.length === 0) return defaultCenter;
     const sum = paths.reduce(
       (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
       { lat: 0, lng: 0 }
@@ -225,10 +278,21 @@ export default function ZoneMapView() {
             </Typography>
           </Box>
           <Box sx={{ display: "flex", gap: 2 }}>
+            {paths.length > 0 && (
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={saving}
+                onClick={() => setPaths([])}
+                sx={{ textTransform: "none", borderRadius: 2 }}
+              >
+                Redraw
+              </Button>
+            )}
             <Button
               variant="contained"
               size="small"
-              disabled={!hasChanges || saving}
+              disabled={!hasChanges || saving || paths.length < 3}
               onClick={handleSave}
               sx={{
                 backgroundColor: EV_COLORS.primary,
@@ -301,6 +365,21 @@ export default function ZoneMapView() {
                 paths={paths}
                 options={polygonOptions}
                 onLoad={handlePolygonLoad}
+                onUnmount={handlePolygonUnmount}
+              />
+            )}
+            {paths.length === 0 && (
+              <DrawingManager
+                onOverlayComplete={handleOverlayComplete}
+                options={{
+                  drawingControl: true,
+                  drawingControlOptions: {
+                    position: google.maps.ControlPosition.TOP_CENTER,
+                    drawingModes: [google.maps.drawing.OverlayType.POLYGON],
+                  },
+                  drawingMode: google.maps.drawing.OverlayType.POLYGON,
+                  polygonOptions,
+                }}
               />
             )}
           </GoogleMap>

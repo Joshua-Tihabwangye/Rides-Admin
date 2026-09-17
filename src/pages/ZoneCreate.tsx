@@ -1,29 +1,40 @@
-import React, { useState } from"react";
+import React, { type ChangeEvent, useState } from "react";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  TextField,
-  Button,
+  Checkbox,
   FormControl,
   InputLabel,
-  Select,
-  MenuItem,
-  Checkbox,
   ListItemText,
+  MenuItem,
   OutlinedInput,
-  Alert,
-} from"@mui/material";
-import { useNavigate } from"react-router-dom";
-import { createAdminPricingZone } from"../services/api/adminApi";
+  Select,
+  TextField,
+  Typography,
+} from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material/Select";
+import { useNavigate } from "react-router-dom";
+import { createAdminPricingZone } from "../services/api/adminApi";
 
 const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
+  primary: "#03cd8c",
 };
 
-const SERVICES = ["Ride","Delivery","Rental","School Shuttle","EMS / Ambulance","Tours"];
+const SERVICES = ["Ride", "Delivery", "Rental", "School Shuttle", "EMS / Ambulance", "Tours"];
+
+type ZoneFormData = {
+  name: string;
+  country: string;
+  city: string;
+  services: string[];
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export default function ZoneCreate() {
   const navigate = useNavigate();
@@ -36,35 +47,39 @@ export default function ZoneCreate() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (field) => (event) => {
-    const {
-      target: { value },
-    } = event;
+  const handleServicesChange = (event: SelectChangeEvent<string[]>) => {
+    const value = event.target.value;
     setFormData((prev) => ({
       ...prev,
-      [field]: typeof value === "string" ? value.split(",") : value,
+      services: typeof value === "string" ? value.split(",") : value,
     }));
   };
 
-  const handleTextChange = (field) => (event) => {
+  const handleTextChange = (field: keyof Omit<ZoneFormData, "services">) => (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
   const handleSubmit = async () => {
+    if (!formData.name.trim() || !formData.country.trim() || !formData.city.trim()) {
+      setError("Zone name, country, and city are required.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      await createAdminPricingZone({
-        name: formData.name,
-        country: formData.country,
-        city: formData.city,
+      const zone = await createAdminPricingZone({
+        name: formData.name.trim(),
+        country: formData.country.trim(),
+        city: formData.city.trim(),
         services: formData.services,
         status: "active",
-        boundaries: { type: "Polygon", coordinates: [] }, // empty polygon requires map editor later
+        boundaries: { type: "Polygon", coordinates: [] },
       });
-      navigate("/admin/pricing/zones");
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to create zone');
+      navigate(`/admin/pricing/map/${zone.id}`);
+    } catch (error) {
+      setError(getErrorMessage(error, "Failed to create zone"));
       setSaving(false);
     }
   };
@@ -103,7 +118,7 @@ export default function ZoneCreate() {
               value={formData.country}
               onChange={handleTextChange("country")}
             >
-              <MenuItem value=""><em>Select country</em></MenuItem>
+            <MenuItem value=""><em>Select country</em></MenuItem>
               <MenuItem value="Uganda">Uganda</MenuItem>
               <MenuItem value="Kenya">Kenya</MenuItem>
               <MenuItem value="Rwanda">Rwanda</MenuItem>
@@ -123,7 +138,7 @@ export default function ZoneCreate() {
             <Select
               multiple
               value={formData.services}
-              onChange={handleChange("services")}
+              onChange={handleServicesChange}
               input={<OutlinedInput label="Services" />}
               renderValue={(selected) => selected.join(", ")}
             >
@@ -144,22 +159,22 @@ export default function ZoneCreate() {
             <Button
               variant="outlined"
               onClick={() => navigate("/admin/pricing/zones")}
-              sx={{ textTransform:"none", borderRadius: 2 }}
+              sx={{ textTransform: "none", borderRadius: 2 }}
             >
               Cancel
             </Button>
             <Button
               variant="contained"
               onClick={handleSubmit}
-              disabled={saving}
+              disabled={saving || !formData.name.trim() || !formData.country.trim() || !formData.city.trim()}
               sx={{
-                textTransform:"none",
+                textTransform: "none",
                 borderRadius: 2,
                 bgcolor: EV_COLORS.primary,
                 "&:hover": { bgcolor: "#0fb589" },
               }}
             >
-              {saving ? 'Creating...' : 'Create Zone'}
+              {saving ? "Creating..." : "Create Zone"}
             </Button>
           </Box>
         </CardContent>

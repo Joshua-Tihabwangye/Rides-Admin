@@ -185,7 +185,11 @@ export default function DriverManagement() {
           setError("Failed to update status");
         }
       } else if (action === "contact") {
-        // TODO: implement contact action (e.g., copy phone or open mail)
+        if (driver.phone && driver.phone !== "—") {
+          window.location.href = `tel:${driver.phone}`;
+        } else {
+          setError("No driver phone number is available from the backend.");
+        }
       }
     }
     handleActionClose();

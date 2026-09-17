@@ -107,6 +107,7 @@ export default function SafetyOverviewDashboardPage() {
   const [contactIncidentId, setContactIncidentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionAlert, setActionAlert] = useState<{ severity: "success" | "error"; message: string } | null>(null);
   const [historyFilter, setHistoryFilter] = useState<"ALL" | "RESOLVED" | "OPEN" | "ACKNOWLEDGED">("ALL");
   const [standaloneComms, setStandaloneComms] = useState<AdminEmergencyMessage[]>([]);
   const [unreadCommsCount, setUnreadCommsCount] = useState(0);
@@ -282,25 +283,28 @@ export default function SafetyOverviewDashboardPage() {
     status: string,
     assignedToUserId?: string,
   ) => {
+    setActionAlert(null);
     try {
       await updateAdminSafetyIncident(incident.id, {
         status,
         ...(assignedToUserId ? { assignedToUserId } : {}),
       });
       await refreshIncidents();
+      setActionAlert({ severity: "success", message: `Incident ${incident.id.slice(0, 8)} updated.` });
     } catch (error) {
-      alert(
-        error instanceof Error
+      setActionAlert({
+        severity: "error",
+        message: error instanceof Error
           ? `Failed to update incident ${incident.id.slice(0, 8)}: ${error.message}`
           : "Failed to update incident. Please try again.",
-      );
+      });
     }
   };
 
   const assignToMe = (incident: AdminSafetyIncident) => {
     const adminUserId = currentAdminUserId();
     if (!adminUserId) {
-      alert("Could not determine your admin user id. Please sign in again.");
+      setActionAlert({ severity: "error", message: "Could not determine your admin user id. Please sign in again." });
       return;
     }
     void transitionIncident(incident, incident.status || "OPEN", adminUserId);
@@ -349,6 +353,7 @@ export default function SafetyOverviewDashboardPage() {
 
   const handleApproveUser = async (user: UserUnderReview, e: React.MouseEvent) => {
     e.stopPropagation();
+    setActionAlert(null);
     try {
       if (user.type === "Rider") {
         await patchAdminRider(user.backendId, { status: "active" });
@@ -356,9 +361,10 @@ export default function SafetyOverviewDashboardPage() {
         await patchAdminDriver(user.backendId, { status: "active" });
       }
       setUsersUnderReview((prev) => prev.filter((u) => !(u.id === user.id && u.type === user.type)));
+      setActionAlert({ severity: "success", message: `${user.name} approved.` });
     } catch (error) {
       console.error("Failed to approve user from safety queue.", error);
-      alert("Failed to approve user. Please try again.");
+      setActionAlert({ severity: "error", message: "Failed to approve user. Please try again." });
     }
   };
 
@@ -403,6 +409,12 @@ export default function SafetyOverviewDashboardPage() {
           View risk queue
         </Button>
       </Box>
+
+      {actionAlert ? (
+        <Alert severity={actionAlert.severity} onClose={() => setActionAlert(null)} sx={{ mb: 2 }}>
+          {actionAlert.message}
+        </Alert>
+      ) : null}
 
       {unreadCommsCount > 0 ? (
         <Box sx={{ mb: 3 }}>

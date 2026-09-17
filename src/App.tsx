@@ -58,6 +58,12 @@ import ApprovalDetail from './pages/ApprovalDetail'
 import DocumentReviewPage from './pages/DocumentReviewPage'
 import ServiceConfiguration from './pages/ServiceConfiguration'
 import PricingManagement from './pages/PricingManagement'
+import PricingRulesOverview from './pages/PricingRulesTariffs'
+import ZoneCreate from './pages/ZoneCreate'
+import ZonesGeofences from './pages/ZonesGeofences'
+import ZoneMapView from './pages/ZoneMapView'
+import ZonePricingDetail from './pages/ZonePricingDetail'
+import ZonesList from './pages/ZonesList'
 import PromotionsIncentives from './pages/PromotionsIncentives'
 import PromoDetail from './pages/PromoDetail'
 import VerticalPolicies from './pages/VerticalPolicies'
@@ -68,7 +74,8 @@ import AdminUserDetail from './pages/AdminUserDetail'
 import RolesPermissions from './pages/RolesPermissions'
 import GlobalTrainingManager from './pages/GlobalTrainingManager'
 import TrainingModulePreview from './pages/TrainingModulePreview'
-// import LocalizationLanguageContent from './pages/LocalizationLanguageContent' // Removed
+import LocalizationLanguageContent from './pages/LocalizationLanguageContent'
+import PolicyRuleManagement from './pages/PolicyRuleManagement'
 import FeatureFlagsExperiments from './pages/FeatureFlagsExperiments'
 import ExperimentResults from './pages/ExperimentResults'
 import ApprovalsHistory from './pages/ApprovalsHistory'
@@ -574,6 +581,54 @@ export default function App() {
             }
           />
           <Route
+            path="pricing/zones"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZonesList />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/overview"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <PricingRulesOverview />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/geofences"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZonesGeofences />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/new-zone"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZoneCreate />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/map/:id"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZoneMapView />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="pricing/detail/:id"
+            element={
+              <RequirePermission anyOf={["manage_pricing"]}>
+                <ZonePricingDetail />
+              </RequirePermission>
+            }
+          />
+          <Route
             path="pricing/*"
             element={
               <RequirePermission anyOf={["manage_pricing"]}>
@@ -665,7 +720,22 @@ export default function App() {
               </RequirePermission>
             }
           />
-          {/* <Route path="localization" element={<LocalizationLanguageContent />} /> Removed */}
+          <Route
+            path="system/localization"
+            element={
+              <RequirePermission anyOf={["manage_system"]}>
+                <LocalizationLanguageContent />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="system/policy-rules"
+            element={
+              <RequirePermission anyOf={["manage_system", "manage_pricing"]}>
+                <PolicyRuleManagement />
+              </RequirePermission>
+            }
+          />
           <Route
             path="system/flags"
             element={

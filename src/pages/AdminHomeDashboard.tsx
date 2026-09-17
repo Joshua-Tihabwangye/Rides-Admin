@@ -24,6 +24,9 @@ import {
   getAdminSystemOverview,
   getAdminOperationsAnalytics,
   getAdminFinanceAnalytics,
+  type AdminAnalyticsPeriod,
+  type AdminFinanceAnalytics,
+  type AdminOperationsAnalytics,
 } from "../services/api/adminApi";
 
 // A2 – Admin Home / Global Dashboard (v2, tighter card corners)
@@ -43,9 +46,12 @@ export default function AdminHomeDashboardPage() {
   const [period, setPeriod] = useState<PeriodOption>("today");
   const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" |"Delivery" |"Both">("Both");
 
-  const [overview, setOverview] = useState<any>(null);
-  const [operationsAnalytics, setOperationsAnalytics] = useState<any>(null);
-  const [financeAnalytics, setFinanceAnalytics] = useState<any>(null);
+  const [overview, setOverview] = useState<{
+    totals?: { users?: number; riders?: number; drivers?: number; companies?: number; trips?: number };
+    queues?: { approvals?: number; riskCases?: number; safetyIncidents?: number };
+  } | null>(null);
+  const [operationsAnalytics, setOperationsAnalytics] = useState<AdminOperationsAnalytics | null>(null);
+  const [financeAnalytics, setFinanceAnalytics] = useState<AdminFinanceAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -55,8 +61,8 @@ export default function AdminHomeDashboardPage() {
         setLoading(true);
         const [ov, ops, fin] = await Promise.all([
           getAdminSystemOverview(),
-          getAdminOperationsAnalytics({ period: period as any }),
-          getAdminFinanceAnalytics({ period: period as any }),
+          getAdminOperationsAnalytics({ period: period as AdminAnalyticsPeriod }),
+          getAdminFinanceAnalytics({ period: period as AdminAnalyticsPeriod }),
         ]);
         if (!cancelled) {
           setOverview(ov);
@@ -72,12 +78,6 @@ export default function AdminHomeDashboardPage() {
     load();
     return () => { cancelled = true; };
   }, [period]);
-
-  const periodMultiplier: Record<string, number> = {
-    today: 0.25,"7days": 0.6,"30days": 1,
-    thisMonth: 1.1,
-    custom: 0.8,
-  };
 
   const kpis = useMemo(() => {
     const totals = overview?.totals;
@@ -129,8 +129,8 @@ export default function AdminHomeDashboardPage() {
   const tripTrends = useMemo(() => {
     const hourly = operationsAnalytics?.hourly;
     if (!Array.isArray(hourly) || hourly.length === 0) return [];
-    return hourly.map((row: any) => ({
-      hour: row.hour ?? "",
+    return hourly.map((row) => ({
+      hour: row.time ?? "",
       rides: Number(row.rides ?? 0),
       deliveries: Number(row.deliveries ?? 0),
       trips:
@@ -274,7 +274,7 @@ export default function AdminHomeDashboardPage() {
       </Box>
 
       <Box className="flex flex-col lg:flex-row gap-4 mb-4">
-        {/* Operations map placeholder */}
+        {/* Trip trends */}
         <Card
           elevation={2}
           sx={{

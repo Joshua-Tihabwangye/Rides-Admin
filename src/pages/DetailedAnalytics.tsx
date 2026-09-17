@@ -4,7 +4,6 @@ import {
 	Card,
 	CardContent,
 	Typography,
-	Chip,
 	Button,
 	Divider,
 	Select,
@@ -25,6 +24,7 @@ import {
 	Tabs,
 	Tab,
 } from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material/Select";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
@@ -39,11 +39,9 @@ import {
 	ResponsiveContainer,
 	Legend,
 } from "recharts";
-import DownloadIcon from "@mui/icons-material/Download";
 import { useNavigate } from "react-router-dom";
 import PeriodSelector, { type PeriodOption } from "../components/PeriodSelector";
 import ExportButton from "../components/ExportButton";
-import dayjs from "dayjs";
 import {
 	getAdminAnalyticsTimeseries,
 	getAdminAnalyticsDrivers,
@@ -82,14 +80,6 @@ const REPORTS = [
 	},
 ];
 
-const REPORT_GROUPS = [
-	"Operations",
-	"Drivers",
-	"Companies",
-	"Finance",
-	"Safety",
-];
-
 export default function DetailedAnalyticsPage() {
 	const navigate = useNavigate();
 	const [selectedReportId, setSelectedReportId] = useState(REPORTS[0].id);
@@ -108,9 +98,6 @@ export default function DetailedAnalyticsPage() {
 	const [realDrivers, setRealDrivers] = useState<AdminAnalyticsDriverPoint[]>([]);
 	const [realCompanies, setRealCompanies] = useState<AdminAnalyticsCompanyPoint[]>([]);
 	const [analyticsLoading, setAnalyticsLoading] = useState(false);
-	const [previewState, setPreviewState] = useState<
-		"ready" | "loading" | "empty" | "error"
-	>("ready");
 	const [reportTab, setReportTab] = useState<"favorites" | "recent" | "all">(
 		"all",
 	);
@@ -144,7 +131,7 @@ export default function DetailedAnalyticsPage() {
 	const selectedReport =
 		REPORTS.find((r) => r.id === selectedReportId) || REPORTS[0];
 
-	const handleReportClick = (report) => {
+	const handleReportClick = (report: (typeof REPORTS)[number]) => {
 		setSelectedReportId(report.id);
 		// Add to recent if not already there
 		if (!recentReports.includes(report.id)) {
@@ -197,7 +184,7 @@ export default function DetailedAnalyticsPage() {
 		{} as Record<string, typeof REPORTS>,
 	);
 
-	const handleFilterChange = (field) => (event) => {
+	const handleFilterChange = (field: keyof typeof filters) => (event: SelectChangeEvent<string>) => {
 		setFilters({ ...filters, [field]: event.target.value });
 	};
 
@@ -205,10 +192,8 @@ export default function DetailedAnalyticsPage() {
 	// bucket becomes a row with the transaction count and revenue.
 	const realTripsData = realSeries.map((bucket) => ({
 		name: bucket.date,
-		rides: bucket.transactions,
+		transactions: bucket.transactions,
 		revenue: bucket.revenue,
-		distance: 0,
-		duration: 0,
 	}));
 
 	// Real driver-performance rows (acceptance %, cancellations, rating).
@@ -242,9 +227,8 @@ export default function DetailedAnalyticsPage() {
 		if (selectedReportId === "TRIPS-VOLUME") {
 			return {
 				...row,
-				rides: row.rides,
-				distance: row.distance || 0,
-				duration: row.duration || 0,
+				transactions: row.transactions,
+				revenue: row.revenue,
 			};
 		}
 
@@ -273,15 +257,10 @@ export default function DetailedAnalyticsPage() {
 		if (selectedReportId === "TRIPS-VOLUME") {
 			return {
 				id: index + 1,
-				region: row.name,
+				period: row.name,
 				service: filters.service === "All" ? "All" : filters.service,
-				trips: row.rides,
-				completionRate:
-					row.completion != null ? `${row.completion}%` : "N/A",
-				avgDistance:
-					row.distance != null ? `${Number(row.distance).toFixed(1)}` : "N/A",
-				avgDuration:
-					row.duration != null ? `${Number(row.duration).toFixed(1)}` : "N/A",
+				transactions: row.transactions,
+				revenue: row.revenue,
 			};
 		}
 
@@ -311,22 +290,13 @@ export default function DetailedAnalyticsPage() {
 	};
 	const kpiSummary = useMemo(() => {
 		if (selectedReportId !== "TRIPS-VOLUME") return null;
-		const totalTrips = tableRows.reduce((sum, row) => sum + row.trips, 0);
-		const weightedCompletion =
-			tableRows.reduce((sum, row) => sum + row.trips * safeNum(row.completionRate), 0) /
-			(totalTrips || 1);
-		const weightedDistance =
-			tableRows.reduce((sum, row) => sum + row.trips * safeNum(row.avgDistance), 0) /
-			(totalTrips || 1);
-		const weightedDuration =
-			tableRows.reduce((sum, row) => sum + row.trips * safeNum(row.avgDuration), 0) /
-			(totalTrips || 1);
+		const totalTransactions = tableRows.reduce((sum, row) => sum + safeNum(row.transactions), 0);
+		const totalRevenue = tableRows.reduce((sum, row) => sum + safeNum(row.revenue), 0);
 
 		return {
-			totalTrips,
-			completionRate: weightedCompletion.toFixed(1),
-			avgDistance: weightedDistance.toFixed(1),
-			avgDuration: weightedDuration.toFixed(1),
+			totalTransactions,
+			totalRevenue,
+			averageRevenue: totalTransactions ? totalRevenue / totalTransactions : 0,
 		};
 	}, [tableRows, selectedReportId]);
 
@@ -337,11 +307,9 @@ export default function DetailedAnalyticsPage() {
 			selectedReportId === "TRIPS-VOLUME"
 				? [
 						"#",
-						"Region",
-						"Trips",
-						"Completion rate",
-						"Avg distance",
-						"Avg duration",
+						"Period",
+						"Transactions",
+						"Revenue",
 					]
 				: selectedReportId === "DRIVER-PERF"
 					? ["#", "Driver", "Acceptance %", "Cancellations", "Rating"]
@@ -353,11 +321,9 @@ export default function DetailedAnalyticsPage() {
 				if (selectedReportId === "TRIPS-VOLUME") {
 					return [
 						row.id,
-						row.region,
-						row.trips,
-						row.completionRate,
-						row.avgDistance,
-						row.avgDuration,
+						row.period,
+						row.transactions,
+						row.revenue,
 					].join(",");
 				}
 
@@ -648,7 +614,7 @@ export default function DetailedAnalyticsPage() {
 					</CardContent>
 				</Card>
 
-				{/* Right – filters & sample result */}
+				{/* Right – filters & backend result */}
 				<Card
 					elevation={2}
 					sx={{
@@ -699,13 +665,13 @@ export default function DetailedAnalyticsPage() {
 										variant="h6"
 										sx={{ fontSize: 16, fontWeight: 700 }}
 									>
-										{kpiSummary.totalTrips.toLocaleString()}
+										{kpiSummary.totalTransactions.toLocaleString()}
 									</Typography>
 									<Typography
 										variant="caption"
 										className="text-[9px] text-slate-400"
 									>
-										Sum across selected filters
+										Backend transactions
 									</Typography>
 								</Box>
 								<Box
@@ -719,19 +685,19 @@ export default function DetailedAnalyticsPage() {
 										variant="caption"
 										className="text-[10px] text-slate-500"
 									>
-										Completion rate
+										Revenue
 									</Typography>
 									<Typography
 										variant="h6"
 										sx={{ fontSize: 16, fontWeight: 700 }}
 									>
-										{kpiSummary.completionRate}%
+										UGX {kpiSummary.totalRevenue.toLocaleString()}
 									</Typography>
 									<Typography
 										variant="caption"
 										className="text-[9px] text-slate-400"
 									>
-										Weighted by trips
+										Backend payment total
 									</Typography>
 								</Box>
 								<Box
@@ -745,19 +711,19 @@ export default function DetailedAnalyticsPage() {
 										variant="caption"
 										className="text-[10px] text-slate-500"
 									>
-										Avg distance
+										Avg revenue
 									</Typography>
 									<Typography
 										variant="h6"
 										sx={{ fontSize: 16, fontWeight: 700 }}
 									>
-										{kpiSummary.avgDistance} km
+										UGX {Math.round(kpiSummary.averageRevenue).toLocaleString()}
 									</Typography>
 									<Typography
 										variant="caption"
 										className="text-[9px] text-slate-400"
 									>
-										Weighted by trips
+										Per transaction
 									</Typography>
 								</Box>
 								<Box
@@ -771,19 +737,19 @@ export default function DetailedAnalyticsPage() {
 										variant="caption"
 										className="text-[10px] text-slate-500"
 									>
-										Avg duration
+										Buckets
 									</Typography>
 									<Typography
 										variant="h6"
 										sx={{ fontSize: 16, fontWeight: 700 }}
 									>
-										{kpiSummary.avgDuration} min
+										{tableRows.length}
 									</Typography>
 									<Typography
 										variant="caption"
 										className="text-[9px] text-slate-400"
 									>
-										Weighted by trips
+										Time-series rows
 									</Typography>
 								</Box>
 							</Box>
@@ -827,34 +793,12 @@ export default function DetailedAnalyticsPage() {
 							</Box>
 						</Box>
 
-						{/* Preview state indicator */}
-						{previewState === "loading" && (
-							<Box
-								sx={{
-									display: "flex",
-									justifyContent: "center",
-									p: 4,
-								}}
-							>
-								<CircularProgress size={24} />
-							</Box>
-						)}
-						{previewState === "error" && (
-							<Alert severity="error" sx={{ mb: 2 }}>
-								Error loading data. Please try again.
-							</Alert>
-						)}
-						{previewState === "empty" && (
-							<Alert severity="info" sx={{ mb: 2 }}>
-								No data available for the selected filters.
-							</Alert>
-						)}
 						{analyticsLoading && (
 							<Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
 								<CircularProgress size={24} />
 							</Box>
 						)}
-						{!analyticsLoading && chartData.length === 0 && previewState === "ready" && (
+						{!analyticsLoading && chartData.length === 0 && (
 							<Card elevation={0} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.2)", bgcolor: "background.default", minHeight: 250 }}>
 								<CardContent className="p-3">
 									<Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
@@ -867,7 +811,7 @@ export default function DetailedAnalyticsPage() {
 						)}
 
 						{/* Sample results table/chart */}
-						{previewState === "ready" && !analyticsLoading && chartData.length > 0 && (
+						{!analyticsLoading && chartData.length > 0 && (
 							<Card
 								elevation={0}
 								sx={{
@@ -924,17 +868,17 @@ export default function DetailedAnalyticsPage() {
 														"TRIPS-VOLUME" && (
 														<>
 															<Bar
-																dataKey="rides"
+																dataKey="transactions"
 																fill="#03cd8c"
-																name="Trips"
+																name="Transactions"
 																radius={[
 																	4, 4, 0, 0,
 																]}
 															/>
 															<Bar
-																dataKey="completion"
+																dataKey="revenue"
 																fill="#f77f00"
-																name="Completion Rate %"
+																name="Revenue"
 																radius={[
 																	4, 4, 0, 0,
 																]}
@@ -1018,7 +962,7 @@ export default function DetailedAnalyticsPage() {
 																: selectedReportId ===
 																	  "COMPANY-PERF"
 																	? "Company"
-																	: "Region"}
+																	: "Period"}
 														</TableCell>
 														{selectedReportId ===
 															"TRIPS-VOLUME" && (
@@ -1033,7 +977,7 @@ export default function DetailedAnalyticsPage() {
 																: selectedReportId ===
 																	  "COMPANY-PERF"
 																	? "Trips"
-																	: "Trips"}
+																	: "Transactions"}
 														</TableCell>
 														<TableCell align="right">
 															{selectedReportId ===
@@ -1041,19 +985,9 @@ export default function DetailedAnalyticsPage() {
 															selectedReportId ===
 																"DRIVER-PERF"
 																? "Cancellations"
-																: "Completion %"}
+																: "Revenue"}
 														</TableCell>
 														{selectedReportId ===
-														"TRIPS-VOLUME" ? (
-															<>
-																<TableCell align="right">
-																	Avg distance
-																</TableCell>
-																<TableCell align="right">
-																	Avg duration
-																</TableCell>
-															</>
-														) : selectedReportId ===
 														  "DRIVER-PERF" ? (
 															<TableCell align="right">
 																Rating
@@ -1078,7 +1012,7 @@ export default function DetailedAnalyticsPage() {
 																	: selectedReportId ===
 																		  "COMPANY-PERF"
 																		? row.company
-																		: row.region}
+																		: row.period}
 															</TableCell>
 															{selectedReportId ===
 																"TRIPS-VOLUME" && (
@@ -1092,32 +1026,18 @@ export default function DetailedAnalyticsPage() {
 																{selectedReportId ===
 																"DRIVER-PERF"
 																	? row.acceptance
-																	: row.trips.toLocaleString()}
+																	: selectedReportId === "COMPANY-PERF"
+																		? row.trips.toLocaleString()
+																		: row.transactions.toLocaleString()}
 															</TableCell>
 															<TableCell align="right">
 																{selectedReportId ===
 																"TRIPS-VOLUME"
-																	? row.completionRate
+																	? `UGX ${row.revenue.toLocaleString()}`
 																	: row.cancellations}
 															</TableCell>
 															{selectedReportId ===
-															"TRIPS-VOLUME" ? (
-																<>
-																	<TableCell align="right">
-																		{
-																			row.avgDistance
-																		}{" "}
-																		km
-																	</TableCell>
-																	<TableCell align="right">
-																		{
-																			row.avgDuration
-																		}{" "}
-																		min
-																	</TableCell>
-																</>
-															) : selectedReportId ===
-															  "DRIVER-PERF" ? (
+															"DRIVER-PERF" ? (
 																<TableCell align="right">
 																	{row.rating}
 																</TableCell>

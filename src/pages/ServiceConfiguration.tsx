@@ -1,40 +1,30 @@
-import React, { useState, useEffect } from"react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Box,
   Card,
   CardContent,
   Typography,
-  Chip,
-  Button,
   Divider,
   FormControlLabel,
   Switch,
   Snackbar,
-  Alert,
   CircularProgress,
-} from"@mui/material";
-import { listAdminServices, patchAdminService } from"../services/api/adminApi";
-import type { AdminServiceResponse } from"../services/api/adminApi";
+} from "@mui/material";
+import { listAdminServices, patchAdminService } from "../services/api/adminApi";
+import type { AdminServiceResponse } from "../services/api/adminApi";
 
-const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
+type SnackbarState = {
+  open: boolean;
+  severity: "success" | "error";
+  message: string;
 };
 
-type ServiceConfig = {
-  [country: string]: {
-    [city: string]: {
-      ride: boolean;
-      delivery: boolean;
-      rental: boolean;
-      school: boolean;
-      tours: boolean;
-      ems: boolean;
-    };
-  };
-};
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
-function AdminServicesLayout({ children }) {
+function AdminServicesLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2">
@@ -50,8 +40,9 @@ function AdminServicesLayout({ children }) {
             variant="caption"
             color="text.secondary"
           >
-            Enable and disable services per country and city. This drives what
-            appears in the Rider and Driver apps.
+            Enable and disable backend-registered services. Region and city
+            availability is managed by pricing zones until a dedicated override
+            contract is exposed.
           </Typography>
         </Box>
       </Box>
@@ -66,32 +57,40 @@ export default function ServiceConfigurationPage() {
   const [services, setServices] = useState<AdminServiceResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [savingServiceId, setSavingServiceId] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, severity: "success", message: "" });
 
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await listAdminServices();
       setServices(data);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load services');
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to load services"));
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchServices();
   }, []);
 
+  useEffect(() => {
+    void fetchServices();
+  }, [fetchServices]);
+
   const handleServiceToggle = async (serviceId: string, enabled: boolean) => {
+    setSavingServiceId(serviceId);
     try {
-      await patchAdminService(serviceId, { enabled });
-      setServices(prev => prev.map(s => s.id === serviceId ? { ...s, enabled } : s));
-    } catch (e: any) {
-      console.error("Failed to update service:", e);
+      const updated = await patchAdminService(serviceId, { enabled });
+      setServices(prev => prev.map(s => s.id === serviceId ? updated : s));
+      setSnackbar({
+        open: true,
+        severity: "success",
+        message: `${updated.name} ${updated.enabled ? "enabled" : "disabled"}.`,
+      });
+    } catch (e) {
+      setSnackbar({ open: true, severity: "error", message: getErrorMessage(e, "Failed to update service") });
+    } finally {
+      setSavingServiceId(null);
     }
   };
 
@@ -104,7 +103,7 @@ export default function ServiceConfigurationPage() {
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return <Alert severity="error" action={<ButtonLikeRetry onClick={() => void fetchServices()} />}>{error}</Alert>;
   }
 
   return (
@@ -127,7 +126,7 @@ export default function ServiceConfigurationPage() {
             variant="caption"
             className="text-[11px] text-slate-500"
           >
-            Enable or disable services globally. Per-country/city overrides can be configured separately.
+            These are global service switches. Use pricing zones to control geographic availability.
           </Typography>
 
           <Divider className="!my-2" />
@@ -162,7 +161,8 @@ export default function ServiceConfigurationPage() {
                       <Switch
                         size="small"
                         checked={service.enabled}
-                        onChange={(e) => handleServiceToggle(service.id, e.target.checked)}
+                        disabled={savingServiceId === service.id}
+                        onChange={(e) => void handleServiceToggle(service.id, e.target.checked)}
                       />
                     }
                     label=""
@@ -184,11 +184,32 @@ export default function ServiceConfigurationPage() {
         </CardContent>
       </Card>
 
-      <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
-        <Alert severity="success" sx={{ width: '100%' }}>
-          Configuration saved successfully
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar((current) => ({ ...current, open: false }))}>
+        <Alert severity={snackbar.severity} sx={{ width: '100%' }} onClose={() => setSnackbar((current) => ({ ...current, open: false }))}>
+          {snackbar.message}
         </Alert>
       </Snackbar>
     </AdminServicesLayout>
+  );
+}
+
+function ButtonLikeRetry({ onClick }: { onClick: () => void }) {
+  return (
+    <Typography
+      component="button"
+      type="button"
+      onClick={onClick}
+      sx={{
+        border: 0,
+        background: "transparent",
+        color: "inherit",
+        cursor: "pointer",
+        font: "inherit",
+        fontWeight: 700,
+        p: 0,
+      }}
+    >
+      Retry
+    </Typography>
   );
 }

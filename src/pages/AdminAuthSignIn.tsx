@@ -147,7 +147,7 @@ export default function AuthSignIn() {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      alert(`${provider} SSO authentication is not configured. Please use email and password.`);
+      setLoginError(`${provider} SSO authentication is not configured. Please use email and password.`);
     }, 500);
   };
 

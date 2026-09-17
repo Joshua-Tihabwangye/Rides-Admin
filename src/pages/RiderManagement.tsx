@@ -169,7 +169,11 @@ export default function RiderManagement() {
           setError("Failed to update status");
         }
       } else if (action === "contact") {
-        // TODO: implement contact action (e.g., copy phone or open mail)
+        if (rider.phone && rider.phone !== "—") {
+          window.location.href = `tel:${rider.phone}`;
+        } else {
+          setError("No rider phone number is available from the backend.");
+        }
       }
     }
     handleActionClose();
@@ -179,8 +183,7 @@ export default function RiderManagement() {
   const getLastTrip = () => "N/A";
   const getLastActive = () => "N/A";
 
-  const handleCreateRider = async (e: React.MouseEvent) => {
-    // For demo, just navigate to create page; real creation uses form
+  const handleCreateRider = async (_event: React.MouseEvent) => {
     navigate('/admin/riders/new');
   };
 
