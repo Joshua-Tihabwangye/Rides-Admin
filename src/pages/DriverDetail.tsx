@@ -13,11 +13,13 @@ import {
     getAdminDriverEarnings,
     getAdminDriverEarningsSummary,
     getAdminDriverEarningsStatement,
+    listAdminDriverDocuments,
     listAdminRides,
     createAdminSocket,
     isAdminBackendEnabled,
 } from '../services/api/adminApi'
 import type {
+    AdminDocumentHistoryItem,
     AdminDriverResponse,
     AdminDriverEarningEntry,
     AdminDriverEarningsSummary,
@@ -86,6 +88,7 @@ export default function DriverDetail() {
     const [earningsLoading, setEarningsLoading] = useState(false)
     const [earningsError, setEarningsError] = useState<string | null>(null)
     const [rides, setRides] = useState<AdminRideListItemResponse[]>([])
+    const [documents, setDocuments] = useState<AdminDocumentHistoryItem[]>([])
     const [ridesLoading, setRidesLoading] = useState(false)
     const [ridesError, setRidesError] = useState<string | null>(null)
     const [actionLoading, setActionLoading] = useState(false)
@@ -150,10 +153,14 @@ export default function DriverDetail() {
                 setRidesLoading(true)
                 setRidesError(null)
                 try {
-                    const rideResponse = await listAdminRides({ driverId, limit: 10 })
+                    const [rideResponse, documentResponse] = await Promise.all([
+                        listAdminRides({ driverId, limit: 10 }),
+                        listAdminDriverDocuments(driverId),
+                    ])
                     setRides(rideResponse.items ?? [])
+                    setDocuments([...(documentResponse.driverDocuments ?? []), ...(documentResponse.vehicleDocuments ?? [])])
                 } catch (ridesLoadError) {
-                    setRidesError(getErrorMessage(ridesLoadError, 'Failed to load driver trip history'))
+                    setRidesError(getErrorMessage(ridesLoadError, 'Failed to load driver trip and document history'))
                 } finally {
                     setRidesLoading(false)
                 }
@@ -326,9 +333,55 @@ export default function DriverDetail() {
 
                         <CardContent>
                             <CustomTabPanel value={tabValue} index={0}>
-                                <Alert severity="info">
-                                    Driver and vehicle documents are managed through the pending document review queues. The current admin backend contract does not expose a driver-specific document history endpoint.
-                                </Alert>
+                                {ridesError ? <Alert severity="error" sx={{ mb: 2 }}>{ridesError}</Alert> : null}
+                                {ridesLoading ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                        <CircularProgress size={28} />
+                                    </Box>
+                                ) : documents.length === 0 ? (
+                                    <Alert severity="info">No backend driver or vehicle documents returned for this driver.</Alert>
+                                ) : (
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>Document</TableCell>
+                                                <TableCell>Owner</TableCell>
+                                                <TableCell>Status</TableCell>
+                                                <TableCell>File</TableCell>
+                                                <TableCell>Expires</TableCell>
+                                                <TableCell>Reviewed</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {documents.map((document) => (
+                                                <TableRow key={`${document.ownerType}-${document.id}`}>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={600}>{document.documentType}</Typography>
+                                                        {document.rejectionReason ? (
+                                                            <Typography variant="caption" color="error">{document.rejectionReason}</Typography>
+                                                        ) : null}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2">{document.ownerType}</Typography>
+                                                        {document.vehicle ? (
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {document.vehicle.plateNumber || document.vehicle.model || document.vehicle.id}
+                                                            </Typography>
+                                                        ) : null}
+                                                    </TableCell>
+                                                    <TableCell><Chip size="small" label={document.status} /></TableCell>
+                                                    <TableCell>
+                                                        <Button size="small" href={document.fileUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: 'none' }}>
+                                                            Open
+                                                        </Button>
+                                                    </TableCell>
+                                                    <TableCell>{formatDate(document.expiryDate)}</TableCell>
+                                                    <TableCell>{formatDate(document.reviewedAt)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={1}>

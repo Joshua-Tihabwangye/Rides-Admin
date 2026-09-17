@@ -16,14 +16,18 @@ import {
   Alert,
   CircularProgress,
 } from "@mui/material";
-import { listAdminContent, type AdminContentItem } from "../services/api/adminApi";
+import {
+  getAdminOnboardingStatus,
+  listAdminContent,
+  patchAdminOnboardingStatus,
+  type AdminContentItem,
+} from "../services/api/adminApi";
 
 const EV_COLORS = {
   primary:"#03cd8c",
   secondary:"#f77f00",
 };
 
-const ACKNOWLEDGEMENT_STORAGE_KEY = "evzone.admin.responsibilityAcknowledged";
 const NOTICE_CONTENT_KIND = "admin-responsibility-notices";
 
 type ResponsibilityNoticeDocument = Record<string, unknown> & {
@@ -35,16 +39,13 @@ type ResponsibilityNoticeDocument = Record<string, unknown> & {
 export default function AdminWelcomeNoticePage() {
   const [mode, setMode] = useState<"light" | "dark">("light");
   const [acknowledged, setAcknowledged] = useState(false);
+  const [ackSaving, setAckSaving] = useState(false);
   const [notices, setNotices] = useState<Array<AdminContentItem<ResponsibilityNoticeDocument>>>([]);
   const [noticesLoading, setNoticesLoading] = useState(true);
   const [noticesError, setNoticesError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const isDark = mode ==="dark";
-
-  useEffect(() => {
-    setAcknowledged(window.localStorage.getItem(ACKNOWLEDGEMENT_STORAGE_KEY) === "true");
-  }, []);
 
   const loadNotices = useCallback(async () => {
     setNoticesLoading(true);
@@ -61,20 +62,41 @@ export default function AdminWelcomeNoticePage() {
   }, []);
 
   useEffect(() => {
-    void loadNotices();
+    const load = async () => {
+      await loadNotices();
+      try {
+        const status = await getAdminOnboardingStatus();
+        setAcknowledged(status.acknowledged);
+      } catch (error) {
+        setNoticesError(error instanceof Error ? error.message : "Failed to load Admin onboarding status");
+      }
+    };
+    void load();
   }, [loadNotices]);
 
-  const handleContinue = () => {
-    window.localStorage.setItem(ACKNOWLEDGEMENT_STORAGE_KEY, "true");
-    navigate("/admin/onboarding/checklist");
+  const handleContinue = async () => {
+    setAckSaving(true);
+    try {
+      const status = await patchAdminOnboardingStatus({ acknowledged: true });
+      setAcknowledged(status.acknowledged);
+      navigate("/admin/onboarding/checklist");
+    } catch (error) {
+      setNoticesError(error instanceof Error ? error.message : "Failed to save Admin acknowledgement");
+    } finally {
+      setAckSaving(false);
+    }
   };
 
-  const handleAcknowledgementChange = (checked: boolean) => {
-    setAcknowledged(checked);
-    if (checked) {
-      window.localStorage.setItem(ACKNOWLEDGEMENT_STORAGE_KEY, "true");
-    } else {
-      window.localStorage.removeItem(ACKNOWLEDGEMENT_STORAGE_KEY);
+  const handleAcknowledgementChange = async (checked: boolean) => {
+    if (!checked) return;
+    setAckSaving(true);
+    try {
+      const status = await patchAdminOnboardingStatus({ acknowledged: true });
+      setAcknowledged(status.acknowledged);
+    } catch (error) {
+      setNoticesError(error instanceof Error ? error.message : "Failed to save Admin acknowledgement");
+    } finally {
+      setAckSaving(false);
     }
   };
 
@@ -296,6 +318,7 @@ export default function AdminWelcomeNoticePage() {
                 control={
                   <Checkbox
                     checked={acknowledged}
+                    disabled={ackSaving}
                     onChange={(e) => handleAcknowledgementChange(e.target.checked)}
                     sx={{
                       color:"#64748b","&.Mui-checked": { color: EV_COLORS.primary },
@@ -344,7 +367,7 @@ export default function AdminWelcomeNoticePage() {
                   }}
                   onClick={handleContinue}
                 >
-                  Continue to onboarding
+                  {ackSaving ? "Saving..." : "Continue to onboarding"}
                 </Button>
               </Box>
             </Box>

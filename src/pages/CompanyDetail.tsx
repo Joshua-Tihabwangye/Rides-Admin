@@ -15,11 +15,24 @@ import {
   Alert,
   CircularProgress,
   Snackbar,
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import { getAdminCompany, patchAdminCompany } from '../services/api/adminApi';
-import type { AdminCompanyResponse } from '../services/api/adminApi';
+import {
+  activateAdminCommissionRule,
+  createAdminCommissionRule,
+  deactivateAdminCommissionRule,
+  getAdminCompany,
+  listAdminCommissionRules,
+  patchAdminCompany,
+} from '../services/api/adminApi';
+import type { AdminCommissionRule, AdminCompanyResponse } from '../services/api/adminApi';
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -127,8 +140,18 @@ export default function CompanyDetailPage() {
   const [company, setCompany] = useState<AdminCompanyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [commissionSaving, setCommissionSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [commissionError, setCommissionError] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, severity: "success", message: "" });
+  const [commissionRules, setCommissionRules] = useState<AdminCommissionRule[]>([]);
+  const [commissionDraft, setCommissionDraft] = useState({
+    serviceType: "RIDE",
+    platformFeePercent: 15,
+    driverSharePercent: 85,
+    taxPercent: 0,
+    currency: "UGX",
+  });
   const [verticals, setVerticals] = useState<AdminCompanyResponse["verticals"]>({
     ride: false,
     delivery: false,
@@ -145,7 +168,9 @@ export default function CompanyDetailPage() {
       setError(null);
       try {
         const data = await getAdminCompany(companyId);
+        const rules = await listAdminCommissionRules({ organizationId: companyId });
         setCompany(data);
+        setCommissionRules(rules);
         setVerticals({
           ride: Boolean(data.verticals?.ride),
           delivery: Boolean(data.verticals?.delivery),
@@ -171,6 +196,12 @@ export default function CompanyDetailPage() {
     setVerticals((prev) => ({ ...prev, [field]: event.target.checked }));
   };
 
+  const loadCommissionRules = async () => {
+    if (!companyId) return;
+    const rules = await listAdminCommissionRules({ organizationId: companyId });
+    setCommissionRules(rules);
+  };
+
   const handleSave = async () => {
     if (!company) return;
     setSaving(true);
@@ -191,6 +222,51 @@ export default function CompanyDetailPage() {
       setSnackbar({ open: true, severity: "error", message: getErrorMessage(e, "Failed to save company") });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateCommissionRule = async () => {
+    if (!company) return;
+    setCommissionSaving(true);
+    setCommissionError(null);
+    try {
+      await createAdminCommissionRule({
+        name: `${company.companyName} ${commissionDraft.serviceType} commission`,
+        serviceType: commissionDraft.serviceType,
+        organizationId: company.id,
+        platformFeePercent: Number(commissionDraft.platformFeePercent),
+        driverSharePercent: Number(commissionDraft.driverSharePercent),
+        taxPercent: Number(commissionDraft.taxPercent),
+        tipPayoutPercent: 100,
+        fixedPlatformFee: 0,
+        priority: 100,
+        active: true,
+        currency: commissionDraft.currency,
+        effectiveFrom: new Date().toISOString(),
+      });
+      await loadCommissionRules();
+      setSnackbar({ open: true, severity: "success", message: "Company commission rule created." });
+    } catch (e) {
+      setCommissionError(getErrorMessage(e, "Failed to create commission rule"));
+    } finally {
+      setCommissionSaving(false);
+    }
+  };
+
+  const handleToggleCommissionRule = async (rule: AdminCommissionRule) => {
+    setCommissionSaving(true);
+    setCommissionError(null);
+    try {
+      if (rule.active) {
+        await deactivateAdminCommissionRule(rule.id);
+      } else {
+        await activateAdminCommissionRule(rule.id);
+      }
+      await loadCommissionRules();
+    } catch (e) {
+      setCommissionError(getErrorMessage(e, "Failed to update commission rule"));
+    } finally {
+      setCommissionSaving(false);
     }
   };
 
@@ -328,8 +404,98 @@ export default function CompanyDetailPage() {
                 </Button>
               }
             >
-              Commission and payout settings are managed by the backend payout settings screen for this company.
+              Payout settings are managed by the backend finance screen. Commission rules below are company-scoped and persisted through the backend commission engine.
             </Alert>
+
+            {commissionError ? <Alert severity="error">{commissionError}</Alert> : null}
+
+            <Box className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+              <TextField
+                select
+                size="small"
+                label="Service"
+                value={commissionDraft.serviceType}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, serviceType: event.target.value }))}
+              >
+                {[
+                  ["RIDE", "Ride"],
+                  ["DELIVERY", "Delivery"],
+                  ["CAR_RENTAL", "Rental"],
+                  ["SCHOOL_SHUTTLE", "School"],
+                  ["AMBULANCE", "EMS"],
+                  ["TOURIST_VEHICLE", "Tours"],
+                ].map(([value, label]) => (
+                  <MenuItem key={value} value={value}>{label}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                size="small"
+                label="Platform %"
+                type="number"
+                value={commissionDraft.platformFeePercent}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, platformFeePercent: Number(event.target.value) }))}
+              />
+              <TextField
+                size="small"
+                label="Provider %"
+                type="number"
+                value={commissionDraft.driverSharePercent}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, driverSharePercent: Number(event.target.value) }))}
+              />
+              <TextField
+                size="small"
+                label="Tax %"
+                type="number"
+                value={commissionDraft.taxPercent}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, taxPercent: Number(event.target.value) }))}
+              />
+              <Button
+                variant="outlined"
+                onClick={handleCreateCommissionRule}
+                disabled={commissionSaving}
+                sx={{ textTransform: "none" }}
+              >
+                Add rule
+              </Button>
+            </Box>
+
+            {commissionRules.length === 0 ? (
+              <Alert severity="warning">No company-specific commission rules are configured.</Alert>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Service</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Platform</TableCell>
+                    <TableCell align="right">Provider</TableCell>
+                    <TableCell align="right">Tax</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {commissionRules.map((rule) => (
+                    <TableRow key={rule.id}>
+                      <TableCell>{rule.serviceType}</TableCell>
+                      <TableCell><Chip size="small" label={rule.active ? "active" : "inactive"} /></TableCell>
+                      <TableCell align="right">{rule.platformFeePercent}%</TableCell>
+                      <TableCell align="right">{rule.driverSharePercent}%</TableCell>
+                      <TableCell align="right">{rule.taxPercent}%</TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          onClick={() => void handleToggleCommissionRule(rule)}
+                          disabled={commissionSaving}
+                          sx={{ textTransform: "none" }}
+                        >
+                          {rule.active ? "Deactivate" : "Activate"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
 
             <Divider className="!my-2" />
 

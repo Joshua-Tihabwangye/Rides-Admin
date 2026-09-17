@@ -23,8 +23,12 @@ import LocalPoliceIcon from "@mui/icons-material/LocalPolice";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import DirectionsCarFilledIcon from "@mui/icons-material/DirectionsCarFilled";
 import ApiIcon from "@mui/icons-material/Api";
-import { listAdminTrainingModules } from "../services/api/adminApi";
-import type { AdminTrainingModuleResponse } from "../services/api/adminApi";
+import {
+  getAdminOnboardingStatus,
+  listAdminTrainingModules,
+  patchAdminOnboardingStatus,
+} from "../services/api/adminApi";
+import type { AdminOnboardingStatusResponse, AdminTrainingModuleResponse } from "../services/api/adminApi";
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -53,7 +57,10 @@ const areaIcon = (area: string) => {
 export default function AdminOnboardingChecklistPage() {
   const [mode, setMode] = useState<"light" | "dark">("light");
   const [modules, setModules] = useState<AdminTrainingModuleResponse[]>([]);
+  const [onboarding, setOnboarding] = useState<AdminOnboardingStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [savingModuleId, setSavingModuleId] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -62,8 +69,12 @@ export default function AdminOnboardingChecklistPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await listAdminTrainingModules();
+        const [data, status] = await Promise.all([
+          listAdminTrainingModules(),
+          getAdminOnboardingStatus(),
+        ]);
         setModules(data);
+        setOnboarding(status);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load training modules");
         setModules([]);
@@ -79,7 +90,37 @@ export default function AdminOnboardingChecklistPage() {
   const publishedModules = useMemo(() => modules.filter((m) => m.status === "published"), [modules]);
   const totalRequired = publishedModules.length;
   const totalConfigured = modules.length;
-  const progressAll = totalConfigured ? Math.round((publishedModules.length / totalConfigured) * 100) : 0;
+  const completedCount = onboarding?.requiredCompletedCount ?? 0;
+  const requiredCount = onboarding?.requiredCount ?? totalRequired;
+  const progressAll = requiredCount ? Math.round((completedCount / requiredCount) * 100) : 100;
+  const canUnlock = Boolean(onboarding?.acknowledged && requiredCount === completedCount);
+
+  const markModuleComplete = async (moduleId: string) => {
+    setSavingModuleId(moduleId);
+    setError(null);
+    try {
+      const status = await patchAdminOnboardingStatus({ completedModuleId: moduleId });
+      setOnboarding(status);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update module completion");
+    } finally {
+      setSavingModuleId(null);
+    }
+  };
+
+  const unlockFullAccess = async () => {
+    setUnlocking(true);
+    setError(null);
+    try {
+      const status = await patchAdminOnboardingStatus({ complete: true });
+      setOnboarding(status);
+      navigate("/admin/home");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to complete Admin onboarding");
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   const toggleMode = () => {
     setMode((prev) => (prev === "light" ? "dark" : "light"));
@@ -190,7 +231,7 @@ export default function AdminOnboardingChecklistPage() {
                     variant="body2"
                     className={`font-semibold text-sm ${isDark ? "text-slate-50" : ""}`}
                   >
-                    {totalRequired} published
+                    {completedCount} of {requiredCount} complete
                   </Typography>
                 </Box>
                 <Box className="w-full sm:w-48">
@@ -211,14 +252,14 @@ export default function AdminOnboardingChecklistPage() {
                     variant="caption"
                     className={`text-[10px] mt-1 float-right ${isDark ? "text-slate-500" : "text-slate-600"}`}
                   >
-                    {progressAll}% published
+                    {progressAll}% complete
                   </Typography>
                 </Box>
                 <Typography
                   variant="caption"
                   className={`text-[10px] text-right ${isDark ? "text-slate-500" : "text-slate-600"}`}
                 >
-                  Completion tracking is not exposed by the backend yet.
+                  {onboarding?.fullAccessUnlocked ? "Full access unlocked" : onboarding?.readOnly ? "Read-only until complete" : "Ready for full access"}
                 </Typography>
               </Box>
             </Box>
@@ -230,7 +271,7 @@ export default function AdminOnboardingChecklistPage() {
                     Training modules
                   </Typography>
                   <Typography variant="caption" className="text-[11px] text-slate-400">
-                    Modules are loaded from the backend training system.
+                    Modules and completion state are loaded from the backend onboarding system.
                   </Typography>
                 </Box>
 
@@ -257,6 +298,7 @@ export default function AdminOnboardingChecklistPage() {
                   {modules.map((module) => {
                     const published = module.status === "published";
                     const archived = module.status === "archived";
+                    const completed = onboarding?.completedModuleIds.includes(module.id) ?? false;
                     const moduleDescription = module.content?.trim() || "No training content has been published for this module yet.";
                     return (
                       <ListItem
@@ -312,26 +354,27 @@ export default function AdminOnboardingChecklistPage() {
                         </Box>
 
                         <Box className="flex items-center gap-2 self-stretch sm:self-auto">
-                          <Tooltip title="Admin completion tracking is not exposed by the current backend contract">
+                          <Tooltip title={published ? "Persist this training completion to the backend" : "Only published modules count toward onboarding"}>
                             <Button
-                              variant={published ? "contained" : "outlined"}
+                              variant={completed ? "contained" : "outlined"}
                               size="small"
-                              disabled
+                              disabled={!published || completed || savingModuleId === module.id}
+                              onClick={() => void markModuleComplete(module.id)}
                               sx={{
                                 textTransform: "none",
                                 borderRadius: 2,
                                 minWidth: 96,
-                                borderColor: published ? "transparent" : "#1f2937",
-                                bgcolor: published ? EV_COLORS.primary : "transparent",
-                                color: published ? "#020617" : "#e5e7eb",
+                                borderColor: completed ? "transparent" : "#1f2937",
+                                bgcolor: completed ? EV_COLORS.primary : "transparent",
+                                color: completed ? "#020617" : "#e5e7eb",
                                 "&.Mui-disabled": {
-                                  color: published ? "#020617" : "#e5e7eb",
-                                  borderColor: published ? "transparent" : "#1f2937",
-                                  bgcolor: published ? EV_COLORS.primary : "transparent",
+                                  color: completed ? "#020617" : "#e5e7eb",
+                                  borderColor: completed ? "transparent" : "#1f2937",
+                                  bgcolor: completed ? EV_COLORS.primary : "transparent",
                                 },
                               }}
                             >
-                              {published ? "Available" : "Not active"}
+                              {completed ? "Complete" : savingModuleId === module.id ? "Saving..." : published ? "Mark complete" : "Not active"}
                             </Button>
                           </Tooltip>
                         </Box>
@@ -347,8 +390,8 @@ export default function AdminOnboardingChecklistPage() {
                 variant="caption"
                 className={`text-[10px] max-w-xl ${isDark ? "text-slate-500" : "text-slate-500"}`}
               >
-                Admin completion tracking is not exposed by the current backend contract. Until that contract exists,
-                full write access must be assigned by a Super Admin through roles and permissions.
+                Backend onboarding status controls this gate. Required modules must be marked complete before full
+                Admin access is unlocked.
               </Typography>
 
               <Box className="flex flex-row gap-2 justify-end">
@@ -370,7 +413,8 @@ export default function AdminOnboardingChecklistPage() {
                 <Button
                   variant="contained"
                   size="small"
-                  disabled
+                  disabled={!canUnlock || unlocking || onboarding?.fullAccessUnlocked}
+                  onClick={() => void unlockFullAccess()}
                   sx={{
                     textTransform: "none",
                     borderRadius: 2,
@@ -381,7 +425,7 @@ export default function AdminOnboardingChecklistPage() {
                     },
                   }}
                 >
-                  Unlock full Admin access
+                  {onboarding?.fullAccessUnlocked ? "Full access unlocked" : unlocking ? "Unlocking..." : "Unlock full Admin access"}
                 </Button>
               </Box>
             </Box>

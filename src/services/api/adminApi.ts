@@ -521,6 +521,40 @@ export type AdminTrainingModuleResponse = {
   updatedAt: number;
 };
 
+export type AdminOnboardingStatusResponse = {
+  acknowledged: boolean;
+  acknowledgedAt?: string | null;
+  completed: boolean;
+  completedAt?: string | null;
+  fullAccessUnlocked: boolean;
+  fullAccessUnlockedAt?: string | null;
+  completedModuleIds: string[];
+  requiredModuleIds: string[];
+  requiredCompletedCount: number;
+  requiredCount: number;
+  readOnly: boolean;
+};
+
+export type AdminUpdateOnboardingInput = Partial<{
+  acknowledged: boolean;
+  completedModuleId: string;
+  completedModuleIds: string[];
+  complete: boolean;
+}>;
+
+export async function getAdminOnboardingStatus(): Promise<AdminOnboardingStatusResponse> {
+  return request<AdminOnboardingStatusResponse>("/admins/me/onboarding", { method: "GET" });
+}
+
+export async function patchAdminOnboardingStatus(
+  input: AdminUpdateOnboardingInput,
+): Promise<AdminOnboardingStatusResponse> {
+  return request<AdminOnboardingStatusResponse>("/admins/me/onboarding", {
+    method: "PATCH",
+    body: input,
+  });
+}
+
 export type AdminCreateTrainingModuleInput = {
   title: string;
   category: string;
@@ -1304,6 +1338,41 @@ export type AdminPendingDocument = {
   reviewedAt?: string;
 };
 
+export type AdminDocumentHistoryItem = {
+  id: string;
+  ownerId: string;
+  ownerType: string;
+  documentType: string;
+  status: string;
+  fileUrl: string;
+  fileKey?: string | null;
+  originalFileName?: string | null;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+  side?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  rejectionReason?: string | null;
+  reviewedByUserId?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: Record<string, unknown>;
+  vehicle?: {
+    id: string;
+    plateNumber?: string;
+    model?: string;
+    status?: string;
+  } | null;
+};
+
+export type AdminDriverDocumentHistoryResponse = {
+  driverId: string;
+  userId: string;
+  driverDocuments: AdminDocumentHistoryItem[];
+  vehicleDocuments: AdminDocumentHistoryItem[];
+};
+
 export type AdminDocumentReviewInput = {
   status: "verified" | "rejected";
   rejectionReason?: string;
@@ -1335,6 +1404,14 @@ export async function listAdminPendingVehicleDocuments(page = 1, limit = 20): Pr
 
 export async function reviewAdminVehicleDocument(id: string, input: AdminDocumentReviewInput) {
   return request<AdminPendingDocument>(`/admin/vehicle-documents/${id}/review`, { method: "PATCH", body: input });
+}
+
+export async function listAdminRiderDocuments(riderId: string): Promise<AdminDocumentHistoryItem[]> {
+  return request<AdminDocumentHistoryItem[]>(`/admin/riders/${riderId}/documents`, { method: "GET" });
+}
+
+export async function listAdminDriverDocuments(driverId: string): Promise<AdminDriverDocumentHistoryResponse> {
+  return request<AdminDriverDocumentHistoryResponse>(`/admin/drivers/${driverId}/documents`, { method: "GET" });
 }
 
 export type AdminDashboardCounts = {
@@ -2056,6 +2133,85 @@ export async function patchAdminCompanyPayoutSettings(
 
 export async function listAdminCompanyPayouts(companyId: string): Promise<AdminPayout[]> {
   return request<AdminPayout[]>(`/admin/companies/${companyId}/payouts`, { method: "GET" });
+}
+
+export type AdminCommissionRule = {
+  id: string;
+  name: string;
+  serviceType: string;
+  marketId?: string | null;
+  organizationId?: string | null;
+  fleetId?: string | null;
+  vehicleType?: string | null;
+  priority: number;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  active: boolean;
+  driverSharePercent: number;
+  platformFeePercent: number;
+  fixedPlatformFee: number;
+  taxPercent: number;
+  tipPayoutPercent: number;
+  currency: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AdminCommissionRuleInput = Partial<{
+  name: string;
+  serviceType: string;
+  marketId: string;
+  organizationId: string;
+  fleetId: string;
+  vehicleType: string;
+  priority: number;
+  effectiveFrom: string;
+  effectiveUntil: string;
+  active: boolean;
+  driverSharePercent: number;
+  platformFeePercent: number;
+  fixedPlatformFee: number;
+  taxPercent: number;
+  tipPayoutPercent: number;
+  currency: string;
+}>;
+
+export async function listAdminCommissionRules(query?: {
+  serviceType?: string;
+  active?: boolean;
+  organizationId?: string;
+  fleetId?: string;
+  marketId?: string;
+}): Promise<AdminCommissionRule[]> {
+  return request<AdminCommissionRule[]>(
+    `/admin/commission-rules${toQueryString({
+      serviceType: query?.serviceType,
+      active: query?.active,
+      organizationId: query?.organizationId,
+      fleetId: query?.fleetId,
+      marketId: query?.marketId,
+    })}`,
+    { method: "GET" },
+  );
+}
+
+export async function createAdminCommissionRule(input: AdminCommissionRuleInput): Promise<AdminCommissionRule> {
+  return request<AdminCommissionRule>("/admin/commission-rules", { method: "POST", body: input });
+}
+
+export async function patchAdminCommissionRule(
+  ruleId: string,
+  input: AdminCommissionRuleInput,
+): Promise<AdminCommissionRule> {
+  return request<AdminCommissionRule>(`/admin/commission-rules/${ruleId}`, { method: "PATCH", body: input });
+}
+
+export async function activateAdminCommissionRule(ruleId: string): Promise<AdminCommissionRule> {
+  return request<AdminCommissionRule>(`/admin/commission-rules/${ruleId}/activate`, { method: "POST" });
+}
+
+export async function deactivateAdminCommissionRule(ruleId: string): Promise<AdminCommissionRule> {
+  return request<AdminCommissionRule>(`/admin/commission-rules/${ruleId}/deactivate`, { method: "POST" });
 }
 
 // ── Centralized Pricing Management ─────────────────────────────────────────

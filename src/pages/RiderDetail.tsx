@@ -8,8 +8,8 @@ import LocationOnIcon from '@mui/icons-material/LocationOn'
 import StatusBadge from '../components/StatusBadge'
 import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel'
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler'
-import { getAdminRidePayments, getAdminRider, listAdminRiderServices, listAdminRides, patchAdminRider } from '../services/api/adminApi'
-import type { AdminRideListItemResponse, AdminRidePaymentResponse, AdminRiderResponse, AdminRiderServiceResponse } from '../services/api/adminApi'
+import { getAdminRidePayments, getAdminRider, listAdminRiderDocuments, listAdminRiderServices, listAdminRides, patchAdminRider } from '../services/api/adminApi'
+import type { AdminDocumentHistoryItem, AdminRideListItemResponse, AdminRidePaymentResponse, AdminRiderResponse, AdminRiderServiceResponse } from '../services/api/adminApi'
 
 interface TabPanelProps {
     children?: React.ReactNode
@@ -71,6 +71,7 @@ export default function RiderDetail() {
     const [rides, setRides] = useState<AdminRideListItemResponse[]>([])
     const [payments, setPayments] = useState<AdminRidePaymentResponse[]>([])
     const [services, setServices] = useState<AdminRiderServiceResponse[]>([])
+    const [documents, setDocuments] = useState<AdminDocumentHistoryItem[]>([])
     const [detailsLoading, setDetailsLoading] = useState(false)
     const [detailsError, setDetailsError] = useState<string | null>(null)
 
@@ -89,12 +90,14 @@ export default function RiderDetail() {
                 const riderId = data.riderId || data.userId || id
                 setDetailsLoading(true)
                 try {
-                    const [rideResponse, serviceResponse] = await Promise.all([
+                    const [rideResponse, serviceResponse, documentResponse] = await Promise.all([
                         listAdminRides({ riderId, limit: 10 }),
                         listAdminRiderServices({ riderId }),
+                        listAdminRiderDocuments(riderId),
                     ])
                     setRides(rideResponse.items ?? [])
                     setServices(serviceResponse ?? [])
+                    setDocuments(documentResponse ?? [])
                     const ridePayments = await Promise.all(
                         (rideResponse.items ?? []).slice(0, 8).map(async (ride) => {
                             try {
@@ -344,8 +347,43 @@ export default function RiderDetail() {
                                 )}
                             </CustomTabPanel>
                             <CustomTabPanel value={tabValue} index={2}>
+                                {documents.length === 0 ? (
+                                    <Alert severity="info" sx={{ mb: 2 }}>No backend rider documents returned for this rider.</Alert>
+                                ) : (
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>Document</TableCell>
+                                                <TableCell>Status</TableCell>
+                                                <TableCell>File</TableCell>
+                                                <TableCell>Expires</TableCell>
+                                                <TableCell>Reviewed</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {documents.map((document) => (
+                                                <TableRow key={document.id}>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={600}>{document.documentType}</Typography>
+                                                        <Typography variant="caption" color="text.secondary">{document.side || document.ownerType}</Typography>
+                                                    </TableCell>
+                                                    <TableCell><Chip size="small" label={document.status} /></TableCell>
+                                                    <TableCell>
+                                                        <Button size="small" href={document.fileUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: 'none' }}>
+                                                            Open
+                                                        </Button>
+                                                    </TableCell>
+                                                    <TableCell>{formatDate(document.expiryDate)}</TableCell>
+                                                    <TableCell>{formatDate(document.reviewedAt)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                                <Divider sx={{ my: 3 }} />
+                                <Typography variant="subtitle2" sx={{ mb: 1 }}>Service requests</Typography>
                                 {services.length === 0 ? (
-                                    <Alert severity="info">No rental, tour, or ambulance service requests returned for this rider. Rider document endpoints are not exposed by the current admin backend contract.</Alert>
+                                    <Typography color="text.secondary">No rental, tour, or ambulance service requests returned for this rider.</Typography>
                                 ) : (
                                     <Table size="small">
                                         <TableHead>

@@ -112,12 +112,11 @@ export default function DriverManagement() {
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
-    const carDrivers = drivers.filter(d => d.vehicleType === "Car");
     return {
-      all: carDrivers.length,
-      active: carDrivers.filter(d => d.primaryStatus === "approved").length,
-      pending: carDrivers.filter(d => d.primaryStatus === "under_review").length,
-      suspended: carDrivers.filter(d => d.primaryStatus === "suspended").length,
+      all: drivers.length,
+      active: drivers.filter(d => d.primaryStatus === "approved").length,
+      pending: drivers.filter(d => d.primaryStatus === "under_review").length,
+      suspended: drivers.filter(d => d.primaryStatus === "suspended").length,
     };
   }, [drivers]);
 
@@ -137,9 +136,6 @@ export default function DriverManagement() {
       (activeTab === "Active/Verified" && driver.primaryStatus === "approved") ||
       (activeTab === "Pending review" && driver.primaryStatus === "under_review") ||
       (activeTab === "Suspended" && driver.primaryStatus === "suspended");
-    // Only show car drivers
-    const matchesVehicle = driver.vehicleType === "Car";
-
     // City filter
     const matchesCity = cityFilter === "all" || driver.city === cityFilter;
 
@@ -151,7 +147,7 @@ export default function DriverManagement() {
     // Risk filter
     const matchesRisk = riskFilter === "all" || driver.risk.toLowerCase() === riskFilter;
 
-    return matchesSearch && matchesTab && matchesVehicle && matchesCity && matchesAccount && matchesRisk;
+    return matchesSearch && matchesTab && matchesCity && matchesAccount && matchesRisk;
   });
 
   const handleRowClick = (backendId: string) => {

@@ -48,17 +48,21 @@ const RIDE_STATUS_OPTIONS = [
 const PAYMENT_STATUS_OPTIONS = [
   { value: '', label: 'All payments' },
   { value: 'PENDING', label: 'Pending' },
-  { value: 'CAPTURED', label: 'Captured' },
+  { value: 'AUTHORIZED', label: 'Authorized' },
   { value: 'PAID', label: 'Paid' },
+  { value: 'PROCESSING', label: 'Processing' },
   { value: 'FAILED', label: 'Failed' },
   { value: 'REFUNDED', label: 'Refunded' },
+  { value: 'PARTIALLY_REFUNDED', label: 'Partially refunded' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+  { value: 'EXPIRED', label: 'Expired' },
 ];
 
 const TRIP_TYPE_OPTIONS = [
   { value: '', label: 'All trip types' },
   { value: 'ONE_WAY', label: 'One way' },
   { value: 'ROUND_TRIP', label: 'Round trip' },
-  { value: 'MULTI_LEG', label: 'Multi-leg' },
+  { value: 'MULTI_STOP', label: 'Multi-stop' },
 ];
 
 const PERIOD_OPTIONS = [
@@ -98,7 +102,7 @@ export default function RidesListPage() {
     paymentStatus: '',
     search: '',
   });
-  const [period, setPeriod] = useState('30days');
+  const [period, setPeriod] = useState('all');
   const [total, setTotal] = useState(0);
 
   const fetchRides = useCallback(async () => {
