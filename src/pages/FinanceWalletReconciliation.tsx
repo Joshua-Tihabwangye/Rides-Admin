@@ -24,7 +24,7 @@ import {
 import { listAdminWalletReconciliations, createAdminWalletReconciliation, type AdminWalletReconciliation } from '../services/api/adminApi';
 
 const statusColor = (status: string) => {
-  switch (status) {
+  switch (status.toLowerCase()) {
     case 'completed':
       return 'success';
     case 'failed':
@@ -48,12 +48,22 @@ export default function FinanceWalletReconciliationPage() {
   const [type, setType] = useState('PAYMENTS');
   const [currency, setCurrency] = useState('UGX');
   const [submitting, setSubmitting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listAdminWalletReconciliations({ limit: 100 });
+      const res = await listAdminWalletReconciliations({
+        limit: 100,
+        status: statusFilter || undefined,
+        search: search.trim() || undefined,
+        from: fromDate || undefined,
+        to: toDate || undefined,
+      });
       setItems(res.items || []);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load wallet reconciliations');
@@ -67,6 +77,14 @@ export default function FinanceWalletReconciliationPage() {
   }, []);
 
   const handleCreate = async () => {
+    if (!periodStart || !periodEnd) {
+      setError('Select a period start and period end before creating wallet reconciliation.');
+      return;
+    }
+    if (new Date(periodStart) > new Date(periodEnd)) {
+      setError('Period start must be before period end.');
+      return;
+    }
     setSubmitting(true);
     try {
       await createAdminWalletReconciliation({ periodStart, periodEnd, type, currency });
@@ -111,6 +129,16 @@ export default function FinanceWalletReconciliationPage() {
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <Card elevation={0} sx={{ mb: 2, borderRadius: 2, border: '1px solid rgba(148,163,184,0.24)' }}>
+        <CardContent className="flex gap-2 flex-wrap items-center">
+          <TextField label="Search" size="small" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Run or reconciliation id" />
+          <TextField label="Status" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value.toUpperCase())} placeholder="COMPLETED" />
+          <TextField label="From" type="date" size="small" value={fromDate} onChange={(e) => setFromDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField label="To" type="date" size="small" value={toDate} onChange={(e) => setToDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <Button variant="contained" size="small" onClick={() => void load()} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>Apply filters</Button>
+        </CardContent>
+      </Card>
 
       <Card elevation={1} sx={{ borderRadius: 2, border: '1px solid rgba(148,163,184,0.3)' }}>
         <CardContent className="p-0">

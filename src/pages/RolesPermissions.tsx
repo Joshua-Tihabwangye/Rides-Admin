@@ -24,16 +24,11 @@ import type { AlertColor } from "@mui/material";
 import PageStateCard from "../components/PageStateCard";
 import { getAuthRoles } from "../auth/auth";
 import { hasPermissionByRoles } from "../auth/permissions";
-import { createAdminRole, listAdminRoles, patchAdminRole, type AdminRoleResponse } from "../services/api/adminApi";
+import { createAdminRole, listAdminPermissions, listAdminRoles, patchAdminRole, type AdminRoleResponse } from "../services/api/adminApi";
 
-const PERMISSIONS = ["View", "Edit", "Suspend/Block", "Configure"] as const;
-const RESOURCES = ["Riders", "Drivers", "Companies", "Agents", "Payouts", "Roles & RBAC", "System flags"] as const;
-
-type PermissionLabel = (typeof PERMISSIONS)[number];
-type ResourceLabel = (typeof RESOURCES)[number];
-type PermissionMatrix = Record<ResourceLabel, Record<PermissionLabel, boolean>>;
 type StatusState = { type: AlertColor; message: string } | null;
 type NewRoleState = { name: string; description: string };
+type PermissionOption = { value: string; group: string; label: string };
 
 function AdminRolesLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -49,63 +44,81 @@ function AdminRolesLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function parsePermissionMatrix(permissions: string[] = []): PermissionMatrix {
-  const matrix = {} as PermissionMatrix;
-  RESOURCES.forEach((resource) => {
-    matrix[resource] = {} as Record<PermissionLabel, boolean>;
-    PERMISSIONS.forEach((perm) => {
-      matrix[resource][perm] = permissions.includes(`${resource}:${perm}`);
-    });
-  });
-  return matrix;
+function titleCase(value: string) {
+  return value
+    .split(/[-_:]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
-function flattenPermissionMatrix(matrix: PermissionMatrix) {
-  const output: string[] = [];
-  RESOURCES.forEach((resource) => {
-    PERMISSIONS.forEach((perm) => {
-      if (matrix?.[resource]?.[perm]) output.push(`${resource}:${perm}`);
-    });
-  });
-  return output;
+function describePermission(value: string): PermissionOption {
+  if (value === "*") return { value, group: "Platform", label: "All permissions" };
+  const [group = "platform", ...rest] = value.split(":");
+  return {
+    value,
+    group: titleCase(group),
+    label: titleCase(rest.join(":") || value),
+  };
 }
 
 function RoleMatrix({
   role,
+  permissions,
   onToggle,
   disabled,
 }: {
   role: AdminRoleResponse;
-  onToggle: (resource: ResourceLabel, permission: PermissionLabel) => void;
+  permissions: string[];
+  onToggle: (permission: string) => void;
   disabled: boolean;
 }) {
-  const matrix = useMemo(() => parsePermissionMatrix(role?.permissions || []), [role]);
+  const permissionRows = useMemo(() => {
+    const available = permissions.length ? permissions : role.permissions || [];
+    return available.map(describePermission).sort((a, b) => `${a.group}:${a.label}`.localeCompare(`${b.group}:${b.label}`));
+  }, [permissions, role.permissions]);
+  const enabled = useMemo(() => new Set(role.permissions || []), [role.permissions]);
+  let lastGroup = "";
 
   return (
     <Card elevation={0} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.6)" }}>
       <CardContent className="p-3 flex flex-col gap-2">
-        <Typography variant="subtitle2" className="font-semibold mb-1">Role matrix – {role?.name || "-"}</Typography>
+        <Typography variant="subtitle2" className="font-semibold mb-1">Permissions – {role?.name || "-"}</Typography>
         <Box className="overflow-x-auto">
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Resource</TableCell>
-                {PERMISSIONS.map((perm) => <TableCell key={perm} align="center">{perm}</TableCell>)}
+                <TableCell>Permission</TableCell>
+                <TableCell>Key</TableCell>
+                <TableCell align="right">Enabled</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {RESOURCES.map((resource) => (
-                <TableRow key={resource}>
-                  <TableCell>{resource}</TableCell>
-                  {PERMISSIONS.map((perm) => (
-                    <TableCell key={perm} align="center">
-                      <Button size="small" disabled={disabled} variant={matrix[resource][perm] ? "contained" : "outlined"} onClick={() => onToggle(resource, perm)}>
-                        {matrix[resource][perm] ? "✓" : "-"}
-                      </Button>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
+              {permissionRows.map((permission) => {
+                const showGroup = permission.group !== lastGroup;
+                lastGroup = permission.group;
+                const isEnabled = enabled.has(permission.value);
+                return (
+                  <React.Fragment key={permission.value}>
+                    {showGroup ? (
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{ bgcolor: "action.hover", fontWeight: 700 }}>
+                          {permission.group}
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                    <TableRow hover>
+                      <TableCell>{permission.label}</TableCell>
+                      <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{permission.value}</TableCell>
+                      <TableCell align="right">
+                        <Button size="small" disabled={disabled} variant={isEnabled ? "contained" : "outlined"} onClick={() => onToggle(permission.value)}>
+                          {isEnabled ? "Enabled" : "Enable"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </Box>
@@ -116,6 +129,7 @@ function RoleMatrix({
 
 export default function RolesPermissionsPage() {
   const [roles, setRoles] = useState<AdminRoleResponse[]>([]);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newRole, setNewRole] = useState<NewRoleState>({ name: "", description: "" });
@@ -128,8 +142,9 @@ export default function RolesPermissionsPage() {
   const loadRoles = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await listAdminRoles();
+      const [rows, permissionRows] = await Promise.all([listAdminRoles(), listAdminPermissions()]);
       setRoles(rows);
+      setPermissions(permissionRows);
       setSelectedRoleId((prev) => prev || rows[0]?.id || "");
       setStatus(null);
     } catch (error) {
@@ -163,15 +178,19 @@ export default function RolesPermissionsPage() {
     }
   };
 
-  const handleTogglePermission = async (resource: ResourceLabel, perm: PermissionLabel) => {
+  const handleTogglePermission = async (permission: string) => {
     if (!selectedRole || !canManageRoles) {
       setStatus({ type: "warning", message: "Your account cannot update role permissions." });
       return;
     }
-    const matrix = parsePermissionMatrix(selectedRole.permissions || []);
-    matrix[resource][perm] = !matrix[resource][perm];
+    const current = new Set(selectedRole.permissions || []);
+    if (current.has(permission)) {
+      current.delete(permission);
+    } else {
+      current.add(permission);
+    }
     try {
-      await patchAdminRole(selectedRole.id, { permissions: flattenPermissionMatrix(matrix) });
+      await patchAdminRole(selectedRole.id, { permissions: Array.from(current).sort((a, b) => a.localeCompare(b)) });
       setStatus({ type: "success", message: `Permissions updated for ${selectedRole.name}.` });
       await loadRoles();
     } catch (error) {
@@ -249,7 +268,7 @@ export default function RolesPermissionsPage() {
               </Card>
             )}
 
-            {selectedRole ? <RoleMatrix role={selectedRole} disabled={!canManageRoles} onToggle={(resource, perm) => void handleTogglePermission(resource, perm)} /> : null}
+            {selectedRole ? <RoleMatrix role={selectedRole} permissions={permissions} disabled={!canManageRoles} onToggle={(permission) => void handleTogglePermission(permission)} /> : null}
           </Box>
         </Box>
       )}

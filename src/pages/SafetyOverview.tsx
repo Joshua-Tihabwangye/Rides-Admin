@@ -44,6 +44,7 @@ import {
 } from "../services/api/adminApi";
 import type { AdminRiskCaseResponse, AdminSafetyIncident, AdminEmergencyMessage } from "../services/api/adminApi";
 import AdminTripCommunicationPanel from "../components/AdminTripCommunicationPanel";
+import { attachAdminRealtimeSocket } from "../services/adminRealtime";
 
 function currentAdminUserId(): string | null {
   try {
@@ -108,8 +109,9 @@ export default function SafetyOverviewDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionAlert, setActionAlert] = useState<{ severity: "success" | "error"; message: string } | null>(null);
+  const [realtimeConnected, setRealtimeConnected] = useState(true);
   const [historyFilter, setHistoryFilter] = useState<"ALL" | "RESOLVED" | "OPEN" | "ACKNOWLEDGED">("ALL");
-  const [standaloneComms, setStandaloneComms] = useState<AdminEmergencyMessage[]>([]);
+  const [standaloneComms, setStandaloneComms] = useState<AdminEmergencyMessage[]>([]); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [unreadCommsCount, setUnreadCommsCount] = useState(0);
 
   useEffect(() => {
@@ -179,7 +181,6 @@ export default function SafetyOverviewDashboardPage() {
   // data is re-hydrated from the backend on load and by the 30 s poll, so a
   // reload or reconnect still shows every active incident.
   useEffect(() => {
-    let socket: ReturnType<typeof createAdminSocket> | null = null;
     let refreshTimer: number | null = null;
     const refetchIncidents = () => {
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
@@ -193,33 +194,37 @@ export default function SafetyOverviewDashboardPage() {
         .catch(() => undefined);
       }, 100);
     };
-    try {
-      socket = createAdminSocket();
-      socket.on("safety.incident.new", refetchIncidents);
-      socket.on("admin.safety.incidents.updated", refetchIncidents);
-      socket.on("safety.emergency.message.new", (payload: any) => {
-        if (!payload || !payload.message) return;
-        const message = payload.message as AdminEmergencyMessage;
-        // Only handle standalone communications (no incidentId)
-        if (message.incidentId) return;
-        setStandaloneComms((prev) => {
-          if (prev.some((m) => m.id === message.id)) return prev;
-          return [message, ...prev].slice(0, 50);
-        });
-        setUnreadCommsCount((prev) => prev + 1);
+    const onEmergencyMessage = (payload: any) => {
+      if (!payload || !payload.message) return;
+      const message = payload.message as AdminEmergencyMessage;
+      if (message.incidentId) return;
+      setStandaloneComms((prev) => {
+        if (prev.some((m) => m.id === message.id)) return prev;
+        return [message, ...prev].slice(0, 50);
       });
-      socket.connect();
+      setUnreadCommsCount((prev) => prev + 1);
+    };
+    let detach: () => void = () => undefined;
+    try {
+      detach = attachAdminRealtimeSocket(createAdminSocket(), {
+        rooms: ["operations"],
+        onConnected: () => {
+          setRealtimeConnected(true);
+          refetchIncidents();
+        },
+        onDisconnected: () => setRealtimeConnected(false),
+        events: {
+          "safety.incident.new": refetchIncidents,
+          "admin.safety.incidents.updated": refetchIncidents,
+          "safety.emergency.message.new": onEmergencyMessage,
+        },
+      });
     } catch {
-      socket = null;
+      detach = () => undefined;
     }
     return () => {
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
-      if (socket) {
-        socket.off("safety.incident.new", refetchIncidents);
-        socket.off("admin.safety.incidents.updated", refetchIncidents);
-        socket.off("safety.emergency.message.new", refetchIncidents);
-        socket.disconnect();
-      }
+      detach();
     };
   }, []);
 
@@ -409,6 +414,12 @@ export default function SafetyOverviewDashboardPage() {
           View risk queue
         </Button>
       </Box>
+
+      {!realtimeConnected ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Realtime disconnected — showing backend data. Reconnecting…
+        </Alert>
+      ) : null}
 
       {actionAlert ? (
         <Alert severity={actionAlert.severity} onClose={() => setActionAlert(null)} sx={{ mb: 2 }}>

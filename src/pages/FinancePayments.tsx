@@ -24,7 +24,7 @@ import {
 import { listAdminPayments, refundAdminPayment, type AdminPayment } from '../services/api/adminApi';
 
 const statusColor = (status: string) => {
-  switch (status) {
+  switch (status.toLowerCase()) {
     case 'paid':
     case 'completed':
       return 'success';
@@ -46,12 +46,22 @@ export default function FinancePaymentsPage() {
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listAdminPayments({ limit: 100 });
+      const res = await listAdminPayments({
+        limit: 100,
+        status: statusFilter || undefined,
+        search: search.trim() || undefined,
+        from: fromDate || undefined,
+        to: toDate || undefined,
+      });
       setItems(res.items || []);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load payments');
@@ -109,6 +119,16 @@ export default function FinancePaymentsPage() {
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <Card elevation={0} sx={{ mb: 2, borderRadius: 2, border: '1px solid rgba(148,163,184,0.24)' }}>
+        <CardContent className="flex gap-2 flex-wrap items-center">
+          <TextField label="Search" size="small" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="User or payment id" />
+          <TextField label="Status" size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value.toUpperCase())} placeholder="PAID" />
+          <TextField label="From" type="date" size="small" value={fromDate} onChange={(e) => setFromDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField label="To" type="date" size="small" value={toDate} onChange={(e) => setToDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <Button variant="contained" size="small" onClick={() => void load()} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>Apply filters</Button>
+        </CardContent>
+      </Card>
 
       <Card elevation={1} sx={{ borderRadius: 2, border: '1px solid rgba(148,163,184,0.3)' }}>
         <CardContent className="p-0">

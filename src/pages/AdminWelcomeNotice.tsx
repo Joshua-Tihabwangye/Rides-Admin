@@ -77,7 +77,12 @@ export default function AdminWelcomeNoticePage() {
   const handleContinue = async () => {
     setAckSaving(true);
     try {
-      const status = await patchAdminOnboardingStatus({ acknowledged: true });
+      await patchAdminOnboardingStatus({ acknowledged: true });
+      const status = await getAdminOnboardingStatus();
+      if (!status.acknowledged) {
+        setNoticesError("The backend could not confirm your acknowledgement. Please try again.");
+        return;
+      }
       setAcknowledged(status.acknowledged);
       navigate("/admin/onboarding/checklist");
     } catch (error) {

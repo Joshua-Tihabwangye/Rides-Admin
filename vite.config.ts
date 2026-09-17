@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { version as appVersion } from './package.json'
+import packageJson from './package.json' with { type: 'json' }
 import { execSync } from 'node:child_process'
+
+const appVersion = packageJson.version
 
 function gitSha() {
   try {

@@ -20,6 +20,13 @@ const shell = read("src/layout/AdminShell.tsx");
 const systemOverview = read("src/pages/SystemOverview.tsx");
 const companyPayouts = read("src/pages/CompanyPayouts.tsx");
 const experimentResults = read("src/pages/ExperimentResults.tsx");
+const agentManagement = read("src/pages/AgentManagement.tsx");
+const agentDetail = read("src/pages/AgentDetail.tsx");
+const detailedAnalytics = read("src/pages/DetailedAnalytics.tsx");
+const labelExceptions = read("src/pages/LabelExceptionsPage.tsx");
+const adminApi = read("src/services/api/adminApi.ts");
+const adminRealtime = read("src/services/adminRealtime.ts");
+const driverManagement = read("src/pages/DriverManagement.tsx");
 
 check(
   "Admin auth gate hydrates from backend session before redirecting",
@@ -82,10 +89,64 @@ check(
 );
 
 check(
-  "Experiment results use live flags instead of hardcoded mock series",
-  experimentResults.includes("listAdminFeatureFlags") &&
-    experimentResults.includes("Experiment metrics and A/B variant series are not exposed by the backend yet"),
-  "ExperimentResults should be a backend flag detail view"
+  "Experiment results use backend experiment analytics contract",
+  experimentResults.includes("getAdminExperimentResults") &&
+    experimentResults.includes("Variant Performance") &&
+    experimentResults.includes("No backend metrics are attached to this experiment record yet") &&
+    !experimentResults.includes("listAdminFeatureFlags") &&
+    !experimentResults.includes("Experiment metrics and A/B variant series are not exposed by the backend yet"),
+  "ExperimentResults should render backend experiment results, not the old flag-placeholder page"
+);
+
+check(
+  "Agent management uses dedicated backend agent contracts",
+  agentManagement.includes("listAdminAgents") &&
+    agentManagement.includes("createAdminAgent") &&
+    agentDetail.includes("getAdminAgent") &&
+    agentDetail.includes("getAdminAgentChat") &&
+    agentDetail.includes("sendAdminAgentChat") &&
+    !agentManagement.includes("Admin agent creation is not exposed"),
+  "Agent pages should stay on dedicated agent endpoints with real create/chat/metrics flows"
+);
+
+check(
+  "Detailed analytics filters refetch backend aggregates",
+  detailedAnalytics.includes("getAdminAnalyticsTimeseries(period, backendFilters)") &&
+    detailedAnalytics.includes("getAdminAnalyticsDrivers(period, backendFilters)") &&
+    detailedAnalytics.includes("getAdminAnalyticsCompanies(period, backendFilters)") &&
+    detailedAnalytics.includes("filters.region") &&
+    detailedAnalytics.includes("filters.service"),
+  "DetailedAnalytics service/region filters must remain backend query filters"
+);
+
+check(
+  "Label exceptions expose backend registry filters",
+  labelExceptions.includes("search: search.trim() || undefined") &&
+    labelExceptions.includes("fromDate: fromDate || undefined") &&
+    labelExceptions.includes("toDate: toDate || undefined") &&
+    labelExceptions.includes("listAdminDeliveryLabels") &&
+    adminApi.includes("search: filters.search"),
+  "LabelExceptionsPage should keep status/search/date filters backed by the delivery label registry"
+);
+
+check(
+  "SOS realtime surfaces share reconnect subscription helper",
+  adminRealtime.includes("attachAdminRealtimeSocket") &&
+    adminRealtime.includes('socket.on("reconnect", subscribe)') &&
+    read("src/pages/SafetyOverview.tsx").includes("attachAdminRealtimeSocket") &&
+    read("src/pages/SosIncidentDetailPage.tsx").includes("attachAdminRealtimeSocket") &&
+    read("src/components/SafetyIncidentPopup.tsx").includes("attachAdminRealtimeSocket"),
+  "Safety/SOS realtime surfaces should resubscribe on reconnect through the shared helper"
+);
+
+check(
+  "Driver management fetches every paginated driver",
+  driverManagement.includes("listAllAdminDrivers") &&
+    adminApi.includes("export async function listAllAdminDrivers") &&
+    adminApi.includes("page <= maxPages") &&
+    adminApi.includes("listAdminDriversPaginated(page, pageSize)") &&
+    adminApi.includes("normalizePaginatedDriver"),
+  "DriverManagement should not fall back to a single page of drivers"
 );
 
 console.log("\nAdmin regression checks passed.");

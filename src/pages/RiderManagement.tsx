@@ -25,26 +25,23 @@ import {
 } from"@mui/material";
 import { useNavigate, useLocation } from"react-router-dom";
 import StatusBadge from"../components/StatusBadge";
-import SearchIcon from"@mui/icons-material/Search";
-import TwoWheelerIcon from"@mui/icons-material/TwoWheeler";
-import AddIcon from"@mui/icons-material/Add";
-import MoreVertIcon from"@mui/icons-material/MoreVert";
-import { listAdminRiders, createAdminRider, getRider as getAdminRider, patchAdminRider } from"../services/api/adminApi";
-import type { AdminRiderResponse } from"../services/api/adminApi";
+import SearchIcon from "@mui/icons-material/Search";
+import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
+import AddIcon from "@mui/icons-material/Add";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { listAdminRiders, patchAdminRider } from "../services/api/adminApi";
 
 // UI-only record shape
 type RiderRecord = {
-  id: number; // display numeric index
   backendId: string;
   name: string;
   phone: string;
   city: string;
   vehicle: string;
-  vehicleType: 'Bike' | 'Car';
   trips: number;
   spend: string;
   risk: 'Low' | 'Medium' | 'High' | 'N/A';
-  primaryStatus: 'approved' | 'under_review' | 'suspended';
+  primaryStatus: 'active' | 'deleted' | 'suspended';
   activityStatus: 'active' | 'inactive';
 };
 
@@ -63,7 +60,7 @@ export default function RiderManagement() {
 
   // Action menu
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedRiderId, setSelectedRiderId] = useState<number | null>(null);
+  const [selectedRiderId, setSelectedRiderId] = useState<string | null>(null);
 
   const location = useLocation();
 
@@ -72,19 +69,18 @@ export default function RiderManagement() {
     setError(null);
     try {
       const data = await listAdminRiders();
-      // Map backend rider to UI record
-      const mapped: RiderRecord[] = data.map((rider, index) => {
-        const primaryStatus: RiderRecord['primaryStatus'] = rider.status === 'active' ? 'approved' : 'suspended';
+      // Map backend rider to UI record. Backend status is one of
+      // 'active' | 'deleted' | 'suspended'; no other statuses are emitted.
+      const mapped: RiderRecord[] = data.map((rider) => {
+        const primaryStatus: RiderRecord['primaryStatus'] = rider.status;
         const activityStatus: RiderRecord['activityStatus'] = rider.status === 'active' ? 'active' : 'inactive';
         const name = rider.fullName || `${rider.firstName || ''} ${rider.lastName || ''}`.trim() || 'Unknown';
         return {
-          id: index + 101,
           backendId: rider.riderId || rider.userId,
           name,
           phone: rider.phone || '',
           city: rider.city || '',
           vehicle: "N/A",
-          vehicleType: "Bike",
           trips: rider.totalTrips || 0,
           spend: "N/A",
           risk: "N/A",
@@ -104,12 +100,12 @@ export default function RiderManagement() {
     fetchRiders();
   }, [location.key]);
 
-  // Calculate tab counts
+  // Calculate tab counts from the real backend status values.
   const tabCounts = useMemo(() => {
     return {
       all: riders.length,
-      active: riders.filter(r => r.primaryStatus === "approved").length,
-      pending: riders.filter(r => r.primaryStatus === "under_review").length,
+      active: riders.filter(r => r.primaryStatus === "active").length,
+      pending: riders.filter(r => r.primaryStatus !== "active" && r.primaryStatus !== "suspended").length,
       suspended: riders.filter(r => r.primaryStatus === "suspended").length,
     };
   }, [riders]);
@@ -124,17 +120,19 @@ export default function RiderManagement() {
     const matchesSearch =
       rider.name.toLowerCase().includes(search.toLowerCase()) ||
       rider.phone.includes(search) ||
-      `RDR-${rider.id}`.toLowerCase().includes(search.toLowerCase());
+      rider.backendId.toLowerCase().includes(search.toLowerCase());
     const matchesTab =
       activeTab === "All" ||
-      (activeTab === "Active/Verified" && rider.primaryStatus === "approved") ||
-      (activeTab === "Pending review" && rider.primaryStatus === "under_review") ||
+      (activeTab === "Active/Verified" && rider.primaryStatus === "active") ||
+      (activeTab === "Pending review" && rider.primaryStatus !== "active" && rider.primaryStatus !== "suspended") ||
       (activeTab === "Suspended" && rider.primaryStatus === "suspended");
     const matchesCity = cityFilter === "all" || rider.city === cityFilter;
     const matchesAccount = accountFilter === "all" ||
       (accountFilter === "active" && rider.activityStatus === "active") ||
       (accountFilter === "inactive" && rider.activityStatus === "inactive");
-    const matchesRisk = riskFilter === "all" || rider.risk.toLowerCase() === riskFilter;
+    const matchesRisk = riskFilter === "all" ||
+      (riskFilter === "na" && rider.risk === "N/A") ||
+      rider.risk.toLowerCase() === riskFilter;
     return matchesSearch && matchesTab && matchesCity && matchesAccount && matchesRisk;
   });
 
@@ -142,10 +140,10 @@ export default function RiderManagement() {
     navigate(`/admin/riders/${backendId}`);
   };
 
-  const handleActionClick = (event: React.MouseEvent<HTMLElement>, riderId: number) => {
+  const handleActionClick = (event: React.MouseEvent<HTMLElement>, backendId: string) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
-    setSelectedRiderId(riderId);
+    setSelectedRiderId(backendId);
   };
 
   const handleActionClose = () => {
@@ -155,17 +153,17 @@ export default function RiderManagement() {
 
   const handleActionSelect = async (action: string) => {
     if (selectedRiderId !== null) {
-      const rider = riders.find(r => r.id === selectedRiderId);
+      const rider = riders.find(r => r.backendId === selectedRiderId);
       if (!rider) return;
       if (action === "view") {
         navigate(`/admin/riders/${rider.backendId}`);
       } else if (action === "suspend") {
-        // Toggle suspend: patch status to 'deleted' or 'active'
+        // Toggle between the real backend statuses ('active' vs 'suspended').
         try {
-          const newStatus = rider.primaryStatus === 'suspended' ? 'active' : 'deleted';
+          const newStatus = rider.primaryStatus === 'active' ? 'suspended' : 'active';
           await patchAdminRider(rider.backendId, { status: newStatus });
           fetchRiders();
-        } catch (e) {
+        } catch {
           setError("Failed to update status");
         }
       } else if (action === "contact") {
@@ -269,6 +267,7 @@ export default function RiderManagement() {
               <MenuItem value="low">Low (normal behavior)</MenuItem>
               <MenuItem value="medium">Medium (needs monitoring)</MenuItem>
               <MenuItem value="high">High (needs review)</MenuItem>
+              <MenuItem value="na">Not evaluated</MenuItem>
             </Select>
           </FormControl>
         </CardContent>
@@ -330,13 +329,13 @@ export default function RiderManagement() {
             <TableBody>
               {filteredRiders.map((rider) => (
                 <TableRow
-                  key={rider.id}
+                  key={rider.backendId}
                   hover
                   onClick={() => handleRowClick(rider.backendId)}
                   sx={{ cursor:"pointer" }}
                 >
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: 11, color: 'text.secondary' }}>
-                    RDR-{rider.id}
+                    {rider.backendId}
                   </TableCell>
                   <TableCell sx={{ fontWeight: 600, display:"flex", alignItems:"center", gap: 1 }}>
                     <TwoWheelerIcon fontSize="small" color="success" />
@@ -360,15 +359,15 @@ export default function RiderManagement() {
                   <TableCell>
                     <Chip
                       size="small"
-                      label={rider.risk}
-                      color={rider.risk === "Low" ? "success" : rider.risk === "Medium" ? "warning" : "error"}
+                      label={rider.risk === "N/A" ? "Not evaluated" : rider.risk}
+                      color={rider.risk === "Low" ? "success" : rider.risk === "Medium" ? "warning" : rider.risk === "High" ? "error" : "default"}
                       sx={{ fontSize: 10, height: 20 }}
                     />
                   </TableCell>
                   <TableCell align="center">
                     <IconButton
                       size="small"
-                      onClick={(e) => handleActionClick(e, rider.id)}
+                      onClick={(e) => handleActionClick(e, rider.backendId)}
                     >
                       <MoreVertIcon fontSize="small" />
                     </IconButton>
@@ -389,7 +388,7 @@ export default function RiderManagement() {
         <MenuItem onClick={() => handleActionSelect("view")}>View Details</MenuItem>
         <MenuItem onClick={() => handleActionSelect("contact")}>Contact Rider</MenuItem>
         <MenuItem onClick={() => handleActionSelect("suspend")} sx={{ color: 'error.main' }}>
-          {selectedRiderId !== null && riders.find(r => r.id === selectedRiderId)?.primaryStatus === 'suspended' ? 'Activate' : 'Suspend Account'}
+          {selectedRiderId !== null && riders.find(r => r.backendId === selectedRiderId)?.primaryStatus !== 'active' ? 'Activate' : 'Suspend Account'}
         </MenuItem>
       </Menu>
     </Box>

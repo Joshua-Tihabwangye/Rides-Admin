@@ -7,6 +7,8 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  InputAdornment,
+  MenuItem,
   Stack,
   Table,
   TableBody,
@@ -20,6 +22,7 @@ import {
 } from '@mui/material';
 import Paper from '@mui/material/Paper';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import { listAdminDeliveryLabels } from '../services/api/adminApi';
 import type { AdminLabelRegistryResponse } from '../services/api/adminApi';
@@ -39,12 +42,22 @@ export default function LabelExceptionsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [status, setStatus] = useState<'CANCELLED' | 'EXPIRED'>('CANCELLED');
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const fetchExceptions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await listAdminDeliveryLabels({ page, limit, status });
+      const response = await listAdminDeliveryLabels({
+        page,
+        limit,
+        status,
+        search: search.trim() || undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+      });
       setLabels(response.items ?? []);
       setTotal(response.meta?.total ?? response.items?.length ?? 0);
     } catch (err: any) {
@@ -57,7 +70,13 @@ export default function LabelExceptionsPage() {
   useEffect(() => {
     fetchExceptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, status]);
+  }, [page, limit, status, fromDate, toDate]);
+
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPage(1);
+    void fetchExceptions();
+  };
 
   const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage + 1);
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,9 +114,30 @@ export default function LabelExceptionsPage() {
         </Alert>
       )}
 
-      <Card variant="outlined" sx={{ mb: 3 }}>
+      <Card variant="outlined" sx={{ mb: 3, borderRadius: 2 }}>
         <CardContent>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+          <Stack
+            component="form"
+            onSubmit={handleSearchSubmit}
+            direction={{ xs: 'column', lg: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'stretch', lg: 'center' }}
+          >
+            <TextField
+              size="small"
+              label="Search labels"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tracking code, package ID, package name"
+              sx={{ minWidth: { xs: '100%', lg: 320 } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
             <TextField
               select
               size="small"
@@ -109,9 +149,34 @@ export default function LabelExceptionsPage() {
               }}
               sx={{ minWidth: 200 }}
             >
-              <option value="CANCELLED">Cancelled</option>
-              <option value="EXPIRED">Expired</option>
+              <MenuItem value="CANCELLED">Cancelled</MenuItem>
+              <MenuItem value="EXPIRED">Expired</MenuItem>
             </TextField>
+            <TextField
+              size="small"
+              type="date"
+              label="Issued from"
+              value={fromDate}
+              onChange={(event) => {
+                setFromDate(event.target.value);
+                setPage(1);
+              }}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              size="small"
+              type="date"
+              label="Issued to"
+              value={toDate}
+              onChange={(event) => {
+                setToDate(event.target.value);
+                setPage(1);
+              }}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Button type="submit" variant="contained" sx={{ textTransform: 'none', borderRadius: 2 }}>
+              Apply filters
+            </Button>
             <Typography variant="body2" color="text.secondary">
               Regenerated labels are cancelled with a reference to the replacement version.
             </Typography>

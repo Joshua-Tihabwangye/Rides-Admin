@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { listAdminDeliveries } from "./adminApi";
+import { listAdminDeliveries, listAdminDeliveryLabels } from "./adminApi";
 import { DELIVERY_STATUS } from "../../utils/deliveryStatus";
 
 describe("listAdminDeliveries filter integration", () => {
@@ -63,5 +63,27 @@ describe("listAdminDeliveries filter integration", () => {
       expect(DELIVERY_STATUS).not.toContain(status.toUpperCase());
       expect(url).toContain(`status=${encodeURIComponent(status)}`);
     }
+  });
+
+  it("sends delivery label registry filters to the backend", async () => {
+    await listAdminDeliveryLabels({
+      page: 2,
+      limit: 50,
+      status: "CANCELLED",
+      search: "PKG-100",
+      fromDate: "2026-09-01",
+      toDate: "2026-09-17",
+    });
+
+    const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
+    const [url, init] = calls[calls.length - 1];
+    expect(url).toContain("/admin/delivery-labels");
+    expect(url).toContain("page=2");
+    expect(url).toContain("limit=50");
+    expect(url).toContain("status=CANCELLED");
+    expect(url).toContain("search=PKG-100");
+    expect(url).toContain("fromDate=2026-09-01");
+    expect(url).toContain("toDate=2026-09-17");
+    expect(init.method).toBe("GET");
   });
 });

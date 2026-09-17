@@ -62,7 +62,7 @@ export default function FinancialOverviewPage() {
       const [data, rev, pendingPayouts] = await Promise.all([
         getAdminFinanceAnalytics({ period: period as any }),
         getAdminRevenueSummary().catch(() => null),
-        listAdminPayouts({ status: "pending", limit: 10 })
+        listAdminPayouts({ status: "PENDING", limit: 10 })
           .then((r) => r.items)
           .catch(() => []),
       ]);

@@ -108,11 +108,15 @@ export default function DetailedAnalyticsPage() {
 	// Trips & volumes report.
 	useEffect(() => {
 		let active = true;
+		const backendFilters = {
+			service: filters.service === "All" ? undefined : filters.service,
+			region: filters.region === "All" ? undefined : filters.region,
+		};
 		setAnalyticsLoading(true);
 		Promise.all([
-			getAdminAnalyticsTimeseries(period).catch(() => []),
-			getAdminAnalyticsDrivers(period).catch(() => []),
-			getAdminAnalyticsCompanies(period).catch(() => []),
+			getAdminAnalyticsTimeseries(period, backendFilters).catch(() => []),
+			getAdminAnalyticsDrivers(period, backendFilters).catch(() => []),
+			getAdminAnalyticsCompanies(period, backendFilters).catch(() => []),
 		])
 			.then(([series, drivers, companies]) => {
 				if (!active) return;
@@ -126,7 +130,7 @@ export default function DetailedAnalyticsPage() {
 		return () => {
 			active = false;
 		};
-	}, [period]);
+	}, [period, filters.region, filters.service]);
 
 	const selectedReport =
 		REPORTS.find((r) => r.id === selectedReportId) || REPORTS[0];
@@ -425,7 +429,10 @@ export default function DetailedAnalyticsPage() {
 							<MenuItem value="All">All Services</MenuItem>
 							<MenuItem value="Rides">Rides</MenuItem>
 							<MenuItem value="Delivery">Delivery</MenuItem>
-							<MenuItem value="Logistics">Logistics</MenuItem>
+							<MenuItem value="Car Rental">Car rental</MenuItem>
+							<MenuItem value="Ambulance">Ambulance</MenuItem>
+							<MenuItem value="Tourist Vehicle">Tourist vehicles</MenuItem>
+							<MenuItem value="School Shuttle">School shuttle</MenuItem>
 						</Select>
 					</FormControl>
 					<PeriodSelector

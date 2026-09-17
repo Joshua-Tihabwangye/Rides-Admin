@@ -25,6 +25,8 @@ export default function RiskFraudCenterPage() {
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [severityFilter, setSeverityFilter] = useState<string>("All");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [search, setSearch] = useState("");
   const [cases, setCases] = useState<AdminRiskCaseResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,18 +93,40 @@ export default function RiskFraudCenterPage() {
 
   const filteredCases = useMemo(() => {
     return cases.filter((c) => {
-      const matchesType =
-        typeFilter === "All" ||
-        (typeFilter === "Account" && c.type.toLowerCase().includes("account")) ||
-        (typeFilter === "Payment" && c.type.toLowerCase().includes("payment")) ||
-        (typeFilter === "Device" && c.type.toLowerCase().includes("device"));
+      const matchesType = typeFilter === "All" || c.type === typeFilter;
 
       const matchesSeverity =
         severityFilter === "All" || c.severity.toLowerCase() === severityFilter.toLowerCase();
+      const matchesStatus = statusFilter === "All" || (c.status ?? "open") === statusFilter;
+      const query = search.trim().toLowerCase();
+      const matchesSearch =
+        query.length === 0 ||
+        c.id.toLowerCase().includes(query) ||
+        c.subjectId.toLowerCase().includes(query) ||
+        c.subjectType.toLowerCase().includes(query) ||
+        c.type.toLowerCase().includes(query) ||
+        (c.notes ?? "").toLowerCase().includes(query);
 
-      return matchesType && matchesSeverity;
+      return matchesType && matchesSeverity && matchesStatus && matchesSearch;
     });
-  }, [cases, typeFilter, severityFilter]);
+  }, [cases, typeFilter, severityFilter, statusFilter, search]);
+
+  const kpis = useMemo(() => {
+    const open = cases.filter((c) => (c.status ?? "open") === "open").length;
+    const underReview = cases.filter((c) => c.status === "under_review").length;
+    const resolved = cases.filter((c) => c.status === "resolved").length;
+    return [
+      { label: "Total cases", value: cases.length },
+      { label: "Open", value: open },
+      { label: "Under review", value: underReview },
+      { label: "Resolved", value: resolved },
+    ];
+  }, [cases]);
+
+  const typeOptions = useMemo(() => {
+    const types = Array.from(new Set(cases.map((c) => c.type).filter(Boolean)));
+    return ["All", ...types.sort((a, b) => a.localeCompare(b))];
+  }, [cases]);
 
   if (loading) {
     return (
@@ -134,6 +158,26 @@ export default function RiskFraudCenterPage() {
             Suspicious activity, abuse patterns and fraud alerts across EVzone.
           </Typography>
         </Box>
+      </Box>
+
+      {/* KPI summary */}
+      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+        {kpis.map((kpi) => (
+          <Card
+            key={kpi.label}
+            elevation={1}
+            sx={{ borderRadius: 8, border: "1px solid rgba(148,163,184,0.4)" }}
+          >
+            <CardContent className="p-3 flex flex-col gap-0.5">
+              <Typography variant="caption" className="text-[11px] uppercase tracking-wide text-slate-500">
+                {kpi.label}
+              </Typography>
+              <Typography variant="h6" className="font-semibold text-lg" color="text.primary">
+                {kpi.value}
+              </Typography>
+            </CardContent>
+          </Card>
+        ))}
       </Box>
 
       {/* Filters row */}
@@ -180,6 +224,16 @@ export default function RiskFraudCenterPage() {
 
           <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
             <Box className="flex flex-col gap-1">
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Search</Typography>
+              <TextField
+                size="small"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Case, subject, type, notes"
+                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+              />
+            </Box>
+            <Box className="flex flex-col gap-1">
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Type</Typography>
               <TextField
                 select
@@ -189,7 +243,7 @@ export default function RiskFraudCenterPage() {
                 SelectProps={{ native: true }}
                 sx={{ fontSize: 12, bgcolor: "background.paper" }}
               >
-                {["All", "Account", "Payment", "Device"].map((v) => (
+                {typeOptions.map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>
@@ -213,6 +267,36 @@ export default function RiskFraudCenterPage() {
                 ))}
               </TextField>
             </Box>
+            <Box className="flex flex-col gap-1">
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Status</Typography>
+              <TextField
+                select
+                size="small"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                SelectProps={{ native: true }}
+                sx={{ fontSize: 12, bgcolor: "background.paper" }}
+              >
+                {[
+                  ["All", "All"],
+                  ["open", "Open"],
+                  ["under_review", "Under review"],
+                  ["resolved", "Resolved"],
+                ].map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </TextField>
+            </Box>
+          </Box>
+          <Box className="flex items-center justify-between">
+            <Typography variant="caption" color="text.secondary">
+              Showing {filteredCases.length} of {cases.length} risk cases
+            </Typography>
+            <Typography variant="caption" color="text.disabled">
+              Type options reflect backend case values
+            </Typography>
           </Box>
         </CardContent>
       </Card>
@@ -272,6 +356,12 @@ export default function RiskFraudCenterPage() {
                     sx={{ fontSize: 10, height: 22 }}
                   />
                   <Box className="flex gap-1">
+                    <Chip
+                      size="small"
+                      label={riskCase.status ?? "open"}
+                      color={riskCase.status === "resolved" ? "success" : riskCase.status === "under_review" ? "warning" : "default"}
+                      sx={{ fontSize: 10, height: 22 }}
+                    />
                     <Chip
                       size="small"
                       label={riskCase.severity}

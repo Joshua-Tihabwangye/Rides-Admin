@@ -35,21 +35,26 @@ import {
 } from '../services/api/adminApi';
 
 const statusColor = (status: string) => {
-  switch (status) {
-    case 'completed':
+  switch (status?.toUpperCase()) {
+    case 'COMPLETED':
     case 'RESOLVED':
+    case 'MATCHED':
       return 'success';
-    case 'failed':
-    case 'UNMATCHED':
+    case 'FAILED':
+    case 'VARIANCE':
       return 'error';
-    case 'running':
+    case 'RUNNING':
       return 'info';
-    case 'pending':
+    case 'OPEN':
       return 'warning';
     default:
       return 'default';
   }
 };
+
+const RUN_TYPES = ['PAYMENTS', 'PAYOUTS', 'CORPORATEPAY'];
+const RUN_STATUSES = ['OPEN', 'RUNNING', 'COMPLETED', 'FAILED'];
+const RECORD_STATUSES = ['OPEN', 'MATCHED', 'VARIANCE', 'RESOLVED', 'IGNORED'];
 
 export default function FinanceReconciliationRunsPage() {
   const [runs, setRuns] = useState<AdminReconciliationRun[]>([]);
@@ -63,9 +68,12 @@ export default function FinanceReconciliationRunsPage() {
   const [periodEnd, setPeriodEnd] = useState('');
   const [tolerance, setTolerance] = useState('0.01');
   const [submitting, setSubmitting] = useState(false);
+  const [runTypeFilter, setRunTypeFilter] = useState('');
+  const [runStatusFilter, setRunStatusFilter] = useState('');
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [records, setRecords] = useState<AdminReconciliationRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
+  const [recordStatusFilter, setRecordStatusFilter] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<AdminReconciliationRecord | null>(null);
   const [recordStatus, setRecordStatus] = useState('RESOLVED');
   const [recordResolution, setRecordResolution] = useState('');
@@ -76,7 +84,10 @@ export default function FinanceReconciliationRunsPage() {
     setError(null);
     try {
       const [runsRes, providersRes] = await Promise.all([
-        listAdminReconciliationRuns(),
+        listAdminReconciliationRuns({
+          type: runTypeFilter || undefined,
+          status: runStatusFilter || undefined,
+        }),
         listAdminReconciliationProviders(),
       ]);
       setRuns(runsRes);
@@ -86,7 +97,7 @@ export default function FinanceReconciliationRunsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [runStatusFilter, runTypeFilter]);
 
   useEffect(() => {
     void load();
@@ -96,16 +107,35 @@ export default function FinanceReconciliationRunsPage() {
     setRecordsLoading(true);
     setError(null);
     try {
-      const res = await listAdminReconciliationRecords(runId);
+      const res = await listAdminReconciliationRecords(runId, {
+        status: recordStatusFilter || undefined,
+      });
       setRecords(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load records');
     } finally {
       setRecordsLoading(false);
     }
-  }, []);
+  }, [recordStatusFilter]);
+
+  useEffect(() => {
+    if (expandedRunId) void loadRecords(expandedRunId);
+  }, [expandedRunId, loadRecords]);
 
   const handleStart = async () => {
+    const parsedTolerance = Number(tolerance);
+    if (!periodStart || !periodEnd) {
+      setError('Select a period start and period end before starting reconciliation.');
+      return;
+    }
+    if (new Date(periodStart) > new Date(periodEnd)) {
+      setError('Period start must be before period end.');
+      return;
+    }
+    if (!Number.isFinite(parsedTolerance) || parsedTolerance < 0) {
+      setError('Tolerance must be a valid non-negative number.');
+      return;
+    }
     setSubmitting(true);
     try {
       await startAdminReconciliationRun({
@@ -113,7 +143,7 @@ export default function FinanceReconciliationRunsPage() {
         periodStart,
         periodEnd,
         provider: provider || undefined,
-        tolerance: Number(tolerance),
+        tolerance: parsedTolerance,
       });
       setOpen(false);
       setPeriodStart('');
@@ -126,14 +156,13 @@ export default function FinanceReconciliationRunsPage() {
     }
   };
 
-  const toggleRecords = async (runId: string) => {
+  const toggleRecords = (runId: string) => {
     if (expandedRunId === runId) {
       setExpandedRunId(null);
       setRecords([]);
       return;
     }
     setExpandedRunId(runId);
-    await loadRecords(runId);
   };
 
   const handleResolve = async () => {
@@ -172,6 +201,14 @@ export default function FinanceReconciliationRunsPage() {
           </Typography>
         </Box>
         <Box className="flex gap-2">
+          <Select value={runTypeFilter} displayEmpty size="small" onChange={(e) => setRunTypeFilter(e.target.value)} sx={{ minWidth: 150 }}>
+            <MenuItem value=""><em>All types</em></MenuItem>
+            {RUN_TYPES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+          </Select>
+          <Select value={runStatusFilter} displayEmpty size="small" onChange={(e) => setRunStatusFilter(e.target.value)} sx={{ minWidth: 150 }}>
+            <MenuItem value=""><em>All statuses</em></MenuItem>
+            {RUN_STATUSES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+          </Select>
           <Button variant="outlined" size="small" onClick={() => void load()} sx={{ textTransform: 'none' }}>
             Refresh
           </Button>
@@ -196,7 +233,7 @@ export default function FinanceReconciliationRunsPage() {
                 </Box>
                 <Box className="flex items-center gap-2">
                   <Chip size="small" label={run.status} color={statusColor(run.status) as any} sx={{ fontSize: 11 }} />
-                  <Button size="small" variant="outlined" sx={{ textTransform: 'none', borderRadius: 999, fontSize: 12 }} onClick={() => void toggleRecords(run.id)}>
+                  <Button size="small" variant="outlined" sx={{ textTransform: 'none', borderRadius: 999, fontSize: 12 }} onClick={() => toggleRecords(run.id)}>
                     {expandedRunId === run.id ? 'Hide records' : 'Records'}
                   </Button>
                 </Box>
@@ -204,6 +241,15 @@ export default function FinanceReconciliationRunsPage() {
 
               <Collapse in={expandedRunId === run.id}>
                 <Box className="pt-3">
+                  <Box className="pb-2 flex items-center justify-between gap-2 flex-wrap">
+                    <Typography variant="caption" color="text.secondary">
+                      Backend records for this run
+                    </Typography>
+                    <Select value={recordStatusFilter} displayEmpty size="small" onChange={(e) => setRecordStatusFilter(e.target.value)} sx={{ minWidth: 160 }}>
+                      <MenuItem value=""><em>All record statuses</em></MenuItem>
+                      {RECORD_STATUSES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                    </Select>
+                  </Box>
                   {recordsLoading ? <CircularProgress size={20} /> : (
                     <TableContainer component={Paper} elevation={0}>
                       <Table size="small">

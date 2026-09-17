@@ -366,6 +366,9 @@ export default function RiderDetail() {
                                                     <TableCell>
                                                         <Typography variant="body2" fontWeight={600}>{document.documentType}</Typography>
                                                         <Typography variant="caption" color="text.secondary">{document.side || document.ownerType}</Typography>
+                                                        {document.rejectionReason ? (
+                                                            <Typography variant="caption" color="error" sx={{ display: 'block' }}>{document.rejectionReason}</Typography>
+                                                        ) : null}
                                                     </TableCell>
                                                     <TableCell><Chip size="small" label={document.status} /></TableCell>
                                                     <TableCell>

@@ -160,8 +160,115 @@ export async function patchAdminRider(userId: string, input: AdminUpdateUserInpu
   });
 }
 
+export type ListAdminDriversFilters = {
+  page?: number;
+  limit?: number;
+  status?: string;
+  search?: string;
+  city?: string;
+  vehicleType?: string;
+};
+
+export type AdminDriverListResponse = {
+  items: RawAdminDriverRow[];
+  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+};
+
+/**
+ * Raw row returned by the backend's paginated drivers endpoint
+ * (`AdminService.listDrivers`): the DriverProfile entity fields at top level
+ * (id/userId/availabilityStatus/rating/completedRides) plus a nested joined
+ * `user`. The conventional flattened/mapped fields (driverId/fullName/...) are
+ * NOT present here.
+ */
+export type RawAdminDriverRow = Partial<AdminDriverResponse> & {
+  id?: string;
+  userId?: string;
+  completedRides?: number;
+  completedDeliveries?: number;
+  user?: Record<string, unknown> | null;
+};
+
+/** Plain, non-paginated driver list (backend returns all mapped drivers). */
 export async function listAdminDrivers(): Promise<AdminDriverResponse[]> {
   return request<AdminDriverResponse[]>("/admin/drivers", { method: "GET" });
+}
+
+/**
+ * Paginated driver list. The backend returns raw driver entities (with a
+ * nested `user`) when page/limit are supplied, so callers that need the
+ * conventional mapped shape should use `listAllAdminDrivers()`.
+ */
+export async function listAdminDriversPaginated(
+  page = 1,
+  limit = 100,
+): Promise<AdminDriverListResponse> {
+  return request<AdminDriverListResponse>(
+    `/admin/drivers${toQueryString({ page, limit })}`,
+    { method: "GET" },
+  );
+}
+
+/**
+ * Fetch EVERY driver in the system without dropping any page. The backend's
+ * paginated driver list supports at most 100 rows per request, so we walk all
+ * pages and merge them. Falls back to the plain (non-paginated) endpoint when
+ * pagination is unavailable so callers always receive a complete list.
+ */
+export async function listAllAdminDrivers(
+  pageSize = 100,
+  maxPages = 200,
+): Promise<AdminDriverResponse[]> {
+  try {
+    const merged: RawAdminDriverRow[] = [];
+    for (let page = 1; page <= maxPages; page++) {
+      const response = await listAdminDriversPaginated(page, pageSize);
+      const items = Array.isArray(response?.items) ? response.items : [];
+      merged.push(...items);
+      if (!response?.meta?.hasNext || items.length === 0) break;
+    }
+    if (merged.length > 0) {
+      return merged.map((item) => normalizePaginatedDriver(item));
+    }
+  } catch {
+    // Fall through to the plain endpoint below.
+  }
+  return listAdminDrivers();
+}
+
+/** Map the raw paginated driver row (profile + nested user) to the mapped shape. */
+export function normalizePaginatedDriver(item: RawAdminDriverRow): AdminDriverResponse {
+  const user = item.user ?? {};
+  const firstName = String(user.firstName ?? item.firstName ?? "");
+  const lastName = String(user.lastName ?? item.lastName ?? "");
+  const city = String(user.city ?? item.city ?? "");
+  const rawStatus = item.status ?? (user.status as string);
+  const status: "active" | "deleted" | "suspended" = rawStatus ? (rawStatus.toLowerCase() as "active" | "deleted" | "suspended") : "suspended";
+  const phone = String(user.phone ?? item.phone ?? "");
+  const completedRides = Number(item.completedRides ?? NaN);
+  const completedDeliveries = Number(item.completedDeliveries ?? NaN);
+  const tripsKnown = Number.isFinite(completedRides) || Number.isFinite(completedDeliveries);
+  const totalTrips =
+    item.totalTrips ??
+    (tripsKnown ? (Number.isFinite(completedRides) ? completedRides : 0) + (Number.isFinite(completedDeliveries) ? completedDeliveries : 0) : undefined);
+  return {
+    driverId: item.driverId ?? (item.id as string) ?? (user.id as string) ?? item.userId ?? "",
+    userId: item.userId ?? (user.id as string) ?? (item.id as string) ?? item.driverId ?? "",
+    fullName: item.fullName ?? [firstName, lastName].filter(Boolean).join(" ").trim(),
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
+    email: String(user.email ?? item.email ?? ""),
+    phone,
+    city,
+    status,
+    availabilityStatus: item.availabilityStatus ?? String(user.availabilityStatus ?? ""),
+    vehicleType: item.vehicleType ?? "Car",
+    totalTrips,
+    licensePlate: item.licensePlate ?? undefined,
+    model: item.model ?? undefined,
+    rating: item.rating ?? undefined,
+    roles: item.roles ?? (Array.isArray(user.roles) ? user.roles : []),
+  };
 }
 
 export type ActiveDriverMarker = {
@@ -408,6 +515,11 @@ export async function listAdminRoles(): Promise<AdminRoleResponse[]> {
   return request<AdminRoleResponse[]>("/admin/roles", { method: "GET" });
 }
 
+export async function listAdminPermissions(): Promise<string[]> {
+  const response = await request<{ permissions: string[] }>("/admin/permissions", { method: "GET" });
+  return response.permissions ?? [];
+}
+
 export async function getAdminRole(roleId: string): Promise<AdminRoleResponse> {
   return request<AdminRoleResponse>(`/admin/roles/${roleId}`, { method: "GET" });
 }
@@ -623,6 +735,58 @@ export async function patchAdminFeatureFlag(
     method: "PATCH",
     body: input,
   });
+}
+
+// ── Experiments ────────────────────────────────────────────────────────────
+
+export type AdminExperimentResponse = {
+  id: string;
+  name?: string;
+  key?: string;
+  status?: string;
+  variants?: Array<Record<string, unknown>>;
+  metrics?: Record<string, unknown>;
+  results?: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+  [key: string]: unknown;
+};
+
+export type AdminExperimentResultsResponse = {
+  experiment: AdminExperimentResponse;
+  summary: {
+    status: string;
+    startedAt: string | null;
+    endedAt: string | null;
+    sampleSize: number;
+    conversionRate: number | null;
+    confidence: number | null;
+    winner: string | null;
+  };
+  metrics: Record<string, unknown>;
+  variants: Array<{
+    id: string;
+    name: string;
+    allocation: number;
+    users: number;
+    conversions: number;
+    conversionRate: number | null;
+    metrics: Record<string, unknown>;
+  }>;
+  series: unknown[];
+  source: {
+    category: string;
+    settingId: string;
+    updatedAt: number;
+  };
+};
+
+export async function listAdminExperiments(): Promise<AdminExperimentResponse[]> {
+  return request<AdminExperimentResponse[]>("/admin/experiments", { method: "GET" });
+}
+
+export async function getAdminExperimentResults(experimentId: string): Promise<AdminExperimentResultsResponse> {
+  return request<AdminExperimentResultsResponse>(`/admin/experiments/${experimentId}/results`, { method: "GET" });
 }
 
 // ── Analytics ───────────────────────────────────────────────────────────────
@@ -1057,22 +1221,33 @@ export function mapAnalyticsPeriod(uiPeriod: string): string {
   return ANALYTICS_PERIOD_MAP[uiPeriod] ?? "month";
 }
 
+export type AdminAnalyticsFilters = {
+  period?: string;
+  service?: string;
+  region?: string;
+};
+
 export async function getAdminAnalyticsTimeseries(
   period = "month",
+  filters: AdminAnalyticsFilters = {},
 ): Promise<AdminAnalyticsTimeseries> {
   const backendPeriod = mapAnalyticsPeriod(period);
-  return request<AdminAnalyticsTimeseries>(
-    `/admin/portal/analytics/timeseries?period=${backendPeriod}`,
-    { method: "GET" },
-  );
+  return request<AdminAnalyticsTimeseries>("/admin/analytics/timeseries", {
+    method: "GET",
+    query: {
+      period: backendPeriod,
+      service: filters.service,
+      region: filters.region,
+    },
+  });
 }
 
 export async function getAdminAnalyticsOperations(): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>("/admin/portal/analytics/operations", { method: "GET" });
+  return request<Record<string, unknown>>("/admin/analytics/operations", { method: "GET" });
 }
 
 export async function getAdminAnalyticsFinance(): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>("/admin/portal/analytics/finance", { method: "GET" });
+  return request<Record<string, unknown>>("/admin/analytics/finance", { method: "GET" });
 }
 
 export type AdminAnalyticsDriverPoint = {
@@ -1096,20 +1271,30 @@ export type AdminAnalyticsCompanyPoint = {
 
 export async function getAdminAnalyticsDrivers(
   period = "month",
+  filters: AdminAnalyticsFilters = {},
 ): Promise<AdminAnalyticsDriverPoint[]> {
-  return request<AdminAnalyticsDriverPoint[]>(
-    `/admin/portal/analytics/drivers?period=${mapAnalyticsPeriod(period)}`,
-    { method: "GET" },
-  );
+  return request<AdminAnalyticsDriverPoint[]>("/admin/analytics/drivers", {
+    method: "GET",
+    query: {
+      period: mapAnalyticsPeriod(period),
+      service: filters.service,
+      region: filters.region,
+    },
+  });
 }
 
 export async function getAdminAnalyticsCompanies(
   period = "month",
+  filters: AdminAnalyticsFilters = {},
 ): Promise<AdminAnalyticsCompanyPoint[]> {
-  return request<AdminAnalyticsCompanyPoint[]>(
-    `/admin/portal/analytics/companies?period=${mapAnalyticsPeriod(period)}`,
-    { method: "GET" },
-  );
+  return request<AdminAnalyticsCompanyPoint[]>("/admin/analytics/companies", {
+    method: "GET",
+    query: {
+      period: mapAnalyticsPeriod(period),
+      service: filters.service,
+      region: filters.region,
+    },
+  });
 }
 
 // ── Monitoring detail endpoints (observability dashboards) ──────────────────
@@ -2010,6 +2195,128 @@ export async function patchAdminUser(userId: string, input: AdminUpdateUserInput
   return request<AdminUserResponse>(`/admin/users/${userId}`, {
     method: "PATCH",
     body: input,
+  });
+}
+
+// ── Admin Agents ───────────────────────────────────────────────────────────
+
+export type AdminAgentProfile = {
+  id: string;
+  userId: string;
+  organizationId: string;
+  employeeCode: string;
+  status: string;
+  portalRole: string;
+  teamId?: string | null;
+  title?: string | null;
+  department?: string | null;
+  availabilityStatus: string;
+  timezone: string;
+  language: string;
+  permissions: string[];
+  serviceCapabilities: string[];
+  lastActiveAt?: number | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type AdminAgentMetrics = {
+  assignedTickets: number;
+  openTickets: number;
+  resolvedTickets: number;
+  completedTasks: number;
+  averageResolutionMinutes: number | null;
+  qaScore: number | null;
+};
+
+export type AdminAgentActivity = {
+  id: string;
+  type: "ticket" | "task" | "audit" | string;
+  action: string;
+  occurredAt: number;
+  detail: string;
+};
+
+export type AdminAgentChatMessage = {
+  id: string;
+  threadId: string;
+  senderUserId: string;
+  body: string;
+  attachments: Array<string | Record<string, unknown>>;
+  createdAt: number;
+  updatedAt: number;
+  editedAt?: number | null;
+};
+
+export type AdminAgentResponse = AdminUserResponse & {
+  team: string;
+  profile: AdminAgentProfile | null;
+  metrics: AdminAgentMetrics;
+  activity?: AdminAgentActivity[];
+  chat?: {
+    threads: Array<Record<string, unknown>>;
+    recentMessages: AdminAgentChatMessage[];
+  };
+};
+
+export type AdminCreateAgentInput = AdminCreatePlatformUserInput & Partial<{
+  organizationId: string;
+  employeeCode: string;
+  portalRole: string;
+  title: string;
+  department: string;
+  timezone: string;
+  language: string;
+  teamId: string;
+  permissions: string[];
+  serviceCapabilities: string[];
+}>;
+
+export async function listAdminAgents(): Promise<AdminAgentResponse[]> {
+  return request<AdminAgentResponse[]>("/admin/agents", { method: "GET" });
+}
+
+export async function createAdminAgent(input: AdminCreateAgentInput): Promise<AdminAgentResponse> {
+  const userPayload = normalizeAdminCreatePlatformUserInput({
+    ...input,
+    roles: input.roles?.length ? input.roles : ["agent"],
+  });
+  return request<AdminAgentResponse>("/admin/agents", {
+    method: "POST",
+    body: {
+      ...userPayload,
+      organizationId: input.organizationId?.trim() || undefined,
+      employeeCode: input.employeeCode?.trim() || undefined,
+      portalRole: input.portalRole?.trim() || undefined,
+      title: input.title?.trim() || undefined,
+      department: input.department?.trim() || undefined,
+      timezone: input.timezone?.trim() || undefined,
+      language: input.language?.trim() || undefined,
+      teamId: input.teamId?.trim() || undefined,
+      permissions: input.permissions,
+      serviceCapabilities: input.serviceCapabilities,
+    },
+  });
+}
+
+export async function getAdminAgent(agentUserId: string): Promise<AdminAgentResponse> {
+  return request<AdminAgentResponse>(`/admin/agents/${agentUserId}`, { method: "GET" });
+}
+
+export async function getAdminAgentChat(agentUserId: string): Promise<{
+  thread: Record<string, unknown>;
+  messages: AdminAgentChatMessage[];
+}> {
+  return request(`/admin/agents/${agentUserId}/chat`, { method: "GET" });
+}
+
+export async function sendAdminAgentChat(
+  agentUserId: string,
+  message: string,
+): Promise<AdminAgentChatMessage> {
+  return request<AdminAgentChatMessage>(`/admin/agents/${agentUserId}/chat`, {
+    method: "POST",
+    body: { message },
   });
 }
 
@@ -3417,7 +3724,7 @@ export async function listAdminDeliveryLabels(
       toDate: filters.toDate,
       search: filters.search,
     })}`,
-    { method: "GET", unwrapData: false }
+    { method: "GET" }
   );
 }
 

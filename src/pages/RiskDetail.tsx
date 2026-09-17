@@ -2,22 +2,20 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Box, Card, CardContent, Typography, Chip, Button, Divider, TextField, Alert, CircularProgress } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { getAdminRiskCase } from "../services/api/adminApi";
+import { getAdminRiskCase, patchAdminRiskCase } from "../services/api/adminApi";
 import type { AdminRiskCaseResponse } from "../services/api/adminApi";
 
-const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
-};
+type RiskCaseDetail = AdminRiskCaseResponse & { updatedAt?: number };
 
 export default function RiskCaseDetailPage() {
   const { riskId } = useParams();
   const navigate = useNavigate();
-  const [riskCase, setRiskCase] = useState<AdminRiskCaseResponse | null>(null);
+  const [riskCase, setRiskCase] = useState<RiskCaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
-  const [noteList, setNoteList] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!riskId) return;
@@ -35,17 +33,37 @@ export default function RiskCaseDetailPage() {
     loadCase();
   }, [riskId]);
 
-  const handleAction = (action: string) => {
-    const entry = `Action: ${action} on ${riskCase?.id}${notes.trim() ? ` – note: ${notes.trim()}` : ""}`;
-    setNoteList((prev) => [entry, ...prev]);
-    setNotes("");
+  const appendCaseNote = (entry: string) => [riskCase?.notes, entry].filter(Boolean).join("\n");
+
+  const updateCase = async (status: "open" | "under_review" | "resolved", entry: string) => {
+    if (!riskCase) return;
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const updated = await patchAdminRiskCase(riskCase.id, {
+        status,
+        notes: appendCaseNote(entry),
+      });
+      setRiskCase(updated);
+      setNotes("");
+      setNotice("Risk case updated from the backend.");
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to update risk case");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAction = (action: string, status: "open" | "under_review" | "resolved") => {
+    const entry = `Action: ${action}${notes.trim() ? ` - ${notes.trim()}` : ""}`;
+    void updateCase(status, entry);
   };
 
   const handleAddNote = () => {
     const trimmed = notes.trim();
     if (!trimmed) return;
-    setNoteList((prev) => [trimmed, ...prev]);
-    setNotes("");
+    void updateCase((riskCase?.status ?? "open") as "open" | "under_review" | "resolved", `Note: ${trimmed}`);
   };
 
   if (loading) {
@@ -63,10 +81,14 @@ export default function RiskCaseDetailPage() {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Button onClick={() => navigate('/admin/risk')} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+        <Button onClick={() => navigate('/admin/risk')} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none', minWidth: 0 }}>
           Back
         </Button>
+        <Typography variant="caption" color="text.secondary">
+          Admin / Risk &amp; Fraud / {riskCase.id.slice(0, 8)}
+        </Typography>
       </Box>
+      {notice ? <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert> : null}
       <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
           <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
@@ -97,6 +119,10 @@ export default function RiskCaseDetailPage() {
             <Typography variant="caption" className="text-[11px] text-slate-500">
               {riskCase.subjectType} · {riskCase.type}
             </Typography>
+            <Typography variant="caption" className="text-[11px] text-slate-500" sx={{ display: "block" }}>
+              Created {new Date(riskCase.createdAt).toLocaleString()}
+              {riskCase.updatedAt ? ` · Updated ${new Date(riskCase.updatedAt).toLocaleString()}` : ""}
+            </Typography>
           </Box>
           <Box className="flex flex-wrap gap-1 items-center">
             <Chip
@@ -112,6 +138,12 @@ export default function RiskCaseDetailPage() {
                     ? "#fef3c7"
                     : "#e0f2fe",
               }}
+            />
+            <Chip
+              size="small"
+              label={riskCase.status ?? "open"}
+              color={riskCase.status === "resolved" ? "success" : riskCase.status === "under_review" ? "warning" : "default"}
+              sx={{ fontSize: 10, height: 22 }}
             />
             <Chip
               size="small"
@@ -167,6 +199,7 @@ export default function RiskCaseDetailPage() {
                   placeholder="Add notes for audit trail and hand-off to fraud desk…"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                  disabled={saving}
                   sx={{
                     "& .MuiOutlinedInput-root": { bgcolor: "background.default" },
                     "& .MuiInputBase-input": { fontSize: 12 },
@@ -178,23 +211,24 @@ export default function RiskCaseDetailPage() {
                   color="success"
                   sx={{ alignSelf: "flex-end", textTransform: "none", borderRadius: 999, fontSize: 12, color: "white" }}
                   onClick={handleAddNote}
+                  disabled={saving || !notes.trim()}
                 >
-                  Add note
+                  {saving ? "Saving..." : "Add note"}
                 </Button>
               </Box>
 
-              {noteList.length > 0 && (
+              {riskCase.notes ? (
                 <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
                   <Typography variant="caption" className="text-[11px]" color="text.secondary">
-                    Recent notes
+                    Backend notes
                   </Typography>
-                  {noteList.map((n, idx) => (
+                  {riskCase.notes.split("\n").filter(Boolean).map((n, idx) => (
                     <Typography key={idx} variant="body2" className="text-[12px] text-slate-500">
-                      • {n}
+                      {n}
                     </Typography>
                   ))}
                 </Box>
-              )}
+              ) : null}
             </Box>
           </CardContent>
         </Card>
@@ -226,7 +260,8 @@ export default function RiskCaseDetailPage() {
                 fontSize: 12,
                 color: "text.secondary",
               }}
-              onClick={() => handleAction("Monitor")}
+              disabled={saving}
+              onClick={() => handleAction("Monitor", "open")}
             >
               Monitor only (no blocking)
             </Button>
@@ -241,7 +276,8 @@ export default function RiskCaseDetailPage() {
                 borderColor: "#f97316",
                 color: "#92400e",
               }}
-              onClick={() => handleAction("Limit features")}
+              disabled={saving}
+              onClick={() => handleAction("Limit features", "under_review")}
             >
               Limit features (e.g. no cash trips)
             </Button>
@@ -256,7 +292,8 @@ export default function RiskCaseDetailPage() {
                 bgcolor: "#ef4444",
                 "&:hover": { bgcolor: "#dc2626" },
               }}
-              onClick={() => handleAction("Escalate to fraud desk")}
+              disabled={saving}
+              onClick={() => handleAction("Escalate to fraud desk", "under_review")}
             >
               Escalate to fraud desk
             </Button>
@@ -272,9 +309,10 @@ export default function RiskCaseDetailPage() {
                 color: "#ffffff",
                 "&:hover": { bgcolor: "#15803d" },
               }}
-              onClick={() => handleAction("Suspend account")}
+              disabled={saving}
+              onClick={() => handleAction("Resolved after admin review", "resolved")}
             >
-              Suspend account immediately
+              Resolve case
             </Button>
           </CardContent>
         </Card>

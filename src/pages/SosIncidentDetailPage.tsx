@@ -34,6 +34,7 @@ import {
 import AdminTripCommunicationPanel from "../components/AdminTripCommunicationPanel";
 import RideRouteMap from "../components/rides/RideRouteMap";
 import type { AdminRideStopResponse } from "../services/api/adminApi";
+import { attachAdminRealtimeSocket } from "../services/adminRealtime";
 
 function mapsLink(latitude?: number | null, longitude?: number | null): string | null {
   if (latitude == null || longitude == null) return null;
@@ -131,9 +132,6 @@ export default function SosIncidentDetailPage() {
   };
 
   useEffect(() => {
-    const socket = createAdminSocket();
-    socket.connect();
-
     const onSessionUpdate = (payload: any) => {
       if (!payload) return;
       if (payload.incidentId && payload.incidentId !== incidentId) return;
@@ -161,16 +159,17 @@ export default function SosIncidentDetailPage() {
       setMessages((current) => current.some((item) => item.id === payload.message.id) ? current : [...current, payload.message]);
     };
 
-    socket.on("sos.session.update", onSessionUpdate);
-    socket.on("sos.location.update", onLocationUpdate);
-    socket.on("safety.emergency.message.new", onEmergencyMessage);
-    socket.on("connect", () => socket.emit("subscribe", { rooms: ["operations"] }));
+    const detach = attachAdminRealtimeSocket(createAdminSocket(), {
+      rooms: ["operations"],
+      events: {
+        "sos.session.update": onSessionUpdate,
+        "sos.location.update": onLocationUpdate,
+        "safety.emergency.message.new": onEmergencyMessage,
+      },
+    });
 
     return () => {
-      socket.off("sos.session.update", onSessionUpdate);
-      socket.off("sos.location.update", onLocationUpdate);
-      socket.off("safety.emergency.message.new", onEmergencyMessage);
-      socket.disconnect();
+      detach();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentId, sos?.session?.id]);
@@ -232,7 +231,23 @@ export default function SosIncidentDetailPage() {
     );
   }
 
-  if (!incident) return null;
+  if (!incident) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="warning">
+          This safety incident could not be found or is no longer available.
+        </Alert>
+        <Button
+          variant="outlined"
+          startIcon={<ArrowBackIcon />}
+          sx={{ mt: 2 }}
+          onClick={() => navigate("/admin/safety")}
+        >
+          Back to safety overview
+        </Button>
+      </Box>
+    );
+  }
 
   const reporterName =
     sos?.session?.reporterName || incident.reporterUserId || "Reporter";
@@ -426,6 +441,50 @@ export default function SosIncidentDetailPage() {
                   {incident.audioDurationMs ? ` (${Math.round(incident.audioDurationMs / 1000)}s)` : ""}
                 </Button>
               </Box>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Notified contacts
+            </Typography>
+            {!incident.notifiedContacts || incident.notifiedContacts.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No contact notification attempts recorded.
+              </Typography>
+            ) : (
+              <Stack spacing={1}>
+                {incident.notifiedContacts.map((attempt, index) => (
+                  <Paper key={`${attempt.phone}-${index}`} variant="outlined" sx={{ p: 1.25 }}>
+                    <Stack direction="row" alignItems="center" spacing={1} justifyContent="space-between">
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {attempt.name || "Contact"}
+                          {attempt.phone ? ` · ${attempt.phone}` : ""}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {attempt.source ?? "USER"} · {attempt.provider ?? "NONE"}
+                          {attempt.providerResult?.messageId ? ` · ${attempt.providerResult.messageId}` : ""}
+                          {attempt.providerResult?.error ? ` · ${attempt.providerResult.error}` : ""}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        size="small"
+                        label={attempt.status === "SENT" ? "SENT" : attempt.status ?? "FAILED"}
+                        color={attempt.status === "SENT" ? "success" : "error"}
+                        sx={{ fontSize: 10, height: 20 }}
+                      />
+                    </Stack>
+                    {attempt.attemptedAt && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                        Attempted {new Date(attempt.attemptedAt).toLocaleString()}
+                      </Typography>
+                    )}
+                  </Paper>
+                ))}
+              </Stack>
             )}
           </CardContent>
         </Card>
@@ -710,6 +769,15 @@ export default function SosIncidentDetailPage() {
                 size="small"
               >
                 Resolve
+              </Button>
+              <Button
+                disabled={patching || incident.status === "OPEN"}
+                onClick={() => patchStatus("OPEN")}
+                color="warning"
+                variant="outlined"
+                size="small"
+              >
+                Reopen
               </Button>
               {live && mapsLink(live.latitude, live.longitude) && (
                 <Button

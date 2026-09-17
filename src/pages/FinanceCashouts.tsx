@@ -26,7 +26,8 @@ import {
 import { listAdminCashouts, reviewAdminCashout, type AdminCashout } from '../services/api/adminApi';
 
 const statusColor = (status: string) => {
-  switch (status) {
+  const lower = status.toLowerCase();
+  switch (lower) {
     case 'approved':
     case 'completed':
       return 'success';
@@ -45,15 +46,25 @@ export default function FinanceCashoutsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminCashout | null>(null);
-  const [status, setStatus] = useState('approved');
+  const [status, setStatus] = useState<string>('APPROVED');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listAdminCashouts({ limit: 100 });
+      const res = await listAdminCashouts({
+        limit: 100,
+        status: statusFilter || undefined,
+        search: search.trim() || undefined,
+        from: fromDate || undefined,
+        to: toDate || undefined,
+      });
       setItems(res.items || []);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load cashouts');
@@ -106,6 +117,19 @@ export default function FinanceCashoutsPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
+      <Card elevation={0} sx={{ mb: 2, borderRadius: 2, border: '1px solid rgba(148,163,184,0.24)' }}>
+        <CardContent className="flex gap-2 flex-wrap items-center">
+          <TextField label="Search" size="small" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="User or cashout id" />
+          <Select value={statusFilter} displayEmpty size="small" onChange={(e) => setStatusFilter(e.target.value)} sx={{ minWidth: 150 }}>
+            <MenuItem value=""><em>All statuses</em></MenuItem>
+            {['PENDING', 'APPROVED', 'REJECTED', 'FAILED', 'COMPLETED'].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+          </Select>
+          <TextField label="From" type="date" size="small" value={fromDate} onChange={(e) => setFromDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <TextField label="To" type="date" size="small" value={toDate} onChange={(e) => setToDate(e.target.value)} InputLabelProps={{ shrink: true }} />
+          <Button variant="contained" size="small" onClick={() => void load()} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>Apply filters</Button>
+        </CardContent>
+      </Card>
+
       <Card elevation={1} sx={{ borderRadius: 2, border: '1px solid rgba(148,163,184,0.3)' }}>
         <CardContent className="p-0">
           <TableContainer component={Paper} elevation={0}>
@@ -144,7 +168,7 @@ export default function FinanceCashoutsPage() {
                         sx={{ textTransform: 'none', borderRadius: 999, fontSize: 12 }}
                         onClick={() => {
                           setSelected(item);
-                          setStatus('approved');
+                          setStatus('APPROVED');
                           setReason('');
                         }}
                       >
@@ -163,11 +187,10 @@ export default function FinanceCashoutsPage() {
         <DialogTitle>Review cashout</DialogTitle>
         <DialogContent className="flex flex-col gap-3">
           <Typography variant="body2">{selected ? `${selected.currency} ${selected.amount?.toLocaleString()} for ${selected.userId}` : ''}</Typography>
-          <Select value={status} fullWidth size="small" onChange={(e) => setStatus(e.target.value)}>
-            <MenuItem value="approved">Approve</MenuItem>
-            <MenuItem value="rejected">Reject</MenuItem>
-            <MenuItem value="completed">Complete</MenuItem>
-          </Select>
+<Select value={status} fullWidth size="small" onChange={(e) => setStatus(e.target.value)}>
+              <MenuItem value="APPROVED">Approve</MenuItem>
+              <MenuItem value="REJECTED">Reject</MenuItem>
+            </Select>
           <TextField label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth size="small" />
         </DialogContent>
         <DialogActions>
