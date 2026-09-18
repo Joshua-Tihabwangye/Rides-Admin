@@ -1514,6 +1514,7 @@ export type AdminPendingDocument = {
   type: string;
   status: string;
   fileUrl: string;
+  fileAssetId?: string | null;
   issueDate?: string;
   expiryDate?: string;
   createdAt: string;
@@ -1530,6 +1531,7 @@ export type AdminDocumentHistoryItem = {
   documentType: string;
   status: string;
   fileUrl: string;
+  fileAssetId?: string | null;
   fileKey?: string | null;
   originalFileName?: string | null;
   mimeType?: string | null;
@@ -1557,6 +1559,36 @@ export type AdminDriverDocumentHistoryResponse = {
   driverDocuments: AdminDocumentHistoryItem[];
   vehicleDocuments: AdminDocumentHistoryItem[];
 };
+
+export type AdminFileAssetResponse = {
+  id?: string;
+  fileAssetId?: string;
+  fileUrl?: string;
+  accessUrl?: string;
+  downloadUrl?: string;
+  downloadExpiresAt?: number;
+};
+
+export function extractFileAssetIdFromUrl(fileUrl?: string | null): string | undefined {
+  if (!fileUrl) return undefined;
+  const match = fileUrl.match(/\/files\/([^/?#]+)(?:\/download)?/);
+  return match?.[1] ? decodeURIComponent(match[1]) : undefined;
+}
+
+export async function getFreshFileDownloadUrl(fileUrl?: string | null, fileAssetId?: string | null): Promise<string> {
+  const id = fileAssetId || extractFileAssetIdFromUrl(fileUrl);
+  if (!id) {
+    if (fileUrl) return fileUrl;
+    throw new Error("Document file is not available.");
+  }
+
+  const asset = await request<AdminFileAssetResponse>(`/files/${encodeURIComponent(id)}`, { method: "GET" });
+  const freshUrl = asset.downloadUrl || asset.accessUrl || asset.fileUrl;
+  if (!freshUrl) {
+    throw new Error("Document download link is not available.");
+  }
+  return freshUrl;
+}
 
 export type AdminDocumentReviewInput = {
   status: "verified" | "rejected";
@@ -3455,10 +3487,41 @@ export type AdminRideListResponse = {
   meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
 };
 
+type AdminRideListEnvelope = {
+  data?: AdminRideListItemResponse[] | AdminRideListResponse;
+  items?: AdminRideListItemResponse[];
+  meta?: AdminRideListResponse['meta'];
+};
+
+function normalizeAdminRideListResponse(response: AdminRideListEnvelope | AdminRideListItemResponse[]): AdminRideListResponse {
+  const payload = Array.isArray(response)
+    ? { items: response }
+    : Array.isArray(response.data)
+      ? { items: response.data, meta: response.meta }
+      : response.data && !Array.isArray(response.data)
+        ? response.data
+        : response;
+
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  const fallbackMeta: AdminRideListResponse['meta'] = {
+    page: 1,
+    limit: items.length || 20,
+    total: items.length,
+    totalPages: items.length > 0 ? 1 : 0,
+    hasNext: false,
+    hasPrevious: false,
+  };
+
+  return {
+    items,
+    meta: payload.meta ?? fallbackMeta,
+  };
+}
+
 export async function listAdminRides(
   filters: ListAdminRidesFilters = {},
 ): Promise<AdminRideListResponse> {
-  return request<AdminRideListResponse>(
+  const response = await request<AdminRideListEnvelope | AdminRideListItemResponse[]>(
     `/admin/rides${toQueryString({
       page: filters.page,
       limit: filters.limit,
@@ -3471,8 +3534,9 @@ export async function listAdminRides(
       fromDate: filters.fromDate,
       toDate: filters.toDate,
     })}`,
-    { method: 'GET' },
+    { method: 'GET', unwrapData: false },
   );
+  return normalizeAdminRideListResponse(response);
 }
 
 export async function getAdminRide(id: string): Promise<AdminRideDetailResponse> {

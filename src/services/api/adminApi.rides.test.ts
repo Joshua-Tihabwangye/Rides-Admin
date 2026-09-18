@@ -61,6 +61,39 @@ describe("admin rides API helpers", () => {
     expect(init.method).toBe("GET");
   });
 
+  it("normalizes the backend paginated envelope into ride list items", async () => {
+    const ride = {
+      id: "ride-1",
+      status: "COMPLETED",
+      mode: "ON_DEMAND",
+      category: "STANDARD",
+      tripType: "ONE_WAY",
+      riderId: "rider-1",
+      passengerCount: 1,
+      estimatedFare: 12000,
+      currency: "UGX",
+      paymentStatus: "PAID",
+      createdAt: "2026-09-18T08:00:00.000Z",
+    };
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            success: true,
+            data: [ride],
+            meta: { page: 3, limit: 1, total: 7, totalPages: 7, hasNext: true, hasPrevious: true },
+          }),
+        ),
+    } as unknown as Response);
+
+    const response = await listAdminRides({ page: 3, limit: 1 });
+
+    expect(response.items).toEqual([ride]);
+    expect(response.meta.total).toBe(7);
+  });
+
   it("loads ride detail, payments, communications, incidents, and anomalies", async () => {
     await getAdminRide("ride-1");
     let [url, init] = lastCall();

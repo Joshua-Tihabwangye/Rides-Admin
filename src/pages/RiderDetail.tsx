@@ -10,6 +10,7 @@ import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler'
 import { getAdminRidePayments, getAdminRider, listAdminRiderDocuments, listAdminRiderServices, listAdminRides, patchAdminRider } from '../services/api/adminApi'
 import type { AdminDocumentHistoryItem, AdminRideListItemResponse, AdminRidePaymentResponse, AdminRiderResponse, AdminRiderServiceResponse } from '../services/api/adminApi'
+import { openAdminDocument } from '../utils/openAdminDocument'
 
 interface TabPanelProps {
     children?: React.ReactNode
@@ -74,6 +75,7 @@ export default function RiderDetail() {
     const [documents, setDocuments] = useState<AdminDocumentHistoryItem[]>([])
     const [detailsLoading, setDetailsLoading] = useState(false)
     const [detailsError, setDetailsError] = useState<string | null>(null)
+    const [documentOpenError, setDocumentOpenError] = useState<string | null>(null)
 
     useEffect(() => {
         if (!id) return
@@ -121,6 +123,15 @@ export default function RiderDetail() {
         }
         void loadRider()
     }, [id])
+
+    const handleOpenDocument = async (document: AdminDocumentHistoryItem) => {
+        setDocumentOpenError(null)
+        try {
+            await openAdminDocument(document)
+        } catch (e) {
+            setDocumentOpenError(getErrorMessage(e, 'Failed to open document'))
+        }
+    }
 
     const handleStatusUpdate = async (newStatus: ReviewStatus) => {
         if (!rider) return
@@ -347,6 +358,7 @@ export default function RiderDetail() {
                                 )}
                             </CustomTabPanel>
                             <CustomTabPanel value={tabValue} index={2}>
+                                {documentOpenError ? <Alert severity="error" sx={{ mb: 2 }}>{documentOpenError}</Alert> : null}
                                 {documents.length === 0 ? (
                                     <Alert severity="info" sx={{ mb: 2 }}>No backend rider documents returned for this rider.</Alert>
                                 ) : (
@@ -372,7 +384,7 @@ export default function RiderDetail() {
                                                     </TableCell>
                                                     <TableCell><Chip size="small" label={document.status} /></TableCell>
                                                     <TableCell>
-                                                        <Button size="small" href={document.fileUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: 'none' }}>
+                                                        <Button size="small" onClick={() => void handleOpenDocument(document)} sx={{ textTransform: 'none' }}>
                                                             Open
                                                         </Button>
                                                     </TableCell>

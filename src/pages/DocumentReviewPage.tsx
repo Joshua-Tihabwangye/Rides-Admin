@@ -27,6 +27,7 @@ import {
   reviewAdminVehicleDocument,
   type AdminPendingDocument,
 } from "../services/api/adminApi";
+import { openAdminDocument } from "../utils/openAdminDocument";
 
 export default function DocumentReviewPage() {
   const [tab, setTab] = useState<"driver" | "vehicle">("driver");
@@ -81,6 +82,15 @@ export default function DocumentReviewPage() {
       setError(err?.message ?? "Review failed");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOpenDocument = async (document: AdminPendingDocument) => {
+    setError(null);
+    try {
+      await openAdminDocument(document);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to open document");
     }
   };
 
@@ -139,9 +149,7 @@ export default function DocumentReviewPage() {
                     <Button
                       size="small"
                       variant="outlined"
-                      href={doc.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      onClick={() => void handleOpenDocument(doc)}
                       fullWidth
                     >
                       View Document
@@ -176,9 +184,7 @@ export default function DocumentReviewPage() {
           {selectedDoc?.fileUrl ? (
             <Button
               variant="outlined"
-              href={selectedDoc.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              onClick={() => void handleOpenDocument(selectedDoc)}
               fullWidth
               sx={{ mb: 2 }}
             >

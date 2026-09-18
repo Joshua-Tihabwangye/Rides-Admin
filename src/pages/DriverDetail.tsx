@@ -7,6 +7,7 @@ import PhoneIcon from '@mui/icons-material/Phone'
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import StatusBadge from '../components/StatusBadge'
 import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel'
+import { openAdminDocument } from '../utils/openAdminDocument'
 import {
     getAdminDriver,
     patchAdminDriver,
@@ -91,6 +92,7 @@ export default function DriverDetail() {
     const [documents, setDocuments] = useState<AdminDocumentHistoryItem[]>([])
     const [ridesLoading, setRidesLoading] = useState(false)
     const [ridesError, setRidesError] = useState<string | null>(null)
+    const [documentOpenError, setDocumentOpenError] = useState<string | null>(null)
     const [actionLoading, setActionLoading] = useState(false)
     const [actionError, setActionError] = useState<string | null>(null)
 
@@ -172,6 +174,15 @@ export default function DriverDetail() {
         }
         void loadDriver()
     }, [id])
+
+    const handleOpenDocument = async (document: AdminDocumentHistoryItem) => {
+        setDocumentOpenError(null)
+        try {
+            await openAdminDocument(document)
+        } catch (e) {
+            setDocumentOpenError(getErrorMessage(e, 'Failed to open document'))
+        }
+    }
 
     const handleStatusUpdate = async (newStatus: ReviewStatus) => {
         if (!driver) return
@@ -334,6 +345,7 @@ export default function DriverDetail() {
                         <CardContent>
                             <CustomTabPanel value={tabValue} index={0}>
                                 {ridesError ? <Alert severity="error" sx={{ mb: 2 }}>{ridesError}</Alert> : null}
+                                {documentOpenError ? <Alert severity="error" sx={{ mb: 2 }}>{documentOpenError}</Alert> : null}
                                 {ridesLoading ? (
                                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                                         <CircularProgress size={28} />
@@ -371,7 +383,7 @@ export default function DriverDetail() {
                                                     </TableCell>
                                                     <TableCell><Chip size="small" label={document.status} /></TableCell>
                                                     <TableCell>
-                                                        <Button size="small" href={document.fileUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: 'none' }}>
+                                                        <Button size="small" onClick={() => void handleOpenDocument(document)} sx={{ textTransform: 'none' }}>
                                                             Open
                                                         </Button>
                                                     </TableCell>
