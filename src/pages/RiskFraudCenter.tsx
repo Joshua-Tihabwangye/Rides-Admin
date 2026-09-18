@@ -1,31 +1,84 @@
-import React, { useState, useEffect, useMemo } from"react";
-import { useNavigate } from"react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  Alert,
   Box,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
+  Button,
   Checkbox,
   Chip,
-  Button,
-  Divider,
   CircularProgress,
-  Alert,
-} from"@mui/material";
-import { listAdminRiskCases, patchAdminRiskCase } from"../services/api/adminApi";
-import type { AdminRiskCaseResponse } from"../services/api/adminApi";
+  Divider,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from "@mui/material";
+import DownloadIcon from "@mui/icons-material/Download";
+import GppMaybeIcon from "@mui/icons-material/GppMaybe";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import RuleIcon from "@mui/icons-material/Rule";
+import SearchIcon from "@mui/icons-material/Search";
+import { listAdminRiskCases, patchAdminRiskCase } from "../services/api/adminApi";
+import type { AdminRiskCaseResponse } from "../services/api/adminApi";
 
-const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
-};
+const EV_GREEN = "#03cd8c";
+
+function formatDate(value?: number | string | null) {
+  if (value == null) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
+function titleize(value?: string | null) {
+  if (!value) return "-";
+  return value
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function evidenceText(value: unknown) {
+  if (value == null) return "";
+  if (Array.isArray(value)) return value.map(String).join(", ");
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item != null)
+      .slice(0, 6)
+      .map(([key, item]) => `${titleize(key)}: ${Array.isArray(item) ? item.join(", ") : String(item)}`)
+      .join(" · ");
+  }
+  return String(value);
+}
+
+function caseCause(riskCase: AdminRiskCaseResponse) {
+  const evidence = riskCase.evidence ?? {};
+  const flagText = evidenceText((evidence as Record<string, unknown>).flags);
+  if (flagText) return flagText;
+  if (riskCase.notes) return riskCase.notes;
+  return `${titleize(riskCase.type)} raised for ${titleize(riskCase.subjectType)} ${riskCase.subjectId.slice(0, 8)}`;
+}
+
+function caseResolution(riskCase: AdminRiskCaseResponse) {
+  if (riskCase.status === "resolved") {
+    return riskCase.resolvedAt ? `Resolved ${formatDate(riskCase.resolvedAt)}` : "Resolved";
+  }
+  if (riskCase.status === "under_review") {
+    return "Under review: validate evidence, contact the subject, then resolve or reopen.";
+  }
+  return "Open: assign reviewer, inspect evidence, decide whether to mark under review or resolve.";
+}
 
 export default function RiskFraudCenterPage() {
   const navigate = useNavigate();
-  const [typeFilter, setTypeFilter] = useState<string>("All");
-  const [severityFilter, setSeverityFilter] = useState<string>("All");
-  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [severityFilter, setSeverityFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [cases, setCases] = useState<AdminRiskCaseResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,43 +90,55 @@ export default function RiskFraudCenterPage() {
     setError(null);
     try {
       const data = await listAdminRiskCases();
-      setCases(data);
+      setCases(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      setError(err?.message ?? 'Failed to load risk cases');
+      setError(err?.message ?? "Failed to load risk cases");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCases();
+    void fetchCases();
   }, []);
 
-  const handleCaseClick = (riskCase: AdminRiskCaseResponse) => {
-    navigate(`/admin/risk/${riskCase.id}`);
-  };
-
-  const exportCsv = () => {
-    const rows = [
-      ["ID", "Subject", "Type", "Severity", "Status", "Created At", "Notes"],
-      ...filteredCases.map((riskCase) => [
+  const filteredCases = useMemo(() => {
+    return cases.filter((riskCase) => {
+      const matchesType = typeFilter === "All" || riskCase.type === typeFilter;
+      const matchesSeverity = severityFilter === "All" || riskCase.severity.toLowerCase() === severityFilter.toLowerCase();
+      const matchesStatus = statusFilter === "All" || (riskCase.status ?? "open") === statusFilter;
+      const query = search.trim().toLowerCase();
+      const haystack = [
         riskCase.id,
         riskCase.subjectId,
+        riskCase.subjectType,
         riskCase.type,
         riskCase.severity,
-        riskCase.status ?? "open",
-        new Date(riskCase.createdAt).toISOString(),
-        riskCase.notes ?? "",
-      ]),
+        riskCase.status,
+        riskCase.notes,
+        evidenceText(riskCase.evidence),
+      ].join(" ").toLowerCase();
+      return matchesType && matchesSeverity && matchesStatus && (query.length === 0 || haystack.includes(query));
+    });
+  }, [cases, typeFilter, severityFilter, statusFilter, search]);
+
+  const kpis = useMemo(() => {
+    const open = cases.filter((riskCase) => (riskCase.status ?? "open") === "open").length;
+    const underReview = cases.filter((riskCase) => riskCase.status === "under_review").length;
+    const resolved = cases.filter((riskCase) => riskCase.status === "resolved").length;
+    const high = cases.filter((riskCase) => riskCase.severity === "High").length;
+    return [
+      { label: "All cases", value: cases.length, filter: "All", helper: "Database risk queue" },
+      { label: "Open", value: open, filter: "open", helper: `${high} high severity` },
+      { label: "Under review", value: underReview, filter: "under_review", helper: "Assigned investigation" },
+      { label: "Resolved", value: resolved, filter: "resolved", helper: "Closed cases" },
     ];
-    const blob = new Blob([rows.map((row) => row.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "risk-cases.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  }, [cases]);
+
+  const typeOptions = useMemo(() => {
+    const types = Array.from(new Set(cases.map((riskCase) => riskCase.type).filter(Boolean)));
+    return ["All", ...types.sort((a, b) => a.localeCompare(b))];
+  }, [cases]);
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]);
@@ -91,316 +156,194 @@ export default function RiskFraudCenterPage() {
     }
   };
 
-  const filteredCases = useMemo(() => {
-    return cases.filter((c) => {
-      const matchesType = typeFilter === "All" || c.type === typeFilter;
-
-      const matchesSeverity =
-        severityFilter === "All" || c.severity.toLowerCase() === severityFilter.toLowerCase();
-      const matchesStatus = statusFilter === "All" || (c.status ?? "open") === statusFilter;
-      const query = search.trim().toLowerCase();
-      const matchesSearch =
-        query.length === 0 ||
-        c.id.toLowerCase().includes(query) ||
-        c.subjectId.toLowerCase().includes(query) ||
-        c.subjectType.toLowerCase().includes(query) ||
-        c.type.toLowerCase().includes(query) ||
-        (c.notes ?? "").toLowerCase().includes(query);
-
-      return matchesType && matchesSeverity && matchesStatus && matchesSearch;
-    });
-  }, [cases, typeFilter, severityFilter, statusFilter, search]);
-
-  const kpis = useMemo(() => {
-    const open = cases.filter((c) => (c.status ?? "open") === "open").length;
-    const underReview = cases.filter((c) => c.status === "under_review").length;
-    const resolved = cases.filter((c) => c.status === "resolved").length;
-    return [
-      { label: "Total cases", value: cases.length },
-      { label: "Open", value: open },
-      { label: "Under review", value: underReview },
-      { label: "Resolved", value: resolved },
+  const exportCsv = () => {
+    const rows = [
+      ["ID", "Subject", "Type", "Severity", "Status", "Cause", "Resolution", "Created At"],
+      ...filteredCases.map((riskCase) => [
+        riskCase.id,
+        riskCase.subjectId,
+        riskCase.type,
+        riskCase.severity,
+        riskCase.status ?? "open",
+        caseCause(riskCase),
+        caseResolution(riskCase),
+        formatDate(riskCase.createdAt),
+      ]),
     ];
-  }, [cases]);
-
-  const typeOptions = useMemo(() => {
-    const types = Array.from(new Set(cases.map((c) => c.type).filter(Boolean)));
-    return ["All", ...types.sort((a, b) => a.localeCompare(b))];
-  }, [cases]);
+    const blob = new Blob([rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "risk-cases.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 6 }}>
         <CircularProgress />
       </Box>
     );
   }
 
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
-
   return (
-    <Box>
-      <Box className="pb-4 flex items-center justify-between gap-2">
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
-            Risk & Fraud Center
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Suspicious activity, abuse patterns and fraud alerts across EVzone.
+          <Stack direction="row" spacing={1} alignItems="center">
+            <GppMaybeIcon color="warning" />
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>
+              Risk & Fraud Center
+            </Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Risk cases from the database with anomaly type, reason, and resolution state.
           </Typography>
         </Box>
+        <Stack direction="row" spacing={1}>
+          <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={exportCsv} sx={{ textTransform: "none", borderRadius: 999 }}>
+            Export
+          </Button>
+          <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => void fetchCases()} sx={{ textTransform: "none", borderRadius: 999 }}>
+            Refresh
+          </Button>
+        </Stack>
       </Box>
 
-      {/* KPI summary */}
-      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 2, mb: 3 }}>
         {kpis.map((kpi) => (
-          <Card
+          <Paper
             key={kpi.label}
-            elevation={1}
-            sx={{ borderRadius: 8, border: "1px solid rgba(148,163,184,0.4)" }}
-          >
-            <CardContent className="p-3 flex flex-col gap-0.5">
-              <Typography variant="caption" className="text-[11px] uppercase tracking-wide text-slate-500">
-                {kpi.label}
-              </Typography>
-              <Typography variant="h6" className="font-semibold text-lg" color="text.primary">
-                {kpi.value}
-              </Typography>
-            </CardContent>
-          </Card>
-        ))}
-      </Box>
-
-      {/* Filters row */}
-      <Card
-        elevation={1}
-        sx={{
-          borderRadius: 8,
-          border: "1px solid rgba(148,163,184,0.5)",
-        }}
-      >
-        <CardContent className="p-3 flex flex-col gap-3">
-          <Typography
-            variant="caption"
-            className="text-[11px]"
-            color="text.secondary"
-          >
-            Filter suspicious activity by type, severity, age and region. Data is from backend.
-          </Typography>
-          <Box className="flex flex-wrap gap-2 justify-end">
-            <Button size="small" variant="outlined" onClick={exportCsv} sx={{ textTransform: "none" }}>
-              Export CSV
-            </Button>
-            <Button
-              size="small"
-              variant="contained"
-              disabled={selectedIds.length === 0}
-              sx={{ textTransform: "none", bgcolor: EV_COLORS.primary, "&:hover": { bgcolor: "#0fb589" } }}
-              onClick={() => void bulkUpdate("under_review")}
-            >
-              Mark under review
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              disabled={selectedIds.length === 0}
-              sx={{ textTransform: "none" }}
-              onClick={() => void bulkUpdate("resolved")}
-            >
-              Resolve selected
-            </Button>
-          </Box>
-
-          <Divider className="!my-1" />
-
-          <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
-            <Box className="flex flex-col gap-1">
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Search</Typography>
-              <TextField
-                size="small"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Case, subject, type, notes"
-                sx={{ fontSize: 12, bgcolor: "background.paper" }}
-              />
-            </Box>
-            <Box className="flex flex-col gap-1">
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Type</Typography>
-              <TextField
-                select
-                size="small"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor: "background.paper" }}
-              >
-                {typeOptions.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </TextField>
-            </Box>
-            <Box className="flex flex-col gap-1">
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Severity</Typography>
-              <TextField
-                select
-                size="small"
-                value={severityFilter}
-                onChange={(e) => setSeverityFilter(e.target.value)}
-                SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor: "background.paper" }}
-              >
-                {["All","Low","Medium","High"].map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </TextField>
-            </Box>
-            <Box className="flex flex-col gap-1">
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>Status</Typography>
-              <TextField
-                select
-                size="small"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                SelectProps={{ native: true }}
-                sx={{ fontSize: 12, bgcolor: "background.paper" }}
-              >
-                {[
-                  ["All", "All"],
-                  ["open", "Open"],
-                  ["under_review", "Under review"],
-                  ["resolved", "Resolved"],
-                ].map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </TextField>
-            </Box>
-          </Box>
-          <Box className="flex items-center justify-between">
-            <Typography variant="caption" color="text.secondary">
-              Showing {filteredCases.length} of {cases.length} risk cases
-            </Typography>
-            <Typography variant="caption" color="text.disabled">
-              Type options reflect backend case values
-            </Typography>
-          </Box>
-        </CardContent>
-      </Card>
-
-      {/* Risk cases list */}
-      <Box className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {filteredCases.map((riskCase) => (
-          <Card
-            key={riskCase.id}
-            elevation={1}
-            onClick={() => handleCaseClick(riskCase)}
+            variant="outlined"
+            onClick={() => setStatusFilter(kpi.filter)}
             sx={{
-              borderRadius: 8,
-              border: "1px solid rgba(148,163,184,0.6)",
-              outline: selectedIds.includes(riskCase.id) ? `2px solid ${EV_COLORS.primary}` : "none",
+              p: 2,
+              borderRadius: 2,
               cursor: "pointer",
-              "&:hover": {
-                transform: "translateY(-3px)",
-                boxShadow: 4,
-              },
+              borderColor: statusFilter === kpi.filter ? EV_GREEN : "divider",
+              bgcolor: statusFilter === kpi.filter ? "rgba(3, 205, 140, 0.06)" : "background.paper",
+              "&:hover": { borderColor: EV_GREEN, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" },
             }}
           >
-            <CardContent className="p-4 flex flex-col gap-2">
-              <Box className="flex items-center justify-between gap-2">
-                <Box className="flex items-start gap-2">
-                  <Checkbox
-                    checked={selectedIds.includes(riskCase.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={() => toggleSelected(riskCase.id)}
-                    size="small"
-                  />
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      className="text-[11px] text-slate-500"
-                    >
-                      {riskCase.id}
-                    </Typography>
-                    <Typography
-                      variant="subtitle2"
-                      className="font-semibold"
-                    >
-                      {riskCase.subjectId}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      className="text-[11px] text-slate-500"
-                    >
-                      {riskCase.subjectType} · {riskCase.type}
-                    </Typography>
-                  </Box>
-                </Box>
-                <Box className="flex flex-col items-end gap-1">
-                  <Chip
-                    size="small"
-                    label={riskCase.type}
-                    sx={{ fontSize: 10, height: 22 }}
-                  />
-                  <Box className="flex gap-1">
-                    <Chip
-                      size="small"
-                      label={riskCase.status ?? "open"}
-                      color={riskCase.status === "resolved" ? "success" : riskCase.status === "under_review" ? "warning" : "default"}
-                      sx={{ fontSize: 10, height: 22 }}
-                    />
-                    <Chip
-                      size="small"
-                      label={riskCase.severity}
-                      sx={{
-                        fontSize: 10,
-                        height: 22,
-                        bgcolor:
-                          riskCase.severity === "High"
-                            ? "#ef444420"
-                            : riskCase.severity === "Medium"
-                              ? "#eab30820"
-                              : "#3b82f620",
-                        color:
-                          riskCase.severity === "High"
-                            ? "#ef4444"
-                            : riskCase.severity === "Medium"
-                              ? "#eab308"
-                              : "#3b82f6",
-                      }}
-                    />
-                    <Chip
-                      size="small"
-                      label={new Date(riskCase.createdAt).toLocaleDateString()}
-                      sx={{ fontSize: 10, height: 22 }}
-                    />
-                  </Box>
-                </Box>
-              </Box>
-
-              <Typography
-                variant="body2"
-                className="text-[12px]"
-              >
-                {riskCase.notes || "No additional notes."}
-              </Typography>
-            </CardContent>
-          </Card>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: "uppercase" }}>
+              {kpi.label}
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.5 }}>
+              {kpi.value.toLocaleString()}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {kpi.helper}
+            </Typography>
+          </Paper>
         ))}
       </Box>
+
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.4fr repeat(3, 1fr)" }, gap: 2 }}>
+          <TextField
+            size="small"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search case, subject, reason, evidence"
+            InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: "text.secondary" }} /> }}
+          />
+          <TextField select size="small" label="Type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} SelectProps={{ native: true }}>
+            {typeOptions.map((value) => <option key={value} value={value}>{titleize(value)}</option>)}
+          </TextField>
+          <TextField select size="small" label="Severity" value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)} SelectProps={{ native: true }}>
+            {["All", "Low", "Medium", "High"].map((value) => <option key={value} value={value}>{value}</option>)}
+          </TextField>
+          <TextField select size="small" label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} SelectProps={{ native: true }}>
+            <option value="All">All</option>
+            <option value="open">Open</option>
+            <option value="under_review">Under review</option>
+            <option value="resolved">Resolved</option>
+          </TextField>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ flexWrap: "wrap", gap: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Showing {filteredCases.length} of {cases.length} cases
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="contained" disabled={selectedIds.length === 0} onClick={() => void bulkUpdate("under_review")} sx={{ textTransform: "none", bgcolor: EV_GREEN, "&:hover": { bgcolor: "#02ad77" } }}>
+              Mark under review
+            </Button>
+            <Button size="small" variant="outlined" disabled={selectedIds.length === 0} onClick={() => void bulkUpdate("resolved")} sx={{ textTransform: "none" }}>
+              Resolve selected
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
+
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+            Risk Case Queue
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Case type, cause, and resolution path are displayed from backend notes and evidence.
+          </Typography>
+        </Box>
+        <Divider />
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox" />
+                <TableCell>Subject</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Cause / reason</TableCell>
+                <TableCell>Resolution means</TableCell>
+                <TableCell>Severity</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Created</TableCell>
+                <TableCell align="right">Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredCases.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 7 }}>
+                    <RuleIcon color="disabled" />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 1 }}>No risk cases match the current filters</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCases.map((riskCase) => (
+                  <TableRow key={riskCase.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/admin/risk/${riskCase.id}`)}>
+                    <TableCell padding="checkbox" onClick={(event) => event.stopPropagation()}>
+                      <Checkbox checked={selectedIds.includes(riskCase.id)} onChange={() => toggleSelected(riskCase.id)} size="small" />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{riskCase.subjectId.slice(0, 10)}</Typography>
+                      <Typography variant="caption" color="text.secondary">{titleize(riskCase.subjectType)}</Typography>
+                    </TableCell>
+                    <TableCell><Chip size="small" label={titleize(riskCase.type)} /></TableCell>
+                    <TableCell sx={{ maxWidth: 280 }}>{caseCause(riskCase)}</TableCell>
+                    <TableCell sx={{ maxWidth: 280 }}>{caseResolution(riskCase)}</TableCell>
+                    <TableCell>
+                      <Chip size="small" color={riskCase.severity === "High" ? "error" : riskCase.severity === "Medium" ? "warning" : "success"} label={riskCase.severity} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" color={riskCase.status === "resolved" ? "success" : riskCase.status === "under_review" ? "warning" : "default"} label={titleize(riskCase.status ?? "open")} />
+                    </TableCell>
+                    <TableCell>{formatDate(riskCase.createdAt)}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/admin/risk/${riskCase.id}`); }} sx={{ textTransform: "none" }}>
+                        Open
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </Box>
   );
 }

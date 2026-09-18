@@ -121,6 +121,7 @@ export default function OperationsDashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [selectedKpi, setSelectedKpi] = useState<"trips" | "dispatches" | "drivers" | "activeRides">("activeRides");
 
   const load = async (showSpinner = false) => {
     if (showSpinner) setRefreshing(true);
@@ -189,6 +190,7 @@ export default function OperationsDashboardPage() {
 
   const kpis = [
     {
+      key: "trips" as const,
       label: "Total trip volume",
       value: formatNumber(summary?.trips.total),
       helper: `${formatNumber(summary?.trips.completed)} completed · ${formatNumber(dashboard?.activeRides ?? summary?.trips.active)} ride jobs active`,
@@ -196,6 +198,7 @@ export default function OperationsDashboardPage() {
       accent: EV_GREEN,
     },
     {
+      key: "dispatches" as const,
       label: "Dispatches",
       value: formatNumber(summary?.dispatches.total),
       helper: `${formatNumber(summary?.dispatches.pending)} pending offers`,
@@ -203,6 +206,7 @@ export default function OperationsDashboardPage() {
       accent: EV_ORANGE,
     },
     {
+      key: "drivers" as const,
       label: "Online drivers",
       value: formatNumber(summary?.drivers.online),
       helper: `${formatNumber(summary?.drivers.total)} drivers in fleet`,
@@ -210,6 +214,7 @@ export default function OperationsDashboardPage() {
       accent: "#2563eb",
     },
     {
+      key: "activeRides" as const,
       label: "Active rides",
       value: formatNumber(activeRides.length),
       helper: "Currently moving or awaiting driver action",
@@ -261,7 +266,17 @@ export default function OperationsDashboardPage() {
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {kpis.map((kpi) => (
           <Grid item xs={12} sm={6} lg={3} key={kpi.label}>
-            <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
+            <Card
+              variant="outlined"
+              onClick={() => setSelectedKpi(kpi.key)}
+              sx={{
+                height: "100%",
+                borderRadius: 2,
+                cursor: "pointer",
+                borderColor: selectedKpi === kpi.key ? kpi.accent : "divider",
+                bgcolor: selectedKpi === kpi.key ? `${kpi.accent}0f` : "background.paper",
+              }}
+            >
               <CardContent>
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                   <Box>
@@ -286,56 +301,34 @@ export default function OperationsDashboardPage() {
           <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={1.5} sx={{ mb: 1.5 }}>
             <Box>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="h6" fontWeight={800}>Live active rides</Typography>
-                <Chip size="small" label={`${activeRides.length} active`} sx={{ bgcolor: "#dcfce7", color: "#047857" }} />
+                <Typography variant="h6" fontWeight={800}>{selectedKpi === "activeRides" ? "Live active rides" : selectedKpi === "trips" ? "Trip volume details" : selectedKpi === "dispatches" ? "Dispatch details" : "Driver supply details"}</Typography>
+                <Chip size="small" label={selectedKpi === "activeRides" ? `${activeRides.length} active` : "Selected card"} sx={{ bgcolor: "#dcfce7", color: "#047857" }} />
               </Stack>
-              <Typography variant="body2" color="text.secondary">Operational ride queue with assignment, fare, payment, and age.</Typography>
+              <Typography variant="body2" color="text.secondary">Click a summary card above to inspect its current backend data.</Typography>
             </Box>
-            <Button size="small" onClick={() => navigate("/admin/rides")} sx={{ textTransform: "none" }}>Open all rides</Button>
+            <Button size="small" onClick={() => navigate(selectedKpi === "drivers" ? "/admin/monitoring" : selectedKpi === "dispatches" ? "/admin/matching" : "/admin/rides")} sx={{ textTransform: "none" }}>
+              Open related page
+            </Button>
           </Stack>
           <Divider sx={{ mb: 1.5 }} />
-          {activeRides.length === 0 ? (
-            <Alert severity="info">No active rides are currently returned by the backend.</Alert>
+          {selectedKpi === "activeRides" ? (
+            <ActiveRidesTable rides={activeRides} navigate={navigate} />
+          ) : selectedKpi === "trips" ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}><MetricBox label="Total" value={formatNumber(summary?.trips.total)} /></Grid>
+              <Grid item xs={12} sm={4}><MetricBox label="Completed" value={formatNumber(summary?.trips.completed)} /></Grid>
+              <Grid item xs={12} sm={4}><MetricBox label="Active/open" value={formatNumber(summary?.trips.active)} /></Grid>
+            </Grid>
+          ) : selectedKpi === "dispatches" ? (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}><MetricBox label="Dispatches created" value={formatNumber(summary?.dispatches.total)} /></Grid>
+              <Grid item xs={12} sm={6}><MetricBox label="Pending offers" value={formatNumber(summary?.dispatches.pending)} /></Grid>
+            </Grid>
           ) : (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Ride</TableCell>
-                    <TableCell>Rider</TableCell>
-                    <TableCell>Driver</TableCell>
-                    <TableCell>Service</TableCell>
-                    <TableCell>Fare</TableCell>
-                    <TableCell>Payment</TableCell>
-                    <TableCell>Age</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {activeRides.map((ride) => (
-                    <TableRow key={ride.id} hover>
-                      <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{ride.id.slice(0, 8)}</TableCell>
-                      <TableCell>{ride.riderName || ride.riderId?.slice(0, 8) || "-"}</TableCell>
-                      <TableCell>{ride.driverName || "Unassigned"}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{ride.category || "Ride"}</Typography>
-                        <Typography variant="caption" color="text.secondary">{ride.mode || ride.tripType || "-"}</Typography>
-                      </TableCell>
-                      <TableCell>{formatMoney(Number(ride.finalFare ?? ride.estimatedFare ?? 0), ride.currency)}</TableCell>
-                      <TableCell>{ride.paymentStatus || "-"}</TableCell>
-                      <TableCell>{formatAge(ride.createdAt)}</TableCell>
-                      <TableCell>
-                        <Chip size="small" label={ride.status} color={statusTone(ride.status)} variant="outlined" />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Button size="small" onClick={() => navigate(`/admin/rides/${ride.id}`)} sx={{ textTransform: "none" }}>View</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}><MetricBox label="Online drivers" value={formatNumber(summary?.drivers.online)} /></Grid>
+              <Grid item xs={12} sm={6}><MetricBox label="Fleet drivers" value={formatNumber(summary?.drivers.total)} /></Grid>
+            </Grid>
           )}
         </CardContent>
       </Card>
@@ -406,5 +399,56 @@ export default function OperationsDashboardPage() {
         </Typography>
       ) : null}
     </Box>
+  );
+}
+
+
+function MetricBox({ label, value }: { label: string; value: string }) {
+  return (
+    <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2, bgcolor: "background.default" }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{label}</Typography>
+      <Typography variant="h5" fontWeight={800}>{value}</Typography>
+    </Box>
+  );
+}
+
+function ActiveRidesTable({ rides, navigate }: { rides: AdminRideListItemResponse[]; navigate: (path: string) => void }) {
+  if (rides.length === 0) return <Alert severity="info">No active rides are currently returned by the backend.</Alert>;
+  return (
+    <TableContainer>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Ride</TableCell>
+            <TableCell>Rider</TableCell>
+            <TableCell>Driver</TableCell>
+            <TableCell>Service</TableCell>
+            <TableCell>Fare</TableCell>
+            <TableCell>Payment</TableCell>
+            <TableCell>Age</TableCell>
+            <TableCell>Status</TableCell>
+            <TableCell align="right">Action</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rides.map((ride) => (
+            <TableRow key={ride.id} hover>
+              <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{ride.id.slice(0, 8)}</TableCell>
+              <TableCell>{ride.riderName || ride.riderId?.slice(0, 8) || "-"}</TableCell>
+              <TableCell>{ride.driverName || "Unassigned"}</TableCell>
+              <TableCell>
+                <Typography variant="body2">{ride.category || "Ride"}</Typography>
+                <Typography variant="caption" color="text.secondary">{ride.mode || ride.tripType || "-"}</Typography>
+              </TableCell>
+              <TableCell>{formatMoney(Number(ride.finalFare ?? ride.estimatedFare ?? 0), ride.currency)}</TableCell>
+              <TableCell>{ride.paymentStatus || "-"}</TableCell>
+              <TableCell>{formatAge(ride.createdAt)}</TableCell>
+              <TableCell><Chip size="small" label={ride.status} color={statusTone(ride.status)} variant="outlined" /></TableCell>
+              <TableCell align="right"><Button size="small" onClick={() => navigate(`/admin/rides/${ride.id}`)} sx={{ textTransform: "none" }}>View</Button></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

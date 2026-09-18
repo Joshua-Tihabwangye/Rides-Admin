@@ -33,12 +33,28 @@ import type { AdminRideAnomalyItem } from "../services/api/adminApi";
 
 const FLAG_OPTIONS = [
   { value: "", label: "All anomalies" },
-  { value: "ROUTE_DEVIATION", label: "Route deviation" },
-  { value: "EXCESS_DURATION", label: "Excess duration" },
-  { value: "EXCESS_DISTANCE", label: "Excess distance" },
-  { value: "LOW_CONFIDENCE", label: "Low confidence" },
-  { value: "MISSING_BREADCRUMBS", label: "Missing breadcrumbs" },
+  { value: "TRIP_DISTANCE_ANOMALY", label: "Distance anomaly" },
+  { value: "TRIP_DURATION_ANOMALY", label: "Duration anomaly" },
+  { value: "GPS_INSUFFICIENT", label: "Insufficient GPS" },
 ];
+
+const FLAG_DETAILS: Record<string, { label: string; cause: string; resolution: string }> = {
+  TRIP_DISTANCE_ANOMALY: {
+    label: "Distance anomaly",
+    cause: "Actual route distance differs from the quoted trip distance beyond the allowed tolerance.",
+    resolution: "Review the ride route and fare evidence, then keep or resolve the linked risk case.",
+  },
+  TRIP_DURATION_ANOMALY: {
+    label: "Duration anomaly",
+    cause: "Server lifecycle duration is too short or differs materially from the quoted duration.",
+    resolution: "Audit start, arrival, pause, and completion events before closing the exception.",
+  },
+  GPS_INSUFFICIENT: {
+    label: "Insufficient GPS",
+    cause: "The trip completed with too few usable GPS breadcrumbs to verify actual movement confidently.",
+    resolution: "Check driver location permissions/network history and request support review if repeated.",
+  },
+};
 
 function readAnomalyItems(value: unknown): AdminRideAnomalyItem[] {
   if (Array.isArray(value)) return value as AdminRideAnomalyItem[];
@@ -57,8 +73,9 @@ function labelize(value: string) {
 }
 
 function flagColor(flag: string): ChipProps["color"] {
-  if (flag.includes("MISSING") || flag.includes("LOW")) return "error";
-  if (flag.includes("EXCESS") || flag.includes("ROUTE")) return "warning";
+  if (flag.includes("GPS")) return "error";
+  if (flag.includes("DURATION")) return "warning";
+  if (flag.includes("DISTANCE")) return "primary";
   return "default";
 }
 
@@ -74,6 +91,10 @@ function formatMetric(value: number | undefined, suffix: string) {
 
 function rideShortId(rideId?: string) {
   return rideId ? rideId.slice(0, 8) : "Unknown";
+}
+
+function primaryFlag(flags: string[]) {
+  return flags.find((flag) => Boolean(FLAG_DETAILS[flag])) ?? flags[0] ?? "";
 }
 
 export default function RideAnomaliesPage() {
@@ -106,14 +127,14 @@ export default function RideAnomaliesPage() {
   }, [flag, load]);
 
   const summary = useMemo(() => {
-    const routeDeviation = items.filter((item) => item.anomalyFlags?.includes("ROUTE_DEVIATION")).length;
-    const lowConfidence = items.filter((item) => item.anomalyFlags?.includes("LOW_CONFIDENCE")).length;
-    const missingBreadcrumbs = items.filter((item) => item.anomalyFlags?.includes("MISSING_BREADCRUMBS")).length;
+    const distance = items.filter((item) => item.anomalyFlags?.includes("TRIP_DISTANCE_ANOMALY")).length;
+    const duration = items.filter((item) => item.anomalyFlags?.includes("TRIP_DURATION_ANOMALY")).length;
+    const gps = items.filter((item) => item.anomalyFlags?.includes("GPS_INSUFFICIENT")).length;
     const breadcrumbTotal = items.reduce((sum, item) => sum + (item.breadcrumbCount ?? 0), 0);
     return {
-      routeDeviation,
-      lowConfidence,
-      missingBreadcrumbs,
+      distance,
+      duration,
+      gps,
       avgBreadcrumbs: items.length ? Math.round(breadcrumbTotal / items.length) : 0,
     };
   }, [items]);
@@ -131,7 +152,7 @@ export default function RideAnomaliesPage() {
             </Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Review route, distance, duration, and GPS evidence exceptions from completed ride actuals.
+            Database trip actuals with anomaly type, cause, and resolution path.
           </Typography>
         </Box>
         <Button
@@ -146,10 +167,10 @@ export default function RideAnomaliesPage() {
       </Box>
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 2, mb: 3 }}>
-        <SummaryTile icon={<TimelineIcon />} label="Visible anomalies" value={total} helper={selectedLabel} />
-        <SummaryTile icon={<RouteIcon />} label="Route deviations" value={summary.routeDeviation} helper="Path variance flags" />
-        <SummaryTile icon={<SpeedIcon />} label="Low confidence" value={summary.lowConfidence} helper="Weak actuals evidence" />
-        <SummaryTile icon={<ReportProblemIcon />} label="Missing GPS" value={summary.missingBreadcrumbs} helper={`${summary.avgBreadcrumbs} avg breadcrumbs`} />
+        <SummaryTile icon={<TimelineIcon />} label="Visible anomalies" value={total} helper={selectedLabel} active={flag === ""} onClick={() => setFlag("")} />
+        <SummaryTile icon={<RouteIcon />} label="Distance anomalies" value={summary.distance} helper="Actual vs quoted distance" active={flag === "TRIP_DISTANCE_ANOMALY"} onClick={() => setFlag("TRIP_DISTANCE_ANOMALY")} />
+        <SummaryTile icon={<SpeedIcon />} label="Duration anomalies" value={summary.duration} helper="Lifecycle timing variance" active={flag === "TRIP_DURATION_ANOMALY"} onClick={() => setFlag("TRIP_DURATION_ANOMALY")} />
+        <SummaryTile icon={<ReportProblemIcon />} label="Insufficient GPS" value={summary.gps} helper={`${summary.avgBreadcrumbs} avg breadcrumbs`} active={flag === "GPS_INSUFFICIENT"} onClick={() => setFlag("GPS_INSUFFICIENT")} />
       </Box>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
@@ -188,7 +209,7 @@ export default function RideAnomaliesPage() {
               Anomaly Evidence
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Click inspect to open the ride timeline, route, payments, and incident context.
+              Each row is loaded from the persisted trip actuals table.
             </Typography>
           </Box>
           <Chip size="small" label={`${items.length} loaded`} />
@@ -199,7 +220,9 @@ export default function RideAnomaliesPage() {
             <TableHead>
               <TableRow>
                 <TableCell>Ride</TableCell>
-                <TableCell>Anomaly flags</TableCell>
+                <TableCell>Anomaly type</TableCell>
+                <TableCell>Reason / cause</TableCell>
+                <TableCell>Resolution means</TableCell>
                 <TableCell align="right">Distance</TableCell>
                 <TableCell align="right">Duration</TableCell>
                 <TableCell>Confidence</TableCell>
@@ -211,24 +234,30 @@ export default function RideAnomaliesPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 7 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 7 }}>
                     <CircularProgress size={28} />
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 7 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 7 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                       No anomalies found
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Try a different anomaly type or refresh after more rides are completed.
+                      Try another anomaly type or refresh after completed rides are verified.
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 items.map((item) => {
                   const flags = Array.isArray(item.anomalyFlags) ? item.anomalyFlags : [];
+                  const selected = primaryFlag(flags);
+                  const detail = FLAG_DETAILS[selected] ?? {
+                    label: selected ? labelize(selected) : "No active flags",
+                    cause: "The backend did not provide an anomaly flag for this actual.",
+                    resolution: "Open the ride and review the full timeline before closing.",
+                  };
                   return (
                     <TableRow key={item.id} hover>
                       <TableCell>
@@ -240,13 +269,15 @@ export default function RideAnomaliesPage() {
                         <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75 }}>
                           {flags.length ? (
                             flags.map((itemFlag) => (
-                              <Chip key={itemFlag} size="small" color={flagColor(itemFlag)} label={labelize(itemFlag)} />
+                              <Chip key={itemFlag} size="small" color={flagColor(itemFlag)} label={FLAG_DETAILS[itemFlag]?.label ?? labelize(itemFlag)} />
                             ))
                           ) : (
                             <Chip size="small" color="success" label="No active flags" />
                           )}
                         </Stack>
                       </TableCell>
+                      <TableCell sx={{ maxWidth: 280 }}>{detail.cause}</TableCell>
+                      <TableCell sx={{ maxWidth: 280 }}>{detail.resolution}</TableCell>
                       <TableCell align="right">{formatMetric(item.actualDistanceKm, "km")}</TableCell>
                       <TableCell align="right">{formatMetric(item.actualDurationMinutes, "min")}</TableCell>
                       <TableCell>
@@ -282,14 +313,29 @@ function SummaryTile({
   label,
   value,
   helper,
+  active,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
   helper: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+    <Paper
+      variant="outlined"
+      onClick={onClick}
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        cursor: onClick ? "pointer" : "default",
+        borderColor: active ? "#03cd8c" : "divider",
+        bgcolor: active ? "rgba(3, 205, 140, 0.06)" : "background.paper",
+        "&:hover": onClick ? { borderColor: "#03cd8c", boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" } : undefined,
+      }}
+    >
       <Stack direction="row" spacing={1.5} alignItems="center">
         <Box sx={{ display: "grid", placeItems: "center", width: 38, height: 38, borderRadius: 1.5, bgcolor: "rgba(3, 205, 140, 0.12)", color: "#029b6d" }}>
           {icon}

@@ -24,6 +24,8 @@ export type AdminRiderResponse = {
   country?: string;
   preferredCurrency?: string;
   preferences?: Record<string, any>;
+  createdAt?: string | number;
+  updatedAt?: string | number;
   rating?: number;
   totalTrips?: number;
   status: 'active' | 'deleted' | 'suspended';
@@ -1942,6 +1944,10 @@ export type AdminRiskCaseResponse = {
   type: string;
   severity: "Low" | "Medium" | "High";
   notes?: string;
+  evidence?: Record<string, unknown>;
+  assignedToUserId?: string | null;
+  resolvedByUserId?: string | null;
+  resolvedAt?: number | string | null;
   createdAt: number;
   status?: "open" | "under_review" | "resolved";
 };
