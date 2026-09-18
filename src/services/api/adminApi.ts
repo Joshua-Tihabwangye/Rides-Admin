@@ -820,6 +820,7 @@ export type AdminOperationsAnalytics = {
   };
   hourly?: Array<{ time?: string; demand?: number; supply?: number; rides?: number; deliveries?: number; bookings?: number }>;
   regions?: Array<{ region?: string; rides?: number; deliveries?: number }>;
+  serviceMix?: Array<{ service?: string; total?: number; completed?: number; active?: number }>;
 };
 
 type AnalyticsQuery = {
@@ -1214,6 +1215,7 @@ const ANALYTICS_PERIOD_MAP: Record<string, string> = {
   "7days": "week",
   "30days": "month",
   thisMonth: "month",
+  thisYear: "year",
   custom: "month",
 };
 

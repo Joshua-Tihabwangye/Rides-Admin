@@ -1,380 +1,410 @@
-import React, { useState, useEffect, useMemo } from"react";
-import { useNavigate } from"react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
   Chip,
-  Button,
-  Divider,
   CircularProgress,
-  Alert,
-} from"@mui/material";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+  Divider,
+  Grid,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import TimelineIcon from "@mui/icons-material/Timeline";
 import {
-  LineChart,
-  Line,
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from"recharts";
-import PeriodSelector, { PeriodOption } from '../components/PeriodSelector';
-import dayjs from 'dayjs';
-import { getAdminOperationsAnalytics, getAdminDashboard, getAdminRecentBookings } from '../services/api/adminApi';
-import type { AdminOperationsAnalytics, AdminRecentBooking } from '../services/api/adminApi';
+} from "recharts";
+import PeriodSelector, { PeriodOption } from "../components/PeriodSelector";
+import {
+  getAdminDashboard,
+  getAdminOperationsAnalytics,
+  listAdminRides,
+} from "../services/api/adminApi";
+import type {
+  AdminDashboardCounts,
+  AdminOperationsAnalytics,
+  AdminRideListItemResponse,
+} from "../services/api/adminApi";
 
-const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
+const EV_GREEN = "#03cd8c";
+const EV_ORANGE = "#f77f00";
+const ACTIVE_RIDE_STATUSES = new Set([
+  "SEARCHING",
+  "OFFERED",
+  "ACCEPTED",
+  "DRIVER_ASSIGNED",
+  "DRIVER_EN_ROUTE",
+  "ARRIVED",
+  "WAITING",
+  "VERIFIED",
+  "IN_PROGRESS",
+]);
+
+const PERIOD_LABELS: Record<PeriodOption, string> = {
+  today: "Today",
+  "7days": "Last 7 days",
+  thisMonth: "This month",
+  thisYear: "This year",
+  custom: "Custom range",
 };
+
+function formatNumber(value?: number): string {
+  return Number(value ?? 0).toLocaleString();
+}
+
+function formatMoney(value?: number, currency = "UGX"): string {
+  if (value == null || Number.isNaN(Number(value))) return "-";
+  return `${currency} ${Number(value).toLocaleString("en-UG")}`;
+}
+
+function formatAge(value?: string): string {
+  if (!value) return "-";
+  const created = new Date(value).getTime();
+  if (!Number.isFinite(created)) return "-";
+  const minutes = Math.max(0, Math.floor((Date.now() - created) / 60000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
+function statusTone(status: string): "default" | "primary" | "success" | "warning" | "error" {
+  const normalized = status.toUpperCase();
+  if (normalized.includes("CANCEL") || normalized.includes("FAILED")) return "error";
+  if (normalized.includes("PROGRESS") || normalized.includes("ARRIVED")) return "success";
+  if (normalized.includes("EN_ROUTE") || normalized.includes("ACCEPTED")) return "primary";
+  if (normalized.includes("SEARCH") || normalized.includes("OFFER")) return "warning";
+  return "default";
+}
+
+function ChartEmpty({ text }: { text: string }) {
+  return (
+    <Box sx={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <Typography variant="body2" color="text.secondary">{text}</Typography>
+    </Box>
+  );
+}
 
 export default function OperationsDashboardPage() {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState<PeriodOption>('today');
-  const [analytics, setAnalytics] = useState<AdminOperationsAnalytics | null>(null);
-  const [dashboard, setDashboard] = useState<{ activeRides: number } | null>(null);
-  const [recentRides, setRecentRides] = useState<AdminRecentBooking[]>([]);
+  const [summaryPeriod, setSummaryPeriod] = useState<PeriodOption>("today");
+  const [demandPeriod, setDemandPeriod] = useState<PeriodOption>("today");
+  const [mixPeriod, setMixPeriod] = useState<PeriodOption>("today");
+  const [summary, setSummary] = useState<AdminOperationsAnalytics | null>(null);
+  const [demandAnalytics, setDemandAnalytics] = useState<AdminOperationsAnalytics | null>(null);
+  const [mixAnalytics, setMixAnalytics] = useState<AdminOperationsAnalytics | null>(null);
+  const [dashboard, setDashboard] = useState<AdminDashboardCounts | null>(null);
+  const [activeRides, setActiveRides] = useState<AdminRideListItemResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchAnalytics = async () => {
-    setLoading(true);
+  const load = async (showSpinner = false) => {
+    if (showSpinner) setRefreshing(true);
     setError(null);
     try {
-      const [analyticsData, dashboardData, recentData] = await Promise.all([
-        getAdminOperationsAnalytics({ period }),
+      const [summaryData, demandData, mixData, dashboardData, ridesData] = await Promise.all([
+        getAdminOperationsAnalytics({ period: summaryPeriod }),
+        getAdminOperationsAnalytics({ period: demandPeriod }),
+        getAdminOperationsAnalytics({ period: mixPeriod }),
         getAdminDashboard(),
-        getAdminRecentBookings(50),
+        listAdminRides({ page: 1, limit: 100 }),
       ]);
-      setAnalytics(analyticsData);
+      setSummary(summaryData);
+      setDemandAnalytics(demandData);
+      setMixAnalytics(mixData);
       setDashboard(dashboardData);
-      const activeStatuses = ['searching', 'assigned', 'driver_en_route', 'arrived', 'active', 'in_progress'];
-      const allRides = recentData?.rides ?? [];
-      setRecentRides(allRides.filter((r) => activeStatuses.includes(String(r.status).toLowerCase())));
+      setActiveRides(
+        (ridesData.items ?? [])
+          .filter((ride) => ACTIVE_RIDE_STATUSES.has(String(ride.status).toUpperCase()))
+          .slice(0, 12),
+      );
+      setLastUpdated(new Date());
     } catch (err: any) {
-      setError(err?.message ?? 'Failed to load analytics');
+      setError(err?.message ?? "Failed to load operations data");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchAnalytics();
-    const interval = window.setInterval(fetchAnalytics, 15000);
+    setLoading(true);
+    void load();
+    const interval = window.setInterval(() => void load(), 20000);
     return () => window.clearInterval(interval);
-  }, [period]);
+  }, [summaryPeriod, demandPeriod, mixPeriod]);
 
-  const handlePeriodChange = (newPeriod: PeriodOption, range?: any) => {
-    setPeriod(newPeriod);
-  };
+  const demandData = useMemo(
+    () => (demandAnalytics?.hourly ?? []).map((row) => ({
+      time: row.time ?? "-",
+      demand: Number(row.demand ?? 0),
+      supply: Number(row.supply ?? 0),
+      rides: Number(row.rides ?? 0),
+      deliveries: Number(row.deliveries ?? 0),
+    })),
+    [demandAnalytics],
+  );
 
-  const periodLabel =
-    period === 'today'
-      ? 'today'
-      : period === '7days'
-        ? 'last 7 days'
-        : period === 'thisMonth'
-          ? 'this month'
-          : period === 'thisYear'
-            ? 'this year'
-            : 'custom range';
+  const serviceMixData = useMemo(() => {
+    const explicit = mixAnalytics?.serviceMix ?? [];
+    if (explicit.length) {
+      return explicit.map((row) => ({
+        service: row.service ?? "Unknown",
+        total: Number(row.total ?? 0),
+        completed: Number(row.completed ?? 0),
+        active: Number(row.active ?? 0),
+      }));
+    }
+    return (mixAnalytics?.regions ?? []).map((row) => ({
+      service: row.region ?? "All",
+      total: Number(row.rides ?? 0) + Number(row.deliveries ?? 0),
+      completed: 0,
+      active: 0,
+    }));
+  }, [mixAnalytics]);
 
-  const kpis = useMemo(() => {
-    if (!analytics) return [];
-    return [
-      {
-        label: 'Trips (Rides + Deliveries)',
-        value: analytics.trips.total.toLocaleString(),
-        subtitle: `${analytics.trips.completed} completed, ${dashboard?.activeRides ?? analytics.trips.active} active`,
-        description: 'Total completed trip volume = rides + deliveries in the selected period.',
-      },
-      {
-        label: 'Dispatches',
-        value: analytics.dispatches.total.toLocaleString(),
-        subtitle: `${analytics.dispatches.pending} pending`,
-        description: 'Total dispatches created.',
-      },
-      {
-        label: 'Online drivers',
-        value: analytics.drivers.online.toString(),
-        subtitle: `${analytics.drivers.total} total`,
-        description: 'Number of drivers currently online/available.',
-      },
-    ];
-  }, [analytics]);
+  const kpis = [
+    {
+      label: "Total trip volume",
+      value: formatNumber(summary?.trips.total),
+      helper: `${formatNumber(summary?.trips.completed)} completed · ${formatNumber(dashboard?.activeRides ?? summary?.trips.active)} ride jobs active`,
+      icon: <TimelineIcon fontSize="small" />,
+      accent: EV_GREEN,
+    },
+    {
+      label: "Dispatches",
+      value: formatNumber(summary?.dispatches.total),
+      helper: `${formatNumber(summary?.dispatches.pending)} pending offers`,
+      icon: <LocalShippingIcon fontSize="small" />,
+      accent: EV_ORANGE,
+    },
+    {
+      label: "Online drivers",
+      value: formatNumber(summary?.drivers.online),
+      helper: `${formatNumber(summary?.drivers.total)} drivers in fleet`,
+      icon: <PeopleAltIcon fontSize="small" />,
+      accent: "#2563eb",
+    },
+    {
+      label: "Active rides",
+      value: formatNumber(activeRides.length),
+      helper: "Currently moving or awaiting driver action",
+      icon: <DirectionsCarIcon fontSize="small" />,
+      accent: "#64748b",
+    },
+  ];
 
-  // Demand/supply and service-mix charts are shown only when the backend supplies
-  // hourly / regional breakdowns.
-  const demandSupplyData = useMemo(() => analytics?.hourly ?? [], [analytics]);
-  const serviceMixData = useMemo(() => analytics?.regions ?? [], [analytics]);
-
-  if (loading && !analytics) {
+  if (loading && !summary) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+      <Box sx={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <CircularProgress />
       </Box>
     );
   }
 
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
-
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Button onClick={() => navigate(-1)} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: 'none' }}>
+    <Box sx={{ pb: 4 }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+        <Button onClick={() => navigate(-1)} startIcon={<ArrowBackIcon />} size="small" sx={{ textTransform: "none" }}>
           Back
         </Button>
-      </Box>
-      <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
+      </Stack>
+
+      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} spacing={2} sx={{ mb: 3 }}>
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
-            Operations Dashboard
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Real-time monitoring of operational KPIs and fleet performance.
+          <Typography variant="h5" fontWeight={800}>Operations Dashboard</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Live ride flow, dispatch health, and service demand from backend data.
           </Typography>
         </Box>
-        <PeriodSelector value={period} onChange={handlePeriodChange} />
-      </Box>
-
-      {/* KPI row */}
-      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {kpis.map((kpi) => (
-          <Card
-            key={kpi.label}
-            elevation={1}
-            sx={{
-              border: "1px solid rgba(148,163,184,0.5)",
-            }}
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <PeriodSelector value={summaryPeriod} onChange={(value) => setSummaryPeriod(value)} />
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={refreshing ? <CircularProgress size={14} /> : <RefreshIcon />}
+            onClick={() => void load(true)}
+            disabled={refreshing}
+            sx={{ textTransform: "none", borderRadius: 2 }}
           >
-            <CardContent className="p-3 flex flex-col gap-1">
-              <Typography
-                variant="caption"
-                className="text-[11px] uppercase tracking-wide text-slate-500"
-              >
-                {kpi.label}
-              </Typography>
-              <Typography
-                variant="h6"
-                className="font-semibold text-lg"
-              >
-                {kpi.value}
-              </Typography>
-              <Typography
-                variant="caption"
-                className="text-[11px] text-emerald-500"
-              >
-                {kpi.subtitle}
-              </Typography>
-              <Typography
-                variant="caption"
-                className="text-[10px] text-slate-500 mt-1"
-              >
-                {kpi.description}
-              </Typography>
+            Refresh
+          </Button>
+        </Stack>
+      </Stack>
+
+      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {kpis.map((kpi) => (
+          <Grid item xs={12} sm={6} lg={3} key={kpi.label}>
+            <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontWeight: 700 }}>
+                      {kpi.label}
+                    </Typography>
+                    <Typography variant="h4" fontWeight={800} sx={{ mt: 0.5 }}>{kpi.value}</Typography>
+                  </Box>
+                  <Box sx={{ color: kpi.accent, bgcolor: `${kpi.accent}18`, borderRadius: 2, p: 1, display: "flex" }}>
+                    {kpi.icon}
+                  </Box>
+                </Stack>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{kpi.helper}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Card variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
+        <CardContent>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={1.5} sx={{ mb: 1.5 }}>
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="h6" fontWeight={800}>Live active rides</Typography>
+                <Chip size="small" label={`${activeRides.length} active`} sx={{ bgcolor: "#dcfce7", color: "#047857" }} />
+              </Stack>
+              <Typography variant="body2" color="text.secondary">Operational ride queue with assignment, fare, payment, and age.</Typography>
+            </Box>
+            <Button size="small" onClick={() => navigate("/admin/rides")} sx={{ textTransform: "none" }}>Open all rides</Button>
+          </Stack>
+          <Divider sx={{ mb: 1.5 }} />
+          {activeRides.length === 0 ? (
+            <Alert severity="info">No active rides are currently returned by the backend.</Alert>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Ride</TableCell>
+                    <TableCell>Rider</TableCell>
+                    <TableCell>Driver</TableCell>
+                    <TableCell>Service</TableCell>
+                    <TableCell>Fare</TableCell>
+                    <TableCell>Payment</TableCell>
+                    <TableCell>Age</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {activeRides.map((ride) => (
+                    <TableRow key={ride.id} hover>
+                      <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{ride.id.slice(0, 8)}</TableCell>
+                      <TableCell>{ride.riderName || ride.riderId?.slice(0, 8) || "-"}</TableCell>
+                      <TableCell>{ride.driverName || "Unassigned"}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{ride.category || "Ride"}</Typography>
+                        <Typography variant="caption" color="text.secondary">{ride.mode || ride.tripType || "-"}</Typography>
+                      </TableCell>
+                      <TableCell>{formatMoney(Number(ride.finalFare ?? ride.estimatedFare ?? 0), ride.currency)}</TableCell>
+                      <TableCell>{ride.paymentStatus || "-"}</TableCell>
+                      <TableCell>{formatAge(ride.createdAt)}</TableCell>
+                      <TableCell>
+                        <Chip size="small" label={ride.status} color={statusTone(ride.status)} variant="outlined" />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" onClick={() => navigate(`/admin/rides/${ride.id}`)} sx={{ textTransform: "none" }}>View</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} lg={8}>
+          <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
+            <CardContent>
+              <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={1} sx={{ mb: 2 }}>
+                <Box>
+                  <Typography variant="h6" fontWeight={800}>Demand vs supply</Typography>
+                  <Typography variant="body2" color="text.secondary">Ride and delivery demand compared with current online driver supply.</Typography>
+                </Box>
+                <PeriodSelector value={demandPeriod} onChange={(value) => setDemandPeriod(value)} />
+              </Stack>
+              {demandData.length === 0 ? <ChartEmpty text={`No demand data for ${PERIOD_LABELS[demandPeriod]}.`} /> : (
+                <Box sx={{ height: 320 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={demandData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="time" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="demand" name="Demand" stroke={EV_ORANGE} strokeWidth={2.5} dot={false} />
+                      <Line type="monotone" dataKey="supply" name="Online supply" stroke={EV_GREEN} strokeWidth={2.5} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </Box>
+              )}
             </CardContent>
           </Card>
-        ))}
-      </Box>
+        </Grid>
 
-      {recentRides.length > 0 && (
-        <Card elevation={1} sx={{ border: "1px solid rgba(148,163,184,0.5)", mb: 4 }}>
-          <CardContent className="p-4">
-            <Box className="flex items-center justify-between mb-2">
-              <Typography variant="subtitle2" className="font-semibold">
-                Live active rides
-              </Typography>
-              <Chip size="small" label={`${recentRides.length} active`} sx={{ height: 20, fontSize: 10, bgcolor: '#03cd8c20', color: '#03cd8c' }} />
-            </Box>
-            <Divider className="!my-2" />
-            <Box className="space-y-2">
-              {recentRides.slice(0, 10).map((ride) => {
-                const pickup = typeof ride.pickup === 'object' && ride.pickup ? (ride.pickup as Record<string, unknown>).address ?? ride.pickupAddress ?? '—' : ride.pickup ?? ride.pickupAddress ?? '—';
-                const dropoff = typeof ride.destination === 'object' && ride.destination ? (ride.destination as Record<string, unknown>).address ?? ride.dropoffAddress ?? '—' : ride.destination ?? ride.dropoff ?? ride.dropoffAddress ?? '—';
-                return (
-                  <Box key={ride.id} className="flex items-center justify-between text-sm">
-                    <Box>
-                      <Typography variant="body2" className="font-semibold">{ride.id.slice(0, 8)}</Typography>
-                      <Typography variant="caption" color="text.secondary">{String(pickup)} → {String(dropoff)}</Typography>
-                    </Box>
-                    <Chip size="small" label={ride.status} sx={{ height: 20, fontSize: 10 }} />
-                  </Box>
-                );
-              })}
-            </Box>
-          </CardContent>
-        </Card>
-      )}
+        <Grid item xs={12} lg={4}>
+          <Card variant="outlined" sx={{ borderRadius: 2, height: "100%" }}>
+            <CardContent>
+              <Stack direction={{ xs: "column", sm: "row", lg: "column" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center", lg: "stretch" }} spacing={1} sx={{ mb: 2 }}>
+                <Box>
+                  <Typography variant="h6" fontWeight={800}>Service mix</Typography>
+                  <Typography variant="body2" color="text.secondary">Volume by service line for the selected period.</Typography>
+                </Box>
+                <PeriodSelector value={mixPeriod} onChange={(value) => setMixPeriod(value)} />
+              </Stack>
+              {serviceMixData.length === 0 ? <ChartEmpty text={`No service data for ${PERIOD_LABELS[mixPeriod]}.`} /> : (
+                <Box sx={{ height: 320 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={serviceMixData} layout="vertical" margin={{ top: 10, right: 16, left: 20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <YAxis type="category" dataKey="service" width={78} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="completed" name="Completed" stackId="service" fill={EV_GREEN} radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="active" name="Active/open" stackId="service" fill={EV_ORANGE} radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-      <Box className="flex flex-col lg:flex-row gap-4 mb-10">
-        {/* Demand vs supply chart */}
-        <Card
-          elevation={1}
-          sx={{
-            flex: 2,
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "linear-gradient(145deg, #0b1120, #020617)",
-            color: "#e5e7eb",
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2 h-[350px]">
-            <Box className="flex items-center justify-between">
-              <Typography
-                variant="subtitle2"
-                className="font-semibold text-slate-50"
-              >
-                Demand vs Supply ({periodLabel})
-              </Typography>
-              <Chip
-                size="small"
-                label="Rides & Deliveries"
-                sx={{
-                  fontSize: 10,
-                  height: 22,
-                  bgcolor: "#020617",
-                  color: "#e5e7eb",
-                }}
-              />
-            </Box>
-            {demandSupplyData.length === 0 ? (
-              <Box className="flex-1 flex items-center justify-center">
-                <Typography variant="caption" className="text-[11px] text-slate-400">
-                  No demand/supply data yet for this period. Data populates within 24h of ride activity.
-                </Typography>
-              </Box>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={demandSupplyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} />
-                  <YAxis stroke="#94a3b8" fontSize={11} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
-                    labelStyle={{ color: "#e5e7eb" }}
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="demand" stroke="#f77f00" strokeWidth={2} name="Demand (Trips)" />
-                  <Line type="monotone" dataKey="supply" stroke="#03cd8c" strokeWidth={2} name="Supply (Drivers)" />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Cancellations & issues */}
-        <Card
-          elevation={1}
-          sx={{
-            flex: 1,
-            border: "1px solid rgba(148,163,184,0.5)",
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Box className="flex items-center justify-between">
-              <Typography
-                variant="subtitle2"
-                className="font-semibold"
-              >
-                Cancellations & issues
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => navigate('/admin/ops?tab=queue')}
-                sx={{
-                  fontSize: 10,
-                  textTransform: 'none',
-                  bgcolor: EV_COLORS.primary,
-                  '&:hover': { bgcolor: '#0fb589' },
-                }}
-              >
-                Open queue
-              </Button>
-            </Box>
-            <Typography
-              variant="caption"
-              className="text-[10px] text-slate-500 mb-1"
-            >
-              Turn metrics into action
-            </Typography>
-            <Divider className="!my-1" />
-            <Box className="flex flex-col gap-2">
-              <Typography variant="body2" className="text-[12px]">
-                • Rider cancellations: {analytics?.cancellations?.rider ?? '—'}
-              </Typography>
-              <Typography variant="body2" className="text-[12px]">
-                • Driver cancellations: {analytics?.cancellations?.driver ?? '—'}
-              </Typography>
-              <Typography variant="body2" className="text-[12px]">
-                • Failed dispatches: {analytics?.dispatches?.pending ?? '—'}
-              </Typography>
-            </Box>
-            <Typography
-              variant="caption"
-              className="text-[11px] text-slate-500 mt-1"
-            >
-              Cancellation counts for the selected period.
-            </Typography>
-          </CardContent>
-        </Card>
-      </Box>
-
-      <Box className="flex flex-col lg:flex-row gap-4">
-        {/* Service mix chart */}
-        <Card
-          elevation={1}
-          sx={{
-            flex: 1,
-            border: "1px solid rgba(148,163,184,0.5)",
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2 h-[300px]">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-            >
-              Service Mix by Region
-            </Typography>
-            <Divider className="!my-1" />
-            {serviceMixData.length === 0 ? (
-              <Box className="flex-1 flex items-center justify-center">
-                <Typography variant="caption" className="text-[11px] text-slate-500">
-                  Regional service-mix data is not available from the backend yet.
-                </Typography>
-              </Box>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={serviceMixData} layout="vertical" margin={{ left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" fontSize={11} />
-                  <YAxis dataKey="region" type="category" fontSize={11} width={60} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11, color: "#e5e7eb" }}
-                  />
-                  <Legend />
-                  <Bar dataKey="rides" fill="#03cd8c" name="Rides" stackId="mix" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="deliveries" fill="#f77f00" name="Deliveries" stackId="mix" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </Box>
+      {lastUpdated ? (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+          Last updated {lastUpdated.toLocaleTimeString()}
+        </Typography>
+      ) : null}
     </Box>
   );
 }

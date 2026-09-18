@@ -102,10 +102,8 @@ export default function DetailedAnalyticsPage() {
 		"all",
 	);
 
-	// Phase 12/13: analytics are derived from the backend (real database
-	// aggregates), not fabricated client-side. Fetch the per-day revenue /
-	// transaction time-series for the selected period and feed it into the
-	// Trips & volumes report.
+	// Analytics are derived from backend database aggregates, not fabricated
+	// client-side. Fetch the selected period and feed each report from the API.
 	useEffect(() => {
 		let active = true;
 		const backendFilters = {
@@ -192,8 +190,7 @@ export default function DetailedAnalyticsPage() {
 		setFilters({ ...filters, [field]: event.target.value });
 	};
 
-	// Real backend-derived series for the Trips & volumes report: each payment
-	// bucket becomes a row with the transaction count and revenue.
+	// Real backend-derived series for the Trips & volumes report.
 	const realTripsData = realSeries.map((bucket) => ({
 		name: bucket.date,
 		transactions: bucket.transactions,
@@ -312,7 +309,7 @@ export default function DetailedAnalyticsPage() {
 				? [
 						"#",
 						"Period",
-						"Transactions",
+						"Trips",
 						"Revenue",
 					]
 				: selectedReportId === "DRIVER-PERF"
@@ -632,9 +629,9 @@ export default function DetailedAnalyticsPage() {
 					}}
 				>
 					<CardContent className="p-4 flex flex-col gap-3">
-						<Box className="flex items-center justify-between gap-2">
-							<Box>
-								<Typography
+							<Box className="flex items-center justify-between gap-2">
+								<Box>
+									<Typography
 									variant="subtitle2"
 									className="font-semibold"
 									color="text.primary"
@@ -647,6 +644,12 @@ export default function DetailedAnalyticsPage() {
 								>
 									{selectedReport.description}
 								</Typography>
+							</Box>
+							<Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5 }}>
+								<Typography variant="caption" color="text.secondary" sx={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>
+									Report period
+								</Typography>
+								<PeriodSelector value={period} onChange={(p) => setPeriod(p)} />
 							</Box>
 						</Box>
 
@@ -678,7 +681,7 @@ export default function DetailedAnalyticsPage() {
 										variant="caption"
 										className="text-[9px] text-slate-400"
 									>
-										Backend transactions
+										Ride records
 									</Typography>
 								</Box>
 								<Box
@@ -704,7 +707,7 @@ export default function DetailedAnalyticsPage() {
 										variant="caption"
 										className="text-[9px] text-slate-400"
 									>
-										Backend payment total
+										Fare total
 									</Typography>
 								</Box>
 								<Box
@@ -730,7 +733,7 @@ export default function DetailedAnalyticsPage() {
 										variant="caption"
 										className="text-[9px] text-slate-400"
 									>
-										Per transaction
+										Per trip
 									</Typography>
 								</Box>
 								<Box
@@ -877,7 +880,7 @@ export default function DetailedAnalyticsPage() {
 															<Bar
 																dataKey="transactions"
 																fill="#03cd8c"
-																name="Transactions"
+																	name="Trips"
 																radius={[
 																	4, 4, 0, 0,
 																]}
@@ -984,7 +987,7 @@ export default function DetailedAnalyticsPage() {
 																: selectedReportId ===
 																	  "COMPANY-PERF"
 																	? "Trips"
-																	: "Transactions"}
+																	: "Trips"}
 														</TableCell>
 														<TableCell align="right">
 															{selectedReportId ===

@@ -143,6 +143,21 @@ function routeLabel(ride: AdminRideListItemResponse) {
   return ride.category || ride.tripType || ride.mode || "Ride";
 }
 
+function readArray<T>(value: unknown, keys: string[] = ["items", "data"]): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const nested = record[key];
+    if (Array.isArray(nested)) return nested as T[];
+    if (nested && typeof nested === "object") {
+      const nestedItems = readArray<T>(nested, keys);
+      if (nestedItems.length) return nestedItems;
+    }
+  }
+  return [];
+}
+
 function getStatusColor(status: string): ChipProps["color"] {
   switch (status.toLowerCase()) {
     case "active":
@@ -209,11 +224,11 @@ export default function AdminGlobalSearchPage() {
         listAdminSafetyEmergencies({ page: 1, limit: 100 }),
       ]);
 
-      setRiders(backendRiders.map(mapRider));
-      setDrivers(backendDrivers.map(mapDriver));
-      setCompanies(backendCompanies.map(mapCompany));
-      setTrips(ridePage.items.map(mapRide));
-      setIncidents(incidentPage.items.map(mapIncident));
+      setRiders(readArray<AdminRiderResponse>(backendRiders).map(mapRider));
+      setDrivers(readArray<AdminDriverResponse>(backendDrivers).map(mapDriver));
+      setCompanies(readArray<AdminCompanyResponse>(backendCompanies).map(mapCompany));
+      setTrips(readArray<AdminRideListItemResponse>(ridePage).map(mapRide));
+      setIncidents(readArray<AdminSafetyIncident>(incidentPage).map(mapIncident));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load global search data");
       setRiders([]);
