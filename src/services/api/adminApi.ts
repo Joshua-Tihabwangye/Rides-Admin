@@ -956,6 +956,45 @@ export async function listAdminMonitoringFailedDispatches(): Promise<AdminMonito
 
 // ── Safety incidents / SOS (backend GET /safety/emergencies) ────────────────
 
+export type AdminSafetyIncidentView = {
+  reporter: {
+    userId?: string;
+    name?: string | null;
+    phone?: string | null;
+    role?: string | null;
+  };
+  rider: { userId?: string; name?: string | null; phone?: string | null } | null;
+  driver: {
+    driverId?: string;
+    userId?: string;
+    name?: string | null;
+    phone?: string | null;
+    rating?: number;
+    currentTripId?: string;
+  } | null;
+  vehicle: {
+    vehicleId?: string;
+    vehicleType?: string;
+    make?: string;
+    model?: string;
+    plate?: string;
+    color?: string;
+  } | null;
+  ride: {
+    rideId?: string;
+    status?: string;
+    pickup?: string | null;
+    destination?: string | null;
+    estimatedFare?: number;
+    finalFare?: number;
+    currency?: string;
+  } | null;
+  placeName: string | null;
+  coordinates: { latitude?: number | null; longitude?: number | null };
+  mapsUrl: string | null;
+  capturedAt?: string | null;
+};
+
 export type AdminSafetyIncident = {
   id: string;
   reporterUserId: string;
@@ -983,6 +1022,7 @@ export type AdminSafetyIncident = {
   }>;
   assignedToUserId?: string | null;
   resolvedAt?: string | null;
+  view?: AdminSafetyIncidentView | null;
   contextSnapshot?: {
     contextKind?: string | null;
     capturedAt?: string | null;
@@ -3466,6 +3506,8 @@ export type AdminRideListItemResponse = {
   currency?: string;
   paymentStatus?: string;
   paymentMethod?: string;
+  pickupAddress?: string;
+  destinationAddress?: string;
   scheduledAt?: string;
   createdAt?: string;
   dispatchFailed?: boolean;
@@ -4206,7 +4248,7 @@ export async function listAdminReturnRequests(filters?: {
   status?: AdminReturnRequestStatus;
 }): Promise<AdminReturnRequestView[]> {
   return request<AdminReturnRequestView[]>(
-    `/deliveries/returns/requests${toQueryString({
+    `/admin/returns/requests${toQueryString({
       orderId: filters?.orderId,
       status: filters?.status,
     })}`,
@@ -4220,7 +4262,7 @@ export async function decideAdminReturnRequest(
   note?: string,
 ): Promise<AdminReturnRequestView> {
   return request<AdminReturnRequestView>(
-    `/deliveries/returns/requests/${requestId}/decision`,
+    `/admin/returns/requests/${requestId}/decision`,
     { method: "POST", body: { decision, note } },
   );
 }
@@ -4231,7 +4273,7 @@ export async function listAdminReturnShipments(filters?: {
   source?: AdminReturnRequestSource;
 }): Promise<AdminReturnShipmentView[]> {
   return request<AdminReturnShipmentView[]>(
-    `/deliveries/returns${toQueryString({
+    `/admin/returns${toQueryString({
       orderId: filters?.orderId,
       status: filters?.status,
       source: filters?.source,
@@ -4241,14 +4283,14 @@ export async function listAdminReturnShipments(filters?: {
 }
 
 export async function getAdminReturnShipment(shipmentId: string): Promise<AdminReturnShipmentView> {
-  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}`, { method: "GET" });
+  return request<AdminReturnShipmentView>(`/admin/returns/${shipmentId}`, { method: "GET" });
 }
 
 export async function inspectAdminReturnShipment(
   shipmentId: string,
   input: AdminReturnInspectInput,
 ): Promise<AdminReturnShipmentView> {
-  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}/inspect`, {
+  return request<AdminReturnShipmentView>(`/admin/returns/${shipmentId}/inspect`, {
     method: "POST",
     body: input,
   });
@@ -4259,14 +4301,14 @@ export async function refundAdminReturnShipment(
   amountCents?: number,
   clientRequestId?: string,
 ): Promise<AdminReturnShipmentView> {
-  return request<AdminReturnShipmentView>(`/deliveries/returns/${shipmentId}/refund`, {
+  return request<AdminReturnShipmentView>(`/admin/returns/${shipmentId}/refund`, {
     method: "POST",
     body: { amountCents, clientRequestId },
   });
 }
 
 export async function listAdminReturnReconciliation(): Promise<AdminReturnReconciliationView[]> {
-  return request<AdminReturnReconciliationView[]>("/deliveries/returns/reconciliation", {
+  return request<AdminReturnReconciliationView[]>("/admin/returns/reconciliation", {
     method: "GET",
   });
 }

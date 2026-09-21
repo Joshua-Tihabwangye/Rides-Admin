@@ -82,6 +82,7 @@ export default function AgentManagementPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeTeam, setActiveTeam] = useState("All");
+  const [activeMetric, setActiveMetric] = useState<"all" | "recent" | "tickets" | "qa">("all");
   const [agents, setAgents] = useState<AgentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +165,12 @@ export default function AgentManagementPage() {
       agent.team.toLowerCase().includes(query) ||
       agent.roles.toLowerCase().includes(query);
     const matchesTeam = activeTeam === "All" || agent.team === activeTeam;
-    return matchesSearch && matchesTeam;
+    const matchesMetric =
+      activeMetric === "all" ||
+      (activeMetric === "recent" && agent.status === "Active" && agent.lastLogin !== "—") ||
+      (activeMetric === "tickets" && agent.openTickets > 0) ||
+      (activeMetric === "qa" && parseFloat(agent.qaScore) > 0);
+    return matchesSearch && matchesTeam && matchesMetric;
   });
 
   const teams = useMemo(() => {
@@ -219,15 +225,22 @@ export default function AgentManagementPage() {
       {/* KPI Summary */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         {[
-          { label: "Total agents", value: kpis.total },
-          { label: "Active / recent", value: kpis.online },
-          { label: "Open tickets", value: kpis.openTickets },
-          { label: "Avg QA score", value: kpis.avgQa },
+          { label: "Total agents", value: kpis.total, key: "all" as const },
+          { label: "Active / recent", value: kpis.online, key: "recent" as const },
+          { label: "Open tickets", value: kpis.openTickets, key: "tickets" as const },
+          { label: "Avg QA score", value: kpis.avgQa, key: "qa" as const },
         ].map((kpi) => (
           <Card
             key={kpi.label}
             elevation={1}
-            sx={{ flex: "1 1 140px", borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}
+            onClick={() => setActiveMetric(kpi.key)}
+            sx={{
+              flex: "1 1 140px",
+              borderRadius: 2,
+              border: activeMetric === kpi.key ? "1px solid #03cd8c" : "1px solid rgba(148,163,184,0.3)",
+              bgcolor: activeMetric === kpi.key ? "rgba(3,205,140,0.06)" : "background.paper",
+              cursor: "pointer",
+            }}
           >
             <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary">
@@ -360,7 +373,7 @@ export default function AgentManagementPage() {
                 {filteredAgents.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={9} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                      No agents found.
+                      No agents found for the selected card/filter.
                     </TableCell>
                   </TableRow>
                 )}

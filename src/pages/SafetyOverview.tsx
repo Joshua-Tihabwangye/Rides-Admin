@@ -76,6 +76,8 @@ function incidentCause(incident: AdminSafetyIncident) {
 }
 
 function riskCause(riskCase: AdminRiskCaseResponse) {
+  const evidenceFlags = Array.isArray(riskCase.evidence?.flags) ? riskCase.evidence.flags.join(", ") : "";
+  if (evidenceFlags) return evidenceFlags;
   if (riskCase.notes) return riskCase.notes;
   return `${titleize(riskCase.type)} raised for ${titleize(riskCase.subjectType)} ${riskCase.subjectId.slice(0, 8)}.`;
 }
@@ -166,11 +168,8 @@ export default function SafetyOverviewDashboardPage() {
   const approveAccount = async (account: ReviewAccount) => {
     setNotice(null);
     try {
-      if (account.type === "Rider") {
-        await patchAdminRider(account.id, { status: "active" });
-      } else {
-        await patchAdminDriver(account.id, { status: "active" });
-      }
+      if (account.type === "Rider") await patchAdminRider(account.id, { status: "active" });
+      else await patchAdminDriver(account.id, { status: "active" });
       setReviewAccounts((prev) => prev.filter((item) => !(item.id === account.id && item.type === account.type)));
       setNotice({ severity: "success", message: `${account.name} marked active.` });
     } catch (err) {
@@ -203,9 +202,7 @@ export default function SafetyOverviewDashboardPage() {
         <Box>
           <Stack direction="row" spacing={1} alignItems="center">
             <HealthAndSafetyIcon sx={{ color: EV_GREEN }} />
-            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>
-              Safety Overview
-            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>Safety Overview</Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             Live SOS incidents, review accounts, and risk signals from the database.
@@ -279,16 +276,12 @@ export default function SafetyOverviewDashboardPage() {
                           </Stack>
                         </TableCell>
                         <TableCell sx={{ maxWidth: 300 }}>{incidentCause(incident)}</TableCell>
-                        <TableCell>
-                          {location ? <Button size="small" href={location} target="_blank" rel="noreferrer" sx={{ textTransform: "none" }}>Map</Button> : incident.address || "-"}
-                        </TableCell>
+                        <TableCell>{location ? <Button size="small" href={location} target="_blank" rel="noreferrer" sx={{ textTransform: "none" }}>Map</Button> : incident.address || "-"}</TableCell>
                         <TableCell><Chip size="small" color={incident.status === "RESOLVED" ? "success" : incident.status === "OPEN" ? "error" : "warning"} label={titleize(incident.status)} /></TableCell>
                         <TableCell>{formatDate(incident.createdAt)}</TableCell>
                         <TableCell align="right">
                           <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                            {incident.status !== "RESOLVED" ? (
-                              <Button size="small" onClick={() => void updateIncident(incident, "RESOLVED")} sx={{ textTransform: "none" }}>Resolve</Button>
-                            ) : null}
+                            {incident.status !== "RESOLVED" ? <Button size="small" onClick={() => void updateIncident(incident, "RESOLVED")} sx={{ textTransform: "none" }}>Resolve</Button> : null}
                             <Button size="small" onClick={() => navigate(`/admin/safety/${incident.id}`)} sx={{ textTransform: "none" }}>Open</Button>
                           </Stack>
                         </TableCell>
@@ -315,9 +308,7 @@ export default function SafetyOverviewDashboardPage() {
               </TableHead>
               <TableBody>
                 {reviewAccounts.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 6 }}>No accounts currently need review</TableCell>
-                  </TableRow>
+                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}>No accounts currently need review</TableCell></TableRow>
                 ) : (
                   reviewAccounts.slice(0, 12).map((account) => (
                     <TableRow key={`${account.type}-${account.id}`} hover>
@@ -372,11 +363,7 @@ export default function SafetyOverviewDashboardPage() {
                   <TableCell align="right"><Button size="small" onClick={() => navigate(`/admin/risk/${riskCase.id}`)} sx={{ textTransform: "none" }}>Open</Button></TableCell>
                 </TableRow>
               ))}
-              {riskCases.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>No risk cases found</TableCell>
-                </TableRow>
-              ) : null}
+              {riskCases.length === 0 ? <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>No risk cases found</TableCell></TableRow> : null}
             </TableBody>
           </Table>
         </TableContainer>
@@ -417,9 +404,7 @@ function MetricCard({
       }}
     >
       <Stack direction="row" spacing={1.5} alignItems="center">
-        <Box sx={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 1.5, bgcolor: `${color}18`, color }}>
-          {icon}
-        </Box>
+        <Box sx={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 1.5, bgcolor: `${color}18`, color }}>{icon}</Box>
         <Box>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: "uppercase" }}>{label}</Typography>
           <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1 }}>{value.toLocaleString()}</Typography>

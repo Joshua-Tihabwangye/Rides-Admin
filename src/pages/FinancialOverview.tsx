@@ -82,13 +82,15 @@ export default function FinancialOverviewPage() {
 
   const handleExport = () => {
     if (!analytics) return;
-    const netRevenue = Math.max(0, analytics.grossEarnings - analytics.payoutsPending);
+    const grossEarnings = Number(analytics.grossEarnings ?? 0);
+    const payoutsPending = Number(analytics.payoutsPending ?? 0);
+    const netRevenue = Math.max(0, grossEarnings - payoutsPending);
     const csvContent = [
       ["Metric", "Value"],
-      ["Gross bookings", analytics.grossEarnings.toString()],
+      ["Gross bookings", grossEarnings.toString()],
       ["Net revenue", netRevenue.toString()],
-      ["Payouts (scheduled)", analytics.payoutsPending.toString()],
-      ["Currency", analytics.currency],
+      ["Payouts (scheduled)", payoutsPending.toString()],
+      ["Currency", analytics.currency ?? "UGX"],
       ["Pending payouts count", payouts.length.toString()],
     ]
       .map((e) => e.join(","))
@@ -107,11 +109,13 @@ export default function FinancialOverviewPage() {
 
   const kpis = useMemo(() => {
     if (!analytics) return [];
-    const netRevenue = Math.max(0, analytics.grossEarnings - analytics.payoutsPending);
+    const grossEarnings = Number(analytics.grossEarnings ?? 0);
+    const payoutsPending = Number(analytics.payoutsPending ?? 0);
+    const netRevenue = Math.max(0, grossEarnings - payoutsPending);
     return [
       {
         label: "Gross bookings",
-        value: `${currencySymbol}${analytics.grossEarnings.toLocaleString()}`,
+        value: `${currencySymbol}${grossEarnings.toLocaleString()}`,
         subtitle: `${payouts.length} pending payouts`,
       },
       {
@@ -121,16 +125,17 @@ export default function FinancialOverviewPage() {
       },
       {
         label: "Payouts (scheduled)",
-        value: `${currencySymbol}${analytics.payoutsPending.toLocaleString()}`,
+        value: `${currencySymbol}${payoutsPending.toLocaleString()}`,
         subtitle: "Next 7 days",
       },
     ];
   }, [analytics, payouts, currencySymbol]);
 
   const serviceRevenueData = useMemo(() => {
-    if (revenue?.byService?.length) {
+    const services = Array.isArray(revenue?.byService) ? revenue.byService : [];
+    if (services.length) {
       const palette = ["#03cd8c", "#f77f00", "#3b82f6", "#8b5cf6", "#ef4444", "#10b981"];
-      return revenue.byService.map((s, i) => ({
+      return services.map((s, i) => ({
         name: s.serviceType,
         value: s.amount,
         color: palette[i % palette.length],

@@ -54,7 +54,7 @@ export default function AdminUsersManagementPage() {
       const matchesSearch =
         user.name.toLowerCase().includes(search.toLowerCase()) ||
         user.email.toLowerCase().includes(search.toLowerCase());
-      const matchesRole = activeRole === "All" || user.roles.some((role) => role.toLowerCase().includes(activeRole.toLowerCase()));
+      const matchesRole = activeRole === "All" || user.roles.some((role) => role.toLowerCase() === activeRole.toLowerCase());
       return matchesSearch && matchesRole;
     });
   }, [activeRole, search, users]);
@@ -69,7 +69,7 @@ export default function AdminUsersManagementPage() {
         user.regions,
         user.status,
         user.twoFA ? "Enabled" : "Disabled",
-        new Date(user.lastLogin).toISOString(),
+        user.lastLogin ? new Date(user.lastLogin).toISOString() : "", 
       ]),
     ];
     const blob = new Blob([rows.map((row) => row.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -147,7 +147,7 @@ export default function AdminUsersManagementPage() {
             <Typography variant="caption" color="text.secondary">
               Role:
             </Typography>
-            {["All", "Super Admin", "Admin"].map((role) => (
+            {["All", ...Array.from(new Set(users.flatMap((user) => user.roles))).sort()].map((role) => (
               <Chip
                 key={role}
                 size="small"
@@ -194,7 +194,7 @@ export default function AdminUsersManagementPage() {
                       <StatusBadge status={user.status.toLowerCase()} />
                     </TableCell>
                     <TableCell>{user.twoFA ? "Enabled" : "Disabled"}</TableCell>
-                    <TableCell>{new Date(user.lastLogin).toLocaleString()}</TableCell>
+                    <TableCell>{user.lastLogin ? new Date(user.lastLogin).toLocaleString() : "Never"}</TableCell>
                   </TableRow>
                 ))}
                 {filteredUsers.length === 0 && (

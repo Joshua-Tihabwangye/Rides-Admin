@@ -26,8 +26,7 @@ function getGoogleMaps(): typeof google.maps | null {
 }
 
 function resolveGoogleMapsApiKey(): string {
-  const raw = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
-  return raw && !/^https?:\/\//i.test(raw) ? raw : "";
+  return (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "").trim();
 }
 
 function CoordinateFallback({

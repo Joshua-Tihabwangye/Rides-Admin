@@ -438,6 +438,8 @@ export default function DriverDetail() {
                                                 <TableCell>Ride</TableCell>
                                                 <TableCell>Status</TableCell>
                                                 <TableCell>Rider</TableCell>
+                                                <TableCell>Pickup</TableCell>
+                                                <TableCell>Drop off</TableCell>
                                                 <TableCell align="right">Fare</TableCell>
                                                 <TableCell>Payment</TableCell>
                                                 <TableCell>Created</TableCell>
@@ -452,6 +454,8 @@ export default function DriverDetail() {
                                                     </TableCell>
                                                     <TableCell><Chip size="small" label={ride.status} /></TableCell>
                                                     <TableCell>{ride.riderName || ride.riderId || '—'}</TableCell>
+                                                    <TableCell>{ride.pickupAddress || '—'}</TableCell>
+                                                    <TableCell>{ride.destinationAddress || '—'}</TableCell>
                                                     <TableCell align="right">{formatMoney(ride.finalFare ?? ride.estimatedFare, ride.currency)}</TableCell>
                                                     <TableCell>{ride.paymentStatus || ride.paymentMethod || '—'}</TableCell>
                                                     <TableCell>{formatDate(ride.createdAt ?? ride.scheduledAt)}</TableCell>

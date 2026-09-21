@@ -232,6 +232,8 @@ export default function RiderDetail() {
                         <TableCell>Ride</TableCell>
                         <TableCell>Status</TableCell>
                         <TableCell>Driver</TableCell>
+                        <TableCell>Pickup</TableCell>
+                        <TableCell>Drop off</TableCell>
                         <TableCell align="right">Fare</TableCell>
                         <TableCell>Created</TableCell>
                       </TableRow>
@@ -245,6 +247,8 @@ export default function RiderDetail() {
                           </TableCell>
                           <TableCell><Chip size="small" label={ride.status} /></TableCell>
                           <TableCell>{ride.driverName || ride.driverId || "-"}</TableCell>
+                          <TableCell>{ride.pickupAddress || "-"}</TableCell>
+                          <TableCell>{ride.destinationAddress || "-"}</TableCell>
                           <TableCell align="right">{formatMoney(ride.finalFare ?? ride.estimatedFare, ride.currency)}</TableCell>
                           <TableCell>{formatDate(ride.createdAt ?? ride.scheduledAt)}</TableCell>
                         </TableRow>
