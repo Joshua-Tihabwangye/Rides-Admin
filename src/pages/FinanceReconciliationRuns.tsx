@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -12,8 +12,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  FormControl,
+  InputLabel,
   MenuItem,
   Select,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -22,35 +26,55 @@ import {
   TableRow,
   TextField,
   Typography,
-  Paper,
-} from '@mui/material';
+} from "@mui/material";
+import SyncAltIcon from "@mui/icons-material/SyncAlt";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import TaskAltIcon from "@mui/icons-material/TaskAlt";
+import PendingActionsIcon from "@mui/icons-material/PendingActions";
 import {
   listAdminReconciliationRuns,
   startAdminReconciliationRun,
-  getAdminReconciliationRun,
   listAdminReconciliationRecords,
   resolveAdminReconciliationRecord,
   listAdminReconciliationProviders,
   type AdminReconciliationRun,
   type AdminReconciliationRecord,
-} from '../services/api/adminApi';
+} from "../services/api/adminApi";
+
+const EV_GREEN = "#03cd8c";
+const RUN_TYPES = ["PAYMENTS", "PAYOUTS", "CORPORATEPAY"];
+const RUN_STATUSES = ["OPEN", "RUNNING", "COMPLETED", "FAILED"];
+const RECORD_STATUSES = ["OPEN", "MATCHED", "VARIANCE", "RESOLVED", "IGNORED"];
 
 const statusColor = (status: string) => {
-  switch (status) {
-    case 'completed':
-    case 'RESOLVED':
-      return 'success';
-    case 'failed':
-    case 'UNMATCHED':
-      return 'error';
-    case 'running':
-      return 'info';
-    case 'pending':
-      return 'warning';
+  switch (status?.toUpperCase()) {
+    case "COMPLETED":
+    case "RESOLVED":
+    case "MATCHED":
+      return "success";
+    case "FAILED":
+    case "VARIANCE":
+      return "error";
+    case "RUNNING":
+      return "info";
+    case "OPEN":
+      return "warning";
     default:
-      return 'default';
+      return "default";
   }
 };
+
+function money(value?: number) {
+  return Number(value ?? 0).toLocaleString("en-UG");
+}
+
+function dateRange(run: AdminReconciliationRun) {
+  const start = run.periodStart ? new Date(run.periodStart).toLocaleDateString() : "-";
+  const end = run.periodEnd ? new Date(run.periodEnd).toLocaleDateString() : "-";
+  return `${start} -> ${end}`;
+}
 
 export default function FinanceReconciliationRunsPage() {
   const [runs, setRuns] = useState<AdminReconciliationRun[]>([]);
@@ -58,42 +82,88 @@ export default function FinanceReconciliationRunsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState('PAYMENTS');
-  const [provider, setProvider] = useState('');
-  const [periodStart, setPeriodStart] = useState('');
-  const [periodEnd, setPeriodEnd] = useState('');
-  const [tolerance, setTolerance] = useState('0.01');
+  const [type, setType] = useState("PAYMENTS");
+  const [provider, setProvider] = useState("");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  const [tolerance, setTolerance] = useState("0.01");
   const [submitting, setSubmitting] = useState(false);
+  const [runTypeFilter, setRunTypeFilter] = useState("");
+  const [runStatusFilter, setRunStatusFilter] = useState("");
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
   const [records, setRecords] = useState<AdminReconciliationRecord[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
+  const [recordStatusFilter, setRecordStatusFilter] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<AdminReconciliationRecord | null>(null);
-  const [recordStatus, setRecordStatus] = useState('RESOLVED');
-  const [recordResolution, setRecordResolution] = useState('');
+  const [recordStatus, setRecordStatus] = useState("RESOLVED");
+  const [recordResolution, setRecordResolution] = useState("");
   const [resolving, setResolving] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [runsRes, providersRes] = await Promise.all([
-        listAdminReconciliationRuns(),
+        listAdminReconciliationRuns({
+          type: runTypeFilter || undefined,
+          status: runStatusFilter || undefined,
+        }),
         listAdminReconciliationProviders(),
       ]);
-      setRuns(runsRes);
+      setRuns(Array.isArray(runsRes) ? runsRes : []);
       setProviders(providersRes.providers || []);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load reconciliation runs');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load reconciliation runs");
+      setRuns([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [runStatusFilter, runTypeFilter]);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
+
+  const loadRecords = useCallback(async (runId: string) => {
+    setRecordsLoading(true);
+    setError(null);
+    try {
+      const res = await listAdminReconciliationRecords(runId, {
+        status: recordStatusFilter || undefined,
+      });
+      setRecords(Array.isArray(res) ? res : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load records");
+    } finally {
+      setRecordsLoading(false);
+    }
+  }, [recordStatusFilter]);
+
+  useEffect(() => {
+    if (expandedRunId) void loadRecords(expandedRunId);
+  }, [expandedRunId, loadRecords]);
+
+  const metrics = useMemo(() => ({
+    total: runs.length,
+    open: runs.filter((run) => run.status === "OPEN" || run.status === "RUNNING").length,
+    completed: runs.filter((run) => run.status === "COMPLETED").length,
+    failed: runs.filter((run) => run.status === "FAILED").length,
+  }), [runs]);
 
   const handleStart = async () => {
+    const parsedTolerance = Number(tolerance);
+    if (!periodStart || !periodEnd) {
+      setError("Select a period start and period end before starting reconciliation.");
+      return;
+    }
+    if (new Date(periodStart) > new Date(periodEnd)) {
+      setError("Period start must be before period end.");
+      return;
+    }
+    if (!Number.isFinite(parsedTolerance) || parsedTolerance < 0) {
+      setError("Tolerance must be a valid non-negative number.");
+      return;
+    }
     setSubmitting(true);
     try {
       await startAdminReconciliationRun({
@@ -101,35 +171,26 @@ export default function FinanceReconciliationRunsPage() {
         periodStart,
         periodEnd,
         provider: provider || undefined,
-        tolerance: Number(tolerance),
+        tolerance: parsedTolerance,
       });
       setOpen(false);
-      setPeriodStart('');
-      setPeriodEnd('');
+      setPeriodStart("");
+      setPeriodEnd("");
       await load();
-    } catch (err: any) {
-      setError(err?.message ?? 'Start run failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Start run failed");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const toggleRecords = async (runId: string) => {
+  const toggleRecords = (runId: string) => {
     if (expandedRunId === runId) {
       setExpandedRunId(null);
       setRecords([]);
       return;
     }
     setExpandedRunId(runId);
-    setRecordsLoading(true);
-    try {
-      const res = await listAdminReconciliationRecords(runId);
-      setRecords(res);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load records');
-    } finally {
-      setRecordsLoading(false);
-    }
   };
 
   const handleResolve = async () => {
@@ -138,10 +199,11 @@ export default function FinanceReconciliationRunsPage() {
     try {
       await resolveAdminReconciliationRecord(expandedRunId, selectedRecord.id, { status: recordStatus, resolution: recordResolution });
       setSelectedRecord(null);
-      if (expandedRunId) await toggleRecords(expandedRunId);
+      setRecordResolution("");
+      await loadRecords(expandedRunId);
       await load();
-    } catch (err: any) {
-      setError(err?.message ?? 'Resolve failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Resolve failed");
     } finally {
       setResolving(false);
     }
@@ -149,7 +211,7 @@ export default function FinanceReconciliationRunsPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 6 }}>
         <CircularProgress />
       </Box>
     );
@@ -157,146 +219,213 @@ export default function FinanceReconciliationRunsPage() {
 
   return (
     <Box>
-      <Box className="pb-4 flex items-center justify-between gap-2">
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap", pb: 3 }}>
         <Box>
-          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
-            Reconciliation Runs
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Start and review payment/payout reconciliation runs.
+          <Stack direction="row" spacing={1} alignItems="center">
+            <SyncAltIcon sx={{ color: EV_GREEN }} />
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>Reconciliation Runs</Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Start, inspect, and resolve payment and payout reconciliation runs from backend records.
           </Typography>
         </Box>
-        <Box className="flex gap-2">
-          <Button variant="outlined" size="small" onClick={load} sx={{ textTransform: 'none' }}>
-            Refresh
-          </Button>
-          <Button variant="contained" size="small" onClick={() => setOpen(true)} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>
-            Start run
-          </Button>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => void load()} sx={{ borderRadius: 1, textTransform: "none" }}>Refresh</Button>
+          <Button variant="contained" size="small" startIcon={<PlayArrowIcon />} onClick={() => setOpen(true)} sx={{ borderRadius: 1, textTransform: "none", bgcolor: EV_GREEN, "&:hover": { bgcolor: "#0fb589" } }}>Start run</Button>
+        </Stack>
+      </Box>
+
+      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 2, mb: 3 }}>
+        <MetricCard label="Runs" value={metrics.total} icon={<SyncAltIcon />} color="#2563eb" />
+        <MetricCard label="Open / running" value={metrics.open} icon={<PendingActionsIcon />} color="#f59e0b" />
+        <MetricCard label="Completed" value={metrics.completed} icon={<TaskAltIcon />} color={EV_GREEN} />
+        <MetricCard label="Failed" value={metrics.failed} icon={<ErrorOutlineIcon />} color="#ef4444" />
+      </Box>
+
+      <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)", mb: 3 }}>
+        <CardContent sx={{ p: 2 }}>
+          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+            <FormControl size="small" sx={{ minWidth: 170 }}>
+              <InputLabel>Run type</InputLabel>
+              <Select label="Run type" value={runTypeFilter} onChange={(event) => setRunTypeFilter(event.target.value)}>
+                <MenuItem value="">All types</MenuItem>
+                {RUN_TYPES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 170 }}>
+              <InputLabel>Status</InputLabel>
+              <Select label="Status" value={runStatusFilter} onChange={(event) => setRunStatusFilter(event.target.value)}>
+                <MenuItem value="">All statuses</MenuItem>
+                {RUN_STATUSES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Box>
+        </CardContent>
+      </Card>
+
+      <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)", overflow: "hidden" }}>
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Backend Runs</Typography>
+          <Typography variant="caption" color="text.secondary">{runs.length} reconciliation runs loaded</Typography>
         </Box>
-      </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      <Box className="flex flex-col gap-3">
-        {runs.map((run) => (
-          <Card key={run.id} elevation={1} sx={{ borderRadius: 2, border: '1px solid rgba(148,163,184,0.3)' }}>
-            <CardContent className="p-3">
-              <Box className="flex items-center justify-between gap-2 flex-wrap">
-                <Box>
-                  <Typography variant="subtitle2" className="font-semibold">{run.type} run</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {run.periodStart ? new Date(run.periodStart).toLocaleDateString() : '-'} → {run.periodEnd ? new Date(run.periodEnd).toLocaleDateString() : '-'} · {run.id}
-                  </Typography>
-                </Box>
-                <Box className="flex items-center gap-2">
-                  <Chip size="small" label={run.status} color={statusColor(run.status) as any} sx={{ fontSize: 11 }} />
-                  <Button size="small" variant="outlined" sx={{ textTransform: 'none', borderRadius: 999, fontSize: 12 }} onClick={() => toggleRecords(run.id)}>
-                    {expandedRunId === run.id ? 'Hide records' : 'Records'}
-                  </Button>
-                </Box>
-              </Box>
-
-              <Collapse in={expandedRunId === run.id}>
-                <Box className="pt-3">
-                  {recordsLoading ? <CircularProgress size={20} /> : (
-                    <TableContainer component={Paper} elevation={0}>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                            <TableCell>Record</TableCell>
-                            <TableCell>Internal</TableCell>
-                            <TableCell>Expected</TableCell>
-                            <TableCell>Settled</TableCell>
-                            <TableCell>Variance</TableCell>
-                            <TableCell>Status</TableCell>
-                            <TableCell align="right">Actions</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {records.length === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={7} align="center" sx={{ py: 2, color: 'text.secondary' }}>
-                                No records.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          {records.map((rec) => (
-                            <TableRow key={rec.id}>
-                              <TableCell sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12 }}>{rec.id}</TableCell>
-                              <TableCell sx={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', fontSize: 12 }}>{rec.internalRecordType} {rec.internalRecordId}</TableCell>
-                              <TableCell>{rec.expectedAmount?.toLocaleString()}</TableCell>
-                              <TableCell>{rec.settledAmount?.toLocaleString()}</TableCell>
-                              <TableCell>{rec.variance?.toLocaleString()}</TableCell>
-                              <TableCell>
-                                <Chip size="small" label={rec.status} color={statusColor(rec.status) as any} sx={{ fontSize: 11 }} />
-                              </TableCell>
-                              <TableCell align="right">
-                                {rec.status !== 'RESOLVED' && rec.status !== 'IGNORED' && (
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ textTransform: 'none', borderRadius: 999, fontSize: 12 }}
-                                    onClick={() => { setSelectedRecord(rec); setRecordStatus('RESOLVED'); setRecordResolution(''); }}
-                                  >
-                                    Resolve
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  )}
-                </Box>
-              </Collapse>
-            </CardContent>
-          </Card>
-        ))}
-
-        {runs.length === 0 && (
-          <Alert severity="info">No reconciliation runs yet.</Alert>
-        )}
-      </Box>
+        <Divider />
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Run</TableCell>
+                <TableCell>Period</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Created</TableCell>
+                <TableCell>Completed</TableCell>
+                <TableCell align="right">Records</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {runs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 7 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>No reconciliation runs yet</Typography>
+                    <Typography variant="body2" color="text.secondary">Start a run to populate this backend queue.</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                runs.map((run) => (
+                  <React.Fragment key={run.id}>
+                    <TableRow hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>{run.type}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>{run.id}</Typography>
+                      </TableCell>
+                      <TableCell>{dateRange(run)}</TableCell>
+                      <TableCell><Chip size="small" label={run.status} color={statusColor(run.status) as any} /></TableCell>
+                      <TableCell>{run.createdAt ? new Date(run.createdAt).toLocaleString() : "-"}</TableCell>
+                      <TableCell>{run.completedAt ? new Date(run.completedAt).toLocaleString() : "-"}</TableCell>
+                      <TableCell align="right">
+                        <Button size="small" variant="outlined" sx={{ borderRadius: 1, textTransform: "none" }} onClick={() => toggleRecords(run.id)}>
+                          {expandedRunId === run.id ? "Hide records" : "View records"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={6} sx={{ p: 0, borderBottom: expandedRunId === run.id ? undefined : 0 }}>
+                        <Collapse in={expandedRunId === run.id} unmountOnExit>
+                          <Box sx={{ p: 2, bgcolor: "action.hover" }}>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 1.5, flexWrap: "wrap" }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Run Records</Typography>
+                              <FormControl size="small" sx={{ minWidth: 180 }}>
+                                <InputLabel>Record status</InputLabel>
+                                <Select label="Record status" value={recordStatusFilter} onChange={(event) => setRecordStatusFilter(event.target.value)}>
+                                  <MenuItem value="">All record statuses</MenuItem>
+                                  {RECORD_STATUSES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                                </Select>
+                              </FormControl>
+                            </Box>
+                            {recordsLoading ? <CircularProgress size={22} /> : (
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>Record</TableCell>
+                                    <TableCell>Internal</TableCell>
+                                    <TableCell>Expected</TableCell>
+                                    <TableCell>Settled</TableCell>
+                                    <TableCell>Variance</TableCell>
+                                    <TableCell>Status</TableCell>
+                                    <TableCell align="right">Action</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {records.length === 0 ? (
+                                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3 }}>No records for this filter.</TableCell></TableRow>
+                                  ) : (
+                                    records.map((rec) => (
+                                      <TableRow key={rec.id} hover>
+                                        <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{rec.id}</TableCell>
+                                        <TableCell>{rec.internalRecordType} {rec.internalRecordId}</TableCell>
+                                        <TableCell>{money(rec.expectedAmount)}</TableCell>
+                                        <TableCell>{money(rec.settledAmount)}</TableCell>
+                                        <TableCell>{money(rec.variance)}</TableCell>
+                                        <TableCell><Chip size="small" label={rec.status} color={statusColor(rec.status) as any} /></TableCell>
+                                        <TableCell align="right">
+                                          {rec.status !== "RESOLVED" && rec.status !== "IGNORED" ? (
+                                            <Button size="small" variant="outlined" sx={{ borderRadius: 1, textTransform: "none" }} onClick={() => { setSelectedRecord(rec); setRecordStatus("RESOLVED"); setRecordResolution(""); }}>
+                                              Resolve
+                                            </Button>
+                                          ) : "-"}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))
+                                  )}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Card>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Start reconciliation run</DialogTitle>
-        <DialogContent className="flex flex-col gap-3">
-          <TextField label="Type" value={type} onChange={(e) => setType(e.target.value)} fullWidth size="small" helperText="PAYMENTS, PAYOUTS or CORPORATEPAY" />
-          <Select value={provider} displayEmpty fullWidth size="small" onChange={(e) => setProvider(e.target.value)}>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <TextField label="Type" value={type} onChange={(event) => setType(event.target.value)} fullWidth size="small" helperText="PAYMENTS, PAYOUTS or CORPORATEPAY" />
+          <Select value={provider} displayEmpty fullWidth size="small" onChange={(event) => setProvider(event.target.value)}>
             <MenuItem value=""><em>All providers</em></MenuItem>
-            {providers.map((p) => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+            {providers.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
           </Select>
-          <TextField label="Period start" type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} fullWidth size="small" InputLabelProps={{ shrink: true }} />
-          <TextField label="Period end" type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} fullWidth size="small" InputLabelProps={{ shrink: true }} />
-          <TextField label="Tolerance" type="number" value={tolerance} onChange={(e) => setTolerance(e.target.value)} fullWidth size="small" />
+          <TextField label="Period start" type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} fullWidth size="small" InputLabelProps={{ shrink: true }} />
+          <TextField label="Period end" type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} fullWidth size="small" InputLabelProps={{ shrink: true }} />
+          <TextField label="Tolerance" type="number" value={tolerance} onChange={(event) => setTolerance(event.target.value)} fullWidth size="small" />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)} size="small" sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button onClick={handleStart} variant="contained" size="small" disabled={submitting || !periodStart || !periodEnd} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>
-            {submitting ? 'Starting...' : 'Start'}
+          <Button onClick={() => setOpen(false)} size="small" sx={{ textTransform: "none" }}>Cancel</Button>
+          <Button onClick={() => void handleStart()} variant="contained" size="small" disabled={submitting || !periodStart || !periodEnd} sx={{ textTransform: "none", bgcolor: EV_GREEN, "&:hover": { bgcolor: "#0fb589" } }}>
+            {submitting ? "Starting..." : "Start"}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={!!selectedRecord} onClose={() => setSelectedRecord(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Resolve record</DialogTitle>
-        <DialogContent className="flex flex-col gap-3">
-          <Typography variant="body2">Variance: {selectedRecord?.variance?.toLocaleString()}</Typography>
-          <Select value={recordStatus} fullWidth size="small" onChange={(e) => setRecordStatus(e.target.value)}>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <Typography variant="body2">Variance: {money(selectedRecord?.variance)}</Typography>
+          <Select value={recordStatus} fullWidth size="small" onChange={(event) => setRecordStatus(event.target.value)}>
             <MenuItem value="RESOLVED">Resolved</MenuItem>
             <MenuItem value="IGNORED">Ignored</MenuItem>
           </Select>
-          <TextField label="Resolution note" value={recordResolution} onChange={(e) => setRecordResolution(e.target.value)} fullWidth size="small" />
+          <TextField label="Resolution note" value={recordResolution} onChange={(event) => setRecordResolution(event.target.value)} fullWidth size="small" />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSelectedRecord(null)} size="small" sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button onClick={handleResolve} variant="contained" size="small" disabled={resolving} sx={{ textTransform: 'none', bgcolor: '#03cd8c' }}>
-            {resolving ? 'Saving...' : 'Save'}
+          <Button onClick={() => setSelectedRecord(null)} size="small" sx={{ textTransform: "none" }}>Cancel</Button>
+          <Button onClick={() => void handleResolve()} variant="contained" size="small" disabled={resolving} sx={{ textTransform: "none", bgcolor: EV_GREEN, "&:hover": { bgcolor: "#0fb589" } }}>
+            {resolving ? "Saving..." : "Save"}
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
+  );
+}
+
+function MetricCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: string }) {
+  return (
+    <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)" }}>
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 1, bgcolor: `${color}18`, color }}>{icon}</Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: "uppercase" }}>{label}</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1 }}>{value.toLocaleString()}</Typography>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }

@@ -38,8 +38,11 @@ import { DELIVERY_STATUS_FILTER_OPTIONS } from '../utils/deliveryStatus';
 
 const ORIGIN_TYPES = [
   { value: '', label: 'All origins' },
-  { value: 'merchant', label: 'Merchant' },
-  { value: 'individual', label: 'Individual' },
+  { value: 'PERSON_TO_PERSON', label: 'Person to person' },
+  { value: 'MARKETPLACE', label: 'Marketplace' },
+  { value: 'MERCHANT', label: 'Merchant' },
+  { value: 'WAREHOUSE', label: 'Warehouse' },
+  { value: 'ADMIN_MANUAL', label: 'Admin manual' },
 ];
 
 const LABEL_STATUSES = [
@@ -54,10 +57,8 @@ const LABEL_STATUSES = [
 
 const READINESS_STATUSES = [
   { value: '', label: 'All readiness' },
-  { value: 'not_ready', label: 'Not ready' },
-  { value: 'ready', label: 'Ready' },
-  { value: 'in_transit', label: 'In transit' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'PREPARATION', label: 'Preparation' },
+  { value: 'READY', label: 'Ready' },
 ];
 
 export default function DeliveryListPage() {

@@ -9,16 +9,36 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { listAdminFeatureFlags, type AdminFeatureFlagResponse } from "../services/api/adminApi";
+import {
+  getAdminExperimentResults,
+  type AdminExperimentResultsResponse,
+} from "../services/api/adminApi";
+
+function formatPercent(value: number | null) {
+  if (value == null) return "—";
+  return `${(Math.abs(value) > 1 ? value : value * 100).toFixed(1)}%`;
+}
+
+function formatMetric(value: unknown) {
+  if (value == null || value === "") return "—";
+  if (typeof value === "number") return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(2);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
 
 export default function ExperimentResults() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [flags, setFlags] = useState<AdminFeatureFlagResponse[]>([]);
+  const [results, setResults] = useState<AdminExperimentResultsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,15 +46,18 @@ export default function ExperimentResults() {
     let cancelled = false;
 
     const load = async () => {
+      if (!id) {
+        setError("Experiment ID is missing.");
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
-        const data = await listAdminFeatureFlags();
-        if (cancelled) return;
-        setFlags(data);
+        const data = await getAdminExperimentResults(id);
+        if (!cancelled) setResults(data);
       } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load feature flags");
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load experiment results");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -44,18 +67,10 @@ export default function ExperimentResults() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [id]);
 
-  const selectedFlag = useMemo(() => {
-    if (flags.length === 0) return null;
-    const directMatch = flags.find((flag) => flag.id === id || flag.key === id);
-    if (directMatch) return directMatch;
-    const numeric = Number(id);
-    if (Number.isFinite(numeric) && numeric > 0) {
-      return flags[(numeric - 1) % flags.length];
-    }
-    return flags[0];
-  }, [flags, id]);
+  const metricRows = useMemo(() => Object.entries(results?.metrics ?? {}), [results?.metrics]);
+  const title = String(results?.experiment.name ?? results?.experiment.key ?? results?.experiment.id ?? "Experiment");
 
   if (loading) {
     return (
@@ -69,8 +84,8 @@ export default function ExperimentResults() {
     return <Alert severity="error">{error}</Alert>;
   }
 
-  if (!selectedFlag) {
-    return <Alert severity="info">No feature flags returned by the backend.</Alert>;
+  if (!results) {
+    return <Alert severity="info">No experiment results returned by the backend.</Alert>;
   }
 
   return (
@@ -81,74 +96,104 @@ export default function ExperimentResults() {
           onClick={() => navigate("/admin/system/flags")}
           sx={{ textTransform: "none", color: "text.secondary" }}
         >
-          Back to Flags
+          Back
         </Button>
         <Box>
           <Typography variant="h5" fontWeight={700} color="text.primary">
-            Feature Flag: {selectedFlag.description || selectedFlag.key}
+            {title}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Key: {selectedFlag.key} · Scope: {selectedFlag.scope}
+            Backend experiment results · updated {new Date(results.source.updatedAt).toLocaleString()}
           </Typography>
         </Box>
-        <Chip
-          label={selectedFlag.enabled ? "Enabled" : "Disabled"}
-          size="small"
-          color={selectedFlag.enabled ? "success" : "default"}
-          sx={{ ml: "auto" }}
-        />
+        <Chip label={results.summary.status} size="small" color={results.summary.status === "running" ? "success" : "default"} sx={{ ml: "auto" }} />
       </Box>
 
-      <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+      <Box className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <SummaryCard label="Sample size" value={results.summary.sampleSize.toLocaleString()} />
+        <SummaryCard label="Conversion" value={formatPercent(results.summary.conversionRate)} />
+        <SummaryCard label="Confidence" value={formatPercent(results.summary.confidence)} />
+        <SummaryCard label="Winner" value={results.summary.winner ?? "—"} />
+      </Box>
+
+      <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
         <CardContent sx={{ p: 3 }}>
           <Typography variant="subtitle2" fontWeight={700} color="text.primary" sx={{ mb: 2 }}>
-            Live flag details
+            Variant Performance
           </Typography>
-          <Box className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <DetailItem label="Flag ID" value={selectedFlag.id} />
-            <DetailItem label="Scope" value={selectedFlag.scope} />
-            <DetailItem label="State" value={selectedFlag.enabled ? "Enabled" : "Disabled"} />
-            <DetailItem label="Updated" value={selectedFlag.updatedAt ? new Date(selectedFlag.updatedAt).toLocaleString() : "n/a"} />
-          </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
-            Experiment metrics and A/B variant series are not exposed by the backend yet. This page now shows the live flag record instead of demo data.
-          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          {results.variants.length > 0 ? (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Variant</TableCell>
+                  <TableCell>Allocation</TableCell>
+                  <TableCell>Users</TableCell>
+                  <TableCell>Conversions</TableCell>
+                  <TableCell>Conversion rate</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {results.variants.map((variant) => (
+                  <TableRow key={variant.id}>
+                    <TableCell>{variant.name}</TableCell>
+                    <TableCell>{formatPercent(variant.allocation)}</TableCell>
+                    <TableCell>{variant.users.toLocaleString()}</TableCell>
+                    <TableCell>{variant.conversions.toLocaleString()}</TableCell>
+                    <TableCell>{formatPercent(variant.conversionRate)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <Alert severity="info">
+              This experiment exists in the backend, but no variant result rows have been recorded yet.
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
-      <Alert severity="warning">
-        Backend experiment analytics are still pending. Use the flags list and audit log for operational review until metrics are added.
-      </Alert>
-
-      <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", bgcolor: "background.paper" }}>
+      <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
         <CardContent sx={{ p: 3 }}>
           <Typography variant="subtitle2" fontWeight={700} color="text.primary" sx={{ mb: 2 }}>
-            Related actions
+            Recorded Metrics
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <Stack direction="row" spacing={2} flexWrap="wrap">
-            <Button variant="outlined" onClick={() => navigate("/admin/system/flags")} sx={{ textTransform: "none" }}>
-              Open flag inventory
-            </Button>
-            <Button variant="outlined" onClick={() => navigate("/admin/system/audit-log")} sx={{ textTransform: "none" }}>
-              View audit log
-            </Button>
-          </Stack>
+          {metricRows.length > 0 ? (
+            <Box className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {metricRows.map(([key, value]) => (
+                <Box key={key} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {key}
+                  </Typography>
+                  <Typography variant="body2" fontWeight={700}>
+                    {formatMetric(value)}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Alert severity="info">
+              No backend metrics are attached to this experiment record yet.
+            </Alert>
+          )}
         </CardContent>
       </Card>
     </Box>
   );
 }
 
-function DetailItem({ label, value }: { label: string; value: string }) {
+function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <Box>
-      <Typography variant="caption" className="text-[11px] uppercase" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="body2" fontWeight={600} color="text.primary">
-        {value}
-      </Typography>
-    </Box>
+    <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
+      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+        <Typography variant="caption" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="h6" fontWeight={700}>
+          {value}
+        </Typography>
+      </CardContent>
+    </Card>
   );
 }

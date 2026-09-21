@@ -31,6 +31,10 @@ export type AdminChatMessage = {
   senderUserId: string;
   body: string;
   attachments?: Array<string | Record<string, unknown>> | null;
+  status?: string | null;
+  deliveredAt?: string | null;
+  readAt?: string | null;
+  failedAt?: string | null;
   createdAt: string;
 };
 

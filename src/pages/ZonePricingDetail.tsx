@@ -1,36 +1,70 @@
-import React, { useState, useEffect } from"react";
+import React, { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  TextField,
-  Button,
+  CircularProgress,
   Divider,
   Grid,
   Snackbar,
-  Alert,
-  CircularProgress,
-} from"@mui/material";
-import { useNavigate, useParams } from"react-router-dom";
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SaveIcon from '@mui/icons-material/Save';
-import { getAdminPricingZone, patchAdminPricingZone } from"../services/api/adminApi";
-import type { AdminPricingZoneResponse, AdminUpdatePricingZoneInput } from"../services/api/adminApi";
+  TextField,
+  Typography,
+} from "@mui/material";
+import { useNavigate, useParams } from "react-router-dom";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CalculateIcon from "@mui/icons-material/Calculate";
+import SaveIcon from "@mui/icons-material/Save";
+import { getAdminPricingZone, patchAdminPricingZone } from "../services/api/adminApi";
+import type { AdminPricingZoneResponse, AdminUpdatePricingZoneInput } from "../services/api/adminApi";
 
 const EV_COLORS = {
-  primary:"#03cd8c",
+  primary: "#03cd8c",
 };
+
+type PricingState = {
+  baseFare: string;
+  perKm: string;
+  perMin: string;
+  minFare: string;
+  surgeMultiplier: string;
+};
+
+type PricingField = keyof PricingState;
+
+type ToastState = {
+  open: boolean;
+  severity: "success" | "error";
+  message: string;
+};
+
+const pricingFields: { key: PricingField; label: string }[] = [
+  { key: "baseFare", label: "Base Fare (UGX)" },
+  { key: "perKm", label: "Per KM (UGX)" },
+  { key: "perMin", label: "Per Minute (UGX)" },
+  { key: "minFare", label: "Minimum Fare (UGX)" },
+  { key: "surgeMultiplier", label: "Surge Multiplier (1.0 = None)" },
+];
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function getNumber(value: string, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 export default function ZonePricingDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [toast, setToast] = useState<ToastState>({ open: false, severity: "success", message: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [pricing, setPricing] = useState({
+  const [pricing, setPricing] = useState<PricingState>({
     baseFare: "5000",
     perKm: "2000",
     perMin: "200",
@@ -44,22 +78,22 @@ export default function ZonePricingDetail() {
     if (!id) return;
     const loadZone = async () => {
       setLoading(true);
+      setError(null);
       try {
         const data = await getAdminPricingZone(id as string);
         setZone(data);
-        // If zone has pricingRules, populate pricing state
-        if (data.pricingRules) {
-          const rules = data.pricingRules as any;
+        if (data.pricingRules && !Array.isArray(data.pricingRules)) {
+          const rules = data.pricingRules;
           setPricing({
-            baseFare: rules.baseFare?.toString() || "5000",
-            perKm: rules.perKm?.toString() || "2000",
-            perMin: rules.perMin?.toString() || "200",
-            minFare: rules.minFare?.toString() || "7000",
-            surgeMultiplier: rules.surgeMultiplier?.toString() || "1.0",
+            baseFare: String(rules.baseFare ?? "5000"),
+            perKm: String(rules.perKm ?? "2000"),
+            perMin: String(rules.perMin ?? "200"),
+            minFare: String(rules.minFare ?? "7000"),
+            surgeMultiplier: String(rules.surgeMultiplier ?? "1.0"),
           });
         }
-      } catch (e: any) {
-        setError(e?.message ?? 'Failed to load zone');
+      } catch (loadError) {
+        setError(getErrorMessage(loadError, "Failed to load zone"));
       } finally {
         setLoading(false);
       }
@@ -67,7 +101,7 @@ export default function ZonePricingDetail() {
     loadZone();
   }, [id]);
 
-  const handleChange = (field) => (event) => {
+  const handleChange = (field: PricingField) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setPricing((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
@@ -77,38 +111,38 @@ export default function ZonePricingDetail() {
     try {
       const update: AdminUpdatePricingZoneInput = {
         pricingRules: {
-          baseFare: parseInt(pricing.baseFare) || 0,
-          perKm: parseInt(pricing.perKm) || 0,
-          perMin: parseInt(pricing.perMin) || 0,
-          minFare: parseInt(pricing.minFare) || 0,
-          surgeMultiplier: parseFloat(pricing.surgeMultiplier) || 1.0,
+          baseFare: getNumber(pricing.baseFare),
+          perKm: getNumber(pricing.perKm),
+          perMin: getNumber(pricing.perMin),
+          minFare: getNumber(pricing.minFare),
+          surgeMultiplier: getNumber(pricing.surgeMultiplier, 1),
         },
       };
-      await patchAdminPricingZone(id as string, update);
-      setSnackbarOpen(true);
-    } catch (e: any) {
-      console.error("Failed to save pricing rule:", e);
+      const updated = await patchAdminPricingZone(id, update);
+      setZone(updated);
+      setToast({ open: true, severity: "success", message: "Pricing rule saved successfully." });
+    } catch (saveError) {
+      setToast({
+        open: true,
+        severity: "error",
+        message: getErrorMessage(saveError, "Failed to save pricing rule"),
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePreview = () => {
-    const fare = calculateExampleTrip();
-    alert(`Example trip fare: ${fare.toLocaleString()} UGX`);
-  };
-
-  const calculateExampleTrip = () => {
+  const exampleFare = useMemo(() => {
     const distance = 5;
     const duration = 15;
-    const base = parseInt(pricing.baseFare) || 0;
-    const perKm = parseInt(pricing.perKm) || 0;
-    const perMin = parseInt(pricing.perMin) || 0;
-    const minFare = parseInt(pricing.minFare) || 0;
-    const surge = parseFloat(pricing.surgeMultiplier) || 1.0;
-    const calculated = (base + (distance * perKm) + (duration * perMin)) * surge;
+    const base = getNumber(pricing.baseFare);
+    const perKm = getNumber(pricing.perKm);
+    const perMin = getNumber(pricing.perMin);
+    const minFare = getNumber(pricing.minFare);
+    const surge = getNumber(pricing.surgeMultiplier, 1);
+    const calculated = (base + distance * perKm + duration * perMin) * surge;
     return Math.max(calculated, minFare);
-  };
+  }, [pricing]);
 
   if (loading) {
     return (
@@ -139,20 +173,12 @@ export default function ZonePricingDetail() {
           </Typography>
         </Box>
         <Box className="flex gap-2">
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<SaveIcon />}
-            onClick={handlePreview}
-            sx={{ borderRadius: 2, textTransform: 'none' }}
-          >
-            Preview Rule
-          </Button>
+          <ChipLikePreview fare={exampleFare} />
           <Button
             size="small"
             variant="contained"
             startIcon={<SaveIcon />}
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             sx={{
               borderRadius: 2,
@@ -172,51 +198,18 @@ export default function ZonePricingDetail() {
             Tariff Configuration
           </Typography>
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Base Fare (UGX)"
-                fullWidth
-                size="small"
-                value={pricing.baseFare}
-                onChange={handleChange('baseFare')}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Per KM (UGX)"
-                fullWidth
-                size="small"
-                value={pricing.perKm}
-                onChange={handleChange('perKm')}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Per Minute (UGX)"
-                fullWidth
-                size="small"
-                value={pricing.perMin}
-                onChange={handleChange('perMin')}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Minimum Fare (UGX)"
-                fullWidth
-                size="small"
-                value={pricing.minFare}
-                onChange={handleChange('minFare')}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                label="Surge Multiplier (1.0 = None)"
-                fullWidth
-                size="small"
-                value={pricing.surgeMultiplier}
-                onChange={handleChange('surgeMultiplier')}
-              />
-            </Grid>
+            {pricingFields.map((field) => (
+              <Grid key={field.key} item xs={12} sm={4}>
+                <TextField
+                  label={field.label}
+                  type="number"
+                  fullWidth
+                  size="small"
+                  value={pricing[field.key]}
+                  onChange={handleChange(field.key)}
+                />
+              </Grid>
+            ))}
           </Grid>
           <Divider sx={{ my: 4 }} />
 
@@ -242,7 +235,7 @@ export default function ZonePricingDetail() {
               = ({pricing.baseFare} + (5 × {pricing.perKm}) + (15 × {pricing.perMin})) × {pricing.surgeMultiplier}
             </Typography>
             <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', fontWeight: 600, mt: 1 }}>
-              = {calculateExampleTrip().toLocaleString()} UGX
+              = {exampleFare.toLocaleString()} UGX
             </Typography>
           </Card>
 
@@ -253,15 +246,41 @@ export default function ZonePricingDetail() {
       </Card>
 
       <Snackbar
-        open={snackbarOpen}
+        open={toast.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%' }}>
-          Rule saved successfully!
+        <Alert
+          onClose={() => setToast((current) => ({ ...current, open: false }))}
+          severity={toast.severity}
+          sx={{ width: '100%' }}
+        >
+          {toast.message}
         </Alert>
       </Snackbar>
     </Box>
+  );
+}
+
+function ChipLikePreview({ fare }: { fare: number }) {
+  return (
+    <Button
+      size="small"
+      variant="outlined"
+      startIcon={<CalculateIcon />}
+      disabled
+      sx={{
+        borderRadius: 2,
+        color: "text.primary",
+        textTransform: "none",
+        "&.Mui-disabled": {
+          borderColor: "rgba(3,205,140,0.35)",
+          color: "text.primary",
+        },
+      }}
+    >
+      5 km preview: {fare.toLocaleString()} UGX
+    </Button>
   );
 }

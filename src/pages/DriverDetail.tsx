@@ -7,20 +7,25 @@ import PhoneIcon from '@mui/icons-material/Phone'
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
 import StatusBadge from '../components/StatusBadge'
 import ReviewActionPanel, { ReviewStatus } from '../components/ReviewActionPanel'
+import { openAdminDocument } from '../utils/openAdminDocument'
 import {
     getAdminDriver,
     patchAdminDriver,
     getAdminDriverEarnings,
     getAdminDriverEarningsSummary,
     getAdminDriverEarningsStatement,
+    listAdminDriverDocuments,
+    listAdminRides,
     createAdminSocket,
     isAdminBackendEnabled,
 } from '../services/api/adminApi'
 import type {
+    AdminDocumentHistoryItem,
     AdminDriverResponse,
     AdminDriverEarningEntry,
     AdminDriverEarningsSummary,
     AdminDriverEarningsStatement,
+    AdminRideListItemResponse,
 } from '../services/api/adminApi'
 
 interface TabPanelProps {
@@ -65,6 +70,10 @@ function formatDate(value: string | undefined | null): string {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-UG', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error ? error.message : fallback
+}
+
 export default function DriverDetail() {
     const { id } = useParams() // id is backend driver ID (string)
     const navigate = useNavigate()
@@ -79,6 +88,13 @@ export default function DriverDetail() {
     const [statement, setStatement] = useState<AdminDriverEarningsStatement | null>(null)
     const [earningsLoading, setEarningsLoading] = useState(false)
     const [earningsError, setEarningsError] = useState<string | null>(null)
+    const [rides, setRides] = useState<AdminRideListItemResponse[]>([])
+    const [documents, setDocuments] = useState<AdminDocumentHistoryItem[]>([])
+    const [ridesLoading, setRidesLoading] = useState(false)
+    const [ridesError, setRidesError] = useState<string | null>(null)
+    const [documentOpenError, setDocumentOpenError] = useState<string | null>(null)
+    const [actionLoading, setActionLoading] = useState(false)
+    const [actionError, setActionError] = useState<string | null>(null)
 
     const loadEarnings = useCallback(async () => {
         const driverId = driver?.driverId || id
@@ -94,8 +110,8 @@ export default function DriverDetail() {
             setEarnings(entries ?? [])
             setEarningsSummary(summary ?? null)
             setStatement(stmt ?? null)
-        } catch (e: any) {
-            setEarningsError(e?.message ?? 'Failed to load earnings')
+        } catch (e) {
+            setEarningsError(getErrorMessage(e, 'Failed to load earnings'))
         } finally {
             setEarningsLoading(false)
         }
@@ -128,20 +144,45 @@ export default function DriverDetail() {
         if (!id) return
         const loadDriver = async () => {
             setLoading(true)
+            setError(null)
             try {
-                const data = await getAdminDriver(id as string)
+                const data = await getAdminDriver(id)
                 setDriver(data)
                 const mappedPrimary: 'approved' | 'under_review' | 'suspended' = data.status === 'active' ? 'approved' : 'suspended'
                 setPrimaryStatus(mappedPrimary)
                 setActivityStatus(data.status === 'active' ? 'active' : 'inactive')
-            } catch (e: any) {
-                setError(e?.message ?? 'Failed to load driver')
+                const driverId = data.driverId || data.userId || id
+                setRidesLoading(true)
+                setRidesError(null)
+                try {
+                    const [rideResponse, documentResponse] = await Promise.all([
+                        listAdminRides({ driverId, limit: 10 }),
+                        listAdminDriverDocuments(driverId),
+                    ])
+                    setRides(rideResponse.items ?? [])
+                    setDocuments([...(documentResponse.driverDocuments ?? []), ...(documentResponse.vehicleDocuments ?? [])])
+                } catch (ridesLoadError) {
+                    setRidesError(getErrorMessage(ridesLoadError, 'Failed to load driver trip and document history'))
+                } finally {
+                    setRidesLoading(false)
+                }
+            } catch (e) {
+                setError(getErrorMessage(e, 'Failed to load driver'))
             } finally {
                 setLoading(false)
             }
         }
-        loadDriver()
+        void loadDriver()
     }, [id])
+
+    const handleOpenDocument = async (document: AdminDocumentHistoryItem) => {
+        setDocumentOpenError(null)
+        try {
+            await openAdminDocument(document)
+        } catch (e) {
+            setDocumentOpenError(getErrorMessage(e, 'Failed to open document'))
+        }
+    }
 
     const handleStatusUpdate = async (newStatus: ReviewStatus) => {
         if (!driver) return
@@ -151,33 +192,42 @@ export default function DriverDetail() {
                 : newStatus === 'rejected'
                     ? 'suspended'
                     : 'under_review'
-        setPrimaryStatus(mapped)
+        setActionLoading(true)
+        setActionError(null)
         try {
             const backendStatus = mapped === 'approved' ? 'active' : mapped === 'suspended' ? 'deleted' : 'active'
             await patchAdminDriver(driver.driverId || driver.userId, { status: backendStatus })
-            // Refetch driver
             if (id) {
-                const updated = await getAdminDriver(id as string)
+                const updated = await getAdminDriver(id)
                 setDriver(updated)
+                setPrimaryStatus(updated.status === 'active' ? 'approved' : 'suspended')
+                setActivityStatus(updated.status === 'active' ? 'active' : 'inactive')
             }
         } catch (e) {
-            // handle error
+            setActionError(getErrorMessage(e, 'Failed to update driver status'))
+        } finally {
+            setActionLoading(false)
         }
     }
 
     const toggleActivity = async () => {
         if (!driver) return
         const next: 'active' | 'inactive' = activityStatus === 'active' ? 'inactive' : 'active'
-        setActivityStatus(next)
+        setActionLoading(true)
+        setActionError(null)
         try {
             const backendStatus = next === 'active' ? 'active' : 'deleted'
             await patchAdminDriver(driver.driverId || driver.userId, { status: backendStatus })
             if (id) {
-                const updated = await getAdminDriver(id as string)
+                const updated = await getAdminDriver(id)
                 setDriver(updated)
+                setPrimaryStatus(updated.status === 'active' ? 'approved' : 'suspended')
+                setActivityStatus(updated.status === 'active' ? 'active' : 'inactive')
             }
         } catch (e) {
-            // handle
+            setActionError(getErrorMessage(e, 'Failed to update driver activity'))
+        } finally {
+            setActionLoading(false)
         }
     }
 
@@ -266,6 +316,8 @@ export default function DriverDetail() {
                 {/* Right Column: Review & Content */}
                 <Grid item xs={12} md={8}>
 
+                    {actionError ? <Alert severity="error" sx={{ mb: 2 }}>{actionError}</Alert> : null}
+
                     <ReviewActionPanel status={primaryStatus} onUpdateStatus={handleStatusUpdate} />
 
                     <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
@@ -273,6 +325,7 @@ export default function DriverDetail() {
                             variant="outlined"
                             size="small"
                             onClick={toggleActivity}
+                            disabled={actionLoading}
                             sx={{ textTransform: 'none', borderRadius: 999 }}
                         >
                             Set as {activityStatus === 'active' ? 'In-active' : 'Active'}
@@ -291,7 +344,56 @@ export default function DriverDetail() {
 
                         <CardContent>
                             <CustomTabPanel value={tabValue} index={0}>
-                                <Typography color="text.secondary">No documents available.</Typography>
+                                {ridesError ? <Alert severity="error" sx={{ mb: 2 }}>{ridesError}</Alert> : null}
+                                {documentOpenError ? <Alert severity="error" sx={{ mb: 2 }}>{documentOpenError}</Alert> : null}
+                                {ridesLoading ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                        <CircularProgress size={28} />
+                                    </Box>
+                                ) : documents.length === 0 ? (
+                                    <Alert severity="info">No backend driver or vehicle documents returned for this driver.</Alert>
+                                ) : (
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>Document</TableCell>
+                                                <TableCell>Owner</TableCell>
+                                                <TableCell>Status</TableCell>
+                                                <TableCell>File</TableCell>
+                                                <TableCell>Expires</TableCell>
+                                                <TableCell>Reviewed</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {documents.map((document) => (
+                                                <TableRow key={`${document.ownerType}-${document.id}`}>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={600}>{document.documentType}</Typography>
+                                                        {document.rejectionReason ? (
+                                                            <Typography variant="caption" color="error">{document.rejectionReason}</Typography>
+                                                        ) : null}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2">{document.ownerType}</Typography>
+                                                        {document.vehicle ? (
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {document.vehicle.plateNumber || document.vehicle.model || document.vehicle.id}
+                                                            </Typography>
+                                                        ) : null}
+                                                    </TableCell>
+                                                    <TableCell><Chip size="small" label={document.status} /></TableCell>
+                                                    <TableCell>
+                                                        <Button size="small" onClick={() => void handleOpenDocument(document)} sx={{ textTransform: 'none' }}>
+                                                            Open
+                                                        </Button>
+                                                    </TableCell>
+                                                    <TableCell>{formatDate(document.expiryDate)}</TableCell>
+                                                    <TableCell>{formatDate(document.reviewedAt)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={1}>
@@ -322,7 +424,46 @@ export default function DriverDetail() {
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={2}>
-                                <Typography color="text.secondary">No trip data available.</Typography>
+                                {ridesError ? <Alert severity="error" sx={{ mb: 2 }}>{ridesError}</Alert> : null}
+                                {ridesLoading ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                        <CircularProgress size={28} />
+                                    </Box>
+                                ) : rides.length === 0 ? (
+                                    <Typography color="text.secondary">No backend trip history returned for this driver.</Typography>
+                                ) : (
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>Ride</TableCell>
+                                                <TableCell>Status</TableCell>
+                                                <TableCell>Rider</TableCell>
+                                                <TableCell>Pickup</TableCell>
+                                                <TableCell>Drop off</TableCell>
+                                                <TableCell align="right">Fare</TableCell>
+                                                <TableCell>Payment</TableCell>
+                                                <TableCell>Created</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {rides.map((ride) => (
+                                                <TableRow key={ride.id} hover onClick={() => navigate(`/admin/rides/${ride.id}`)} sx={{ cursor: 'pointer' }}>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={600}>#{ride.id.slice(0, 8)}</Typography>
+                                                        <Typography variant="caption" color="text.secondary">{ride.tripType || ride.mode || ride.category || 'Ride'}</Typography>
+                                                    </TableCell>
+                                                    <TableCell><Chip size="small" label={ride.status} /></TableCell>
+                                                    <TableCell>{ride.riderName || ride.riderId || '—'}</TableCell>
+                                                    <TableCell>{ride.pickupAddress || '—'}</TableCell>
+                                                    <TableCell>{ride.destinationAddress || '—'}</TableCell>
+                                                    <TableCell align="right">{formatMoney(ride.finalFare ?? ride.estimatedFare, ride.currency)}</TableCell>
+                                                    <TableCell>{ride.paymentStatus || ride.paymentMethod || '—'}</TableCell>
+                                                    <TableCell>{formatDate(ride.createdAt ?? ride.scheduledAt)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </CustomTabPanel>
 
                             <CustomTabPanel value={tabValue} index={3}>

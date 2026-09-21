@@ -1,35 +1,40 @@
-import React, { useState, useEffect } from"react";
-import { useNavigate } from"react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  TextField,
   Chip,
-  Button,
+  CircularProgress,
+  InputAdornment,
+  MenuItem,
+  Paper,
+  Select,
   Table,
-  TableHead,
   TableBody,
-  TableRow,
   TableCell,
   TableContainer,
-  Paper,
-  InputAdornment,
-  Select,
-  MenuItem,
-  CircularProgress,
-  Alert,
-} from"@mui/material";
-import SearchIcon from"@mui/icons-material/Search";
-import { ArrowBack } from"@mui/icons-material";
-import { listAdminPricingZones } from"../services/api/adminApi";
-import type { AdminPricingZoneResponse } from"../services/api/adminApi";
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material/Select";
+import SearchIcon from "@mui/icons-material/Search";
+import { ArrowBack } from "@mui/icons-material";
+import { listAdminPricingZones } from "../services/api/adminApi";
+import type { AdminPricingZoneResponse } from "../services/api/adminApi";
 
-const EV_COLORS = {
-  primary:"#03cd8c",
-  secondary:"#f77f00",
-};
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function formatServices(services: AdminPricingZoneResponse["services"]) {
+  if (!Array.isArray(services) || services.length === 0) return "N/A";
+  return services.map((service) => String(service)).join(", ");
+}
 
 export default function ZonesList() {
   const navigate = useNavigate();
@@ -45,8 +50,8 @@ export default function ZonesList() {
     try {
       const data = await listAdminPricingZones();
       setZones(data);
-    } catch (err: any) {
-      setError(err?.message ?? 'Failed to load zones');
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to load zones"));
     } finally {
       setLoading(false);
     }
@@ -56,15 +61,22 @@ export default function ZonesList() {
     fetchZones();
   }, []);
 
-  const filteredZones = zones.filter((zone) => {
+  const filteredZones = useMemo(() => zones.filter((zone) => {
     const matchesSearch =
       zone.name.toLowerCase().includes(search.toLowerCase()) ||
       (zone.city || "").toLowerCase().includes(search.toLowerCase());
     const matchesCountry = countryFilter === "All" || zone.country === countryFilter;
     return matchesSearch && matchesCountry;
-  });
+  }), [countryFilter, search, zones]);
 
-  const countries = ["All", ...Array.from(new Set(zones.map((z) => z.country || "").filter(Boolean)))];
+  const countries = useMemo(
+    () => ["All", ...Array.from(new Set(zones.map((z) => z.country || "").filter(Boolean))).sort()],
+    [zones],
+  );
+
+  const handleCountryChange = (event: SelectChangeEvent<string>) => {
+    setCountryFilter(event.target.value);
+  };
 
   const handleRowClick = (zoneId: string) => {
     navigate(`/admin/pricing/detail/${zoneId}`);
@@ -84,12 +96,12 @@ export default function ZonesList() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display:"flex", alignItems:"center", gap: 2 }}>
+      <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
         <Button
           size="small"
           startIcon={<ArrowBack />}
           onClick={() => navigate("/admin/pricing")}
-          sx={{ textTransform:"none" }}
+          sx={{ textTransform: "none" }}
         >
           Back to Pricing
         </Button>
@@ -105,7 +117,7 @@ export default function ZonesList() {
 
       {/* Filters */}
       <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ display:"flex", gap: 2, alignItems:"center", flexWrap:"wrap", p: 2 }}>
+        <CardContent sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap", p: 2 }}>
           <TextField
             size="small"
             placeholder="Search zones..."
@@ -118,12 +130,12 @@ export default function ZonesList() {
                 </InputAdornment>
               ),
             }}
-            sx={{ width: 300,"& .MuiOutlinedInput-root": { borderRadius: 8 } }}
+            sx={{ width: 300, "& .MuiOutlinedInput-root": { borderRadius: 8 } }}
           />
           <Select
             size="small"
             value={countryFilter}
-            onChange={(e) => setCountryFilter(e.target.value)}
+            onChange={handleCountryChange}
             sx={{ minWidth: 150, borderRadius: 2 }}
           >
             {countries.map((country) => (
@@ -155,15 +167,15 @@ export default function ZonesList() {
                   key={zone.id}
                   hover
                   onClick={() => handleRowClick(zone.id)}
-                  sx={{ cursor:"pointer" }}
+                  sx={{ cursor: "pointer" }}
                 >
-                  <TableCell sx={{ fontFamily:"monospace", fontSize: 12 }}>{zone.id}</TableCell>
+                  <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>{zone.id}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{zone.name}</TableCell>
                   <TableCell>{zone.city || "N/A"}</TableCell>
                   <TableCell>
                     <Chip label={zone.country || "N/A"} size="small" sx={{ fontSize: 10 }} />
                   </TableCell>
-                  <TableCell>{zone.services ? Object.keys(zone.services).join(", ") : "N/A"}</TableCell>
+                  <TableCell>{formatServices(zone.services)}</TableCell>
                   <TableCell>
                     <Chip
                       label={zone.status}
@@ -176,7 +188,7 @@ export default function ZonesList() {
               ))}
               {filteredZones.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 3, color:"text.secondary" }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 3, color: "text.secondary" }}>
                     No zones found.
                   </TableCell>
                 </TableRow>

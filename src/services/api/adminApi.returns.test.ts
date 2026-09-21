@@ -38,7 +38,7 @@ describe("adminApi — reverse logistics & returns (DLV-192)", () => {
     stubFetch([{ id: "req-1", status: "REQUESTED" }]);
     const items = await listAdminReturnRequests({ status: "REQUESTED" });
     const [url] = lastCall();
-    expect(url).toContain("/deliveries/returns/requests");
+    expect(url).toContain("/admin/returns/requests");
     expect(url).toContain("status=REQUESTED");
     expect(items).toEqual([{ id: "req-1", status: "REQUESTED" }]);
   });
@@ -47,7 +47,7 @@ describe("adminApi — reverse logistics & returns (DLV-192)", () => {
     stubFetch([]);
     await listAdminReturnRequests();
     const [url] = lastCall();
-    expect(url).toContain("/deliveries/returns/requests");
+    expect(url).toContain("/admin/returns/requests");
     expect(url).not.toContain("status=");
     expect(url).not.toContain("orderId=");
   });
@@ -56,7 +56,7 @@ describe("adminApi — reverse logistics & returns (DLV-192)", () => {
     stubFetch({ id: "req-1", status: "APPROVED" });
     await decideAdminReturnRequest("req-1", "APPROVE", "authorized");
     const [url, init] = lastCall();
-    expect(url).toContain("/deliveries/returns/requests/req-1/decision");
+    expect(url).toContain("/admin/returns/requests/req-1/decision");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({ decision: "APPROVE", note: "authorized" });
   });
@@ -65,7 +65,7 @@ describe("adminApi — reverse logistics & returns (DLV-192)", () => {
     stubFetch([]);
     await listAdminReturnShipments({ status: "IN_TRANSIT", source: "CUSTOMER", orderId: "ord-1" });
     const [url] = lastCall();
-    expect(url).toContain("/deliveries/returns?");
+    expect(url).toContain("/admin/returns?");
     expect(url).toContain("status=IN_TRANSIT");
     expect(url).toContain("source=CUSTOMER");
     expect(url).toContain("orderId=ord-1");
@@ -75,7 +75,7 @@ describe("adminApi — reverse logistics & returns (DLV-192)", () => {
     stubFetch({ id: "ship-1", returnShipmentCode: "RTN-1" });
     const shipment = await getAdminReturnShipment("ship-1");
     const [url] = lastCall();
-    expect(url).toContain("/deliveries/returns/ship-1");
+    expect(url).toContain("/admin/returns/ship-1");
     expect(shipment.returnShipmentCode).toBe("RTN-1");
   });
 
@@ -88,7 +88,7 @@ describe("adminApi — reverse logistics & returns (DLV-192)", () => {
       notes: "sellable",
     });
     const [url, init] = lastCall();
-    expect(url).toContain("/deliveries/returns/ship-1/inspect");
+    expect(url).toContain("/admin/returns/ship-1/inspect");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({
       condition: "ACCEPTABLE",
@@ -102,7 +102,7 @@ describe("adminApi — reverse logistics & returns (DLV-192)", () => {
     stubFetch({ id: "ship-1", status: "REFUNDED", refundAmountCents: 5000 });
     await refundAdminReturnShipment("ship-1", 5000, "admin-refund-1");
     const [url, init] = lastCall();
-    expect(url).toContain("/deliveries/returns/ship-1/refund");
+    expect(url).toContain("/admin/returns/ship-1/refund");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({ amountCents: 5000, clientRequestId: "admin-refund-1" });
   });
@@ -111,7 +111,7 @@ describe("adminApi — reverse logistics & returns (DLV-192)", () => {
     stubFetch([{ returnShipmentId: "ship-1", refundWithinEligible: true }]);
     const rows = await listAdminReturnReconciliation();
     const [url] = lastCall();
-    expect(url).toContain("/deliveries/returns/reconciliation");
+    expect(url).toContain("/admin/returns/reconciliation");
     expect(rows).toHaveLength(1);
   });
 });

@@ -19,6 +19,7 @@ import {
   isAdminBackendEnabled,
   type AdminSafetyIncident,
 } from "../services/api/adminApi"
+import { attachAdminRealtimeSocket } from "../services/adminRealtime"
 
 type SafetyIncidentReporter = {
   id?: string
@@ -189,14 +190,16 @@ export default function SafetyIncidentPopup() {
       setAlerts((prev) => [...prev.slice(-(MAX_STACKED - 1)), alert])
     }
 
-    socket.on("safety.incident.new", onSafetyIncident)
-    socket.on("safety.emergency.message.new", onEmergencyMessage)
-    socket.connect()
+    const detach = attachAdminRealtimeSocket(socket, {
+      rooms: ["operations"],
+      events: {
+        "safety.incident.new": onSafetyIncident,
+        "safety.emergency.message.new": onEmergencyMessage,
+      },
+    })
 
     return () => {
-      socket.off("safety.incident.new", onSafetyIncident)
-      socket.off("safety.emergency.message.new", onEmergencyMessage)
-      socket.disconnect()
+      detach()
     }
   }, [])
 

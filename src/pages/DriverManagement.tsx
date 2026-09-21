@@ -29,8 +29,7 @@ import SearchIcon from"@mui/icons-material/Search";
 import DirectionsCarIcon from"@mui/icons-material/DirectionsCar";
 import AddIcon from"@mui/icons-material/Add";
 import MoreVertIcon from"@mui/icons-material/MoreVert";
-import { listAdminDrivers, patchAdminDriver } from"../services/api/adminApi";
-import type { AdminDriverResponse } from"../services/api/adminApi";
+import { listAllAdminDrivers, patchAdminDriver } from"../services/api/adminApi";
 
 // UI-only record shape
 type DriverRecord = {
@@ -70,8 +69,9 @@ export default function DriverManagement() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listAdminDrivers();
-      // Map backend driver to UI record
+      const data = await listAllAdminDrivers();
+      // Map backend driver to UI record. listAllAdminDrivers walks every page of
+      // the paginated backend endpoint so no driver is ever dropped.
       const mapped: DriverRecord[] = data.map((driver, index) => {
         const primaryStatus: DriverRecord['primaryStatus'] = driver.status === 'active' ? 'approved' : 'suspended';
         // Phase 9: activity reflects the backend-driven availability status, not
@@ -84,7 +84,7 @@ export default function DriverManagement() {
         const vehicleParts = [driver.vehicleType, driver.model, driver.licensePlate].filter(Boolean);
         const vehicle = vehicleParts.length > 0 ? vehicleParts.join(' · ') : 'N/A';
         return {
-          id: index + 201,
+          id: index + 1,
           backendId: driver.driverId || driver.userId,
           name: driver.fullName,
           phone: driver.phone,
@@ -112,12 +112,11 @@ export default function DriverManagement() {
 
   // Calculate tab counts
   const tabCounts = useMemo(() => {
-    const carDrivers = drivers.filter(d => d.vehicleType === "Car");
     return {
-      all: carDrivers.length,
-      active: carDrivers.filter(d => d.primaryStatus === "approved").length,
-      pending: carDrivers.filter(d => d.primaryStatus === "under_review").length,
-      suspended: carDrivers.filter(d => d.primaryStatus === "suspended").length,
+      all: drivers.length,
+      active: drivers.filter(d => d.primaryStatus === "approved").length,
+      pending: drivers.filter(d => d.primaryStatus === "under_review").length,
+      suspended: drivers.filter(d => d.primaryStatus === "suspended").length,
     };
   }, [drivers]);
 
@@ -135,11 +134,8 @@ export default function DriverManagement() {
     const matchesTab =
       activeTab === "All" ||
       (activeTab === "Active/Verified" && driver.primaryStatus === "approved") ||
-      (activeTab === "Pending review" && driver.primaryStatus === "under_review") ||
+      (activeTab === "Pending review" && driver.primaryStatus === "suspended") ||
       (activeTab === "Suspended" && driver.primaryStatus === "suspended");
-    // Only show car drivers
-    const matchesVehicle = driver.vehicleType === "Car";
-
     // City filter
     const matchesCity = cityFilter === "all" || driver.city === cityFilter;
 
@@ -149,9 +145,11 @@ export default function DriverManagement() {
       (accountFilter === "inactive" && driver.activityStatus === "inactive");
 
     // Risk filter
-    const matchesRisk = riskFilter === "all" || driver.risk.toLowerCase() === riskFilter;
+    const matchesRisk = riskFilter === "all" ||
+      (riskFilter === "n/a" && driver.risk.toLowerCase() === "n/a") ||
+      driver.risk.toLowerCase() === riskFilter;
 
-    return matchesSearch && matchesTab && matchesVehicle && matchesCity && matchesAccount && matchesRisk;
+    return matchesSearch && matchesTab && matchesCity && matchesAccount && matchesRisk;
   });
 
   const handleRowClick = (backendId: string) => {
@@ -185,7 +183,11 @@ export default function DriverManagement() {
           setError("Failed to update status");
         }
       } else if (action === "contact") {
-        // TODO: implement contact action (e.g., copy phone or open mail)
+        if (driver.phone && driver.phone !== "—") {
+          window.location.href = `tel:${driver.phone}`;
+        } else {
+          setError("No driver phone number is available from the backend.");
+        }
       }
     }
     handleActionClose();
@@ -277,6 +279,7 @@ export default function DriverManagement() {
               sx={{ fontSize: 12, borderRadius: 2, height: 36 }}
             >
               <MenuItem value="all">All risk levels</MenuItem>
+              <MenuItem value="n/a">Not evaluated</MenuItem>
               <MenuItem value="low">Low (normal behavior)</MenuItem>
               <MenuItem value="medium">Medium (needs monitoring)</MenuItem>
               <MenuItem value="high">High (needs review)</MenuItem>

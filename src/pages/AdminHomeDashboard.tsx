@@ -1,15 +1,24 @@
 import React, { useMemo, useState, useEffect } from "react";
 import {
+  Alert,
   Box,
-  Typography,
+  Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Divider,
-  Button,
+  Stack,
   ToggleButton,
   ToggleButtonGroup,
-} from"@mui/material";
+  Typography,
+} from "@mui/material";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import BusinessIcon from "@mui/icons-material/Business";
+import PaymentsIcon from "@mui/icons-material/Payments";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import HealthAndSafetyIcon from "@mui/icons-material/HealthAndSafety";
 import {
   AreaChart,
   Area,
@@ -19,118 +28,107 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-
+import { useNavigate } from "react-router-dom";
+import PeriodSelector, { type PeriodOption } from "../components/PeriodSelector";
 import {
   getAdminSystemOverview,
   getAdminOperationsAnalytics,
   getAdminFinanceAnalytics,
+  type AdminAnalyticsPeriod,
+  type AdminFinanceAnalytics,
+  type AdminOperationsAnalytics,
 } from "../services/api/adminApi";
 
-// A2 – Admin Home / Global Dashboard (v2, tighter card corners)
-// Route: /admin or /admin/home
-
-const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
-};
-
-
-import { useNavigate } from "react-router-dom";
-import PeriodSelector, { type PeriodOption } from "../components/PeriodSelector";
+const EV_GREEN = "#03cd8c";
 
 export default function AdminHomeDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodOption>("today");
-  const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" |"Delivery" |"Both">("Both");
-
-  const [overview, setOverview] = useState<any>(null);
-  const [operationsAnalytics, setOperationsAnalytics] = useState<any>(null);
-  const [financeAnalytics, setFinanceAnalytics] = useState<any>(null);
+  const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" | "Delivery" | "Both">("Both");
+  const [overview, setOverview] = useState<{
+    totals?: { users?: number; riders?: number; drivers?: number; companies?: number; trips?: number };
+    queues?: { approvals?: number; riskCases?: number; safetyIncidents?: number };
+  } | null>(null);
+  const [operationsAnalytics, setOperationsAnalytics] = useState<AdminOperationsAnalytics | null>(null);
+  const [financeAnalytics, setFinanceAnalytics] = useState<AdminFinanceAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         setLoading(true);
+        setError(null);
         const [ov, ops, fin] = await Promise.all([
           getAdminSystemOverview(),
-          getAdminOperationsAnalytics({ period: period as any }),
-          getAdminFinanceAnalytics({ period: period as any }),
+          getAdminOperationsAnalytics({ period: period as AdminAnalyticsPeriod }),
+          getAdminFinanceAnalytics({ period: period as AdminAnalyticsPeriod }),
         ]);
         if (!cancelled) {
           setOverview(ov);
           setOperationsAnalytics(ops);
           setFinanceAnalytics(fin);
         }
-      } catch {
-        // silently fail – UI will show fallback / empty state
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load dashboard data");
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
-    load();
+    void load();
     return () => { cancelled = true; };
   }, [period]);
-
-  const periodMultiplier: Record<string, number> = {
-    today: 0.25,"7days": 0.6,"30days": 1,
-    thisMonth: 1.1,
-    custom: 0.8,
-  };
 
   const kpis = useMemo(() => {
     const totals = overview?.totals;
     const tripsTotal = totals?.trips ?? operationsAnalytics?.trips?.total ?? 0;
-    const activeDrivers = totals?.drivers ?? operationsAnalytics?.drivers?.online ?? 0;
+    const activeDrivers = operationsAnalytics?.drivers?.online ?? 0;
+    const driverTotal = operationsAnalytics?.drivers?.total ?? totals?.drivers ?? 0;
     const activeCompanies = totals?.companies ?? 0;
     const grossBookings = financeAnalytics?.grossEarnings ?? 0;
 
     return [
       {
-        label:"Trips",
-        value: loading ? "—" : tripsTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-        trend: operationsAnalytics
-          ? `${operationsAnalytics.trips?.completed ?? 0} completed · ${operationsAnalytics.trips?.active ?? 0} active`
-          : "—",
+        label: "Trips",
+        value: tripsTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+        helper: `${operationsAnalytics?.trips?.completed ?? 0} completed · ${operationsAnalytics?.trips?.active ?? 0} active`,
+        icon: <DashboardIcon />,
+        color: "#2563eb",
         onClick: () => navigate("/admin/ops"),
-        subtitle:"Selected period",
       },
       {
-        label:"Active drivers",
-        value: loading ? "—" : activeDrivers.toLocaleString(),
-        trend: operationsAnalytics
-          ? `${operationsAnalytics.drivers?.online ?? 0} online / ${operationsAnalytics.drivers?.total ?? 0} total`
-          : "—",
-        onClick: () => navigate("/admin/drivers"),
-        subtitle:"Online now",
+        label: "Online drivers",
+        value: activeDrivers.toLocaleString(),
+        helper: `${driverTotal.toLocaleString()} total drivers`,
+        icon: <DirectionsCarIcon />,
+        color: EV_GREEN,
+        onClick: () => navigate("/admin/monitoring"),
       },
       {
-        label:"Active companies",
-        value: loading ? "—" : activeCompanies.toString(),
-        trend: "Company approvals / active companies list",
+        label: "Companies",
+        value: activeCompanies.toLocaleString(),
+        helper: `${overview?.queues?.approvals ?? 0} approvals pending`,
+        icon: <BusinessIcon />,
+        color: "#f59e0b",
         onClick: () => navigate("/admin/companies"),
-        subtitle: "",
       },
       {
-        label:"Gross bookings",
-        value: loading ? "—" : `UGX ${Number(grossBookings).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-        trend: financeAnalytics
-          ? `${financeAnalytics.earningsCount ?? 0} transactions`
-          : "—",
+        label: "Gross bookings",
+        value: `UGX ${Number(grossBookings).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        helper: `${financeAnalytics?.earningsCount ?? 0} finance transactions`,
+        icon: <PaymentsIcon />,
+        color: "#8b5cf6",
         onClick: () => navigate("/admin/finance"),
-        subtitle:"Finance report view",
       },
     ];
-  }, [period, navigate, overview, operationsAnalytics, financeAnalytics, loading]);
+  }, [financeAnalytics, navigate, operationsAnalytics, overview]);
 
-  // Hourly trip trends are shown only when the backend supplies them.
-  // Static demo data has been removed to meet production-readiness requirements.
   const tripTrends = useMemo(() => {
     const hourly = operationsAnalytics?.hourly;
     if (!Array.isArray(hourly) || hourly.length === 0) return [];
-    return hourly.map((row: any) => ({
-      hour: row.hour ?? "",
+    return hourly.map((row) => ({
+      hour: row.time ?? "",
       rides: Number(row.rides ?? 0),
       deliveries: Number(row.deliveries ?? 0),
       trips:
@@ -144,396 +142,237 @@ export default function AdminHomeDashboardPage() {
   }, [operationsAnalytics, tripTrendFilter]);
 
   const alerts = useMemo(() => {
-    if (!overview?.queues) return [];
-    const queues = overview.queues;
-    const driverTotal = overview?.totals?.drivers ?? 0;
+    const queues = overview?.queues;
+    if (!queues) return [];
+    const driverTotal = overview?.totals?.drivers ?? operationsAnalytics?.drivers?.total ?? 0;
     const driverOnline = operationsAnalytics?.drivers?.online ?? 0;
-    const driversAwaitingRecheck = Math.max(0, driverTotal - driverOnline);
+    const offlineDrivers = Math.max(0, driverTotal - driverOnline);
 
     return [
-      { text:"Company approvals pending", count: queues.approvals ?? 0, severity:"medium", path:"/admin/approvals", action:"Review approvals" },
-      { text:"Drivers awaiting document re-check", count: driversAwaitingRecheck, severity:"low", path:"/admin/drivers?tab=review", action:"Review approvals" },
-      { text:"High severity incidents open", count: queues.safetyIncidents ?? 0, severity:"high", path:"/admin/safety", action:"Open incident queue" },
-      { text:"Region with abnormal cancellation spike", count: queues.riskCases ?? 0, severity:"medium", path:"/admin/ops", action:"View region" },
-    ];
-  }, [overview, operationsAnalytics]);
-
-  const safetyHighlights = useMemo(() => {
-    const trips = operationsAnalytics?.trips;
-    const drivers = operationsAnalytics?.drivers;
-    return [
-      `Trips completed: ${trips?.completed ?? 0}`,
-      `Drivers online: ${drivers?.online ?? 0} / ${drivers?.total ?? 0}`,
-      `Open incidents: ${overview?.queues?.safetyIncidents ?? 0}`,
+      { text: "Company approvals pending", count: queues.approvals ?? 0, severity: "medium", path: "/admin/approvals", action: "Review approvals" },
+      { text: "Offline drivers", count: offlineDrivers, severity: "low", path: "/admin/monitoring", action: "Open monitoring" },
+      { text: "Safety incidents open", count: queues.safetyIncidents ?? 0, severity: "high", path: "/admin/safety", action: "Open safety" },
+      { text: "Risk cases", count: queues.riskCases ?? 0, severity: "medium", path: "/admin/risk", action: "Review risk" },
     ];
   }, [operationsAnalytics, overview]);
 
-  const financeSnapshot = useMemo(() => {
-    const grossBookings = Number(financeAnalytics?.grossEarnings ?? 0);
-    const payouts = Number(financeAnalytics?.payoutsPending ?? 0);
-    return [
-      `Gross bookings: UGX ${grossBookings.toLocaleString()}`,
-      `Payout queue: UGX ${payouts.toLocaleString()}`,
-      `Open approvals: ${overview?.queues?.approvals ?? 0} · live backend data`,
-    ];
-  }, [financeAnalytics, overview]);
+  const safetyHighlights = useMemo(() => [
+    { label: "Completed trips", value: operationsAnalytics?.trips?.completed ?? 0 },
+    { label: "Drivers online", value: `${operationsAnalytics?.drivers?.online ?? 0} / ${operationsAnalytics?.drivers?.total ?? 0}` },
+    { label: "Open incidents", value: overview?.queues?.safetyIncidents ?? 0 },
+  ], [operationsAnalytics, overview]);
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case"high": return"#ef4444";
-      case"medium": return"#f77f00";
-      case"low": return"#facc15";
-      default: return"#94a3b8";
-    }
-  };
+  const financeSnapshot = useMemo(() => [
+    { label: "Gross bookings", value: `UGX ${Number(financeAnalytics?.grossEarnings ?? 0).toLocaleString()}` },
+    { label: "Payout queue", value: `UGX ${Number(financeAnalytics?.payoutsPending ?? 0).toLocaleString()}` },
+    { label: "Open approvals", value: overview?.queues?.approvals ?? 0 },
+  ], [financeAnalytics, overview]);
 
   return (
     <Box>
-      {/* Page title header */}
-      <Box className="pb-4 flex items-center justify-between gap-2">
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap", pb: 3 }}>
         <Box>
-          <Typography
-            variant="h6"
-            className="font-semibold tracking-tight"
-            color="text.primary"
-          >
-            Home · Global Dashboard
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
-            Daily overview of Rides & Logistics performance across all regions.
+          <Stack direction="row" spacing={1} alignItems="center">
+            <DashboardIcon sx={{ color: EV_GREEN }} />
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>Home Dashboard</Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Live operations, finance, safety, and approval indicators from backend aggregates.
           </Typography>
         </Box>
-        <Box className="flex items-center gap-2">
-          <PeriodSelector value={period} onChange={(newPeriod) => setPeriod(newPeriod)} />
-        </Box>
+        <PeriodSelector value={period} onChange={(newPeriod) => setPeriod(newPeriod)} />
       </Box>
 
-      {/* KPI cards with reduced corner radius */}
-      <Box className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        {kpis.map((kpi, index) => (
-          <Card
-            key={kpi.label}
-            elevation={2}
-            onClick={kpi.onClick}
-            sx={{
-              borderRadius: 2,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease-in-out',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: 4,
-                borderColor: EV_COLORS.primary,
-              },
-              border: index === 0
-                ? `1px solid ${EV_COLORS.primary}44`
-                : index === 1
-                  ? `1px solid ${EV_COLORS.secondary}44`
-                  :"1px solid rgba(148,163,184,0.45)",
-              background:
-                index === 0
-                  ?"linear-gradient(145deg, #ecfdf5, #f0fdf4)"
-                  : index === 1
-                    ?"linear-gradient(145deg, #fff7ed, #fffbeb)"
-                    : undefined,
-            }}
-          >
-            <CardContent className="p-4 flex flex-col gap-2">
-              <Typography
-                variant="caption"
-                className="text-[11px] uppercase tracking-wide text-slate-500"
-              >
-                {kpi.label}
-              </Typography>
-              <Typography
-                variant="h6"
-                className="font-semibold text-lg"
-                color="text.primary"
-              >
-                {kpi.value}
-              </Typography>
-              <Typography
-                variant="caption"
-                className="text-[11px] text-emerald-600"
-              >
-                {kpi.trend}
-              </Typography>
-              {kpi.subtitle && (
-                <Typography
-                  variant="caption"
-                  className="text-[10px] text-slate-500 mt-1"
-                >
-                  {kpi.subtitle}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", xl: "repeat(4, 1fr)" }, gap: 2, mb: 3 }}>
+        {kpis.map((kpi) => (
+          <MetricCard key={kpi.label} {...kpi} loading={loading} />
         ))}
       </Box>
 
-      <Box className="flex flex-col lg:flex-row gap-4 mb-4">
-        {/* Operations map placeholder */}
-        <Card
-          elevation={2}
-          sx={{
-            flex: 2,
-            minHeight: 260,
-            borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.45)",
-            background:"linear-gradient(145deg, #0b1120, #020617)",
-            color:"#e5e7eb",
-            transition: 'box-shadow 0.2s',
-            '&:hover': {
-              boxShadow: 4,
-            }
-          }}
-        >
-          <CardContent className="p-4 h-full flex flex-col gap-2">
-            <Box className="flex items-center justify-between flex-wrap gap-2">
-              <Typography
-                variant="subtitle2"
-                className="font-semibold text-slate-50"
-              >
-                Trip Trends
-              </Typography>
-              <Box className="flex items-center gap-2 flex-wrap">
-                <ToggleButtonGroup
-                  value={tripTrendFilter}
-                  exclusive
-                  onChange={(e, newValue) => newValue && setTripTrendFilter(newValue)}
-                  size="small"
-                  sx={{
-                    '& .MuiToggleButton-root': {
-                      fontSize: 10,
-                      padding: '4px 8px',
-                      color: '#94a3b8',
-                      borderColor: '#334155',
-                      '&.Mui-selected': {
-                        bgcolor: EV_COLORS.primary,
-                        color: '#020617',
-                        '&:hover': {
-                          bgcolor: EV_COLORS.primary,
-                        },
-                      },
-                    },
-                  }}
-                >
-                  <ToggleButton value="Rides">Rides</ToggleButton>
-                  <ToggleButton value="Delivery">Delivery</ToggleButton>
-                  <ToggleButton value="Both">Both</ToggleButton>
-                </ToggleButtonGroup>
-                <PeriodSelector
-                  value={period}
-                  onChange={(newPeriod) => setPeriod(newPeriod as PeriodOption)}
-                />
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1.6fr 1fr" }, gap: 3, mb: 3 }}>
+        <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)", overflow: "hidden" }}>
+          <Box sx={{ px: 2, py: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Trip Trends</Typography>
+              <Typography variant="caption" color="text.secondary">Hourly demand from operations analytics</Typography>
+            </Box>
+            <ToggleButtonGroup
+              value={tripTrendFilter}
+              exclusive
+              onChange={(_event, newValue) => newValue && setTripTrendFilter(newValue)}
+              size="small"
+            >
+              <ToggleButton value="Rides" sx={{ textTransform: "none" }}>Rides</ToggleButton>
+              <ToggleButton value="Delivery" sx={{ textTransform: "none" }}>Delivery</ToggleButton>
+              <ToggleButton value="Both" sx={{ textTransform: "none" }}>Both</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <Divider />
+          <Box sx={{ height: 320, p: 2 }}>
+            {loading ? (
+              <Box sx={{ height: "100%", display: "grid", placeItems: "center" }}><CircularProgress size={28} /></Box>
+            ) : tripTrends.length === 0 ? (
+              <Box sx={{ height: "100%", display: "grid", placeItems: "center", color: "text.secondary", textAlign: "center" }}>
+                <Typography variant="body2">Hourly trend data is not available from the backend yet.</Typography>
               </Box>
-            </Box>
-            <Box sx={{ flex: 1, minHeight: 180 }}>
-              {tripTrends.length === 0 ? (
-                <Box className="h-full flex items-center justify-center">
-                  <Typography variant="caption" color="text.secondary" className="text-[11px]">
-                    Hourly trend data is not available from the backend yet.
-                  </Typography>
-                </Box>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={tripTrends} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="tripGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#03cd8c" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#03cd8c" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#94a3b8" }} stroke="#334155" />
-                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} stroke="#334155" />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: 8, fontSize: 11 }}
-                      labelStyle={{ color: "#e5e7eb" }}
-                      itemStyle={{ color: "#03cd8c" }}
-                    />
-                    <Area type="monotone" dataKey="trips" stroke="#03cd8c" strokeWidth={2} fill="url(#tripGradient)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </Box>
-          </CardContent>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={tripTrends} margin={{ top: 10, right: 16, left: -8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="tripGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={EV_GREEN} stopOpacity={0.35} />
+                      <stop offset="95%" stopColor={EV_GREEN} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="hour" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Area type="monotone" dataKey="trips" stroke={EV_GREEN} strokeWidth={2} fill="url(#tripGradient)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </Box>
         </Card>
 
-        {/* Alerts & approvals */}
-        <Card
-          elevation={2}
-          sx={{
-            flex: 1,
-            minHeight: 260,
-            borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.45)",
-            bgcolor:"background.paper"
-          }}
-        >
-          <CardContent className="p-4 h-full flex flex-col">
-            <Box className="flex items-center justify-between mb-1">
-              <Typography
-                variant="subtitle2"
-                className="font-semibold"
-                color="text.primary"
+        <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)", overflow: "hidden" }}>
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <WarningAmberIcon sx={{ color: "#f59e0b" }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Alerts & Approvals</Typography>
+            </Stack>
+            <Typography variant="caption" color="text.secondary">Admin queues needing attention</Typography>
+          </Box>
+          <Divider />
+          <Stack spacing={1.25} sx={{ p: 2 }}>
+            {alerts.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No alert data loaded.</Typography>
+            ) : alerts.map((item) => (
+              <Box
+                key={item.text}
+                onClick={() => navigate(item.path)}
+                sx={{
+                  display: "flex",
+                  gap: 1.5,
+                  alignItems: "flex-start",
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  borderRadius: 1,
+                  p: 1.25,
+                  cursor: "pointer",
+                  "&:hover": { borderColor: EV_GREEN, bgcolor: "action.hover" },
+                }}
               >
-                Alerts & approvals
-              </Typography>
-              <Button
-                size="small"
-                onClick={() => navigate("/admin/approvals")}
-                sx={{ fontSize: 10, minWidth: 'auto', textTransform: 'none' }}
-              >
-                View all
-              </Button>
-            </Box>
-            <Typography
-              variant="caption"
-              className="text-[11px] mb-2"
-              color="text.secondary"
-            >
-              Items that may need Admin attention.
-            </Typography>
-            <Box className="flex flex-col gap-2 text-[12px] flex-1">
-              {alerts.map((item) => (
-                <Box
-                  key={item.text}
-                  onClick={() => navigate(item.path)}
-                  className="flex items-start gap-2 rounded-md px-2 py-2 cursor-pointer transition-colors"
-                  sx={{ 
-                    '&:hover': { bgcolor: 'action.hover' },
-                    border: '1px solid',
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Box
-                    component="span"
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius:"50%",
-                      bgcolor: getSeverityColor(item.severity),
-                      mt:"4px",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <Box className="flex-1">
-                    <Box className="flex items-center gap-2 mb-1">
-                      <Typography variant="body2" className="text-[12px] font-medium" color="text.primary">
-                        {item.text}
-                      </Typography>
-                      <Chip
-                        label={item.count}
-                        size="small"
-                        sx={{
-                          height: 18,
-                          fontSize: 9,
-                          bgcolor: getSeverityColor(item.severity) + '20',
-                          color: getSeverityColor(item.severity),
-                        }}
-                      />
-                    </Box>
-                    <Button
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(item.path);
-                      }}
-                      sx={{
-                        fontSize: 9,
-                        textTransform: 'none',
-                        padding: '2px 8px',
-                        minWidth: 'auto',
-                        color: EV_COLORS.primary,
-                      }}
-                    >
-                      {item.action}
-                    </Button>
-                  </Box>
+                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: severityColor(item.severity), mt: 0.75, flexShrink: 0 }} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.text}</Typography>
+                    <Chip size="small" label={item.count} sx={{ bgcolor: `${severityColor(item.severity)}18`, color: severityColor(item.severity), fontWeight: 800 }} />
+                  </Stack>
+                  <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(item.path); }} sx={{ mt: 0.5, p: 0, minWidth: 0, textTransform: "none", color: EV_GREEN }}>
+                    {item.action}
+                  </Button>
                 </Box>
-              ))}
-            </Box>
-          </CardContent>
-        </Card >
-      </Box >
-
-      <Box className="flex flex-col lg:flex-row gap-4">
-        {/* Safety highlights */}
-        <Card
-          elevation={2}
-          sx={{
-            flex: 1,
-            borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.45)",
-            // background:"linear-gradient(145deg, #eff6ff, #eef2ff)",
-            bgcolor:"background.paper"
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-              color="text.primary"
-            >
-              Safety & quality
-            </Typography>
-            <Divider className="!my-1" />
-            <Box className="flex flex-col gap-1">
-              {safetyHighlights.map((item) => (
-                <Typography
-                  key={item}
-                  variant="body2"
-                  className="text-[12px]"
-                  color="text.primary"
-                >
-                  • {item}
-                </Typography>
-              ))}
-            </Box>
-            <Box className="mt-2 pt-2 border-t border-divider">
-              <Typography variant="caption" className="text-[10px] text-slate-500">
-                Key metrics: Ratings, incidents, SOS activations
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Finance snapshot */}
-        <Card
-          elevation={2}
-          sx={{
-            flex: 1,
-            borderRadius: 2,
-            border:"1px solid rgba(148,163,184,0.45)",
-            // background:"linear-gradient(145deg, #fefce8, #fffbeb)",
-            bgcolor:"background.paper"
-          }}
-        >
-          <CardContent className="p-4 flex flex-col gap-2">
-            <Typography
-              variant="subtitle2"
-              className="font-semibold"
-              color="text.primary"
-            >
-              Finance snapshot
-            </Typography>
-            <Divider className="!my-1" />
-            {financeSnapshot.map((item) => (
-              <Typography
-                key={item}
-                variant="body2"
-                className="text-[12px]"
-                color="text.primary"
-              >
-                • {item}
-              </Typography>
+              </Box>
             ))}
-          </CardContent>
+          </Stack>
         </Card>
       </Box>
+
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(2, 1fr)" }, gap: 3 }}>
+        <SummaryPanel
+          title="Safety & Quality"
+          icon={<HealthAndSafetyIcon />}
+          items={safetyHighlights}
+          actionLabel="Open safety"
+          onAction={() => navigate("/admin/safety")}
+        />
+        <SummaryPanel
+          title="Finance Snapshot"
+          icon={<PaymentsIcon />}
+          items={financeSnapshot}
+          actionLabel="Open finance"
+          onAction={() => navigate("/admin/finance")}
+        />
+      </Box>
     </Box>
+  );
+}
+
+function severityColor(severity: string) {
+  if (severity === "high") return "#ef4444";
+  if (severity === "medium") return "#f59e0b";
+  if (severity === "low") return "#64748b";
+  return "#94a3b8";
+}
+
+function MetricCard({
+  label,
+  value,
+  helper,
+  icon,
+  color,
+  onClick,
+  loading,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  icon: React.ReactNode;
+  color: string;
+  onClick: () => void;
+  loading: boolean;
+}) {
+  return (
+    <Card elevation={1} onClick={onClick} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)", cursor: "pointer", "&:hover": { borderColor: color, boxShadow: "0 8px 24px rgba(15,23,42,0.08)" } }}>
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{ display: "grid", placeItems: "center", width: 42, height: 42, borderRadius: 1, bgcolor: `${color}18`, color }}>{icon}</Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: "uppercase" }}>{label}</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.2 }}>{loading ? "-" : value}</Typography>
+            <Typography variant="caption" color="text.secondary">{loading ? "Loading backend data" : helper}</Typography>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SummaryPanel({
+  title,
+  icon,
+  items,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: Array<{ label: string; value: string | number }>;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)" }}>
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Box sx={{ color: EV_GREEN }}>{icon}</Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{title}</Typography>
+          </Stack>
+          <Button size="small" onClick={onAction} sx={{ textTransform: "none", color: EV_GREEN }}>{actionLabel}</Button>
+        </Stack>
+        <Divider sx={{ mb: 1.5 }} />
+        <Stack spacing={1}>
+          {items.map((item) => (
+            <Box key={item.label} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">{item.label}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 800 }}>{item.value}</Typography>
+            </Box>
+          ))}
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }

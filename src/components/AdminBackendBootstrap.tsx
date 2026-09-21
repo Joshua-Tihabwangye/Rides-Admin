@@ -79,8 +79,7 @@ export default function AdminBackendBootstrap() {
       return Array.from(normalized)
     }
 
-    // Phase 1.5 equivalent for admin — event names are hardcoded from
-    // events.contract.ts. No preflight HTTP fetch needed.
+    // Admin summary refresh events mirror events.contract.ts.
     const syncEvents = normalizeAdminEvents([
       "audit.log.entry",
       "admin.audit.updated",

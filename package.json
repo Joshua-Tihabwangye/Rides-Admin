@@ -6,15 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "verify:build": "node scripts/verify-admin-build.mjs",
+    "build:verify": "npm run build && npm run verify:build",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:ci": "vitest run --ci",
+    "test:admin-contracts": "vitest run src/services/api/adminApi.drivers.test.ts src/services/api/adminApi.deliveries.test.ts src/services/api/adminApi.returns.test.ts src/services/api/adminApi.disputes.test.ts src/services/api/adminApi.companyPayouts.test.ts src/services/api/adminApi.content.test.ts src/services/api/adminApi.roles.test.ts src/services/api/adminApi.agentAnalytics.test.ts src/services/api/adminApi.pricing.test.ts src/services/api/adminApi.reconciliation.test.ts src/services/api/adminApi.finance.test.ts src/services/api/adminApi.rides.test.ts src/services/adminRealtime.test.ts",
     "contracts:generate": "node scripts/generate-contracts.mjs",
     "check:delivery-contract": "node scripts/check-delivery-contract-manifest.mjs",
     "check:regression": "node scripts/check-admin-regressions.mjs",
+    "ci:admin": "npm run typecheck && npm run check:regression && npm run test:admin-contracts",
     "security:secrets": "node scripts/secret-scan.mjs"
   },
   "dependencies": {

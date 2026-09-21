@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -16,6 +16,11 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SaveIcon from "@mui/icons-material/Save";
+import PolicyIcon from "@mui/icons-material/Policy";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import SchoolIcon from "@mui/icons-material/School";
+import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
+import TourIcon from "@mui/icons-material/Tour";
 import {
   createAdminContent,
   listAdminContent,
@@ -23,11 +28,7 @@ import {
   type AdminContentItem,
 } from "../services/api/adminApi";
 
-const EV_COLORS = {
-  primary: "#03cd8c",
-  secondary: "#f77f00",
-};
-
+const EV_GREEN = "#03cd8c";
 const CONTENT_KIND = "vertical-policies";
 
 type RentalPolicy = {
@@ -96,25 +97,6 @@ const DEFAULT_POLICIES: VerticalPolicies = {
   },
 };
 
-function AdminVerticalPoliciesLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <Box>
-      <Box className="pb-4 flex items-center justify-between gap-2">
-        <Box>
-          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
-            Vertical Service Policies
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Additional backend-persisted rules applied on top of core service configuration.
-          </Typography>
-        </Box>
-      </Box>
-
-      <Box className="flex-1 flex flex-col gap-3">{children}</Box>
-    </Box>
-  );
-}
-
 function textValue(value: unknown, fallback = "") {
   if (typeof value === "string") return value;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -150,10 +132,7 @@ function normalizePolicies(value: unknown): VerticalPolicies {
     ems: {
       allowNonEvForAmbulance: boolValue(ems.allowNonEvForAmbulance, DEFAULT_POLICIES.ems.allowNonEvForAmbulance),
       responseTimeTargetMin: textValue(ems.responseTimeTargetMin),
-      requireMedicalPartnerApproval: boolValue(
-        ems.requireMedicalPartnerApproval,
-        DEFAULT_POLICIES.ems.requireMedicalPartnerApproval,
-      ),
+      requireMedicalPartnerApproval: boolValue(ems.requireMedicalPartnerApproval, DEFAULT_POLICIES.ems.requireMedicalPartnerApproval),
     },
     tours: {
       minDriverRating: textValue(tours.minDriverRating),
@@ -167,6 +146,16 @@ function formatUpdatedAt(value?: number) {
   if (!value) return "Not saved yet";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
+}
+
+function enabledCount(policies: VerticalPolicies) {
+  return [
+    policies.rental.allowNonEvException,
+    policies.school.requireBackgroundCheck,
+    policies.ems.allowNonEvForAmbulance,
+    policies.ems.requireMedicalPartnerApproval,
+    policies.tours.requireLocalGuide,
+  ].filter(Boolean).length;
 }
 
 export default function VerticalPoliciesPage() {
@@ -239,278 +228,158 @@ export default function VerticalPoliciesPage() {
   };
 
   const { rental, school, ems, tours } = policies;
+  const metrics = useMemo(() => [
+    { label: "Verticals", value: 4, icon: <PolicyIcon />, color: "#2563eb" },
+    { label: "Enabled rules", value: enabledCount(policies), icon: <SaveIcon />, color: EV_GREEN },
+    { label: "Content records", value: policyRecord ? 1 : 0, icon: <PolicyIcon />, color: "#f59e0b" },
+  ], [policies, policyRecord]);
 
   return (
-    <AdminVerticalPoliciesLayout>
-      <Box className="flex items-center justify-between gap-2">
-        <Typography variant="caption" color="text.secondary">
-          Source: `/admin/content/{CONTENT_KIND}` · Last updated: {formatUpdatedAt(policyRecord?.updatedAt)}
-        </Typography>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<RefreshIcon />}
-          onClick={() => void load()}
-          disabled={loading || saving}
-          sx={{ textTransform: "none", borderRadius: 999, fontSize: 11 }}
-        >
-          Refresh
-        </Button>
+    <Box>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap", pb: 3 }}>
+        <Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PolicyIcon sx={{ color: EV_GREEN }} />
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>Vertical Service Policies</Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Backend-persisted service rules layered on top of core service configuration.
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Source: /admin/content/{CONTENT_KIND} · Last updated: {formatUpdatedAt(policyRecord?.updatedAt)}
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => void load()} disabled={loading || saving} sx={{ borderRadius: 1, textTransform: "none" }}>
+            Refresh
+          </Button>
+          <Button variant="contained" size="small" startIcon={<SaveIcon />} disabled={saving || loading} onClick={() => void savePolicies()} sx={{ borderRadius: 1, textTransform: "none", bgcolor: EV_GREEN, "&:hover": { bgcolor: "#0fb589" } }}>
+            {saving ? "Saving..." : "Save policies"}
+          </Button>
+        </Stack>
       </Box>
 
       {error ? (
-        <Alert
-          severity="error"
-          action={
-            <Button color="inherit" size="small" onClick={() => void load()}>
-              Retry
-            </Button>
-          }
-        >
+        <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void load()}>Retry</Button>} sx={{ mb: 2 }}>
           {error}
         </Alert>
       ) : null}
 
       {!loading && !policyRecord ? (
-        <Alert severity="info">
+        <Alert severity="info" sx={{ mb: 2 }}>
           No saved vertical policy record exists yet. Review the defaults below and save to create the authoritative backend record.
         </Alert>
       ) : null}
 
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>
+        {metrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}
+      </Box>
+
       {loading ? (
-        <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
+        <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)" }}>
           <CardContent>
             <Stack direction="row" spacing={1.5} alignItems="center">
               <CircularProgress size={18} />
-              <Typography variant="body2" color="text.secondary">
-                Loading vertical policies...
-              </Typography>
+              <Typography variant="body2" color="text.secondary">Loading vertical policies...</Typography>
             </Stack>
           </CardContent>
         </Card>
       ) : (
-        <>
-          <Box className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <PolicyCard
-              title="Rental policies"
-              description="Rules applied on top of Ride & Rental services."
-            >
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={rental.allowNonEvException}
-                    onChange={(event) => updatePolicy("rental", "allowNonEvException", event.target.checked)}
-                  />
-                }
-                label={<PolicyLabel>Allow non-EV exception for specific partners</PolicyLabel>}
-              />
-              <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <NumberField
-                  label="Max vehicle age (years)"
-                  value={rental.maxVehicleAgeYears}
-                  onChange={(value) => updatePolicy("rental", "maxVehicleAgeYears", value)}
-                />
-                <NumberField
-                  label="Min driver rating"
-                  value={rental.minDriverRating}
-                  step="0.1"
-                  onChange={(value) => updatePolicy("rental", "minDriverRating", value)}
-                />
-              </Box>
-            </PolicyCard>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(2, 1fr)" }, gap: 2 }}>
+          <PolicyCard title="Rental policies" description="Rules for rental operations and partner exceptions." icon={<DirectionsCarIcon />}>
+            <PolicySwitch checked={rental.allowNonEvException} onChange={(value) => updatePolicy("rental", "allowNonEvException", value)} label="Allow non-EV exception for specific partners" />
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 2 }}>
+              <NumberField label="Max vehicle age (years)" value={rental.maxVehicleAgeYears} onChange={(value) => updatePolicy("rental", "maxVehicleAgeYears", value)} />
+              <NumberField label="Min driver rating" value={rental.minDriverRating} step="0.1" onChange={(value) => updatePolicy("rental", "minDriverRating", value)} />
+            </Box>
+          </PolicyCard>
 
-            <PolicyCard
-              title="School shuttle policies"
-              description="Extra safeguards for School shuttles: vetting, training and capacity constraints."
-            >
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={school.requireBackgroundCheck}
-                    onChange={(event) => updatePolicy("school", "requireBackgroundCheck", event.target.checked)}
-                  />
-                }
-                label={<PolicyLabel>Require background check for all School drivers</PolicyLabel>}
-              />
-              <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <NumberField
-                  label="Min training modules"
-                  value={school.minTrainingModules}
-                  onChange={(value) => updatePolicy("school", "minTrainingModules", value)}
-                />
-                <NumberField
-                  label="Max kids per vehicle"
-                  value={school.maxKidsPerVehicle}
-                  onChange={(value) => updatePolicy("school", "maxKidsPerVehicle", value)}
-                />
-              </Box>
-            </PolicyCard>
+          <PolicyCard title="School shuttle policies" description="Safeguards for school transport workflows." icon={<SchoolIcon />}>
+            <PolicySwitch checked={school.requireBackgroundCheck} onChange={(value) => updatePolicy("school", "requireBackgroundCheck", value)} label="Require background check for all School drivers" />
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 2 }}>
+              <NumberField label="Min training modules" value={school.minTrainingModules} onChange={(value) => updatePolicy("school", "minTrainingModules", value)} />
+              <NumberField label="Max kids per vehicle" value={school.maxKidsPerVehicle} onChange={(value) => updatePolicy("school", "maxKidsPerVehicle", value)} />
+            </Box>
+          </PolicyCard>
 
-            <PolicyCard
-              title="EMS / Ambulance policies"
-              description="Mission-critical service rules and partner approval requirements."
-            >
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={ems.allowNonEvForAmbulance}
-                    onChange={(event) => updatePolicy("ems", "allowNonEvForAmbulance", event.target.checked)}
-                  />
-                }
-                label={<PolicyLabel>Allow non-EV vehicles for Ambulance category</PolicyLabel>}
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={ems.requireMedicalPartnerApproval}
-                    onChange={(event) => updatePolicy("ems", "requireMedicalPartnerApproval", event.target.checked)}
-                  />
-                }
-                label={<PolicyLabel>Require approval from Medical module partners</PolicyLabel>}
-              />
-              <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <NumberField
-                  label="Response time target (minutes)"
-                  value={ems.responseTimeTargetMin}
-                  onChange={(value) => updatePolicy("ems", "responseTimeTargetMin", value)}
-                />
-              </Box>
-            </PolicyCard>
+          <PolicyCard title="EMS / Ambulance policies" description="Mission-critical service and partner approval requirements." icon={<MedicalServicesIcon />}>
+            <PolicySwitch checked={ems.allowNonEvForAmbulance} onChange={(value) => updatePolicy("ems", "allowNonEvForAmbulance", value)} label="Allow non-EV vehicles for Ambulance category" />
+            <PolicySwitch checked={ems.requireMedicalPartnerApproval} onChange={(value) => updatePolicy("ems", "requireMedicalPartnerApproval", value)} label="Require approval from Medical module partners" />
+            <NumberField label="Response time target (minutes)" value={ems.responseTimeTargetMin} onChange={(value) => updatePolicy("ems", "responseTimeTargetMin", value)} />
+          </PolicyCard>
 
-            <PolicyCard
-              title="Tours & tourism policies"
-              description="Expectations for tour operators, guides, driver thresholds and daily limits."
-            >
-              <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <NumberField
-                  label="Min driver rating"
-                  value={tours.minDriverRating}
-                  step="0.1"
-                  onChange={(value) => updatePolicy("tours", "minDriverRating", value)}
-                />
-                <NumberField
-                  label="Max daily driving hours"
-                  value={tours.maxDailyDrivingHours}
-                  onChange={(value) => updatePolicy("tours", "maxDailyDrivingHours", value)}
-                />
-              </Box>
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={tours.requireLocalGuide}
-                    onChange={(event) => updatePolicy("tours", "requireLocalGuide", event.target.checked)}
-                  />
-                }
-                label={<PolicyLabel>Require certified local guide for long tours</PolicyLabel>}
-              />
-            </PolicyCard>
-          </Box>
-
-          <Box className="mt-2 flex items-center justify-between gap-3">
-            <Typography variant="caption" className="text-[11px] text-slate-500">
-              Saved policies are stored as Admin content and should be enforced by the relevant backend domain services.
-            </Typography>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<SaveIcon />}
-              disabled={saving}
-              sx={{
-                textTransform: "none",
-                borderRadius: 999,
-                fontSize: 12,
-                bgcolor: EV_COLORS.primary,
-                "&:hover": { bgcolor: "#0fb589" },
-              }}
-              onClick={() => void savePolicies()}
-            >
-              {saving ? "Saving..." : "Save policies"}
-            </Button>
-          </Box>
-        </>
+          <PolicyCard title="Tours & tourism policies" description="Guide, driver threshold, and daily limit controls." icon={<TourIcon />}>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, gap: 2 }}>
+              <NumberField label="Min driver rating" value={tours.minDriverRating} step="0.1" onChange={(value) => updatePolicy("tours", "minDriverRating", value)} />
+              <NumberField label="Max daily driving hours" value={tours.maxDailyDrivingHours} onChange={(value) => updatePolicy("tours", "maxDailyDrivingHours", value)} />
+            </Box>
+            <PolicySwitch checked={tours.requireLocalGuide} onChange={(value) => updatePolicy("tours", "requireLocalGuide", value)} label="Require certified local guide for long tours" />
+          </PolicyCard>
+        </Box>
       )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3500}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
-        >
+      <Snackbar open={snackbar.open} autoHideDuration={3500} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))} anchorOrigin={{ vertical: "bottom", horizontal: "right" }}>
+        <Alert onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: "100%" }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </AdminVerticalPoliciesLayout>
+    </Box>
   );
 }
 
-function PolicyCard({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
+function MetricCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: string }) {
   return (
-    <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
-      <CardContent className="p-4 flex flex-col gap-2">
-        <Typography variant="subtitle2" className="font-semibold">
-          {title}
-        </Typography>
-        <Typography variant="caption" className="text-[11px] text-slate-500">
-          {description}
-        </Typography>
-        <Divider className="!my-1" />
-        {children}
+    <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)" }}>
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 1, bgcolor: `${color}18`, color }}>{icon}</Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: "uppercase" }}>{label}</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1 }}>{value.toLocaleString()}</Typography>
+          </Box>
+        </Stack>
       </CardContent>
     </Card>
   );
 }
 
-function PolicyLabel({ children }: { children: React.ReactNode }) {
+function PolicyCard({ title, description, icon, children }: { title: string; description: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Typography variant="body2" className="text-[12px] text-slate-500">
-      {children}
-    </Typography>
+    <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)" }}>
+      <CardContent sx={{ p: 2.5 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+          <Box sx={{ display: "grid", placeItems: "center", width: 38, height: 38, borderRadius: 1, bgcolor: `${EV_GREEN}18`, color: EV_GREEN }}>{icon}</Box>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{title}</Typography>
+            <Typography variant="caption" color="text.secondary">{description}</Typography>
+          </Box>
+        </Stack>
+        <Divider sx={{ my: 1.5 }} />
+        <Stack spacing={2}>{children}</Stack>
+      </CardContent>
+    </Card>
   );
 }
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = "1",
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  step?: string;
-}) {
+function PolicySwitch({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
-    <Box className="flex flex-col gap-1">
-      <Typography variant="caption" className="text-[11px] text-slate-500">
-        {label}
-      </Typography>
-      <TextField
-        size="small"
-        fullWidth
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        type="number"
-        inputProps={{ step }}
-        sx={{ "& .MuiInputBase-input": { fontSize: 12 } }}
-      />
-    </Box>
+    <FormControlLabel
+      control={<Switch size="small" checked={checked} onChange={(event) => onChange(event.target.checked)} />}
+      label={<Typography variant="body2" color="text.secondary">{label}</Typography>}
+    />
+  );
+}
+
+function NumberField({ label, value, onChange, step = "1" }: { label: string; value: string; onChange: (value: string) => void; step?: string }) {
+  return (
+    <TextField
+      size="small"
+      fullWidth
+      label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      type="number"
+      inputProps={{ step }}
+    />
   );
 }

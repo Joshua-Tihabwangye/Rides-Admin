@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+    Alert,
     Box,
     Card,
     CardContent,
@@ -34,6 +35,7 @@ export default function DriverCreate() {
     })
 
     const [saving, setSaving] = useState(false)
+    const [error, setError] = useState<string | null>(null)
     const canManagePeople = hasPermissionByRoles(getAuthRoles(), 'manage_people')
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,8 +44,9 @@ export default function DriverCreate() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        setError(null)
         if (!canManagePeople) {
-            alert('Your account cannot create or update people records.')
+            setError('Your account cannot create or update people records.')
             return
         }
         setSaving(true)
@@ -64,9 +67,8 @@ export default function DriverCreate() {
             setSaving(false)
             navigate(`/admin/drivers/${created.driverId}`)
         } catch (error) {
-            console.error('Failed to create driver profile.', error)
             setSaving(false)
-            alert(error instanceof Error ? error.message : 'Failed to create driver profile. Please try again.')
+            setError(error instanceof Error ? error.message : 'Failed to create driver profile. Please try again.')
         }
     }
 
@@ -93,6 +95,7 @@ export default function DriverCreate() {
 
             <Card elevation={2} sx={{ maxWidth: 800 }}>
                 <CardContent>
+                    {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
                     <Box component="form" onSubmit={handleSubmit} noValidate>
                         <Grid container spacing={3}>
                             <Grid item xs={12}>

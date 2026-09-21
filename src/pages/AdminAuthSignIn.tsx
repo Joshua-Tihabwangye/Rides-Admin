@@ -144,11 +144,8 @@ export default function AuthSignIn() {
 
   const sso = (provider: SsoProvider) => {
     track("auth_sso", { provider });
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      alert(`${provider} SSO authentication is not configured. Please use email and password.`);
-    }, 500);
+    setIsLoading(false);
+    setLoginError(`${provider} SSO authentication is not configured. Please use email and password.`);
   };
 
   const hoverStyles: Record<"big" | "small", CSSProperties> = {

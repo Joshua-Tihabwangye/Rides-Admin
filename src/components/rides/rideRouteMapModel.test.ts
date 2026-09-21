@@ -55,6 +55,30 @@ describe("rideRouteMapModel", () => {
     ]);
   });
 
+  it("reads GeoJSON coordinate paths from route geometry", () => {
+    expect(
+      rideRoutePathPoints({
+        geometry: {
+          coordinates: [
+            [32.5825, 0.3476],
+            [32.59, 0.36],
+          ],
+        },
+      }),
+    ).toEqual([
+      { lat: 0.3476, lng: 32.5825 },
+      { lat: 0.36, lng: 32.59 },
+    ]);
+  });
+
+  it("decodes encoded route polylines before falling back to stops", () => {
+    expect(rideRoutePathPoints({ polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@" })).toEqual([
+      { lat: 38.5, lng: -120.2 },
+      { lat: 40.7, lng: -120.95 },
+      { lat: 43.252, lng: -126.453 },
+    ]);
+  });
+
   it("returns a stable center for all rendered map points", () => {
     expect(
       rideRouteMapCenter([

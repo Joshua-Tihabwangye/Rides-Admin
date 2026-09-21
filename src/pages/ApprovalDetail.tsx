@@ -22,7 +22,7 @@ const EV_COLORS = {
   secondary:"#f77f00",
 };
 
-function AdminApprovalDetailLayout({ children }) {
+function AdminApprovalDetailLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2">
@@ -54,6 +54,7 @@ export default function ApprovalDetailPage() {
   const navigate = useNavigate();
   const [approval, setApproval] = useState<AdminApprovalResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [snackbar, setSnackbar] = useState<{ open: boolean; msg: string; severity: 'success' | 'error' }>({ open: false, msg: '', severity: 'success' });
@@ -65,8 +66,8 @@ export default function ApprovalDetailPage() {
       try {
         const data = await getAdminApproval(approvalId as string);
         setApproval(data);
-      } catch (e: any) {
-        setError(e?.message ?? 'Failed to load approval');
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Failed to load approval');
       } finally {
         setLoading(false);
       }
@@ -74,23 +75,21 @@ export default function ApprovalDetailPage() {
     loadApproval();
   }, [approvalId]);
 
-  const handleDecision = async (action: "Approve" | "Reject" | "Request more info") => {
+  const handleDecision = async (action: "Approve" | "Reject") => {
     if (!approval) return;
+    setReviewing(true);
     try {
-      if (action === "Approve" || action === "Reject") {
-        await reviewAdminApproval(approval.id, { decision: action === "Approve" ? "approved" : "rejected" });
-      }
+      const updated = await reviewAdminApproval(approval.id, {
+        decision: action === "Approve" ? "approved" : "rejected",
+        notes: notes.trim() || undefined,
+      });
+      setApproval(updated);
       setSnackbar({ open: true, msg: `Decision Recorded: ${action}`, severity: 'success' });
-      setTimeout(() => {
-        navigate('/admin/approvals');
-      }, 1000);
-    } catch (e: any) {
-      setSnackbar({ open: true, msg: `Failed: ${e?.message}`, severity: 'error' });
+    } catch (e: unknown) {
+      setSnackbar({ open: true, msg: `Failed: ${e instanceof Error ? e.message : "Review failed"}`, severity: 'error' });
+    } finally {
+      setReviewing(false);
     }
-  };
-
-  const handleSaveNote = () => {
-    setSnackbar({ open: true, msg:"Note saved internally.", severity: 'success' });
   };
 
   if (loading) {
@@ -222,7 +221,7 @@ export default function ApprovalDetailPage() {
                 variant="subtitle2"
                 className="font-semibold mb-1"
               >
-                Internal notes
+                Decision notes
               </Typography>
               <TextField
                 multiline
@@ -236,14 +235,9 @@ export default function ApprovalDetailPage() {
                 sx={{"& .MuiOutlinedInput-root": { bgcolor: "background.paper" },"& .MuiInputBase-input": { fontSize: 12 },
                 }}
               />
-              <Button
-                size="small"
-                variant="text"
-                sx={{ mt: 1, textTransform: 'none', fontSize: 11 }}
-                onClick={handleSaveNote}
-              >
-                Save Note
-              </Button>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                Notes are submitted with the approve/reject decision.
+              </Typography>
             </Box>
           </CardContent>
         </Card>
@@ -283,6 +277,7 @@ export default function ApprovalDetailPage() {
                 bgcolor: EV_COLORS.primary,
                 "&:hover": { bgcolor: "#0fb589" },
               }}
+              disabled={reviewing || approval.status !== "pending"}
               onClick={() => handleDecision("Approve")}
             >
               Approve
@@ -298,24 +293,14 @@ export default function ApprovalDetailPage() {
                 borderColor: "#f97316",
                 color: "#92400e",
               }}
+              disabled={reviewing || approval.status !== "pending"}
               onClick={() => handleDecision("Reject")}
             >
               Reject
             </Button>
-            <Button
-              fullWidth
-              variant="text"
-              size="small"
-              sx={{
-                textTransform: "none",
-                borderRadius: 999,
-                fontSize: 12,
-                color: 'text.secondary',
-              }}
-              onClick={() => handleDecision("Request more info")}
-            >
-              Request more info
-            </Button>
+            <Alert severity="info" sx={{ fontSize: 12 }}>
+              Request-changes workflow is not exposed by the approvals backend yet.
+            </Alert>
           </CardContent>
         </Card>
       </Box>

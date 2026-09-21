@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { type ChangeEvent, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -12,21 +12,49 @@ import {
   Divider,
   Switch,
   FormControlLabel,
-  Snackbar,
   Alert,
   CircularProgress,
+  Snackbar,
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import { getAdminCompany, patchAdminCompany } from '../services/api/adminApi';
-import type { AdminCompanyResponse } from '../services/api/adminApi';
+import {
+  activateAdminCommissionRule,
+  createAdminCommissionRule,
+  deactivateAdminCommissionRule,
+  getAdminCompany,
+  listAdminCommissionRules,
+  patchAdminCompany,
+} from '../services/api/adminApi';
+import type { AdminCommissionRule, AdminCompanyResponse } from '../services/api/adminApi';
 
 const EV_COLORS = {
   primary: "#03cd8c",
-  secondary: "#f77f00",
 };
 
-function CompanyHeader({ company, onEdit = () => {} }) {
+type CompanyVerticalKey = keyof AdminCompanyResponse["verticals"];
+type CompanyField = keyof Pick<
+  AdminCompanyResponse,
+  "companyName" | "contactEmail" | "contactPhone" | "registrationNumber" | "taxId"
+>;
+
+type SnackbarState = {
+  open: boolean;
+  severity: "success" | "error";
+  message: string;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function CompanyHeader({ company }: { company: AdminCompanyResponse }) {
   return (
     <Card
       elevation={1}
@@ -51,22 +79,22 @@ function CompanyHeader({ company, onEdit = () => {} }) {
         <Box className="flex flex-wrap gap-1 items-center">
           <Chip
             size="small"
-            label={company.status === "approved" ? "Active" : company.status === "pending" ? "Pending" : company.status === "suspended" ? "Suspended" : "Inactive"}
+            label={company.status === "active" ? "Active" : company.status === "suspended" ? "Suspended" : "Inactive"}
             sx={{
               fontSize: 10,
               height: 22,
               bgcolor:
-                company.status === "approved"
+                company.status === "active"
                   ? "#ecfdf5"
-                  : company.status === "pending"
-                    ? "#fefce8"
-                    : "#fee2e2",
+                  : company.status === "suspended"
+                    ? "#fee2e2"
+                    : "#f1f5f9",
               borderColor:
-                company.status === "approved"
+                company.status === "active"
                   ? "#bbf7d0"
-                  : company.status === "pending"
-                    ? "#facc15"
-                    : "#fecaca",
+                  : company.status === "suspended"
+                    ? "#fecaca"
+                    : "#cbd5e1",
               borderWidth: 1,
               borderStyle: "solid",
             }}
@@ -77,7 +105,7 @@ function CompanyHeader({ company, onEdit = () => {} }) {
   );
 }
 
-function AdminCompanyLayout({ children }) {
+function AdminCompanyLayout({ children }: { children: React.ReactNode }) {
   return (
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2">
@@ -111,43 +139,48 @@ export default function CompanyDetailPage() {
   const navigate = useNavigate();
   const [company, setCompany] = useState<AdminCompanyResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [commissionSaving, setCommissionSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-
-  const [commission, setCommission] = useState({
-    baseRate: "",
-    minFare: "",
-    surgeShare: "",
+  const [commissionError, setCommissionError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, severity: "success", message: "" });
+  const [commissionRules, setCommissionRules] = useState<AdminCommissionRule[]>([]);
+  const [commissionDraft, setCommissionDraft] = useState({
+    serviceType: "RIDE",
+    platformFeePercent: 15,
+    driverSharePercent: 85,
+    taxPercent: 0,
+    currency: "UGX",
   });
-  const [verticals, setVerticals] = useState({
-    ride: true,
-    delivery: true,
-    rental: true,
+  const [verticals, setVerticals] = useState<AdminCompanyResponse["verticals"]>({
+    ride: false,
+    delivery: false,
+    rental: false,
     school: false,
     ems: false,
-    tours: true,
+    tours: false,
   });
 
   useEffect(() => {
     if (!companyId) return;
     const loadCompany = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const data = await getAdminCompany(companyId as string);
+        const data = await getAdminCompany(companyId);
+        const rules = await listAdminCommissionRules({ organizationId: companyId });
         setCompany(data);
-        // Set verticals from backend if available
-        if (data.verticals) {
-          setVerticals({
-            ride: data.verticals.ride || false,
-            delivery: data.verticals.delivery || false,
-            rental: data.verticals.rental || false,
-            school: data.verticals.school || false,
-            ems: data.verticals.ems || false,
-            tours: data.verticals.tours || false,
-          });
-        }
-      } catch (e: any) {
-        setError(e?.message ?? 'Failed to load company');
+        setCommissionRules(rules);
+        setVerticals({
+          ride: Boolean(data.verticals?.ride),
+          delivery: Boolean(data.verticals?.delivery),
+          rental: Boolean(data.verticals?.rental),
+          school: Boolean(data.verticals?.school),
+          ems: Boolean(data.verticals?.ems),
+          tours: Boolean(data.verticals?.tours),
+        });
+      } catch (e) {
+        setError(getErrorMessage(e, 'Failed to load company'));
       } finally {
         setLoading(false);
       }
@@ -155,22 +188,25 @@ export default function CompanyDetailPage() {
     loadCompany();
   }, [companyId]);
 
-  const handleCompanyChange = (field) => (event) => {
+  const handleCompanyChange = (field: CompanyField) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setCompany((prev) => prev ? { ...prev, [field]: event.target.value } : null);
   };
 
-  const handleCommissionChange = (field) => (event) => {
-    setCommission((prev) => ({ ...prev, [field]: event.target.value }));
+  const handleVerticalToggle = (field: CompanyVerticalKey) => (event: ChangeEvent<HTMLInputElement>) => {
+    setVerticals((prev) => ({ ...prev, [field]: event.target.checked }));
   };
 
-  const handleVerticalToggle = (field) => (event) => {
-    setVerticals((prev) => ({ ...prev, [field]: event.target.checked }));
+  const loadCommissionRules = async () => {
+    if (!companyId) return;
+    const rules = await listAdminCommissionRules({ organizationId: companyId });
+    setCommissionRules(rules);
   };
 
   const handleSave = async () => {
     if (!company) return;
+    setSaving(true);
     try {
-      await patchAdminCompany(company.id, {
+      const updated = await patchAdminCompany(company.id, {
         companyName: company.companyName,
         contactEmail: company.contactEmail,
         contactPhone: company.contactPhone,
@@ -179,9 +215,58 @@ export default function CompanyDetailPage() {
         status: company.status,
         verticals,
       });
-      setSnackbarOpen(true);
+      setCompany(updated);
+      setVerticals(updated.verticals);
+      setSnackbar({ open: true, severity: "success", message: "Company profile saved." });
     } catch (e) {
-      console.error("Failed to save company:", e);
+      setSnackbar({ open: true, severity: "error", message: getErrorMessage(e, "Failed to save company") });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreateCommissionRule = async () => {
+    if (!company) return;
+    setCommissionSaving(true);
+    setCommissionError(null);
+    try {
+      await createAdminCommissionRule({
+        name: `${company.companyName} ${commissionDraft.serviceType} commission`,
+        serviceType: commissionDraft.serviceType,
+        organizationId: company.id,
+        platformFeePercent: Number(commissionDraft.platformFeePercent),
+        driverSharePercent: Number(commissionDraft.driverSharePercent),
+        taxPercent: Number(commissionDraft.taxPercent),
+        tipPayoutPercent: 100,
+        fixedPlatformFee: 0,
+        priority: 100,
+        active: true,
+        currency: commissionDraft.currency,
+        effectiveFrom: new Date().toISOString(),
+      });
+      await loadCommissionRules();
+      setSnackbar({ open: true, severity: "success", message: "Company commission rule created." });
+    } catch (e) {
+      setCommissionError(getErrorMessage(e, "Failed to create commission rule"));
+    } finally {
+      setCommissionSaving(false);
+    }
+  };
+
+  const handleToggleCommissionRule = async (rule: AdminCommissionRule) => {
+    setCommissionSaving(true);
+    setCommissionError(null);
+    try {
+      if (rule.active) {
+        await deactivateAdminCommissionRule(rule.id);
+      } else {
+        await activateAdminCommissionRule(rule.id);
+      }
+      await loadCommissionRules();
+    } catch (e) {
+      setCommissionError(getErrorMessage(e, "Failed to update commission rule"));
+    } finally {
+      setCommissionSaving(false);
     }
   };
 
@@ -206,13 +291,13 @@ export default function CompanyDetailPage() {
       </Box>
       <AdminCompanyLayout>
       <Snackbar
-        open={snackbarOpen}
+        open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
+        onClose={() => setSnackbar((current) => ({ ...current, open: false }))}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%' }}>
-          Changes saved successfully!
+        <Alert onClose={() => setSnackbar((current) => ({ ...current, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
         </Alert>
       </Snackbar>
       <CompanyHeader company={company} />
@@ -290,7 +375,7 @@ export default function CompanyDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Right column – commission & vertical rights */}
+        {/* Right column – payout contract & vertical rights */}
         <Card
           elevation={1}
           sx={{
@@ -304,40 +389,113 @@ export default function CompanyDetailPage() {
               variant="subtitle2"
               className="font-semibold mb-1"
             >
-              Commission & contract
+              Payout contract & vertical rights
             </Typography>
 
-            <Box className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Alert
+              severity="info"
+              action={
+                <Button
+                  size="small"
+                  onClick={() => navigate(`/admin/finance/companies/${company.id}`)}
+                  sx={{ textTransform: "none" }}
+                >
+                  Open payout settings
+                </Button>
+              }
+            >
+              Payout settings are managed by the backend finance screen. Commission rules below are company-scoped and persisted through the backend commission engine.
+            </Alert>
+
+            {commissionError ? <Alert severity="error">{commissionError}</Alert> : null}
+
+            <Box className="grid grid-cols-1 sm:grid-cols-5 gap-2">
               <TextField
-                label="Base commission rate"
+                select
                 size="small"
-                value={commission.baseRate}
-                onChange={handleCommissionChange("baseRate")}
-                sx={{ "& .MuiOutlinedInput-root": { } }}
+                label="Service"
+                value={commissionDraft.serviceType}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, serviceType: event.target.value }))}
+              >
+                {[
+                  ["RIDE", "Ride"],
+                  ["DELIVERY", "Delivery"],
+                  ["CAR_RENTAL", "Rental"],
+                  ["SCHOOL_SHUTTLE", "School"],
+                  ["AMBULANCE", "EMS"],
+                  ["TOURIST_VEHICLE", "Tours"],
+                ].map(([value, label]) => (
+                  <MenuItem key={value} value={value}>{label}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                size="small"
+                label="Platform %"
+                type="number"
+                value={commissionDraft.platformFeePercent}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, platformFeePercent: Number(event.target.value) }))}
               />
               <TextField
-                label="Minimum fare"
                 size="small"
-                value={commission.minFare}
-                onChange={handleCommissionChange("minFare")}
-                sx={{ "& .MuiOutlinedInput-root": { } }}
+                label="Provider %"
+                type="number"
+                value={commissionDraft.driverSharePercent}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, driverSharePercent: Number(event.target.value) }))}
               />
               <TextField
-                label="Surge share"
                 size="small"
-                value={commission.surgeShare}
-                onChange={handleCommissionChange("surgeShare")}
-                sx={{ "& .MuiOutlinedInput-root": { } }}
+                label="Tax %"
+                type="number"
+                value={commissionDraft.taxPercent}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, taxPercent: Number(event.target.value) }))}
               />
+              <Button
+                variant="outlined"
+                onClick={handleCreateCommissionRule}
+                disabled={commissionSaving}
+                sx={{ textTransform: "none" }}
+              >
+                Add rule
+              </Button>
             </Box>
 
-            <Typography
-              variant="caption"
-              className="text-[11px] text-slate-500"
-            >
-              Commission changes affect payouts for all trips under this
-              company. Use cautiously and audit via the system log.
-            </Typography>
+            {commissionRules.length === 0 ? (
+              <Alert severity="warning">No company-specific commission rules are configured.</Alert>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Service</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Platform</TableCell>
+                    <TableCell align="right">Provider</TableCell>
+                    <TableCell align="right">Tax</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {commissionRules.map((rule) => (
+                    <TableRow key={rule.id}>
+                      <TableCell>{rule.serviceType}</TableCell>
+                      <TableCell><Chip size="small" label={rule.active ? "active" : "inactive"} /></TableCell>
+                      <TableCell align="right">{rule.platformFeePercent}%</TableCell>
+                      <TableCell align="right">{rule.driverSharePercent}%</TableCell>
+                      <TableCell align="right">{rule.taxPercent}%</TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          onClick={() => void handleToggleCommissionRule(rule)}
+                          disabled={commissionSaving}
+                          sx={{ textTransform: "none" }}
+                        >
+                          {rule.active ? "Deactivate" : "Activate"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
 
             <Divider className="!my-2" />
 
@@ -429,14 +587,14 @@ export default function CompanyDetailPage() {
               <Button
                 variant="contained"
                 onClick={handleSave}
-                disabled={loading}
+                disabled={saving}
                 startIcon={<SaveIcon />}
                 sx={{
                   bgcolor: EV_COLORS.primary,
                   '&:hover': { bgcolor: '#0fb589' },
                 }}
               >
-                Save Changes
+                {saving ? "Saving..." : "Save Changes"}
               </Button>
             </Box>
           </CardContent>

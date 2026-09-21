@@ -13,12 +13,18 @@ import {
   MenuItem,
   Select,
   Snackbar,
+  Stack,
   Tab,
   Tabs,
   TextField,
   Typography,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
+import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import AddIcon from "@mui/icons-material/Add";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import PauseCircleIcon from "@mui/icons-material/PauseCircle";
 import { useNavigate } from "react-router-dom";
 import {
   createAdminPromo,
@@ -27,17 +33,13 @@ import {
   type AdminPromoResponse,
 } from "../services/api/adminApi";
 
-const EV_COLORS = {
-  primary: "#03cd8c",
-};
-
+const EV_GREEN = "#03cd8c";
 type PromoTab = "rider" | "driver";
 type SnackbarState = {
   open: boolean;
   message: string;
   severity: "success" | "error" | "info";
 };
-
 type PromoDraft = AdminCreatePromoInput;
 
 const DEFAULT_PROMO: PromoDraft = {
@@ -47,24 +49,6 @@ const DEFAULT_PROMO: PromoDraft = {
   discountValue: 10,
 };
 
-function AdminPromotionsLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <Box>
-      <Box className="pb-4 flex items-center justify-between gap-2">
-        <Box>
-          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
-            Promotions & Incentives
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Configure backend-backed rider promo codes. Driver incentives are shown only when a contract exists.
-          </Typography>
-        </Box>
-      </Box>
-      <Box className="flex-1 flex flex-col gap-3">{children}</Box>
-    </Box>
-  );
-}
-
 function rewardLabel(promo: AdminPromoResponse) {
   if (promo.discountType === "percent") return `${promo.discountValue}% off`;
   return `UGX ${promo.discountValue.toLocaleString("en-UG")} off`;
@@ -72,14 +56,7 @@ function rewardLabel(promo: AdminPromoResponse) {
 
 function statusChip(status?: AdminPromoResponse["status"]) {
   const active = status === "active";
-  return (
-    <Chip
-      size="small"
-      label={active ? "Active" : "Inactive"}
-      color={active ? "success" : "default"}
-      sx={{ fontSize: 10, height: 22 }}
-    />
-  );
+  return <Chip size="small" label={active ? "Active" : "Inactive"} color={active ? "success" : "default"} />;
 }
 
 export default function PromotionsIncentivesPage() {
@@ -90,6 +67,8 @@ export default function PromotionsIncentivesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [snackbar, setSnackbar] = useState<SnackbarState>({ open: false, message: "", severity: "info" });
 
   const fetchPromos = useCallback(async () => {
@@ -97,9 +76,10 @@ export default function PromotionsIncentivesPage() {
     setError(null);
     try {
       const data = await listAdminPromos();
-      setPromos(data);
+      setPromos(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load promotions");
+      setPromos([]);
     } finally {
       setLoading(false);
     }
@@ -110,6 +90,16 @@ export default function PromotionsIncentivesPage() {
   }, [fetchPromos]);
 
   const activePromos = useMemo(() => promos.filter((promo) => promo.status === "active"), [promos]);
+  const inactivePromos = promos.length - activePromos.length;
+  const filteredPromos = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return promos.filter((promo) => {
+      if (statusFilter === "active" && promo.status !== "active") return false;
+      if (statusFilter === "inactive" && promo.status === "active") return false;
+      const haystack = [promo.code, promo.description, promo.discountType, promo.status].join(" ").toLowerCase();
+      return !query || haystack.includes(query);
+    });
+  }, [promos, search, statusFilter]);
 
   const handleTabChange = (_event: React.SyntheticEvent, value: number) => {
     setTab(value === 0 ? "rider" : "driver");
@@ -159,125 +149,141 @@ export default function PromotionsIncentivesPage() {
   };
 
   return (
-    <AdminPromotionsLayout>
-      {error ? <Alert severity="error">{error}</Alert> : null}
-      <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>
-        <CardContent className="p-0 flex flex-col">
-          <Tabs
-            value={tab === "rider" ? 0 : 1}
-            onChange={handleTabChange}
-            variant="fullWidth"
-            textColor="primary"
-            indicatorColor="primary"
-          >
-            <Tab label="Rider promotions" sx={{ textTransform: "none", fontSize: 13 }} />
-            <Tab label="Driver incentives" sx={{ textTransform: "none", fontSize: 13 }} />
-          </Tabs>
+    <Box>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap", pb: 3 }}>
+        <Box>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <LocalOfferIcon sx={{ color: EV_GREEN }} />
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>Promotions & Incentives</Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Backend promo codes for riders. Driver incentives remain read-only until the backend exposes an incentive contract.
+          </Typography>
+        </Box>
+        <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => void fetchPromos()} disabled={loading} sx={{ borderRadius: 1, textTransform: "none" }}>
+          Refresh
+        </Button>
+      </Box>
 
-          <Divider />
+      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
-          {tab === "rider" ? (
-            <Box className="p-4">
-              <Box className="flex flex-wrap gap-2 mb-3">
-                <Chip size="small" label={`${promos.length} promo codes`} />
-                <Chip size="small" color="success" label={`${activePromos.length} active`} />
-                <Button size="small" onClick={() => void fetchPromos()} disabled={loading} sx={{ textTransform: "none", ml: "auto" }}>
-                  Refresh
-                </Button>
+      <Tabs value={tab === "rider" ? 0 : 1} onChange={handleTabChange} sx={{ mb: 3 }}>
+        <Tab label="Rider promotions" sx={{ textTransform: "none" }} />
+        <Tab label="Driver incentives" sx={{ textTransform: "none" }} />
+      </Tabs>
+
+      {tab === "driver" ? (
+        <Alert severity="info">Driver incentives are not exposed by the admin promotions backend contract yet.</Alert>
+      ) : (
+        <>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>
+            <MetricCard label="Promo codes" value={promos.length} icon={<LocalOfferIcon />} color="#2563eb" onClick={() => setStatusFilter("all")} active={statusFilter === "all"} />
+            <MetricCard label="Active" value={activePromos.length} icon={<CheckCircleIcon />} color={EV_GREEN} onClick={() => setStatusFilter("active")} active={statusFilter === "active"} />
+            <MetricCard label="Inactive" value={inactivePromos} icon={<PauseCircleIcon />} color="#64748b" onClick={() => setStatusFilter("inactive")} active={statusFilter === "inactive"} />
+          </Box>
+
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1fr 420px" }, gap: 3 }}>
+            <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)", overflow: "hidden" }}>
+              <Box sx={{ p: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Promo Registry</Typography>
+                <Typography variant="caption" color="text.secondary">{filteredPromos.length} codes shown</Typography>
+                <TextField size="small" fullWidth value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search promo code or description" sx={{ mt: 1.5 }} />
               </Box>
+              <Divider />
               {loading ? (
-                <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                  <CircularProgress size={26} />
-                </Box>
+                <Box sx={{ p: 4, textAlign: "center" }}><CircularProgress size={26} /></Box>
               ) : (
-                <Box className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {promos.map((promo) => (
-                    <Card
-                      key={promo.id}
-                      elevation={0}
-                      sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.4)", cursor: "pointer" }}
-                      onClick={() => navigate(`/admin/promos/${promo.id}`)}
-                    >
-                      <CardContent className="p-3 flex flex-col gap-1">
-                        <Box className="flex items-center justify-between gap-2">
-                          <Typography variant="body2" className="text-[13px] font-semibold">
-                            {promo.code}
-                          </Typography>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 2, p: 2 }}>
+                  {filteredPromos.map((promo) => (
+                    <Card key={promo.id} variant="outlined" sx={{ borderRadius: 1, cursor: "pointer" }} onClick={() => navigate(`/admin/promos/${promo.id}`)}>
+                      <CardContent sx={{ p: 2 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                          <Typography variant="subtitle2" sx={{ fontWeight: 900, letterSpacing: 0.5 }}>{promo.code}</Typography>
                           {statusChip(promo.status)}
-                        </Box>
-                        <Typography variant="caption" className="text-[11px] text-slate-500">
-                          {promo.description || "No description"}
-                        </Typography>
-                        <Typography variant="body2" className="text-[12px] text-slate-500">
-                          {rewardLabel(promo)}
-                        </Typography>
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, minHeight: 40 }}>{promo.description || "No description"}</Typography>
+                        <Chip size="small" label={rewardLabel(promo)} sx={{ mt: 1 }} />
                       </CardContent>
                     </Card>
                   ))}
-                  {promos.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ py: 3, textAlign: "center", gridColumn: "1 / -1" }}>
-                      No promotions configured.
-                    </Typography>
+                  {filteredPromos.length === 0 ? (
+                    <Box sx={{ gridColumn: "1 / -1", textAlign: "center", py: 6 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>No promotions match this view</Typography>
+                      <Typography variant="body2" color="text.secondary">Adjust the search or status filter.</Typography>
+                    </Box>
                   ) : null}
                 </Box>
               )}
-            </Box>
-          ) : (
-            <Box className="p-4">
-              <Alert severity="info">
-                Driver incentives are not exposed by the admin promotions backend contract yet. This tab will remain read-only until an incentive API exists.
-              </Alert>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+            </Card>
 
-      {tab === "rider" ? (
-        <Card elevation={1} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)", mt: 3 }}>
-          <CardContent className="p-4 flex flex-col gap-3">
-            <Typography variant="subtitle2" className="font-semibold">
-              New rider promo code
-            </Typography>
-            <Typography variant="caption" className="text-[11px] text-slate-500">
-              Only fields supported by the backend promo contract are editable here.
-            </Typography>
-            <Box className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-              <TextField label="Promo code" size="small" value={draft.code} onChange={updateDraft("code")} />
-              <TextField label="Description" size="small" value={draft.description ?? ""} onChange={updateDraft("description")} />
-              <FormControl size="small">
-                <InputLabel>Discount type</InputLabel>
-                <Select label="Discount type" value={draft.discountType} onChange={updateDiscountType}>
-                  <MenuItem value="percent">Percent</MenuItem>
-                  <MenuItem value="flat">Flat amount</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField label="Discount value" size="small" type="number" value={draft.discountValue} onChange={updateDraft("discountValue")} />
-            </Box>
-            <Box className="flex justify-end">
-              <Button
-                variant="contained"
-                size="small"
-                disabled={saving}
-                sx={{ textTransform: "none", borderRadius: 2, fontSize: 12, bgcolor: EV_COLORS.primary, "&:hover": { bgcolor: "#0fb589" } }}
-                onClick={() => void savePromo()}
-              >
-                {saving ? "Saving..." : "Save promo"}
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      ) : null}
+            <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)" }}>
+              <CardContent sx={{ p: 3 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                  <AddIcon sx={{ color: EV_GREEN }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>New Rider Promo Code</Typography>
+                </Stack>
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr", gap: 2 }}>
+                  <TextField label="Promo code" size="small" value={draft.code} onChange={updateDraft("code")} />
+                  <TextField label="Description" size="small" value={draft.description ?? ""} onChange={updateDraft("description")} />
+                  <FormControl size="small">
+                    <InputLabel>Discount type</InputLabel>
+                    <Select label="Discount type" value={draft.discountType} onChange={updateDiscountType}>
+                      <MenuItem value="percent">Percent</MenuItem>
+                      <MenuItem value="flat">Flat amount</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TextField label="Discount value" size="small" type="number" value={draft.discountValue} onChange={updateDraft("discountValue")} />
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
+                  <Button variant="contained" size="small" disabled={saving} onClick={() => void savePromo()} sx={{ borderRadius: 1, textTransform: "none", bgcolor: EV_GREEN, "&:hover": { bgcolor: "#0fb589" } }}>
+                    {saving ? "Saving..." : "Save promo"}
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+        </>
+      )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
         <Alert severity={snackbar.severity} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </AdminPromotionsLayout>
+    </Box>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  icon,
+  color,
+  active,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  color: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Card
+      elevation={active ? 2 : 1}
+      onClick={onClick}
+      sx={{ borderRadius: 1, border: `1px solid ${active ? color : "rgba(148,163,184,0.45)"}`, cursor: "pointer", bgcolor: active ? `${color}10` : "background.paper" }}
+    >
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 1, bgcolor: `${color}18`, color }}>{icon}</Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: "uppercase" }}>{label}</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1 }}>{value.toLocaleString()}</Typography>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }
