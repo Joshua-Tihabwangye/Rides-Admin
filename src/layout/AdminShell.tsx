@@ -81,6 +81,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, isAuthed, signOut } from '../auth/auth'
+import { getUserPermissions, type AdminPermission } from '../auth/permissions'
 import {
   ADMIN_SUMMARY_UPDATED_EVENT,
   createAdminSocket,
@@ -96,7 +97,7 @@ const drawerWidth = 220
 const drawerWidthMini = 88
 
 
-type NavItem = { label: string; to: string; icon: React.ReactNode }
+type NavItem = { label: string; to: string; icon: React.ReactNode; anyOf?: AdminPermission[] }
 type NavSection = { id: string; label: string; items: NavItem[] }
 
 const NAV: NavSection[] = [
@@ -104,12 +105,12 @@ const NAV: NavSection[] = [
     id: 'overview',
     label: 'Overview & Ops',
     items: [
-      { label: 'Home', to: '/admin/home', icon: <DashboardIcon /> },
-      { label: 'Operations', to: '/admin/ops', icon: <SettingsApplicationsIcon /> },
-      { label: 'Live drivers map', to: '/admin/live-map', icon: <MapIcon /> },
-      { label: 'Monitoring', to: '/admin/monitoring', icon: <AssessmentIcon /> },
-      { label: 'Matching', to: '/admin/matching', icon: <AssessmentIcon /> },
-      { label: 'Reports', to: '/admin/reports', icon: <AssessmentIcon /> },
+      { label: 'Home', to: '/admin/home', icon: <DashboardIcon />, anyOf: ['view_dashboard'] },
+      { label: 'Operations', to: '/admin/ops', icon: <SettingsApplicationsIcon />, anyOf: ['manage_operations'] },
+      { label: 'Live drivers map', to: '/admin/live-map', icon: <MapIcon />, anyOf: ['manage_operations'] },
+      { label: 'Monitoring', to: '/admin/monitoring', icon: <AssessmentIcon />, anyOf: ['manage_operations'] },
+      { label: 'Matching', to: '/admin/matching', icon: <AssessmentIcon />, anyOf: ['manage_operations'] },
+      { label: 'Reports', to: '/admin/reports', icon: <AssessmentIcon />, anyOf: ['manage_operations'] },
       { label: 'Global Search', to: '/admin/search', icon: <SearchIcon /> },
     ],
   },
@@ -117,82 +118,82 @@ const NAV: NavSection[] = [
     id: 'rides',
     label: 'Rides',
     items: [
-      { label: 'All rides', to: '/admin/rides', icon: <DirectionsCarIcon /> },
-      { label: 'Ride anomalies', to: '/admin/rides/anomalies', icon: <WarningIcon /> },
+      { label: 'All rides', to: '/admin/rides', icon: <DirectionsCarIcon />, anyOf: ['view_rides'] },
+      { label: 'Ride anomalies', to: '/admin/rides/anomalies', icon: <WarningIcon />, anyOf: ['view_rides'] },
     ],
   },
   {
     id: 'people',
     label: 'People',
     items: [
-      { label: 'Riders', to: '/admin/riders', icon: <PeopleIcon /> },
-      { label: 'Drivers', to: '/admin/drivers', icon: <DirectionsCarIcon /> },
-      { label: 'Safety overview', to: '/admin/safety', icon: <HealthAndSafetyIcon /> },
-      { label: 'Risk & fraud', to: '/admin/risk', icon: <GppBadIcon /> },
-      { label: 'Agents', to: '/admin/agents', icon: <SupportAgentIcon /> },
-      { label: 'Admin users', to: '/admin/admin-users', icon: <SupervisorAccountIcon /> },
-      { label: 'Roles & permissions', to: '/admin/roles', icon: <SecurityIcon /> },
+      { label: 'Riders', to: '/admin/riders', icon: <PeopleIcon />, anyOf: ['manage_people'] },
+      { label: 'Drivers', to: '/admin/drivers', icon: <DirectionsCarIcon />, anyOf: ['manage_people'] },
+      { label: 'Safety overview', to: '/admin/safety', icon: <HealthAndSafetyIcon />, anyOf: ['manage_people'] },
+      { label: 'Risk & fraud', to: '/admin/risk', icon: <GppBadIcon />, anyOf: ['manage_people'] },
+      { label: 'Agents', to: '/admin/agents', icon: <SupportAgentIcon />, anyOf: ['manage_people'] },
+      { label: 'Admin users', to: '/admin/admin-users', icon: <SupervisorAccountIcon />, anyOf: ['view_admin_users', 'manage_admin_users'] },
+      { label: 'Roles & permissions', to: '/admin/roles', icon: <SecurityIcon />, anyOf: ['view_roles', 'manage_roles'] },
     ],
   },
   {
     id: 'companies',
     label: 'Companies & Finance',
     items: [
-      { label: 'Companies', to: '/admin/companies', icon: <BusinessIcon /> },
-      { label: 'Financial overview', to: '/admin/finance', icon: <AccountBalanceIcon /> },
-      { label: 'Cashouts', to: '/admin/finance/cashouts', icon: <AccountBalanceWalletIcon /> },
-      { label: 'Payouts', to: '/admin/finance/payouts', icon: <PaymentsIcon /> },
-      { label: 'Payments', to: '/admin/finance/payments', icon: <CreditCardIcon /> },
-      { label: 'Settlements', to: '/admin/finance/settlements', icon: <ReceiptLongIcon /> },
-      { label: 'Wallet reconciliation', to: '/admin/finance/wallet-reconciliation', icon: <AccountBalanceWalletIcon /> },
-      { label: 'Reconciliation runs', to: '/admin/finance/reconciliation-runs', icon: <SyncAltIcon /> },
-      { label: 'Taxes & invoices', to: '/admin/finance/tax-invoices', icon: <ReceiptIcon /> },
+      { label: 'Companies', to: '/admin/companies', icon: <BusinessIcon />, anyOf: ['manage_companies'] },
+      { label: 'Financial overview', to: '/admin/finance', icon: <AccountBalanceIcon />, anyOf: ['manage_finance'] },
+      { label: 'Cashouts', to: '/admin/finance/cashouts', icon: <AccountBalanceWalletIcon />, anyOf: ['manage_finance'] },
+      { label: 'Payouts', to: '/admin/finance/payouts', icon: <PaymentsIcon />, anyOf: ['manage_finance'] },
+      { label: 'Payments', to: '/admin/finance/payments', icon: <CreditCardIcon />, anyOf: ['manage_finance'] },
+      { label: 'Settlements', to: '/admin/finance/settlements', icon: <ReceiptLongIcon />, anyOf: ['manage_finance'] },
+      { label: 'Wallet reconciliation', to: '/admin/finance/wallet-reconciliation', icon: <AccountBalanceWalletIcon />, anyOf: ['manage_finance'] },
+      { label: 'Reconciliation runs', to: '/admin/finance/reconciliation-runs', icon: <SyncAltIcon />, anyOf: ['manage_finance'] },
+      { label: 'Taxes & invoices', to: '/admin/finance/tax-invoices', icon: <ReceiptIcon />, anyOf: ['manage_finance'] },
     ],
   },
   {
     id: 'logistics',
     label: 'Logistics',
     items: [
-      { label: 'Deliveries', to: '/admin/deliveries', icon: <LocalShippingIcon /> },
-      { label: 'Return shipments', to: '/admin/returns', icon: <RotateLeftIcon /> },
-      { label: 'Return requests', to: '/admin/returns/requests', icon: <ReplayIcon /> },
-      { label: 'Return reconciliation', to: '/admin/returns/reconciliation', icon: <SyncAltIcon /> },
-      { label: 'Package Labels', to: '/admin/delivery-labels', icon: <LabelIcon /> },
-      { label: 'Print Queue', to: '/admin/delivery-labels/print-queue', icon: <PrintIcon /> },
-      { label: 'Label Exceptions', to: '/admin/delivery-labels/exceptions', icon: <WarningIcon /> },
-      { label: 'Blank Label Stock', to: '/admin/delivery-label-stock', icon: <InventoryIcon /> },
+      { label: 'Deliveries', to: '/admin/deliveries', icon: <LocalShippingIcon />, anyOf: ['view_deliveries'] },
+      { label: 'Return shipments', to: '/admin/returns', icon: <RotateLeftIcon />, anyOf: ['view_deliveries'] },
+      { label: 'Return requests', to: '/admin/returns/requests', icon: <ReplayIcon />, anyOf: ['view_deliveries', 'manage_deliveries'] },
+      { label: 'Return reconciliation', to: '/admin/returns/reconciliation', icon: <SyncAltIcon />, anyOf: ['view_deliveries', 'manage_deliveries'] },
+      { label: 'Package Labels', to: '/admin/delivery-labels', icon: <LabelIcon />, anyOf: ['view_delivery_labels'] },
+      { label: 'Print Queue', to: '/admin/delivery-labels/print-queue', icon: <PrintIcon />, anyOf: ['print_delivery_labels'] },
+      { label: 'Label Exceptions', to: '/admin/delivery-labels/exceptions', icon: <WarningIcon />, anyOf: ['view_delivery_labels'] },
+      { label: 'Blank Label Stock', to: '/admin/delivery-label-stock', icon: <InventoryIcon />, anyOf: ['activate_blank_labels'] },
     ],
   },
   {
     id: 'marketplace',
     label: 'Marketplace Simulation',
     items: [
-      { label: 'Client Shop', to: '/admin/marketplace/client/products', icon: <StorefrontIcon /> },
-      { label: 'Client Cart', to: '/admin/marketplace/client/cart', icon: <ShoppingCartIcon /> },
-      { label: 'Seller Orders', to: '/admin/marketplace/seller/orders', icon: <InventoryIcon /> },
+      { label: 'Client Shop', to: '/admin/marketplace/client/products', icon: <StorefrontIcon />, anyOf: ['view_deliveries'] },
+      { label: 'Client Cart', to: '/admin/marketplace/client/cart', icon: <ShoppingCartIcon />, anyOf: ['view_deliveries'] },
+      { label: 'Seller Orders', to: '/admin/marketplace/seller/orders', icon: <InventoryIcon />, anyOf: ['view_deliveries'] },
     ],
   },
   {
     id: 'product',
     label: 'Product config',
     items: [
-      { label: 'Services', to: '/admin/services', icon: <CategoryIcon /> },
-      { label: 'Pricing management', to: '/admin/pricing', icon: <PriceChangeIcon /> },
-      { label: 'Promotions', to: '/admin/promos', icon: <LocalOfferIcon /> },
-      { label: 'Vertical policies', to: '/admin/vertical-policies', icon: <PolicyIcon /> },
-      { label: 'Approvals', to: '/admin/approvals', icon: <FactCheckIcon /> },
-      { label: 'Document Review', to: '/admin/documents/review', icon: <FactCheckIcon /> },
+      { label: 'Services', to: '/admin/services', icon: <CategoryIcon />, anyOf: ['manage_pricing'] },
+      { label: 'Pricing management', to: '/admin/pricing', icon: <PriceChangeIcon />, anyOf: ['manage_pricing'] },
+      { label: 'Promotions', to: '/admin/promos', icon: <LocalOfferIcon />, anyOf: ['manage_promotions'] },
+      { label: 'Vertical policies', to: '/admin/vertical-policies', icon: <PolicyIcon />, anyOf: ['manage_pricing'] },
+      { label: 'Approvals', to: '/admin/approvals', icon: <FactCheckIcon />, anyOf: ['manage_operations'] },
+      { label: 'Document Review', to: '/admin/documents/review', icon: <FactCheckIcon />, anyOf: ['manage_operations'] },
     ],
   },
   {
     id: 'system',
     label: 'System',
     items: [
-      { label: 'Training', to: '/admin/training', icon: <SchoolIcon /> },
-      { label: 'Feature flags', to: '/admin/system/flags', icon: <FlagIcon /> },
-      { label: 'Integrations', to: '/admin/system/integrations', icon: <IntegrationInstructionsIcon /> },
-      { label: 'System overview', to: '/admin/system/overview', icon: <DnsIcon /> },
-      { label: 'Audit log', to: '/admin/system/audit-log', icon: <HistoryIcon /> },
+      { label: 'Training', to: '/admin/training', icon: <SchoolIcon />, anyOf: ['manage_system'] },
+      { label: 'Feature flags', to: '/admin/system/flags', icon: <FlagIcon />, anyOf: ['manage_system'] },
+      { label: 'Integrations', to: '/admin/system/integrations', icon: <IntegrationInstructionsIcon />, anyOf: ['manage_system'] },
+      { label: 'System overview', to: '/admin/system/overview', icon: <DnsIcon />, anyOf: ['manage_system'] },
+      { label: 'Audit log', to: '/admin/system/audit-log', icon: <HistoryIcon />, anyOf: ['manage_system'] },
     ],
   },
   {
@@ -283,6 +284,14 @@ export default function AdminShell() {
 
   const user = getAuthUser()
   const userInitials = useMemo(() => (user ? initials(user.name) : ''), [user?.name])
+  const visibleNav = useMemo(() => {
+    if (!user) return []
+    const granted = new Set(getUserPermissions(user))
+    return NAV.map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.anyOf?.length || item.anyOf.some((permission) => granted.has(permission))),
+    })).filter((section) => section.items.length > 0)
+  }, [user?.activeRole, user?.email, user?.permissions?.join('|'), user?.roles?.join('|')])
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -460,7 +469,7 @@ export default function AdminShell() {
 
       <Box sx={{ flex: 1, overflowY: 'auto', px: (mobileOpen || desktopOpen) ? 2 : 1 }}>
         <List sx={{ pt: 1 }}>
-          {NAV.map((section) => (
+          {visibleNav.map((section) => (
             <React.Fragment key={section.id}>
               {(mobileOpen || desktopOpen) && section.id !== 'overview' && (
                 <Typography

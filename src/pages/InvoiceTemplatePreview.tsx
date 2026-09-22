@@ -273,13 +273,13 @@ export default function InvoiceTemplatePreviewPage() {
 
               <Box className="mt-2">
                 <TableHeaderRow />
-                <LineItemRow label="Ride or service item" qty="1" price="UGX 8,000" total="UGX 8,000" />
-                <LineItemRow label="Service fee" qty="1" price="UGX 1,000" total="UGX 1,000" />
+                <LineItemRow label="Backend invoice line item" qty="qty" price="unit amount" total="line total" />
+                <LineItemRow label="Backend fee or tax line" qty="qty" price="unit amount" total="line total" />
               </Box>
 
               {template.showTaxBreakdown ? (
                 <Box className="mt-2 text-[11px] text-slate-500">
-                  <div>Subtotal: UGX 9,000</div>
+                  <div>Subtotal: calculated by backend</div>
                   <div>VAT: calculated by backend</div>
                   <div className="font-semibold text-[12px] mt-1">Total: calculated by backend</div>
                 </Box>

@@ -18,7 +18,8 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
 import StatusBadge from "../components/StatusBadge";
-import { ADMIN_ROLE_OPTIONS } from "../auth/auth";
+import { ADMIN_ROLE_OPTIONS, getAuthRoles } from "../auth/auth";
+import { hasPermissionByRoles } from "../auth/permissions";
 import { getAdminUser, patchAdminUser, type AdminUserResponse } from "../services/api/adminApi";
 
 export default function AdminUserDetail() {
@@ -30,6 +31,7 @@ export default function AdminUserDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const canManageAdminUsers = hasPermissionByRoles(getAuthRoles(), "manage_admin_users");
 
   useEffect(() => {
     if (!id) return;
@@ -50,7 +52,10 @@ export default function AdminUserDetail() {
   }, [id]);
 
   const handleSave = async () => {
-    if (!id || !user) return;
+    if (!id || !user || !canManageAdminUsers) {
+      setError(canManageAdminUsers ? null : "Your account cannot change admin users.");
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
@@ -86,6 +91,12 @@ export default function AdminUserDetail() {
           Privileged account detail
         </Typography>
       </Box>
+
+      {!canManageAdminUsers ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          This view is readable, but your account cannot change admin users or role assignments.
+        </Alert>
+      ) : null}
 
       {message ? (
         <Alert severity="success" sx={{ mb: 2 }}>
@@ -137,7 +148,7 @@ export default function AdminUserDetail() {
                 </Alert>
                 <FormControl fullWidth size="small">
                   <InputLabel>Select Role</InputLabel>
-                  <Select value={role} label="Select Role" onChange={(event) => setRole(String(event.target.value))}>
+                  <Select value={role} label="Select Role" disabled={!canManageAdminUsers} onChange={(event) => setRole(String(event.target.value))}>
                     {ADMIN_ROLE_OPTIONS.map((item) => (
                       <MenuItem key={item.value} value={item.value}>
                         {item.label}
@@ -148,7 +159,7 @@ export default function AdminUserDetail() {
               </Box>
 
               <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                <Button variant="contained" startIcon={<VerifiedUserIcon />} onClick={handleSave} disabled={saving} sx={{ bgcolor: "#03cd8c", textTransform: "none" }}>
+                <Button variant="contained" startIcon={<VerifiedUserIcon />} onClick={handleSave} disabled={saving || !canManageAdminUsers} sx={{ bgcolor: "#03cd8c", textTransform: "none" }}>
                   {saving ? "Saving..." : "Save Changes"}
                 </Button>
               </Box>

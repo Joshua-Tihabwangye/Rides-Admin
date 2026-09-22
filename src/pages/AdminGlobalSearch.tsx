@@ -52,7 +52,7 @@ const EV_COLORS = {
 };
 
 type TabKey = "all" | "riders" | "drivers" | "companies" | "trips" | "incidents";
-type RegionFilter = "all" | "kampala" | "lagos" | "nairobi" | "kigali" | "accra";
+type RegionFilter = "all" | string;
 type StatusFilter = "all" | "active" | "pending" | "suspended" | "completed" | "cancelled" | "open";
 type ServiceFilter = "all" | "rides";
 
@@ -80,15 +80,6 @@ type IncidentRow = SearchRow & {
 };
 
 const TAB_KEYS: TabKey[] = ["all", "riders", "drivers", "companies", "trips", "incidents"];
-const REGION_LABELS: Record<RegionFilter, string> = {
-  all: "All Regions",
-  kampala: "Kampala",
-  lagos: "Lagos",
-  nairobi: "Nairobi",
-  kigali: "Kigali",
-  accra: "Accra",
-};
-
 function displayId(prefix: string, id: string) {
   return `${prefix}-${id.slice(0, 8)}`;
 }
@@ -258,7 +249,7 @@ export default function AdminGlobalSearchPage() {
   const filterByRegion = useCallback(
     <T extends SearchRow>(items: T[]) => {
       if (regionFilter === "all") return items;
-      const region = REGION_LABELS[regionFilter].toLowerCase();
+      const region = regionFilter.toLowerCase();
       return items.filter((item) => item.city.toLowerCase().includes(region));
     },
     [regionFilter],
@@ -305,6 +296,17 @@ export default function AdminGlobalSearchPage() {
   );
 
   const tabIndex = TAB_KEYS.indexOf(activeTab);
+  const regionOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [...riders, ...drivers, ...companies, ...trips, ...incidents]
+            .map((item) => item.city.trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [companies, drivers, incidents, riders, trips],
+  );
 
   return (
     <Box>
@@ -363,9 +365,10 @@ export default function AdminGlobalSearchPage() {
 
           <FormControl size="small" sx={{ minWidth: 136 }}>
             <Select value={regionFilter} onChange={(event: SelectChangeEvent) => setRegionFilter(event.target.value as RegionFilter)}>
-              {(Object.keys(REGION_LABELS) as RegionFilter[]).map((region) => (
+              <MenuItem value="all">All Regions</MenuItem>
+              {regionOptions.map((region) => (
                 <MenuItem key={region} value={region}>
-                  {REGION_LABELS[region]}
+                  {region}
                 </MenuItem>
               ))}
             </Select>

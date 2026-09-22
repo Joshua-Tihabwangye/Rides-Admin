@@ -10,7 +10,9 @@ export type AdminPermission =
   | "manage_finance"
   | "manage_pricing"
   | "manage_promotions"
+  | "view_admin_users"
   | "manage_admin_users"
+  | "view_roles"
   | "manage_roles"
   | "manage_system"
   // Logistics / delivery workspace (frontend permission strings).
@@ -36,7 +38,9 @@ const ALL_PERMISSIONS: AdminPermission[] = [
   "manage_finance",
   "manage_pricing",
   "manage_promotions",
+  "view_admin_users",
   "manage_admin_users",
+  "view_roles",
   "manage_roles",
   "manage_system",
   "view_deliveries",
@@ -59,6 +63,8 @@ const ROLE_PERMISSIONS: Record<AdminBackendRole, readonly AdminPermission[]> = {
     "manage_finance",
     "manage_pricing",
     "manage_promotions",
+    "view_admin_users",
+    "view_roles",
     "view_deliveries",
     "view_rides",
     "manage_rides",
@@ -103,6 +109,65 @@ const ROLE_PERMISSIONS: Record<AdminBackendRole, readonly AdminPermission[]> = {
   ],
 }
 
+const BACKEND_PERMISSION_ALIASES: Record<string, readonly AdminPermission[]> = {
+  "admin:user:read": ["view_admin_users", "view_roles"],
+  "admin:user:suspend": ["manage_admin_users"],
+  "governance:config:write": ["manage_roles"],
+  "governance:flag:write": ["manage_system"],
+  "governance:risk-case:write": ["manage_people"],
+  "governance:approval:decide": ["manage_operations"],
+  "agent:read": ["manage_people"],
+  "agent:case:write": ["manage_people"],
+  "dispatch:read": ["manage_operations"],
+  "dispatch:manual-booking:create": ["manage_operations"],
+  "dispatch:driver:assign": ["manage_operations"],
+  "dispatch:match:run": ["manage_operations"],
+  "ride:read": ["view_rides"],
+  "ride:manage": ["view_rides", "manage_rides"],
+  "delivery:read": ["view_deliveries"],
+  "delivery:update": ["view_deliveries", "manage_deliveries"],
+  "delivery-label:read": ["view_delivery_labels"],
+  "delivery-label:print": ["view_delivery_labels", "print_delivery_labels"],
+  "delivery-label:regenerate": ["view_delivery_labels", "regenerate_delivery_labels"],
+  "delivery-label:bulk-print": ["view_delivery_labels", "bulk_print_delivery_labels"],
+  "blank-label:activate": ["view_delivery_labels", "activate_blank_labels"],
+  "finance:cashout:read": ["manage_finance"],
+  "finance:payout:read": ["manage_finance"],
+  "finance:revenue:read": ["manage_finance"],
+  "finance:settlement:write": ["manage_finance"],
+  "partner:admin:read": ["manage_companies"],
+  "partner:admin:write": ["manage_companies"],
+  "marketplace:product:read": ["view_deliveries"],
+  "marketplace:simulate": ["view_deliveries"],
+  "merchant:order:read": ["view_deliveries"],
+  "operations.*": ["manage_operations"],
+  "dispatch.*": ["manage_operations"],
+  "finance.*": ["manage_finance"],
+  "pricing.*": ["manage_pricing"],
+  "approvals.*": ["manage_operations"],
+  "risk.*": ["manage_people"],
+  "support.*": ["manage_people"],
+  "users.read": ["manage_people"],
+  "rides.read": ["view_rides"],
+  "services.read": ["manage_pricing"],
+  "companies.read": ["manage_companies"],
+  "audit.read": ["manage_system"],
+}
+
+function expandPermissionAliases(values: readonly string[] | undefined): AdminPermission[] {
+  const granted = new Set<AdminPermission>()
+  for (const value of values ?? []) {
+    if (value === "*") return [...ALL_PERMISSIONS]
+    if (ALL_PERMISSIONS.includes(value as AdminPermission)) {
+      granted.add(value as AdminPermission)
+    }
+    for (const permission of BACKEND_PERMISSION_ALIASES[value] ?? []) {
+      granted.add(permission)
+    }
+  }
+  return Array.from(granted)
+}
+
 function normalizeRoles(roles: readonly string[]): AdminBackendRole[] {
   const validRoles = new Set<string>([
     "admin",
@@ -137,21 +202,15 @@ export function getUserPermissions(user: AuthUser): AdminPermission[] {
     return getPermissionsForRoles([user.activeRole])
   }
 
-  const backendPermissions = Array.isArray(user.permissions)
-    ? user.permissions.filter((permission): permission is AdminPermission => ALL_PERMISSIONS.includes(permission as AdminPermission))
-    : []
-  if (Array.isArray(user.permissions) && user.permissions.includes("*")) {
-    return ALL_PERMISSIONS
-  }
+  const backendPermissions = expandPermissionAliases(user.permissions)
   if (backendPermissions.length > 0) {
-    return Array.from(new Set(backendPermissions))
+    return backendPermissions
   }
   return getPermissionsForRoles(user.roles ?? [])
 }
 
 export function hasPermissionByRoles(roles: readonly string[], permission: AdminPermission): boolean {
-  const backendPermissions = getAuthPermissions()
-    .filter((value): value is AdminPermission => ALL_PERMISSIONS.includes(value as AdminPermission))
+  const backendPermissions = expandPermissionAliases(getAuthPermissions())
   if (backendPermissions.length > 0) {
     return new Set(backendPermissions).has(permission)
   }
@@ -166,8 +225,7 @@ export function hasAnyPermission(user: AuthUser, required: AdminPermission[]): b
 
 export function hasAnyPermissionByRoles(roles: readonly string[], required: AdminPermission[]): boolean {
   if (required.length === 0) return true
-  const backendPermissions = getAuthPermissions()
-    .filter((value): value is AdminPermission => ALL_PERMISSIONS.includes(value as AdminPermission))
+  const backendPermissions = expandPermissionAliases(getAuthPermissions())
   const granted = new Set(backendPermissions.length > 0 ? backendPermissions : getPermissionsForRoles(roles))
   return required.some((permission) => granted.has(permission))
 }

@@ -13,94 +13,119 @@ function RouteLoading() {
   )
 }
 
-const AdminAuthSignIn = lazy(() => import('./pages/AdminAuthSignIn'))
-const AdminAuthSignUp = lazy(() => import('./pages/AdminAuthSignUp'))
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
-const VerifyResetOtp = lazy(() => import('./pages/VerifyResetOtp'))
-const ResetPassword = lazy(() => import('./pages/ResetPassword'))
-const AdminWelcomeNotice = lazy(() => import('./pages/AdminWelcomeNotice'))
-const AdminOnboardingChecklist = lazy(() => import('./pages/AdminOnboardingChecklist'))
-const AdminHomeDashboard = lazy(() => import('./pages/AdminHomeDashboard'))
-const AdminProfileRegions = lazy(() => import('./pages/AdminProfileRegions'))
-const AdminGlobalSearch = lazy(() => import('./pages/AdminGlobalSearch'))
-const RiderManagement = lazy(() => import('./pages/RiderManagement'))
-const RiderDetail = lazy(() => import('./pages/RiderDetail'))
-const RiderCreate = lazy(() => import('./pages/RiderCreate'))
-const DriverManagement = lazy(() => import('./pages/DriverManagement'))
-const DriverDetail = lazy(() => import('./pages/DriverDetail'))
-const DriverCreate = lazy(() => import('./pages/DriverCreate'))
-const SafetyOverview = lazy(() => import('./pages/SafetyOverview'))
-const SosIncidentDetailPage = lazy(() => import('./pages/SosIncidentDetailPage'))
-const RiskFraudCenter = lazy(() => import('./pages/RiskFraudCenter'))
-const RiskDetail = lazy(() => import('./pages/RiskDetail'))
-const CompanyList = lazy(() => import('./pages/CompanyList'))
-const CompanyDetail = lazy(() => import('./pages/CompanyDetail'))
-const FinancialOverview = lazy(() => import('./pages/FinancialOverview'))
-const CompanyPayouts = lazy(() => import('./pages/CompanyPayouts'))
-const FinanceCashouts = lazy(() => import('./pages/FinanceCashouts'))
-const FinancePayouts = lazy(() => import('./pages/FinancePayouts'))
-const FinancePayments = lazy(() => import('./pages/FinancePayments'))
-const FinanceSettlements = lazy(() => import('./pages/FinanceSettlements'))
-const FinanceWalletReconciliation = lazy(() => import('./pages/FinanceWalletReconciliation'))
-const FinanceReconciliationRuns = lazy(() => import('./pages/FinanceReconciliationRuns'))
-const CompanyApprovals = lazy(() => import('./pages/CompanyApprovals'))
-const RegionTaxConfigEditor = lazy(() => import('./pages/RegionTaxConfigEditor'))
-const InvoiceTemplatePreview = lazy(() => import('./pages/InvoiceTemplatePreview'))
-const OperationsDashboard = lazy(() => import('./pages/OperationsDashboard'))
-const MonitoringPage = lazy(() => import('./pages/MonitoringPage'))
-const LiveDriversMapPage = lazy(() => import('./pages/LiveDriversMapPage'))
-const MatchingInspectionPage = lazy(() => import('./pages/MatchingInspectionPage'))
-const DetailedAnalytics = lazy(() => import('./pages/DetailedAnalytics'))
-const ApprovalsDashboard = lazy(() => import('./pages/ApprovalsDashboard'))
-const ApprovalDetail = lazy(() => import('./pages/ApprovalDetail'))
-const DocumentReviewPage = lazy(() => import('./pages/DocumentReviewPage'))
-const ServiceConfiguration = lazy(() => import('./pages/ServiceConfiguration'))
-const PricingManagement = lazy(() => import('./pages/PricingManagement'))
-const PricingRulesOverview = lazy(() => import('./pages/PricingRulesTariffs'))
-const ZoneCreate = lazy(() => import('./pages/ZoneCreate'))
-const ZonesGeofences = lazy(() => import('./pages/ZonesGeofences'))
-const ZoneMapView = lazy(() => import('./pages/ZoneMapView'))
-const ZonePricingDetail = lazy(() => import('./pages/ZonePricingDetail'))
-const ZonesList = lazy(() => import('./pages/ZonesList'))
-const PromotionsIncentives = lazy(() => import('./pages/PromotionsIncentives'))
-const PromoDetail = lazy(() => import('./pages/PromoDetail'))
-const VerticalPolicies = lazy(() => import('./pages/VerticalPolicies'))
-const AgentManagement = lazy(() => import('./pages/AgentManagement'))
-const AgentDetail = lazy(() => import('./pages/AgentDetail'))
-const AdminUsersManagement = lazy(() => import('./pages/AdminUsersManagement'))
-const AdminUserDetail = lazy(() => import('./pages/AdminUserDetail'))
-const RolesPermissions = lazy(() => import('./pages/RolesPermissions'))
-const GlobalTrainingManager = lazy(() => import('./pages/GlobalTrainingManager'))
-const TrainingModulePreview = lazy(() => import('./pages/TrainingModulePreview'))
-const LocalizationLanguageContent = lazy(() => import('./pages/LocalizationLanguageContent'))
-const PolicyRuleManagement = lazy(() => import('./pages/PolicyRuleManagement'))
-const FeatureFlagsExperiments = lazy(() => import('./pages/FeatureFlagsExperiments'))
-const ExperimentResults = lazy(() => import('./pages/ExperimentResults'))
-const ApprovalsHistory = lazy(() => import('./pages/ApprovalsHistory'))
-const Integrations = lazy(() => import('./pages/Integrations'))
-const AuditLog = lazy(() => import('./pages/AuditLog'))
-const SystemOverview = lazy(() => import('./pages/SystemOverview'))
-const Settings = lazy(() => import('./pages/Settings'))
-const AccessDenied = lazy(() => import('./pages/AccessDenied'))
-const DeliveryListPage = lazy(() => import('./pages/DeliveryListPage'))
-const DeliveryDetailPage = lazy(() => import('./pages/DeliveryDetailPage'))
-const RidesListPage = lazy(() => import('./pages/RidesListPage'))
-const RideDetailPage = lazy(() => import('./pages/RideDetailPage'))
-const RideAnomaliesPage = lazy(() => import('./pages/RideAnomaliesPage'))
-const ReturnRequestsPage = lazy(() => import('./pages/ReturnRequestsPage'))
-const DisputesPage = lazy(() => import('./pages/DisputesPage'))
-const ReturnShipmentsPage = lazy(() => import('./pages/ReturnShipmentsPage'))
-const ReturnShipmentDetailPage = lazy(() => import('./pages/ReturnShipmentDetailPage'))
-const ReturnReconciliationPage = lazy(() => import('./pages/ReturnReconciliationPage'))
-const PackageLabelPage = lazy(() => import('./pages/PackageLabelPage'))
-const DeliveryLabelsPage = lazy(() => import('./pages/DeliveryLabelsPage'))
-const PrintQueuePage = lazy(() => import('./pages/PrintQueuePage'))
-const LabelExceptionsPage = lazy(() => import('./pages/LabelExceptionsPage'))
-const BlankLabelStockPage = lazy(() => import('./pages/BlankLabelStockPage'))
-const MarketplaceClientProductsPage = lazy(() => import('./pages/marketplace/MarketplaceClientProductsPage'))
-const MarketplaceClientCartPage = lazy(() => import('./pages/marketplace/MarketplaceClientCartPage'))
-const MarketplaceSellerOrdersPage = lazy(() => import('./pages/marketplace/MarketplaceSellerOrdersPage'))
-const MarketplaceSellerOrderDetailPage = lazy(() => import('./pages/marketplace/MarketplaceSellerOrderDetailPage'))
+function recoverableLazy<T extends React.ComponentType<any>>(loader: () => Promise<{ default: T }>) {
+  return lazy(() =>
+    loader().then((module) => {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem('evzone-admin-chunk-reload')
+      }
+      return module
+    }).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      const chunkFailed =
+        /Failed to fetch dynamically imported module|ChunkLoadError|Loading chunk \d+ failed|Importing a module script failed/i.test(message)
+      if (
+        chunkFailed &&
+        typeof window !== 'undefined' &&
+        !window.sessionStorage.getItem('evzone-admin-chunk-reload')
+      ) {
+        window.sessionStorage.setItem('evzone-admin-chunk-reload', '1')
+        window.location.reload()
+        return new Promise<{ default: T }>(() => {})
+      }
+      throw error
+    }),
+  )
+}
+
+const AdminAuthSignIn = recoverableLazy(() => import('./pages/AdminAuthSignIn'))
+const AdminAuthSignUp = recoverableLazy(() => import('./pages/AdminAuthSignUp'))
+const ForgotPassword = recoverableLazy(() => import('./pages/ForgotPassword'))
+const VerifyResetOtp = recoverableLazy(() => import('./pages/VerifyResetOtp'))
+const ResetPassword = recoverableLazy(() => import('./pages/ResetPassword'))
+const AdminWelcomeNotice = recoverableLazy(() => import('./pages/AdminWelcomeNotice'))
+const AdminOnboardingChecklist = recoverableLazy(() => import('./pages/AdminOnboardingChecklist'))
+const AdminHomeDashboard = recoverableLazy(() => import('./pages/AdminHomeDashboard'))
+const AdminProfileRegions = recoverableLazy(() => import('./pages/AdminProfileRegions'))
+const AdminGlobalSearch = recoverableLazy(() => import('./pages/AdminGlobalSearch'))
+const RiderManagement = recoverableLazy(() => import('./pages/RiderManagement'))
+const RiderDetail = recoverableLazy(() => import('./pages/RiderDetail'))
+const RiderCreate = recoverableLazy(() => import('./pages/RiderCreate'))
+const DriverManagement = recoverableLazy(() => import('./pages/DriverManagement'))
+const DriverDetail = recoverableLazy(() => import('./pages/DriverDetail'))
+const DriverCreate = recoverableLazy(() => import('./pages/DriverCreate'))
+const SafetyOverview = recoverableLazy(() => import('./pages/SafetyOverview'))
+const SosIncidentDetailPage = recoverableLazy(() => import('./pages/SosIncidentDetailPage'))
+const RiskFraudCenter = recoverableLazy(() => import('./pages/RiskFraudCenter'))
+const RiskDetail = recoverableLazy(() => import('./pages/RiskDetail'))
+const CompanyList = recoverableLazy(() => import('./pages/CompanyList'))
+const CompanyDetail = recoverableLazy(() => import('./pages/CompanyDetail'))
+const FinancialOverview = recoverableLazy(() => import('./pages/FinancialOverview'))
+const CompanyPayouts = recoverableLazy(() => import('./pages/CompanyPayouts'))
+const FinanceCashouts = recoverableLazy(() => import('./pages/FinanceCashouts'))
+const FinancePayouts = recoverableLazy(() => import('./pages/FinancePayouts'))
+const FinancePayments = recoverableLazy(() => import('./pages/FinancePayments'))
+const FinanceSettlements = recoverableLazy(() => import('./pages/FinanceSettlements'))
+const FinanceWalletReconciliation = recoverableLazy(() => import('./pages/FinanceWalletReconciliation'))
+const FinanceReconciliationRuns = recoverableLazy(() => import('./pages/FinanceReconciliationRuns'))
+const CompanyApprovals = recoverableLazy(() => import('./pages/CompanyApprovals'))
+const RegionTaxConfigEditor = recoverableLazy(() => import('./pages/RegionTaxConfigEditor'))
+const InvoiceTemplatePreview = recoverableLazy(() => import('./pages/InvoiceTemplatePreview'))
+const OperationsDashboard = recoverableLazy(() => import('./pages/OperationsDashboard'))
+const MonitoringPage = recoverableLazy(() => import('./pages/MonitoringPage'))
+const LiveDriversMapPage = recoverableLazy(() => import('./pages/LiveDriversMapPage'))
+const MatchingInspectionPage = recoverableLazy(() => import('./pages/MatchingInspectionPage'))
+const DetailedAnalytics = recoverableLazy(() => import('./pages/DetailedAnalytics'))
+const ApprovalsDashboard = recoverableLazy(() => import('./pages/ApprovalsDashboard'))
+const ApprovalDetail = recoverableLazy(() => import('./pages/ApprovalDetail'))
+const DocumentReviewPage = recoverableLazy(() => import('./pages/DocumentReviewPage'))
+const ServiceConfiguration = recoverableLazy(() => import('./pages/ServiceConfiguration'))
+const PricingManagement = recoverableLazy(() => import('./pages/PricingManagement'))
+const PricingRulesOverview = recoverableLazy(() => import('./pages/PricingRulesTariffs'))
+const ZoneCreate = recoverableLazy(() => import('./pages/ZoneCreate'))
+const ZonesGeofences = recoverableLazy(() => import('./pages/ZonesGeofences'))
+const ZoneMapView = recoverableLazy(() => import('./pages/ZoneMapView'))
+const ZonePricingDetail = recoverableLazy(() => import('./pages/ZonePricingDetail'))
+const ZonesList = recoverableLazy(() => import('./pages/ZonesList'))
+const PromotionsIncentives = recoverableLazy(() => import('./pages/PromotionsIncentives'))
+const PromoDetail = recoverableLazy(() => import('./pages/PromoDetail'))
+const VerticalPolicies = recoverableLazy(() => import('./pages/VerticalPolicies'))
+const AgentManagement = recoverableLazy(() => import('./pages/AgentManagement'))
+const AgentDetail = recoverableLazy(() => import('./pages/AgentDetail'))
+const AdminUsersManagement = recoverableLazy(() => import('./pages/AdminUsersManagement'))
+const AdminUserDetail = recoverableLazy(() => import('./pages/AdminUserDetail'))
+const RolesPermissions = recoverableLazy(() => import('./pages/RolesPermissions'))
+const GlobalTrainingManager = recoverableLazy(() => import('./pages/GlobalTrainingManager'))
+const TrainingModulePreview = recoverableLazy(() => import('./pages/TrainingModulePreview'))
+const LocalizationLanguageContent = recoverableLazy(() => import('./pages/LocalizationLanguageContent'))
+const PolicyRuleManagement = recoverableLazy(() => import('./pages/PolicyRuleManagement'))
+const FeatureFlagsExperiments = recoverableLazy(() => import('./pages/FeatureFlagsExperiments'))
+const ExperimentResults = recoverableLazy(() => import('./pages/ExperimentResults'))
+const ApprovalsHistory = recoverableLazy(() => import('./pages/ApprovalsHistory'))
+const Integrations = recoverableLazy(() => import('./pages/Integrations'))
+const AuditLog = recoverableLazy(() => import('./pages/AuditLog'))
+const SystemOverview = recoverableLazy(() => import('./pages/SystemOverview'))
+const Settings = recoverableLazy(() => import('./pages/Settings'))
+const AccessDenied = recoverableLazy(() => import('./pages/AccessDenied'))
+const DeliveryListPage = recoverableLazy(() => import('./pages/DeliveryListPage'))
+const DeliveryDetailPage = recoverableLazy(() => import('./pages/DeliveryDetailPage'))
+const RidesListPage = recoverableLazy(() => import('./pages/RidesListPage'))
+const RideDetailPage = recoverableLazy(() => import('./pages/RideDetailPage'))
+const RideAnomaliesPage = recoverableLazy(() => import('./pages/RideAnomaliesPage'))
+const ReturnRequestsPage = recoverableLazy(() => import('./pages/ReturnRequestsPage'))
+const DisputesPage = recoverableLazy(() => import('./pages/DisputesPage'))
+const ReturnShipmentsPage = recoverableLazy(() => import('./pages/ReturnShipmentsPage'))
+const ReturnShipmentDetailPage = recoverableLazy(() => import('./pages/ReturnShipmentDetailPage'))
+const ReturnReconciliationPage = recoverableLazy(() => import('./pages/ReturnReconciliationPage'))
+const PackageLabelPage = recoverableLazy(() => import('./pages/PackageLabelPage'))
+const DeliveryLabelsPage = recoverableLazy(() => import('./pages/DeliveryLabelsPage'))
+const PrintQueuePage = recoverableLazy(() => import('./pages/PrintQueuePage'))
+const LabelExceptionsPage = recoverableLazy(() => import('./pages/LabelExceptionsPage'))
+const BlankLabelStockPage = recoverableLazy(() => import('./pages/BlankLabelStockPage'))
+const MarketplaceClientProductsPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceClientProductsPage'))
+const MarketplaceClientCartPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceClientCartPage'))
+const MarketplaceSellerOrdersPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceSellerOrdersPage'))
+const MarketplaceSellerOrderDetailPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceSellerOrderDetailPage'))
 
 export default function App() {
   return (
@@ -679,7 +704,7 @@ export default function App() {
           <Route
             path="admin-users"
             element={
-              <RequirePermission anyOf={["manage_admin_users"]}>
+              <RequirePermission anyOf={["view_admin_users", "manage_admin_users"]}>
                 <AdminUsersManagement />
               </RequirePermission>
             }
@@ -687,7 +712,7 @@ export default function App() {
           <Route
             path="admin-users/:id"
             element={
-              <RequirePermission anyOf={["manage_admin_users"]}>
+              <RequirePermission anyOf={["view_admin_users", "manage_admin_users"]}>
                 <AdminUserDetail />
               </RequirePermission>
             }
@@ -695,7 +720,7 @@ export default function App() {
           <Route
             path="roles"
             element={
-              <RequirePermission anyOf={["manage_roles"]}>
+              <RequirePermission anyOf={["view_roles", "manage_roles"]}>
                 <RolesPermissions />
               </RequirePermission>
             }

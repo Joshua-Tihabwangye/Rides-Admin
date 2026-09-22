@@ -147,6 +147,21 @@ describe("admin driver listing helpers", () => {
     expect(drivers[0].driverId).toBe("driver-y");
   });
 
+  it("getActiveDrivers omits coordinates for global queries instead of sending a 0,0 sentinel", async () => {
+    const api = await loadApi();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse({ drivers: [] })));
+
+    await api.getActiveDrivers(null, null, 50, 300);
+
+    const [url, init] = fetchCalls().at(-1)!;
+    expect(url).toContain("/geo/drivers/active");
+    expect(url).not.toContain("latitude=0");
+    expect(url).not.toContain("longitude=0");
+    expect(url).toContain("radiusKm=50");
+    expect(url).toContain("limit=300");
+    expect(init.method).toBe("GET");
+  });
+
   it("normalizePaginatedDriver merges the nested user row into the mapped shape", () => {
     const normalized = normalizePaginatedDriver(rawRow(5));
 

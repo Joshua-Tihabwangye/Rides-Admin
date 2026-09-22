@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "verify:build": "node scripts/verify-admin-build.mjs",
+    "smoke:deployment": "node scripts/admin-deployment-smoke.mjs",
     "build:verify": "npm run build && npm run verify:build",
     "preview": "vite preview",
     "lint": "eslint .",

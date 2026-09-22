@@ -10,7 +10,6 @@ import {
   CircularProgress,
   Divider,
   FormControlLabel,
-  MenuItem,
   Paper,
   Snackbar,
   Switch,
@@ -49,9 +48,6 @@ type PayoutSettingsForm = {
   destination: string;
   enabled: boolean;
 };
-
-const SCHEDULES = ["daily", "weekly", "biweekly", "monthly"];
-const CURRENCIES = ["UGX", "USD", "KES", "RWF"];
 
 function AdminFinanceCompanyLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -256,31 +252,19 @@ export default function CompanyPayoutConfigPage() {
                 </Typography>
                 <Box className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <TextField
-                    select
                     size="small"
                     label="Schedule"
                     value={form.schedule}
                     onChange={(event) => setForm((prev) => prev && { ...prev, schedule: event.target.value })}
-                  >
-                    {SCHEDULES.map((schedule) => (
-                      <MenuItem key={schedule} value={schedule}>
-                        {schedule}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    helperText="Saved and validated by the backend payout settings contract"
+                  />
                   <TextField
-                    select
                     size="small"
                     label="Currency"
                     value={form.currency}
                     onChange={(event) => setForm((prev) => prev && { ...prev, currency: event.target.value })}
-                  >
-                    {CURRENCIES.map((currency) => (
-                      <MenuItem key={currency} value={currency}>
-                        {currency}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    helperText="Use the company payout currency from backend finance configuration"
+                  />
                   <TextField
                     size="small"
                     label="Minimum amount"
