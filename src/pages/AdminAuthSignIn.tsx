@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from"react";
 import type { CSSProperties, FormEvent } from "react";
 import { useLocation, useNavigate } from"react-router-dom";
-import { loginWithCredentials } from"../auth/auth";
+import { ADMIN_ROLE_OPTIONS, loginWithCredentials } from"../auth/auth";
+import type { AdminBackendRole } from"../auth/auth";
 import { ApiRequestError } from"../services/api/httpClient";
 import { clearAuthPrefillPassword, readAuthPrefill, saveAuthPrefill } from"../auth/authPrefill";
 
@@ -86,6 +87,7 @@ export default function AuthSignIn() {
   const [caps, setCaps] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [selectedRole, setSelectedRole] = useState<AdminBackendRole>("admin");
   const [loginError, setLoginError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -124,10 +126,10 @@ export default function AuthSignIn() {
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      const authUser = await loginWithCredentials({ email: normalizedEmail, password: pwd });
+      const authUser = await loginWithCredentials({ email: normalizedEmail, password: pwd, role: selectedRole });
       saveAuthPrefill({ email: normalizedEmail, identity: normalizedEmail });
       clearAuthPrefillPassword();
-      track("auth_login", { email, remember });
+      track("auth_login", { email, remember, role: selectedRole });
       navigate(from || authUser.defaultRedirect || "/admin/home", { replace: true });
     } catch (error) {
       if (error instanceof ApiRequestError && error.status === 401) {
@@ -354,6 +356,25 @@ export default function AuthSignIn() {
 
               {caps && <span style={styles.warningText}>⚠️ Caps Lock is on</span>}
               {loginError && <span style={styles.errorText}>{loginError}</span>}
+            </div>
+
+            <div style={styles.fieldGroup}>
+              <label style={styles.label}>Admin role</label>
+              <select
+                style={styles.input}
+                value={selectedRole}
+                onChange={(event) => setSelectedRole(event.target.value as AdminBackendRole)}
+                disabled={isLoading}
+              >
+                {ADMIN_ROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <span style={styles.helpText}>
+                {ADMIN_ROLE_OPTIONS.find((option) => option.value === selectedRole)?.description}
+              </span>
             </div>
 
             <div style={styles.rememberRow}>

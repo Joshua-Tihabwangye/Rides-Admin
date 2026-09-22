@@ -63,17 +63,61 @@ const ROLE_PERMISSIONS: Record<AdminBackendRole, readonly AdminPermission[]> = {
     "view_rides",
     "manage_rides",
     "view_delivery_labels",
+    "print_delivery_labels",
+    "activate_blank_labels",
   ],
   super_admin: ALL_PERMISSIONS,
+  operations_admin: [
+    "view_dashboard",
+    "manage_operations",
+    "manage_people",
+    "manage_companies",
+    "view_deliveries",
+    "view_rides",
+    "manage_rides",
+    "manage_deliveries",
+    "view_delivery_labels",
+    "print_delivery_labels",
+    "regenerate_delivery_labels",
+  ],
+  finance_admin: [
+    "view_dashboard",
+    "manage_finance",
+    "manage_companies",
+    "manage_pricing",
+  ],
+  compliance_admin: [
+    "view_dashboard",
+    "manage_people",
+    "manage_companies",
+    "manage_operations",
+    "manage_system",
+  ],
+  support_admin: [
+    "view_dashboard",
+    "manage_people",
+    "view_deliveries",
+    "view_rides",
+    "manage_rides",
+    "view_delivery_labels",
+  ],
 }
 
 function normalizeRoles(roles: readonly string[]): AdminBackendRole[] {
+  const validRoles = new Set<string>([
+    "admin",
+    "super_admin",
+    "operations_admin",
+    "finance_admin",
+    "compliance_admin",
+    "support_admin",
+  ])
   return Array.from(
     new Set(
       roles
         .filter((role): role is string => typeof role === "string")
         .map((role) => role.trim().toLowerCase())
-        .filter((role): role is AdminBackendRole => role === "admin" || role === "super_admin"),
+        .filter((role): role is AdminBackendRole => validRoles.has(role)),
     ),
   )
 }
@@ -89,9 +133,16 @@ export function getPermissionsForRoles(roles: readonly string[]): AdminPermissio
 }
 
 export function getUserPermissions(user: AuthUser): AdminPermission[] {
+  if (user.activeRole) {
+    return getPermissionsForRoles([user.activeRole])
+  }
+
   const backendPermissions = Array.isArray(user.permissions)
     ? user.permissions.filter((permission): permission is AdminPermission => ALL_PERMISSIONS.includes(permission as AdminPermission))
     : []
+  if (Array.isArray(user.permissions) && user.permissions.includes("*")) {
+    return ALL_PERMISSIONS
+  }
   if (backendPermissions.length > 0) {
     return Array.from(new Set(backendPermissions))
   }

@@ -1,7 +1,8 @@
 import React, { useState } from "react"
 import type { CSSProperties, FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { registerWithCredentials, signOut } from "../auth/auth"
+import { ADMIN_ROLE_OPTIONS, registerWithCredentials, signOut } from "../auth/auth"
+import type { AdminBackendRole } from "../auth/auth"
 import { clearAuthPrefillPassword, saveAuthPrefill } from "../auth/authPrefill"
 
 const EV = {
@@ -21,18 +22,38 @@ export default function AdminAuthSignUp() {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
+  const [role, setRole] = useState<AdminBackendRole | "">("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
+  const [missingFields, setMissingFields] = useState<Set<string>>(new Set())
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const signupRoleOptions = ADMIN_ROLE_OPTIONS.filter((option) => option.value !== "super_admin")
+
+  const fieldStyle = (field: string): CSSProperties => ({
+    ...styles.input,
+    ...(missingFields.has(field) ? styles.inputMissing : {}),
+  })
+
+  const missingRibbon = (field: string) =>
+    missingFields.has(field) ? <span style={styles.missingRibbon}>Missing</span> : null
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
+    setMissingFields(new Set())
 
     const normalizedEmail = email.trim().toLowerCase()
-    if (!fullName.trim()) {
-      setError("Full name is required.")
+    const missing = new Set<string>()
+    if (!fullName.trim()) missing.add("fullName")
+    if (!normalizedEmail) missing.add("email")
+    if (!role) missing.add("role")
+    if (!password) missing.add("password")
+    if (!confirmPassword) missing.add("confirmPassword")
+    if (missing.size > 0) {
+      setMissingFields(missing)
+      setError("Complete the missing required fields.")
       return
     }
     if (!isValidEmail(normalizedEmail)) {
@@ -47,6 +68,7 @@ export default function AdminAuthSignUp() {
       setError("Passwords do not match.")
       return
     }
+    const selectedRole = role as AdminBackendRole
 
     setIsSubmitting(true)
     try {
@@ -54,6 +76,7 @@ export default function AdminAuthSignUp() {
         fullName: fullName.trim(),
         email: normalizedEmail,
         phone: phone.trim() || undefined,
+        role: selectedRole,
         password,
       })
       saveAuthPrefill({ email: normalizedEmail, identity: normalizedEmail })
@@ -78,23 +101,37 @@ export default function AdminAuthSignUp() {
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <label style={styles.field}>
-            <span style={styles.label}>Full name</span>
+            <span style={styles.labelRow}><span style={styles.label}>Full name</span>{missingRibbon("fullName")}</span>
             <input
-              style={styles.input}
+              style={fieldStyle("fullName")}
               value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
+              onChange={(event) => {
+                setFullName(event.target.value)
+                setMissingFields((prev) => {
+                  const next = new Set(prev)
+                  next.delete("fullName")
+                  return next
+                })
+              }}
               placeholder="Full name"
               disabled={isSubmitting}
             />
           </label>
 
           <label style={styles.field}>
-            <span style={styles.label}>Email</span>
+            <span style={styles.labelRow}><span style={styles.label}>Email</span>{missingRibbon("email")}</span>
             <input
-              style={styles.input}
+              style={fieldStyle("email")}
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                setMissingFields((prev) => {
+                  const next = new Set(prev)
+                  next.delete("email")
+                  return next
+                })
+              }}
               placeholder="Email address"
               disabled={isSubmitting}
             />
@@ -113,24 +150,65 @@ export default function AdminAuthSignUp() {
           </label>
 
           <label style={styles.field}>
-            <span style={styles.label}>Password</span>
+            <span style={styles.labelRow}><span style={styles.label}>Admin role</span>{missingRibbon("role")}</span>
+            <select
+              style={fieldStyle("role")}
+              value={role}
+              onChange={(event) => {
+                setRole(event.target.value as AdminBackendRole)
+                setMissingFields((prev) => {
+                  const next = new Set(prev)
+                  next.delete("role")
+                  return next
+                })
+              }}
+              disabled={isSubmitting}
+            >
+              <option value="">Select role</option>
+              {signupRoleOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <span style={styles.helpText}>
+              {role ? ADMIN_ROLE_OPTIONS.find((option) => option.value === role)?.description : "Super Admin is assigned from Admin Users after account creation."}
+            </span>
+          </label>
+
+          <label style={styles.field}>
+            <span style={styles.labelRow}><span style={styles.label}>Password</span>{missingRibbon("password")}</span>
             <input
-              style={styles.input}
+              style={fieldStyle("password")}
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value)
+                setMissingFields((prev) => {
+                  const next = new Set(prev)
+                  next.delete("password")
+                  return next
+                })
+              }}
               placeholder="Create a secure password"
               disabled={isSubmitting}
             />
           </label>
 
           <label style={styles.field}>
-            <span style={styles.label}>Confirm password</span>
+            <span style={styles.labelRow}><span style={styles.label}>Confirm password</span>{missingRibbon("confirmPassword")}</span>
             <input
-              style={styles.input}
+              style={fieldStyle("confirmPassword")}
               type="password"
               value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              onChange={(event) => {
+                setConfirmPassword(event.target.value)
+                setMissingFields((prev) => {
+                  const next = new Set(prev)
+                  next.delete("confirmPassword")
+                  return next
+                })
+              }}
               placeholder="Repeat your password"
               disabled={isSubmitting}
             />
@@ -210,6 +288,21 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 14,
     fontWeight: 700,
   },
+  labelRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  missingRibbon: {
+    borderRadius: 999,
+    background: "#dc2626",
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: 900,
+    padding: "3px 8px",
+    textTransform: "uppercase",
+  },
   input: {
     width: "100%",
     height: 48,
@@ -218,6 +311,15 @@ const styles: Record<string, CSSProperties> = {
     padding: "0 14px",
     fontSize: 15,
     boxSizing: "border-box",
+  },
+  inputMissing: {
+    borderColor: "#dc2626",
+    background: "#fef2f2",
+  },
+  helpText: {
+    color: EV.grayText,
+    fontSize: 12,
+    lineHeight: 1.4,
   },
   error: {
     borderRadius: 12,

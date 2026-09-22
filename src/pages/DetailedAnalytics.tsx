@@ -6,8 +6,6 @@ import {
 	Typography,
 	Button,
 	Divider,
-	Select,
-	MenuItem,
 	Table,
 	TableHead,
 	TableBody,
@@ -15,7 +13,6 @@ import {
 	TableCell,
 	TableContainer,
 	Paper,
-	FormControl,
 	TextField,
 	InputAdornment,
 	IconButton,
@@ -24,7 +21,6 @@ import {
 	Tabs,
 	Tab,
 } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material/Select";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
@@ -41,6 +37,7 @@ import {
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import PeriodSelector, { type PeriodOption } from "../components/PeriodSelector";
+import type { Dayjs } from "dayjs";
 import ExportButton from "../components/ExportButton";
 import {
 	getAdminAnalyticsTimeseries,
@@ -58,6 +55,14 @@ const EV_COLORS = {
 	primary: "#03cd8c",
 	secondary: "#f77f00",
 };
+
+function isoRange(range: [Dayjs | null, Dayjs | null]) {
+	const [start, end] = range;
+	return {
+		start: start ? start.startOf("day").toISOString() : undefined,
+		end: end ? end.endOf("day").toISOString() : undefined,
+	};
+}
 
 const REPORTS = [
 	{
@@ -84,16 +89,15 @@ export default function DetailedAnalyticsPage() {
 	const navigate = useNavigate();
 	const [selectedReportId, setSelectedReportId] = useState(REPORTS[0].id);
 	const [period, setPeriod] = useState<PeriodOption>("thisMonth");
+	const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
 	const [filters, setFilters] = useState({
-		region: "All",
-		service: "All",
+		region: "",
+		service: "",
 	});
 	const [viewMode, setViewMode] = useState<"chart" | "table">("chart");
 	const [searchQuery, setSearchQuery] = useState("");
-	const [favorites, setFavorites] = useState<string[]>(["TRIPS-VOLUME"]);
-	const [recentReports, setRecentReports] = useState<string[]>([
-		"TRIPS-VOLUME",
-	]);
+	const [favorites, setFavorites] = useState<string[]>([]);
+	const [recentReports, setRecentReports] = useState<string[]>([]);
 	const [realSeries, setRealSeries] = useState<AdminAnalyticsTimeseriesPoint[]>([]);
 	const [realDrivers, setRealDrivers] = useState<AdminAnalyticsDriverPoint[]>([]);
 	const [realCompanies, setRealCompanies] = useState<AdminAnalyticsCompanyPoint[]>([]);
@@ -106,9 +110,12 @@ export default function DetailedAnalyticsPage() {
 	// client-side. Fetch the selected period and feed each report from the API.
 	useEffect(() => {
 		let active = true;
+		const service = filters.service.trim();
+		const region = filters.region.trim();
 		const backendFilters = {
-			service: filters.service === "All" ? undefined : filters.service,
-			region: filters.region === "All" ? undefined : filters.region,
+			service: service || undefined,
+			region: region || undefined,
+			...(period === "custom" ? isoRange(customRange) : {}),
 		};
 		setAnalyticsLoading(true);
 		Promise.all([
@@ -128,7 +135,12 @@ export default function DetailedAnalyticsPage() {
 		return () => {
 			active = false;
 		};
-	}, [period, filters.region, filters.service]);
+	}, [period, filters.region, filters.service, customRange]);
+
+	const handlePeriodChange = (nextPeriod: PeriodOption, range?: { start: Dayjs; end: Dayjs }) => {
+		setPeriod(nextPeriod);
+		if (range) setCustomRange([range.start, range.end]);
+	};
 
 	const selectedReport =
 		REPORTS.find((r) => r.id === selectedReportId) || REPORTS[0];
@@ -185,10 +197,6 @@ export default function DetailedAnalyticsPage() {
 		},
 		{} as Record<string, typeof REPORTS>,
 	);
-
-	const handleFilterChange = (field: keyof typeof filters) => (event: SelectChangeEvent<string>) => {
-		setFilters({ ...filters, [field]: event.target.value });
-	};
 
 	// Real backend-derived series for the Trips & volumes report.
 	const realTripsData = realSeries.map((bucket) => ({
@@ -393,48 +401,41 @@ export default function DetailedAnalyticsPage() {
 						alignItems: "center",
 					}}
 				>
-					<FormControl size="small" sx={{ minWidth: 120 }}>
-						<Select
-							value={filters.region}
-							onChange={handleFilterChange("region")}
-							displayEmpty
-							sx={{
+					<TextField
+						size="small"
+						value={filters.region}
+						onChange={(event) => setFilters((current) => ({ ...current, region: event.target.value }))}
+						placeholder="Region"
+						sx={{
+							width: { xs: "100%", sm: 140 },
+							"& .MuiOutlinedInput-root": {
 								fontSize: 12,
 								borderRadius: 2,
 								height: 40,
 								bgcolor: "background.paper",
-							}}
-						>
-							<MenuItem value="All">All Regions</MenuItem>
-							<MenuItem value="Kampala">Kampala</MenuItem>
-							<MenuItem value="Nairobi">Nairobi</MenuItem>
-							<MenuItem value="Lagos">Lagos</MenuItem>
-						</Select>
-					</FormControl>
-					<FormControl size="small" sx={{ minWidth: 120 }}>
-						<Select
-							value={filters.service}
-							onChange={handleFilterChange("service")}
-							displayEmpty
-							sx={{
+							},
+						}}
+					/>
+					<TextField
+						size="small"
+						value={filters.service}
+						onChange={(event) => setFilters((current) => ({ ...current, service: event.target.value }))}
+						placeholder="Service"
+						sx={{
+							width: { xs: "100%", sm: 140 },
+							"& .MuiOutlinedInput-root": {
 								fontSize: 12,
 								borderRadius: 2,
 								height: 40,
 								bgcolor: "background.paper",
-							}}
-						>
-							<MenuItem value="All">All Services</MenuItem>
-							<MenuItem value="Rides">Rides</MenuItem>
-							<MenuItem value="Delivery">Delivery</MenuItem>
-							<MenuItem value="Car Rental">Car rental</MenuItem>
-							<MenuItem value="Ambulance">Ambulance</MenuItem>
-							<MenuItem value="Tourist Vehicle">Tourist vehicles</MenuItem>
-							<MenuItem value="School Shuttle">School shuttle</MenuItem>
-						</Select>
-					</FormControl>
+							},
+						}}
+					/>
 					<PeriodSelector
 						value={period}
-						onChange={(p) => setPeriod(p)}
+						onChange={handlePeriodChange}
+						customStart={customRange[0]}
+						customEnd={customRange[1]}
 					/>
 					<ExportButton
 						onDownload={handleExportCsv}
@@ -649,7 +650,12 @@ export default function DetailedAnalyticsPage() {
 								<Typography variant="caption" color="text.secondary" sx={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>
 									Report period
 								</Typography>
-								<PeriodSelector value={period} onChange={(p) => setPeriod(p)} />
+								<PeriodSelector
+									value={period}
+									onChange={handlePeriodChange}
+									customStart={customRange[0]}
+									customEnd={customRange[1]}
+								/>
 							</Box>
 						</Box>
 
@@ -813,7 +819,7 @@ export default function DetailedAnalyticsPage() {
 								<CardContent className="p-3">
 									<Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
 										<Alert severity="info" sx={{ maxWidth: 420 }}>
-											No real backend data available for this report yet. Reports populate from database aggregates as activity is recorded.
+											No database records match this report and filter period yet.
 										</Alert>
 									</Box>
 								</CardContent>

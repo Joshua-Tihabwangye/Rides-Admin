@@ -261,15 +261,23 @@ export default function MarketplaceClientCartPage() {
     const hasPlace = selectedPlace !== null;
     const hasManualCoords =
       manualCoordinates && Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+    const hasOnlySessionSellerItems =
+      !cart || !session || cart.items.every((item) => item.sellerOrganizationId === session.sellerOrganizationId);
     return (
       !checkingOut &&
+      hasOnlySessionSellerItems &&
       (paymentTiming === "PAY_ON_DELIVERY" || !!paymentMethod) &&
       !!paymentTiming &&
       recipientName.trim().length > 0 &&
       recipientPhone.trim().length > 0 &&
       (hasPlace || hasManualCoords)
     );
-  }, [checkingOut, paymentMethod, paymentTiming, recipientName, recipientPhone, selectedPlace, manualCoordinates, latitude, longitude]);
+  }, [checkingOut, paymentMethod, paymentTiming, recipientName, recipientPhone, selectedPlace, manualCoordinates, latitude, longitude, cart, session]);
+
+  const containsOtherSellerItems = useMemo(
+    () => Boolean(cart && session && cart.items.some((item) => item.sellerOrganizationId !== session.sellerOrganizationId)),
+    [cart, session],
+  );
 
   if (sessionLoading || (session && loading)) {
     return (
@@ -392,6 +400,12 @@ export default function MarketplaceClientCartPage() {
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
+        </Alert>
+      ) : null}
+
+      {containsOtherSellerItems ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          This cart contains products from another seller. Remove those items or start a new simulation for that seller before checkout.
         </Alert>
       ) : null}
 

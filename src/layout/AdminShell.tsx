@@ -81,7 +81,14 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
 import { getAuthUser, isAuthed, signOut } from '../auth/auth'
-import { ADMIN_SUMMARY_UPDATED_EVENT, getAdminOperationalSummary } from '../services/api/adminApi'
+import {
+  ADMIN_SUMMARY_UPDATED_EVENT,
+  createAdminSocket,
+  listAdminNotifications,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+  type AdminNotificationResponse,
+} from '../services/api/adminApi'
 import SafetyIncidentPopup from '../components/SafetyIncidentPopup'
 import AdminIncomingCallOverlay from '../components/AdminIncomingCallOverlay'
 
@@ -210,6 +217,51 @@ type NotificationItem = {
   path: string
 }
 
+function notificationType(rawType?: string): NotificationItem['type'] {
+  const type = rawType?.toUpperCase()
+  if (type === 'SAFETY' || type === 'CALL') return 'error'
+  if (type === 'PAYMENT' || type === 'DELIVERY' || type === 'DOCUMENT') return 'warning'
+  if (type === 'SYSTEM') return 'info'
+  return 'info'
+}
+
+function notificationPath(notification: AdminNotificationResponse): string {
+  const data = notification.data ?? {}
+  const path = typeof data.path === 'string' ? data.path : undefined
+  if (path?.startsWith('/admin/')) return path
+  const type = notification.type?.toUpperCase()
+  if (type === 'SAFETY' || type === 'CALL') return '/admin/safety'
+  if (type === 'PAYMENT') return '/admin/finance/payments'
+  if (type === 'DELIVERY') return '/admin/deliveries'
+  if (type === 'DOCUMENT') return '/admin/documents/review'
+  return '/admin/home'
+}
+
+function relativeTime(value?: string): string {
+  if (!value) return ''
+  const timestamp = new Date(value).getTime()
+  if (!Number.isFinite(timestamp)) return ''
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
+
+function mapNotification(notification: AdminNotificationResponse): NotificationItem {
+  return {
+    id: notification.id,
+    type: notificationType(notification.type),
+    title: notification.title,
+    message: notification.body,
+    time: relativeTime(notification.createdAt),
+    read: Boolean(notification.readAt),
+    path: notificationPath(notification),
+  }
+}
+
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2)
   return parts.map((p) => p[0]?.toUpperCase()).join('') || 'AA'
@@ -237,19 +289,19 @@ export default function AdminShell() {
     if (!isAuthed() || !user) return undefined
 
     let cancelled = false
-    const refreshSummary = async () => {
+    const refreshNotifications = async () => {
       try {
-        const summary = await getAdminOperationalSummary()
+        const response = await listAdminNotifications({ page: 1, limit: 30 })
         if (cancelled) return
-        setNotifications(summary.notifications)
+        setNotifications(response.items.map(mapNotification))
       } catch (error) {
-        console.warn('Failed to load admin summary notifications.', error)
+        console.warn('Failed to load admin notifications.', error)
       }
     }
 
-    void refreshSummary()
+    void refreshNotifications()
     const handleSummaryUpdate = () => {
-      void refreshSummary()
+      void refreshNotifications()
     }
 
     window.addEventListener(ADMIN_SUMMARY_UPDATED_EVENT, handleSummaryUpdate as EventListener)
@@ -258,6 +310,27 @@ export default function AdminShell() {
       window.removeEventListener(ADMIN_SUMMARY_UPDATED_EVENT, handleSummaryUpdate as EventListener)
     }
   }, [location.pathname])
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    if (!isAuthed() || !user) return undefined
+
+    const socket = createAdminSocket()
+    const upsertNotification = (payload: AdminNotificationResponse) => {
+      setNotifications((prev) => {
+        const next = [mapNotification(payload), ...prev.filter((item) => item.id !== payload.id)]
+        return next.slice(0, 30)
+      })
+    }
+
+    socket.on('notification.created', upsertNotification)
+    socket.connect()
+
+    return () => {
+      socket.off('notification.created', upsertNotification)
+      socket.disconnect()
+    }
+  }, [user?.email])
 
   if (!isAuthed() || !user) {
     navigate('/admin/login', { replace: true })
@@ -275,10 +348,16 @@ export default function AdminShell() {
 
   const handleMarkAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    void markAdminNotificationRead(id).catch((error) => {
+      console.warn('Failed to mark notification as read.', error)
+    })
   }
 
   const handleMarkAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    void markAllAdminNotificationsRead().catch((error) => {
+      console.warn('Failed to mark all notifications as read.', error)
+    })
   }
 
   const getNotificationIcon = (type: string) => {
@@ -829,8 +908,9 @@ function NavItemComponent({ to, label, icon, minimized }: { to: string; label: s
       sx={{
         position: 'relative',
         borderRadius: 2,
-        mx: 1.5,
         mb: 0.5,
+        width: '100%',
+        boxSizing: 'border-box',
         minHeight: 40,
         px: minimized ? 1 : 2,
         justifyContent: minimized ? 'center' : 'initial',

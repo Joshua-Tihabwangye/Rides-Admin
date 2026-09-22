@@ -18,9 +18,8 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
 import StatusBadge from "../components/StatusBadge";
+import { ADMIN_ROLE_OPTIONS } from "../auth/auth";
 import { getAdminUser, patchAdminUser, type AdminUserResponse } from "../services/api/adminApi";
-
-const ROLE_OPTIONS = ["super_admin", "admin"];
 
 export default function AdminUserDetail() {
   const { id } = useParams();
@@ -139,9 +138,9 @@ export default function AdminUserDetail() {
                 <FormControl fullWidth size="small">
                   <InputLabel>Select Role</InputLabel>
                   <Select value={role} label="Select Role" onChange={(event) => setRole(String(event.target.value))}>
-                    {ROLE_OPTIONS.map((item) => (
-                      <MenuItem key={item} value={item}>
-                        {item}
+                    {ADMIN_ROLE_OPTIONS.map((item) => (
+                      <MenuItem key={item.value} value={item.value}>
+                        {item.label}
                       </MenuItem>
                     ))}
                   </Select>

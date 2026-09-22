@@ -1,114 +1,112 @@
-import React, { useEffect } from 'react'
+import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import RequireAuth from './auth/RequireAuth'
 import RequirePermission from './auth/RequirePermission'
 import AdminShell from './layout/AdminShell'
 import AdminBackendBootstrap from './components/AdminBackendBootstrap'
 
-function ReloadAfterBrowserBack() {
-  useEffect(() => {
-    const reload = () => window.location.reload()
-    window.addEventListener('popstate', reload)
-    return () => window.removeEventListener('popstate', reload)
-  }, [])
-  return null
+function RouteLoading() {
+  return (
+    <div style={{ minHeight: 280, display: 'grid', placeItems: 'center', color: '#475569', fontSize: 13 }}>
+      Loading...
+    </div>
+  )
 }
 
-// Pages (attached)
-import AdminAuthSignIn from './pages/AdminAuthSignIn'
-import AdminAuthSignUp from './pages/AdminAuthSignUp'
-import ForgotPassword from './pages/ForgotPassword'
-import VerifyResetOtp from './pages/VerifyResetOtp'
-import ResetPassword from './pages/ResetPassword'
-import AdminWelcomeNotice from './pages/AdminWelcomeNotice'
-import AdminOnboardingChecklist from './pages/AdminOnboardingChecklist'
-import AdminHomeDashboard from './pages/AdminHomeDashboard'
-import AdminProfileRegions from './pages/AdminProfileRegions'
-import AdminGlobalSearch from './pages/AdminGlobalSearch'
-import RiderManagement from './pages/RiderManagement'
-import RiderDetail from './pages/RiderDetail'
-import RiderCreate from './pages/RiderCreate'
-import DriverManagement from './pages/DriverManagement'
-import DriverDetail from './pages/DriverDetail'
-import DriverCreate from './pages/DriverCreate'
-import SafetyOverview from './pages/SafetyOverview'
-import SosIncidentDetailPage from './pages/SosIncidentDetailPage'
-import RiskFraudCenter from './pages/RiskFraudCenter'
-import RiskDetail from './pages/RiskDetail'
-import CompanyList from './pages/CompanyList'
-import CompanyDetail from './pages/CompanyDetail'
-import FinancialOverview from './pages/FinancialOverview'
-import CompanyPayouts from './pages/CompanyPayouts'
-import FinanceCashouts from './pages/FinanceCashouts'
-import FinancePayouts from './pages/FinancePayouts'
-import FinancePayments from './pages/FinancePayments'
-import FinanceSettlements from './pages/FinanceSettlements'
-import FinanceWalletReconciliation from './pages/FinanceWalletReconciliation'
-import FinanceReconciliationRuns from './pages/FinanceReconciliationRuns'
-import CompanyApprovals from './pages/CompanyApprovals'
-import RegionTaxConfigEditor from './pages/RegionTaxConfigEditor'
-import InvoiceTemplatePreview from './pages/InvoiceTemplatePreview'
-import OperationsDashboard from './pages/OperationsDashboard'
-import MonitoringPage from './pages/MonitoringPage'
-import LiveDriversMapPage from './pages/LiveDriversMapPage'
-import MatchingInspectionPage from './pages/MatchingInspectionPage'
-import DetailedAnalytics from './pages/DetailedAnalytics'
-import ApprovalsDashboard from './pages/ApprovalsDashboard'
-import ApprovalDetail from './pages/ApprovalDetail'
-import DocumentReviewPage from './pages/DocumentReviewPage'
-import ServiceConfiguration from './pages/ServiceConfiguration'
-import PricingManagement from './pages/PricingManagement'
-import PricingRulesOverview from './pages/PricingRulesTariffs'
-import ZoneCreate from './pages/ZoneCreate'
-import ZonesGeofences from './pages/ZonesGeofences'
-import ZoneMapView from './pages/ZoneMapView'
-import ZonePricingDetail from './pages/ZonePricingDetail'
-import ZonesList from './pages/ZonesList'
-import PromotionsIncentives from './pages/PromotionsIncentives'
-import PromoDetail from './pages/PromoDetail'
-import VerticalPolicies from './pages/VerticalPolicies'
-import AgentManagement from './pages/AgentManagement'
-import AgentDetail from './pages/AgentDetail'
-import AdminUsersManagement from './pages/AdminUsersManagement'
-import AdminUserDetail from './pages/AdminUserDetail'
-import RolesPermissions from './pages/RolesPermissions'
-import GlobalTrainingManager from './pages/GlobalTrainingManager'
-import TrainingModulePreview from './pages/TrainingModulePreview'
-import LocalizationLanguageContent from './pages/LocalizationLanguageContent'
-import PolicyRuleManagement from './pages/PolicyRuleManagement'
-import FeatureFlagsExperiments from './pages/FeatureFlagsExperiments'
-import ExperimentResults from './pages/ExperimentResults'
-import ApprovalsHistory from './pages/ApprovalsHistory'
-import Integrations from './pages/Integrations'
-import AuditLog from './pages/AuditLog'
-import SystemOverview from './pages/SystemOverview'
-import Settings from './pages/Settings'
-import AccessDenied from './pages/AccessDenied'
-import DeliveryListPage from './pages/DeliveryListPage'
-import DeliveryDetailPage from './pages/DeliveryDetailPage'
-import RidesListPage from './pages/RidesListPage'
-import RideDetailPage from './pages/RideDetailPage'
-import RideAnomaliesPage from './pages/RideAnomaliesPage'
-import ReturnRequestsPage from './pages/ReturnRequestsPage'
-import DisputesPage from './pages/DisputesPage'
-import ReturnShipmentsPage from './pages/ReturnShipmentsPage'
-import ReturnShipmentDetailPage from './pages/ReturnShipmentDetailPage'
-import ReturnReconciliationPage from './pages/ReturnReconciliationPage'
-import PackageLabelPage from './pages/PackageLabelPage'
-import DeliveryLabelsPage from './pages/DeliveryLabelsPage'
-import PrintQueuePage from './pages/PrintQueuePage'
-import LabelExceptionsPage from './pages/LabelExceptionsPage'
-import BlankLabelStockPage from './pages/BlankLabelStockPage'
-import MarketplaceClientProductsPage from './pages/marketplace/MarketplaceClientProductsPage'
-import MarketplaceClientCartPage from './pages/marketplace/MarketplaceClientCartPage'
-import MarketplaceSellerOrdersPage from './pages/marketplace/MarketplaceSellerOrdersPage'
-import MarketplaceSellerOrderDetailPage from './pages/marketplace/MarketplaceSellerOrderDetailPage'
+const AdminAuthSignIn = lazy(() => import('./pages/AdminAuthSignIn'))
+const AdminAuthSignUp = lazy(() => import('./pages/AdminAuthSignUp'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
+const VerifyResetOtp = lazy(() => import('./pages/VerifyResetOtp'))
+const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const AdminWelcomeNotice = lazy(() => import('./pages/AdminWelcomeNotice'))
+const AdminOnboardingChecklist = lazy(() => import('./pages/AdminOnboardingChecklist'))
+const AdminHomeDashboard = lazy(() => import('./pages/AdminHomeDashboard'))
+const AdminProfileRegions = lazy(() => import('./pages/AdminProfileRegions'))
+const AdminGlobalSearch = lazy(() => import('./pages/AdminGlobalSearch'))
+const RiderManagement = lazy(() => import('./pages/RiderManagement'))
+const RiderDetail = lazy(() => import('./pages/RiderDetail'))
+const RiderCreate = lazy(() => import('./pages/RiderCreate'))
+const DriverManagement = lazy(() => import('./pages/DriverManagement'))
+const DriverDetail = lazy(() => import('./pages/DriverDetail'))
+const DriverCreate = lazy(() => import('./pages/DriverCreate'))
+const SafetyOverview = lazy(() => import('./pages/SafetyOverview'))
+const SosIncidentDetailPage = lazy(() => import('./pages/SosIncidentDetailPage'))
+const RiskFraudCenter = lazy(() => import('./pages/RiskFraudCenter'))
+const RiskDetail = lazy(() => import('./pages/RiskDetail'))
+const CompanyList = lazy(() => import('./pages/CompanyList'))
+const CompanyDetail = lazy(() => import('./pages/CompanyDetail'))
+const FinancialOverview = lazy(() => import('./pages/FinancialOverview'))
+const CompanyPayouts = lazy(() => import('./pages/CompanyPayouts'))
+const FinanceCashouts = lazy(() => import('./pages/FinanceCashouts'))
+const FinancePayouts = lazy(() => import('./pages/FinancePayouts'))
+const FinancePayments = lazy(() => import('./pages/FinancePayments'))
+const FinanceSettlements = lazy(() => import('./pages/FinanceSettlements'))
+const FinanceWalletReconciliation = lazy(() => import('./pages/FinanceWalletReconciliation'))
+const FinanceReconciliationRuns = lazy(() => import('./pages/FinanceReconciliationRuns'))
+const CompanyApprovals = lazy(() => import('./pages/CompanyApprovals'))
+const RegionTaxConfigEditor = lazy(() => import('./pages/RegionTaxConfigEditor'))
+const InvoiceTemplatePreview = lazy(() => import('./pages/InvoiceTemplatePreview'))
+const OperationsDashboard = lazy(() => import('./pages/OperationsDashboard'))
+const MonitoringPage = lazy(() => import('./pages/MonitoringPage'))
+const LiveDriversMapPage = lazy(() => import('./pages/LiveDriversMapPage'))
+const MatchingInspectionPage = lazy(() => import('./pages/MatchingInspectionPage'))
+const DetailedAnalytics = lazy(() => import('./pages/DetailedAnalytics'))
+const ApprovalsDashboard = lazy(() => import('./pages/ApprovalsDashboard'))
+const ApprovalDetail = lazy(() => import('./pages/ApprovalDetail'))
+const DocumentReviewPage = lazy(() => import('./pages/DocumentReviewPage'))
+const ServiceConfiguration = lazy(() => import('./pages/ServiceConfiguration'))
+const PricingManagement = lazy(() => import('./pages/PricingManagement'))
+const PricingRulesOverview = lazy(() => import('./pages/PricingRulesTariffs'))
+const ZoneCreate = lazy(() => import('./pages/ZoneCreate'))
+const ZonesGeofences = lazy(() => import('./pages/ZonesGeofences'))
+const ZoneMapView = lazy(() => import('./pages/ZoneMapView'))
+const ZonePricingDetail = lazy(() => import('./pages/ZonePricingDetail'))
+const ZonesList = lazy(() => import('./pages/ZonesList'))
+const PromotionsIncentives = lazy(() => import('./pages/PromotionsIncentives'))
+const PromoDetail = lazy(() => import('./pages/PromoDetail'))
+const VerticalPolicies = lazy(() => import('./pages/VerticalPolicies'))
+const AgentManagement = lazy(() => import('./pages/AgentManagement'))
+const AgentDetail = lazy(() => import('./pages/AgentDetail'))
+const AdminUsersManagement = lazy(() => import('./pages/AdminUsersManagement'))
+const AdminUserDetail = lazy(() => import('./pages/AdminUserDetail'))
+const RolesPermissions = lazy(() => import('./pages/RolesPermissions'))
+const GlobalTrainingManager = lazy(() => import('./pages/GlobalTrainingManager'))
+const TrainingModulePreview = lazy(() => import('./pages/TrainingModulePreview'))
+const LocalizationLanguageContent = lazy(() => import('./pages/LocalizationLanguageContent'))
+const PolicyRuleManagement = lazy(() => import('./pages/PolicyRuleManagement'))
+const FeatureFlagsExperiments = lazy(() => import('./pages/FeatureFlagsExperiments'))
+const ExperimentResults = lazy(() => import('./pages/ExperimentResults'))
+const ApprovalsHistory = lazy(() => import('./pages/ApprovalsHistory'))
+const Integrations = lazy(() => import('./pages/Integrations'))
+const AuditLog = lazy(() => import('./pages/AuditLog'))
+const SystemOverview = lazy(() => import('./pages/SystemOverview'))
+const Settings = lazy(() => import('./pages/Settings'))
+const AccessDenied = lazy(() => import('./pages/AccessDenied'))
+const DeliveryListPage = lazy(() => import('./pages/DeliveryListPage'))
+const DeliveryDetailPage = lazy(() => import('./pages/DeliveryDetailPage'))
+const RidesListPage = lazy(() => import('./pages/RidesListPage'))
+const RideDetailPage = lazy(() => import('./pages/RideDetailPage'))
+const RideAnomaliesPage = lazy(() => import('./pages/RideAnomaliesPage'))
+const ReturnRequestsPage = lazy(() => import('./pages/ReturnRequestsPage'))
+const DisputesPage = lazy(() => import('./pages/DisputesPage'))
+const ReturnShipmentsPage = lazy(() => import('./pages/ReturnShipmentsPage'))
+const ReturnShipmentDetailPage = lazy(() => import('./pages/ReturnShipmentDetailPage'))
+const ReturnReconciliationPage = lazy(() => import('./pages/ReturnReconciliationPage'))
+const PackageLabelPage = lazy(() => import('./pages/PackageLabelPage'))
+const DeliveryLabelsPage = lazy(() => import('./pages/DeliveryLabelsPage'))
+const PrintQueuePage = lazy(() => import('./pages/PrintQueuePage'))
+const LabelExceptionsPage = lazy(() => import('./pages/LabelExceptionsPage'))
+const BlankLabelStockPage = lazy(() => import('./pages/BlankLabelStockPage'))
+const MarketplaceClientProductsPage = lazy(() => import('./pages/marketplace/MarketplaceClientProductsPage'))
+const MarketplaceClientCartPage = lazy(() => import('./pages/marketplace/MarketplaceClientCartPage'))
+const MarketplaceSellerOrdersPage = lazy(() => import('./pages/marketplace/MarketplaceSellerOrdersPage'))
+const MarketplaceSellerOrderDetailPage = lazy(() => import('./pages/marketplace/MarketplaceSellerOrderDetailPage'))
 
 export default function App() {
   return (
     <BrowserRouter>
-      <ReloadAfterBrowserBack />
       <AdminBackendBootstrap />
+      <Suspense fallback={<RouteLoading />}>
       <Routes>
         <Route path="/" element={<Navigate to="/admin/login" replace />} />
 
@@ -444,22 +442,22 @@ export default function App() {
           />
           {/* Rides Administration (Phase 1): first-class ride list + detail */}
           <Route path="rides" element={<RequirePermission anyOf={["view_rides"]}><RidesListPage /></RequirePermission>} />
-          <Route path="rides/:rideId" element={<RequirePermission anyOf={["view_rides"]}><RideDetailPage /></RequirePermission>} />
           <Route path="rides/anomalies" element={<RequirePermission anyOf={["view_rides"]}><RideAnomaliesPage /></RequirePermission>} />
+          <Route path="rides/:rideId" element={<RequirePermission anyOf={["view_rides"]}><RideDetailPage /></RequirePermission>} />
           {/* Reverse logistics & returns (DLV-192) */}
-          <Route
-            path="returns"
-            element={
-              <RequirePermission anyOf={["view_deliveries"]}>
-                <ReturnShipmentsPage />
-              </RequirePermission>
-            }
-          />
           <Route
             path="returns/requests"
             element={
               <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
                 <ReturnRequestsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="returns/reconciliation"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <ReturnReconciliationPage />
               </RequirePermission>
             }
           />
@@ -472,10 +470,10 @@ export default function App() {
             }
           />
           <Route
-            path="returns/reconciliation"
+            path="returns"
             element={
-              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
-                <ReturnReconciliationPage />
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <ReturnShipmentsPage />
               </RequirePermission>
             }
           />
@@ -496,14 +494,6 @@ export default function App() {
             }
           />
           <Route
-            path="delivery-labels"
-            element={
-              <RequirePermission anyOf={["view_delivery_labels"]}>
-                <DeliveryLabelsPage />
-              </RequirePermission>
-            }
-          />
-          <Route
             path="delivery-labels/print-queue"
             element={
               <RequirePermission anyOf={["print_delivery_labels"]}>
@@ -516,6 +506,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["view_delivery_labels"]}>
                 <LabelExceptionsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="delivery-labels"
+            element={
+              <RequirePermission anyOf={["view_delivery_labels"]}>
+                <DeliveryLabelsPage />
               </RequirePermission>
             }
           />
@@ -783,6 +781,7 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/admin/login" replace />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

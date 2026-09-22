@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import type { Dayjs } from "dayjs";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -75,6 +76,14 @@ function formatNumber(value?: number): string {
   return Number(value ?? 0).toLocaleString();
 }
 
+function customDateRange(range: [Dayjs | null, Dayjs | null]) {
+  const [start, end] = range;
+  return {
+    start: start ? start.startOf("day").toISOString() : undefined,
+    end: end ? end.endOf("day").toISOString() : undefined,
+  };
+}
+
 function formatMoney(value?: number, currency = "UGX"): string {
   if (value == null || Number.isNaN(Number(value))) return "-";
   return `${currency} ${Number(value).toLocaleString("en-UG")}`;
@@ -112,6 +121,9 @@ export default function OperationsDashboardPage() {
   const [summaryPeriod, setSummaryPeriod] = useState<PeriodOption>("today");
   const [demandPeriod, setDemandPeriod] = useState<PeriodOption>("today");
   const [mixPeriod, setMixPeriod] = useState<PeriodOption>("today");
+  const [summaryRange, setSummaryRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [demandRange, setDemandRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [mixRange, setMixRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [summary, setSummary] = useState<AdminOperationsAnalytics | null>(null);
   const [demandAnalytics, setDemandAnalytics] = useState<AdminOperationsAnalytics | null>(null);
   const [mixAnalytics, setMixAnalytics] = useState<AdminOperationsAnalytics | null>(null);
@@ -127,10 +139,13 @@ export default function OperationsDashboardPage() {
     if (showSpinner) setRefreshing(true);
     setError(null);
     try {
+      const summaryQuery = summaryPeriod === "custom" ? customDateRange(summaryRange) : {};
+      const demandQuery = demandPeriod === "custom" ? customDateRange(demandRange) : {};
+      const mixQuery = mixPeriod === "custom" ? customDateRange(mixRange) : {};
       const [summaryData, demandData, mixData, dashboardData, ridesData] = await Promise.all([
-        getAdminOperationsAnalytics({ period: summaryPeriod }),
-        getAdminOperationsAnalytics({ period: demandPeriod }),
-        getAdminOperationsAnalytics({ period: mixPeriod }),
+        getAdminOperationsAnalytics({ period: summaryPeriod, ...summaryQuery }),
+        getAdminOperationsAnalytics({ period: demandPeriod, ...demandQuery }),
+        getAdminOperationsAnalytics({ period: mixPeriod, ...mixQuery }),
         getAdminDashboard(),
         listAdminRides({ page: 1, limit: 100 }),
       ]);
@@ -157,7 +172,14 @@ export default function OperationsDashboardPage() {
     void load();
     const interval = window.setInterval(() => void load(), 20000);
     return () => window.clearInterval(interval);
-  }, [summaryPeriod, demandPeriod, mixPeriod]);
+  }, [summaryPeriod, demandPeriod, mixPeriod, summaryRange, demandRange, mixRange]);
+
+  const handlePeriodChange =
+    (setPeriod: (period: PeriodOption) => void, setRange: (range: [Dayjs | null, Dayjs | null]) => void) =>
+    (period: PeriodOption, range?: { start: Dayjs; end: Dayjs }) => {
+      setPeriod(period);
+      if (range) setRange([range.start, range.end]);
+    };
 
   const demandData = useMemo(
     () => (demandAnalytics?.hourly ?? []).map((row) => ({
@@ -247,7 +269,12 @@ export default function OperationsDashboardPage() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          <PeriodSelector value={summaryPeriod} onChange={(value) => setSummaryPeriod(value)} />
+          <PeriodSelector
+            value={summaryPeriod}
+            onChange={handlePeriodChange(setSummaryPeriod, setSummaryRange)}
+            customStart={summaryRange[0]}
+            customEnd={summaryRange[1]}
+          />
           <Button
             variant="outlined"
             size="small"
@@ -342,7 +369,12 @@ export default function OperationsDashboardPage() {
                   <Typography variant="h6" fontWeight={800}>Demand vs supply</Typography>
                   <Typography variant="body2" color="text.secondary">Ride and delivery demand compared with current online driver supply.</Typography>
                 </Box>
-                <PeriodSelector value={demandPeriod} onChange={(value) => setDemandPeriod(value)} />
+                <PeriodSelector
+                  value={demandPeriod}
+                  onChange={handlePeriodChange(setDemandPeriod, setDemandRange)}
+                  customStart={demandRange[0]}
+                  customEnd={demandRange[1]}
+                />
               </Stack>
               {demandData.length === 0 ? <ChartEmpty text={`No demand data for ${PERIOD_LABELS[demandPeriod]}.`} /> : (
                 <Box sx={{ height: 320 }}>
@@ -371,7 +403,12 @@ export default function OperationsDashboardPage() {
                   <Typography variant="h6" fontWeight={800}>Service mix</Typography>
                   <Typography variant="body2" color="text.secondary">Volume by service line for the selected period.</Typography>
                 </Box>
-                <PeriodSelector value={mixPeriod} onChange={(value) => setMixPeriod(value)} />
+                <PeriodSelector
+                  value={mixPeriod}
+                  onChange={handlePeriodChange(setMixPeriod, setMixRange)}
+                  customStart={mixRange[0]}
+                  customEnd={mixRange[1]}
+                />
               </Stack>
               {serviceMixData.length === 0 ? <ChartEmpty text={`No service data for ${PERIOD_LABELS[mixPeriod]}.`} /> : (
                 <Box sx={{ height: 320 }}>

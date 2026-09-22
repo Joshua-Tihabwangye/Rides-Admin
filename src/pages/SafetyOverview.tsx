@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -18,12 +18,17 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import type { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import HealthAndSafetyIcon from "@mui/icons-material/HealthAndSafety";
 import LocalPoliceIcon from "@mui/icons-material/LocalPolice";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ReportProblemIcon from "@mui/icons-material/ReportProblem";
+import ShieldIcon from "@mui/icons-material/Shield";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import PeriodSelector from "../components/PeriodSelector";
+import type { PeriodOption } from "../components/PeriodSelector";
 import {
   listAdminDrivers,
   listAdminRiders,
@@ -37,6 +42,15 @@ import type { AdminDriverResponse, AdminRiskCaseResponse, AdminRiderResponse, Ad
 
 const EV_GREEN = "#03cd8c";
 const ACTIVE_SAFETY_STATUSES = new Set(["OPEN", "ACKNOWLEDGED", "RESPONDING"]);
+const CATEGORY_COLORS = {
+  SOS: "#ef4444",
+  TRIP_ANOMALY: "#f97316",
+  SAFETY: "#2563eb",
+  RISK: "#8b5cf6",
+  RESOLVED: "#10b981",
+};
+
+type CategoryFilter = "ALL" | "SOS" | "TRIP_ANOMALY" | "SAFETY" | "RISK";
 
 type ReviewAccount = {
   id: string;
@@ -44,6 +58,23 @@ type ReviewAccount = {
   type: "Rider" | "Driver";
   contact: string;
   status: string;
+};
+
+type SafetyRow = {
+  id: string;
+  category: Exclude<CategoryFilter, "ALL">;
+  title: string;
+  subject: string;
+  cause: string;
+  status: string;
+  severity?: string;
+  location: string;
+  reportedAt: string | number | null | undefined;
+  resolutionMeans: string;
+  details: string[];
+  openPath: string;
+  source: "incident" | "risk";
+  incident?: AdminSafetyIncident;
 };
 
 function fullRiderName(rider: AdminRiderResponse) {
@@ -64,22 +95,99 @@ function titleize(value?: string | null) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function periodRange(period: PeriodOption, customRange: [Dayjs | null, Dayjs | null]) {
+  const now = dayjs();
+  if (period === "today") return { start: now.startOf("day").toISOString(), end: now.endOf("day").toISOString() };
+  if (period === "7days") return { start: now.subtract(7, "day").startOf("day").toISOString(), end: now.endOf("day").toISOString() };
+  if (period === "thisMonth") return { start: now.startOf("month").toISOString(), end: now.endOf("month").toISOString() };
+  if (period === "thisYear") return { start: now.startOf("year").toISOString(), end: now.endOf("year").toISOString() };
+  const [start, end] = customRange;
+  if (start && end) return { start: start.startOf("day").toISOString(), end: end.endOf("day").toISOString() };
+  return { start: now.subtract(7, "day").startOf("day").toISOString(), end: now.endOf("day").toISOString() };
+}
+
 function mapsLink(incident: AdminSafetyIncident) {
-  if (incident.latitude == null || incident.longitude == null) return null;
-  return `https://www.google.com/maps?q=${Number(incident.latitude)},${Number(incident.longitude)}`;
+  if (incident.view?.mapsUrl) return incident.view.mapsUrl;
+  const latitude = incident.view?.coordinates?.latitude ?? incident.latitude;
+  const longitude = incident.view?.coordinates?.longitude ?? incident.longitude;
+  if (latitude == null || longitude == null) return null;
+  return `https://www.google.com/maps?q=${Number(latitude)},${Number(longitude)}`;
 }
 
 function incidentCause(incident: AdminSafetyIncident) {
   if (incident.description) return incident.description;
-  if (incident.sos) return "SOS was activated by the reporter.";
+  if (incident.sos) return "SOS was activated and emergency contacts/support were notified where available.";
   return `${titleize(incident.type)} safety incident reported by ${incident.reporterUserId.slice(0, 8)}.`;
 }
 
 function riskCause(riskCase: AdminRiskCaseResponse) {
-  const evidenceFlags = Array.isArray(riskCase.evidence?.flags) ? riskCase.evidence.flags.join(", ") : "";
-  if (evidenceFlags) return evidenceFlags;
+  const flags = Array.isArray(riskCase.evidence?.flags) ? riskCase.evidence.flags.join(", ") : "";
+  if (flags) return flags;
   if (riskCase.notes) return riskCase.notes;
   return `${titleize(riskCase.type)} raised for ${titleize(riskCase.subjectType)} ${riskCase.subjectId.slice(0, 8)}.`;
+}
+
+function isTripAnomaly(riskCase: AdminRiskCaseResponse) {
+  const haystack = [riskCase.type, riskCase.notes, JSON.stringify(riskCase.evidence ?? {})].join(" ").toLowerCase();
+  return haystack.includes("trip") || haystack.includes("ride") || haystack.includes("distance") || haystack.includes("duration");
+}
+
+function incidentToRow(incident: AdminSafetyIncident): SafetyRow {
+  const reporter = incident.view?.reporter?.name || incident.contextSnapshot?.reporter?.name || incident.reporterUserId.slice(0, 8);
+  const reporterPhone = incident.view?.reporter?.phone || incident.contextSnapshot?.reporter?.phone;
+  const driver = incident.view?.driver?.name || incident.contextSnapshot?.ride?.assignedDriver?.name;
+  const rider = incident.view?.rider?.name || incident.contextSnapshot?.ride?.rider?.name;
+  const vehicle = incident.view?.vehicle?.plate || incident.contextSnapshot?.ride?.assignedVehicle?.plate;
+  const pickup = incident.view?.ride?.pickup || incident.contextSnapshot?.ride?.pickup?.address;
+  const destination = incident.view?.ride?.destination || incident.contextSnapshot?.ride?.destination?.address;
+  const contacts = incident.notifiedContacts?.length ?? 0;
+  const mapUrl = mapsLink(incident);
+  return {
+    id: incident.id,
+    category: incident.sos ? "SOS" : "SAFETY",
+    title: incident.sos ? "SOS incident" : titleize(incident.type),
+    subject: reporter,
+    cause: incidentCause(incident),
+    status: incident.status,
+    location: mapUrl || incident.view?.placeName || incident.address || "No location captured",
+    reportedAt: incident.createdAt,
+    resolutionMeans: incident.status === "RESOLVED" ? "Resolved" : "Open the SOS detail, verify contacts, coordinate help, then resolve once the reporter is safe.",
+    details: [
+      reporterPhone ? `Reporter ${reporterPhone}` : "",
+      rider ? `Rider ${rider}` : "",
+      driver ? `Driver ${driver}` : "",
+      vehicle ? `Vehicle ${vehicle}` : "",
+      pickup || destination ? `Route ${pickup || "-"} -> ${destination || "-"}` : "",
+      contacts ? `${contacts} notified contact${contacts === 1 ? "" : "s"}` : "No notified contacts recorded",
+    ].filter(Boolean),
+    openPath: `/admin/safety/${incident.id}`,
+    source: "incident",
+    incident,
+  };
+}
+
+function riskToRow(riskCase: AdminRiskCaseResponse): SafetyRow {
+  const tripAnomaly = isTripAnomaly(riskCase);
+  return {
+    id: riskCase.id,
+    category: tripAnomaly ? "TRIP_ANOMALY" : "RISK",
+    title: tripAnomaly ? "Trip anomaly" : titleize(riskCase.type),
+    subject: `${titleize(riskCase.subjectType)} ${riskCase.subjectId.slice(0, 8)}`,
+    cause: riskCause(riskCase),
+    status: riskCase.status ?? "open",
+    severity: riskCase.severity,
+    location: "Derived from trip/risk evidence",
+    reportedAt: riskCase.createdAt,
+    resolutionMeans: riskCase.status === "resolved" ? "Resolved" : "Review evidence, contact the subject, document the reason, then resolve or keep under review.",
+    details: [riskCase.notes || "Database risk signal", `Subject ${riskCase.subjectId.slice(0, 8)}`],
+    openPath: `/admin/risk/${riskCase.id}`,
+    source: "risk",
+  };
+}
+
+function inRange(value: string | number, range: { start: string; end: string }) {
+  const timestamp = new Date(value).getTime();
+  return !Number.isNaN(timestamp) && timestamp >= new Date(range.start).getTime() && timestamp <= new Date(range.end).getTime();
 }
 
 export default function SafetyOverviewDashboardPage() {
@@ -88,23 +196,32 @@ export default function SafetyOverviewDashboardPage() {
   const [riskCases, setRiskCases] = useState<AdminRiskCaseResponse[]>([]);
   const [reviewAccounts, setReviewAccounts] = useState<ReviewAccount[]>([]);
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
+  const [period, setPeriod] = useState<PeriodOption>("today");
+  const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ severity: "success" | "error"; message: string } | null>(null);
 
-  const load = async () => {
+  const selectedRange = useMemo(() => periodRange(period, customRange), [period, customRange]);
+
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [incidentPage, cases, riders, drivers] = await Promise.all([
-        listAdminSafetyEmergencies({ page: 1, limit: 100 }),
+      const [incidentPage, sosPage, cases, riders, drivers] = await Promise.all([
+        listAdminSafetyEmergencies({ page: 1, limit: 100, fromDate: selectedRange.start, toDate: selectedRange.end }),
+        listAdminSafetyEmergencies({ page: 1, limit: 100, sos: true }),
         listAdminRiskCases().catch(() => []),
         listAdminRiders().catch(() => []),
         listAdminDrivers().catch(() => []),
       ]);
-      setIncidents(incidentPage?.items ?? []);
-      setRiskCases(Array.isArray(cases) ? cases : []);
+      const mergedIncidents = new Map<string, AdminSafetyIncident>();
+      for (const incident of incidentPage?.items ?? []) mergedIncidents.set(incident.id, incident);
+      for (const incident of sosPage?.items ?? []) mergedIncidents.set(incident.id, incident);
+      setIncidents([...mergedIncidents.values()]);
+      setRiskCases((Array.isArray(cases) ? cases : []).filter((riskCase) => inRange(riskCase.createdAt, selectedRange)));
       const riderReview: ReviewAccount[] = (Array.isArray(riders) ? riders : [])
         .filter((rider: AdminRiderResponse) => rider.status !== "active")
         .map((rider: AdminRiderResponse) => ({
@@ -132,38 +249,32 @@ export default function SafetyOverviewDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedRange]);
 
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => void load(), 30000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [load]);
 
+  const rows = useMemo(() => [...incidents.map(incidentToRow), ...riskCases.map(riskToRow)], [incidents, riskCases]);
+  const sosRows = useMemo(() => rows.filter((row) => row.category === "SOS"), [rows]);
   const activeIncidents = useMemo(() => incidents.filter((incident) => ACTIVE_SAFETY_STATUSES.has(incident.status)), [incidents]);
   const openRiskCases = useMemo(() => riskCases.filter((riskCase) => (riskCase.status ?? "open") !== "resolved"), [riskCases]);
 
-  const filteredIncidents = useMemo(() => {
-    return incidents.filter((incident) => {
+  const filteredRows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return rows.filter((row) => {
+      const matchesCategory = categoryFilter === "ALL" || row.category === categoryFilter;
       const matchesStatus =
         statusFilter === "ALL" ||
-        (statusFilter === "ACTIVE" && ACTIVE_SAFETY_STATUSES.has(incident.status)) ||
-        incident.status === statusFilter;
-      const query = search.trim().toLowerCase();
-      const haystack = [
-        incident.id,
-        incident.type,
-        incident.status,
-        incident.reporterUserId,
-        incident.driverId,
-        incident.serviceType,
-        incident.serviceId,
-        incident.address,
-        incident.description,
-      ].join(" ").toLowerCase();
-      return matchesStatus && (query.length === 0 || haystack.includes(query));
+        (statusFilter === "ACTIVE" && row.source === "incident" && ACTIVE_SAFETY_STATUSES.has(row.status)) ||
+        row.status?.toUpperCase() === statusFilter ||
+        (statusFilter === "ACTIVE" && row.source === "risk" && row.status !== "resolved");
+      const haystack = [row.id, row.category, row.title, row.subject, row.cause, row.status, row.details.join(" ")].join(" ").toLowerCase();
+      return matchesCategory && matchesStatus && (query.length === 0 || haystack.includes(query));
     });
-  }, [incidents, search, statusFilter]);
+  }, [categoryFilter, rows, search, statusFilter]);
 
   const approveAccount = async (account: ReviewAccount) => {
     setNotice(null);
@@ -205,30 +316,49 @@ export default function SafetyOverviewDashboardPage() {
             <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>Safety Overview</Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Live SOS incidents, review accounts, and risk signals from the database.
+            SOS incidents, trip anomalies, and safety risk signals loaded from the database.
           </Typography>
         </Box>
-        <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => void load()} sx={{ borderRadius: 999, textTransform: "none" }}>
-          Refresh
-        </Button>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
+          <PeriodSelector
+            value={period}
+            onChange={(newPeriod, range) => {
+              setPeriod(newPeriod);
+              if (range) setCustomRange([range.start, range.end]);
+            }}
+            customStart={customRange[0]}
+            customEnd={customRange[1]}
+          />
+          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => void load()} sx={{ borderRadius: 999, textTransform: "none" }}>
+            Refresh
+          </Button>
+        </Stack>
       </Box>
 
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {notice ? <Alert severity={notice.severity} sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice.message}</Alert> : null}
 
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 2, mb: 3 }}>
-        <MetricCard icon={<ReportProblemIcon />} label="Active incidents" value={activeIncidents.length} helper="Open, acknowledged, responding" tone="error" onClick={() => setStatusFilter("ACTIVE")} active={statusFilter === "ACTIVE"} />
-        <MetricCard icon={<LocalPoliceIcon />} label="Open risk cases" value={openRiskCases.length} helper="Risk queue requiring action" tone="warning" onClick={() => navigate("/admin/risk")} />
-        <MetricCard icon={<VisibilityIcon />} label="Accounts in review" value={reviewAccounts.length} helper="Riders and drivers not active" tone="primary" />
-        <MetricCard icon={<TaskAltIcon />} label="Resolved incidents" value={incidents.filter((incident) => incident.status === "RESOLVED").length} helper="Closed safety records" tone="success" onClick={() => setStatusFilter("RESOLVED")} active={statusFilter === "RESOLVED"} />
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(5, 1fr)" }, gap: 2, mb: 3 }}>
+        <MetricCard icon={<ReportProblemIcon />} label="SOS incidents" value={sosRows.length} helper="Emergency activations" color={CATEGORY_COLORS.SOS} onClick={() => setCategoryFilter("SOS")} active={categoryFilter === "SOS"} />
+        <MetricCard icon={<ShieldIcon />} label="Trip anomalies" value={rows.filter((row) => row.category === "TRIP_ANOMALY").length} helper="Distance, duration, route risk" color={CATEGORY_COLORS.TRIP_ANOMALY} onClick={() => setCategoryFilter("TRIP_ANOMALY")} active={categoryFilter === "TRIP_ANOMALY"} />
+        <MetricCard icon={<HealthAndSafetyIcon />} label="Safety incidents" value={activeIncidents.length} helper="Open, acknowledged, responding" color={CATEGORY_COLORS.SAFETY} onClick={() => { setCategoryFilter("SAFETY"); setStatusFilter("ACTIVE"); }} active={categoryFilter === "SAFETY" && statusFilter === "ACTIVE"} />
+        <MetricCard icon={<LocalPoliceIcon />} label="Open risk cases" value={openRiskCases.length} helper="Risk queue requiring action" color={CATEGORY_COLORS.RISK} onClick={() => setCategoryFilter("RISK")} active={categoryFilter === "RISK"} />
+        <MetricCard icon={<TaskAltIcon />} label="Resolved" value={incidents.filter((incident) => incident.status === "RESOLVED").length} helper="Closed safety records" color={CATEGORY_COLORS.RESOLVED} onClick={() => setStatusFilter("RESOLVED")} active={statusFilter === "RESOLVED"} />
       </Box>
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.4fr 240px" }, gap: 2 }}>
-          <TextField size="small" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search incident, reporter, driver, address" />
-          <TextField select size="small" label="Incident status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} SelectProps={{ native: true }}>
-            <option value="ACTIVE">Active incidents</option>
-            <option value="ALL">All incidents</option>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.4fr 220px 220px" }, gap: 2 }}>
+          <TextField size="small" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search SOS, reporter, driver, cause, route" />
+          <TextField select size="small" label="Category" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as CategoryFilter)} SelectProps={{ native: true }}>
+            <option value="ALL">All categories</option>
+            <option value="SOS">SOS</option>
+            <option value="TRIP_ANOMALY">Trip anomalies</option>
+            <option value="SAFETY">Safety incidents</option>
+            <option value="RISK">Other risk cases</option>
+          </TextField>
+          <TextField select size="small" label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} SelectProps={{ native: true }}>
+            <option value="ACTIVE">Active / unresolved</option>
+            <option value="ALL">All statuses</option>
             <option value="OPEN">Open</option>
             <option value="ACKNOWLEDGED">Acknowledged</option>
             <option value="RESPONDING">Responding</option>
@@ -237,58 +367,82 @@ export default function SafetyOverviewDashboardPage() {
         </Box>
       </Paper>
 
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden", mb: 3 }}>
+        <SectionHeader title="SOS Incidents" subtitle={`${sosRows.length} SOS records from the backend`} />
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>SOS</TableCell>
+                <TableCell>Reporter / parties</TableCell>
+                <TableCell>Route and location</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Reported</TableCell>
+                <TableCell align="right">Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sosRows.length === 0 ? (
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}>No SOS incidents in this period.</TableCell></TableRow>
+              ) : sosRows.map((row) => (
+                <TableRow key={row.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 800, fontFamily: "monospace" }}>{row.id.slice(0, 8)}</Typography>
+                    <Chip size="small" color="error" label="SOS" sx={{ mt: 0.5 }} />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{row.subject}</Typography>
+                    <Typography variant="caption" color="text.secondary">{row.details.join(" | ")}</Typography>
+                  </TableCell>
+                  <TableCell sx={{ maxWidth: 360 }}>{renderLocation(row)}</TableCell>
+                  <TableCell><StatusChip status={row.status} /></TableCell>
+                  <TableCell>{formatDate(row.reportedAt)}</TableCell>
+                  <TableCell align="right"><Button size="small" onClick={() => navigate(row.openPath)} sx={{ textTransform: "none" }}>Open full details</Button></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1.5fr 1fr" }, gap: 3, mb: 3 }}>
         <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
-          <SectionHeader title="Safety Incident Queue" subtitle={`${filteredIncidents.length} incidents shown`} />
+          <SectionHeader title="Classified Incident Queue" subtitle={`${filteredRows.length} safety records shown`} />
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Incident</TableCell>
-                  <TableCell>Type</TableCell>
+                  <TableCell>Record</TableCell>
+                  <TableCell>Category</TableCell>
                   <TableCell>Cause / reason</TableCell>
-                  <TableCell>Location</TableCell>
+                  <TableCell>Resolution means</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Reported</TableCell>
                   <TableCell align="right">Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredIncidents.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 7 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>No safety incidents match this view</Typography>
+                {filteredRows.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 7 }}><Typography variant="subtitle2" sx={{ fontWeight: 700 }}>No safety records match this view</Typography></TableCell></TableRow>
+                ) : filteredRows.map((row) => (
+                  <TableRow key={`${row.source}-${row.id}`} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 800 }}>{row.title}</Typography>
+                      <Typography variant="caption" color="text.secondary">{row.subject}</Typography>
+                    </TableCell>
+                    <TableCell><CategoryChip category={row.category} /></TableCell>
+                    <TableCell sx={{ maxWidth: 300 }}>{row.cause}</TableCell>
+                    <TableCell sx={{ maxWidth: 320 }}>{row.resolutionMeans}</TableCell>
+                    <TableCell><StatusChip status={row.status} severity={row.severity} /></TableCell>
+                    <TableCell>{formatDate(row.reportedAt)}</TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        {row.incident && row.incident.status !== "RESOLVED" ? <Button size="small" onClick={() => void updateIncident(row.incident!, "RESOLVED")} sx={{ textTransform: "none" }}>Resolve</Button> : null}
+                        <Button size="small" onClick={() => navigate(row.openPath)} sx={{ textTransform: "none" }}>Open</Button>
+                      </Stack>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  filteredIncidents.map((incident) => {
-                    const location = mapsLink(incident);
-                    return (
-                      <TableRow key={incident.id} hover>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 800, fontFamily: "monospace" }}>{incident.id.slice(0, 8)}</Typography>
-                          <Typography variant="caption" color="text.secondary">{incident.reporterUserId.slice(0, 8)}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
-                            {incident.sos ? <Chip size="small" color="error" label="SOS" /> : null}
-                            <Chip size="small" label={titleize(incident.type)} />
-                          </Stack>
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 300 }}>{incidentCause(incident)}</TableCell>
-                        <TableCell>{location ? <Button size="small" href={location} target="_blank" rel="noreferrer" sx={{ textTransform: "none" }}>Map</Button> : incident.address || "-"}</TableCell>
-                        <TableCell><Chip size="small" color={incident.status === "RESOLVED" ? "success" : incident.status === "OPEN" ? "error" : "warning"} label={titleize(incident.status)} /></TableCell>
-                        <TableCell>{formatDate(incident.createdAt)}</TableCell>
-                        <TableCell align="right">
-                          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                            {incident.status !== "RESOLVED" ? <Button size="small" onClick={() => void updateIncident(incident, "RESOLVED")} sx={{ textTransform: "none" }}>Resolve</Button> : null}
-                            <Button size="small" onClick={() => navigate(`/admin/safety/${incident.id}`)} sx={{ textTransform: "none" }}>Open</Button>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
@@ -309,67 +463,50 @@ export default function SafetyOverviewDashboardPage() {
               <TableBody>
                 {reviewAccounts.length === 0 ? (
                   <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}>No accounts currently need review</TableCell></TableRow>
-                ) : (
-                  reviewAccounts.slice(0, 12).map((account) => (
-                    <TableRow key={`${account.type}-${account.id}`} hover>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{account.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">{account.contact}</Typography>
-                      </TableCell>
-                      <TableCell>{account.type}</TableCell>
-                      <TableCell><Chip size="small" label={titleize(account.status)} /></TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          <Button size="small" onClick={() => navigate(account.type === "Rider" ? `/admin/riders/${account.id}` : `/admin/drivers/${account.id}`)} sx={{ textTransform: "none" }}>Open</Button>
-                          <Button size="small" variant="outlined" onClick={() => void approveAccount(account)} sx={{ textTransform: "none" }}>Activate</Button>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ) : reviewAccounts.slice(0, 12).map((account) => (
+                  <TableRow key={`${account.type}-${account.id}`} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{account.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{account.contact}</Typography>
+                    </TableCell>
+                    <TableCell>{account.type}</TableCell>
+                    <TableCell><Chip size="small" label={titleize(account.status)} /></TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Button size="small" onClick={() => navigate(account.type === "Rider" ? `/admin/riders/${account.id}` : `/admin/drivers/${account.id}`)} sx={{ textTransform: "none" }}>Open</Button>
+                        <Button size="small" variant="outlined" onClick={() => void approveAccount(account)} sx={{ textTransform: "none" }}>Activate</Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
         </Paper>
       </Box>
-
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
-        <SectionHeader title="Safety-Linked Risk Cases" subtitle={`${openRiskCases.length} unresolved cases`} />
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Subject</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Cause / reason</TableCell>
-                <TableCell>Resolution means</TableCell>
-                <TableCell>Severity</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Action</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {riskCases.slice(0, 12).map((riskCase) => (
-                <TableRow key={riskCase.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{riskCase.subjectId.slice(0, 10)}</Typography>
-                    <Typography variant="caption" color="text.secondary">{titleize(riskCase.subjectType)}</Typography>
-                  </TableCell>
-                  <TableCell><Chip size="small" label={titleize(riskCase.type)} /></TableCell>
-                  <TableCell sx={{ maxWidth: 320 }}>{riskCause(riskCase)}</TableCell>
-                  <TableCell sx={{ maxWidth: 320 }}>{riskCase.status === "resolved" ? "Resolved" : "Review evidence, contact the subject, then resolve or keep under review."}</TableCell>
-                  <TableCell><Chip size="small" color={riskCase.severity === "High" ? "error" : riskCase.severity === "Medium" ? "warning" : "success"} label={riskCase.severity} /></TableCell>
-                  <TableCell><Chip size="small" color={riskCase.status === "resolved" ? "success" : riskCase.status === "under_review" ? "warning" : "default"} label={titleize(riskCase.status ?? "open")} /></TableCell>
-                  <TableCell align="right"><Button size="small" onClick={() => navigate(`/admin/risk/${riskCase.id}`)} sx={{ textTransform: "none" }}>Open</Button></TableCell>
-                </TableRow>
-              ))}
-              {riskCases.length === 0 ? <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>No risk cases found</TableCell></TableRow> : null}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
     </Box>
   );
+}
+
+function renderLocation(row: SafetyRow) {
+  if (row.source === "incident" && row.incident) {
+    const url = mapsLink(row.incident);
+    if (url) return <Button size="small" href={url} target="_blank" rel="noreferrer" sx={{ textTransform: "none" }}>Open map</Button>;
+  }
+  return <Typography variant="body2">{row.location}</Typography>;
+}
+
+function CategoryChip({ category }: { category: Exclude<CategoryFilter, "ALL"> }) {
+  const label = category === "SOS" ? "SOS" : category === "TRIP_ANOMALY" ? "Trip anomaly" : category === "SAFETY" ? "Safety incident" : "Risk case";
+  const color = CATEGORY_COLORS[category];
+  return <Chip size="small" label={label} sx={{ bgcolor: `${color}18`, color, fontWeight: 700 }} />;
+}
+
+function StatusChip({ status, severity }: { status: string; severity?: string }) {
+  const normalized = status?.toLowerCase();
+  const color = normalized === "resolved" ? "success" : normalized === "open" ? "error" : normalized === "responding" || normalized === "under_review" ? "warning" : "default";
+  const label = severity ? `${severity} | ${titleize(status)}` : titleize(status);
+  return <Chip size="small" color={color} label={label} />;
 }
 
 function MetricCard({
@@ -377,7 +514,7 @@ function MetricCard({
   label,
   value,
   helper,
-  tone,
+  color,
   onClick,
   active,
 }: {
@@ -385,11 +522,10 @@ function MetricCard({
   label: string;
   value: number;
   helper: string;
-  tone: "error" | "warning" | "primary" | "success";
+  color: string;
   onClick?: () => void;
   active?: boolean;
 }) {
-  const color = tone === "error" ? "#ef4444" : tone === "warning" ? "#f59e0b" : tone === "primary" ? "#2563eb" : EV_GREEN;
   return (
     <Paper
       variant="outlined"
