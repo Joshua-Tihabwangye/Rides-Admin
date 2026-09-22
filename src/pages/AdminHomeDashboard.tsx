@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
+import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import {
   Alert,
   Box,
@@ -45,9 +47,23 @@ import {
 const EV_GREEN = "#03cd8c";
 const DELIVERY_PURPLE = "#8b5cf6";
 
+function periodRange(period: PeriodOption, customRange: [Dayjs | null, Dayjs | null]) {
+  const now = dayjs();
+  if (period === "today") return { start: now.startOf("day").toISOString(), end: now.endOf("day").toISOString() };
+  if (period === "7days") return { start: now.subtract(7, "day").startOf("day").toISOString(), end: now.endOf("day").toISOString() };
+  if (period === "thisMonth") return { start: now.startOf("month").toISOString(), end: now.endOf("month").toISOString() };
+  if (period === "thisYear") return { start: now.startOf("year").toISOString(), end: now.endOf("year").toISOString() };
+  const [start, end] = customRange;
+  return {
+    start: start ? start.startOf("day").toISOString() : undefined,
+    end: end ? end.endOf("day").toISOString() : undefined,
+  };
+}
+
 export default function AdminHomeDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodOption>("today");
+  const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" | "Deliveries" | "Both">("Both");
   const [overview, setOverview] = useState<{
     totals?: { users?: number; riders?: number; drivers?: number; companies?: number; trips?: number };
@@ -58,6 +74,7 @@ export default function AdminHomeDashboardPage() {
   const [monitoringSnapshot, setMonitoringSnapshot] = useState<AdminMonitoringSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const range = useMemo(() => periodRange(period, customRange), [customRange, period]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,8 +84,8 @@ export default function AdminHomeDashboardPage() {
         setError(null);
         const [ov, ops, fin, monitoring] = await Promise.all([
           getAdminSystemOverview(),
-          getAdminOperationsAnalytics({ period: period as AdminAnalyticsPeriod }),
-          getAdminFinanceAnalytics({ period: period as AdminAnalyticsPeriod }),
+          getAdminOperationsAnalytics({ period: period as AdminAnalyticsPeriod, start: range.start, end: range.end }),
+          getAdminFinanceAnalytics({ period: period as AdminAnalyticsPeriod, start: range.start, end: range.end }),
           getAdminMonitoringSnapshot().catch(() => null),
         ]);
         if (!cancelled) {
@@ -85,11 +102,11 @@ export default function AdminHomeDashboardPage() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [period]);
+  }, [period, range.end, range.start]);
 
   const kpis = useMemo(() => {
     const totals = overview?.totals;
-    const tripsTotal = totals?.trips ?? operationsAnalytics?.trips?.total ?? 0;
+    const tripsTotal = operationsAnalytics?.trips?.total;
     const onlineDrivers = monitoringSnapshot?.onlineDrivers ?? 0;
     const driverTotal = operationsAnalytics?.drivers?.total ?? totals?.drivers ?? 0;
     const offlineDrivers = monitoringSnapshot?.offlineDrivers ?? Math.max(0, driverTotal - onlineDrivers);
@@ -99,7 +116,7 @@ export default function AdminHomeDashboardPage() {
     return [
       {
         label: "Trips",
-        value: tripsTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+        value: tripsTotal == null ? "-" : tripsTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }),
         helper: `${operationsAnalytics?.trips?.completed ?? 0} completed · ${operationsAnalytics?.trips?.active ?? 0} active`,
         icon: <DashboardIcon />,
         color: "#2563eb",
@@ -191,7 +208,15 @@ export default function AdminHomeDashboardPage() {
             Live operations, finance, safety, and approval indicators from backend aggregates.
           </Typography>
         </Box>
-        <PeriodSelector value={period} onChange={(newPeriod) => setPeriod(newPeriod)} />
+        <PeriodSelector
+          value={period}
+          customStart={customRange[0]}
+          customEnd={customRange[1]}
+          onChange={(newPeriod, rangeValue) => {
+            setPeriod(newPeriod);
+            if (rangeValue) setCustomRange([rangeValue.start, rangeValue.end]);
+          }}
+        />
       </Box>
 
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
@@ -207,7 +232,9 @@ export default function AdminHomeDashboardPage() {
           <Box sx={{ px: 2, py: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
             <Box>
               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Ride & Delivery Trends</Typography>
-              <Typography variant="caption" color="text.secondary">Hourly ride and delivery demand from operations analytics</Typography>
+              <Typography variant="caption" color="text.secondary">
+                Ride and delivery demand from {tripTrends.length} backend bucket{tripTrends.length === 1 ? "" : "s"}
+              </Typography>
             </Box>
             <ToggleButtonGroup
               value={tripTrendFilter}
@@ -226,7 +253,7 @@ export default function AdminHomeDashboardPage() {
               <Box sx={{ height: "100%", display: "grid", placeItems: "center" }}><CircularProgress size={28} /></Box>
             ) : tripTrends.length === 0 ? (
               <Box sx={{ height: "100%", display: "grid", placeItems: "center", color: "text.secondary", textAlign: "center" }}>
-                <Typography variant="body2">Hourly trend data is not available from the backend yet.</Typography>
+                <Typography variant="body2">Trend data is not available from the backend for this period yet.</Typography>
               </Box>
             ) : (
               <ResponsiveContainer width="100%" height="100%">

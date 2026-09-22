@@ -60,12 +60,18 @@ export default function MarketplaceClientProductsPage() {
   const [sellerOrganizationId, setSellerOrganizationId] = useState("");
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const sessionSellerOrganizationId = session?.sellerOrganizationId ?? "";
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await listMarketplaceProducts({ search: search || undefined, page, limit: 8 });
+      const result = await listMarketplaceProducts({
+        search: search || undefined,
+        sellerOrganizationId: sessionSellerOrganizationId || undefined,
+        page,
+        limit: 8,
+      });
       setProducts(result.items);
       setTotalPages(Math.max(1, result.meta.pageCount));
     } catch (err) {
@@ -73,7 +79,7 @@ export default function MarketplaceClientProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, page]);
+  }, [search, sessionSellerOrganizationId, page]);
 
   // The catalog loads immediately and independently of the simulation session.
   useEffect(() => {
@@ -123,6 +129,10 @@ export default function MarketplaceClientProductsPage() {
   const handleAdd = useCallback(
     async (product: MarketplaceProduct, variant: MarketplaceProductVariant) => {
       if (!session) return;
+      if (product.sellerOrganizationId !== session.sellerOrganizationId) {
+        setError("This simulation is locked to the selected seller. Start a new simulation to shop from another seller.");
+        return;
+      }
       setAddingVariant(variant.id);
       setError(null);
       try {
@@ -175,6 +185,11 @@ export default function MarketplaceClientProductsPage() {
           <Typography variant="body2" color="text.secondary">
             Live catalog from the backend. Adding to cart writes to the simulated buyer&apos;s backend cart.
           </Typography>
+          {session ? (
+            <Typography variant="caption" color="text.secondary">
+              Active seller simulation: {session.sellerOrganizationId}
+            </Typography>
+          ) : null}
         </Box>
         <Button variant="contained" startIcon={<AddShoppingCartIcon />} onClick={() => navigate("/admin/marketplace/client/cart")}>
           Cart ({cartCount})
@@ -291,6 +306,7 @@ export default function MarketplaceClientProductsPage() {
             const chosen = selection[product.id];
             const chosenVariant =
               product.variants.find((variant) => variant.id === chosen?.variantId) ?? product.variants[0];
+            const matchesSessionSeller = !session || product.sellerOrganizationId === session.sellerOrganizationId;
             return (
               <Grid item xs={12} md={6} lg={4} key={product.id}>
                 <Card variant="outlined" sx={{ height: "100%" }}>
@@ -362,7 +378,11 @@ export default function MarketplaceClientProductsPage() {
                       <Button
                         variant="contained"
                         disabled={
-                          !session || !chosenVariant || chosenVariant.availableQuantity <= 0 || addingVariant === chosenVariant?.id
+                          !session ||
+                          !matchesSessionSeller ||
+                          !chosenVariant ||
+                          chosenVariant.availableQuantity <= 0 ||
+                          addingVariant === chosenVariant?.id
                         }
                         onClick={() => chosenVariant && void handleAdd(product, chosenVariant)}
                         startIcon={<AddShoppingCartIcon />}
@@ -371,6 +391,8 @@ export default function MarketplaceClientProductsPage() {
                           ? "Adding…"
                           : !session
                             ? "Start simulation to add"
+                            : !matchesSessionSeller
+                              ? "Different seller"
                             : chosenVariant && chosenVariant.availableQuantity <= 0
                               ? "Out of stock"
                               : "Add to cart"}

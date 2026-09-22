@@ -4,6 +4,8 @@ import { request } from "./httpClient";
 interface BackendAuthUser {
   id: string;
   email: string;
+  firstName?: string | null;
+  lastName?: string | null;
   roles?: string[];
   driverId?: string;
 }
@@ -22,6 +24,8 @@ export interface BackendSessionResponse {
     phone?: string | null;
     status: string;
     roles: string[];
+    firstName?: string | null;
+    lastName?: string | null;
     lastLoginAt?: string | null;
   };
   profile: {
@@ -39,6 +43,7 @@ export interface BackendRegisterInput {
   password: string;
   fullName?: string;
   phone?: string;
+  adminRole?: string;
 }
 
 export interface BackendLoginInput {
@@ -87,7 +92,7 @@ export async function backendRegister(input: BackendRegisterInput): Promise<Back
       fullName: input.fullName,
       phone: input.phone,
       role: "ADMIN",
-      roles: ["admin"],
+      roles: [input.adminRole || "admin"],
     },
   });
 }

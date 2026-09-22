@@ -2088,21 +2088,53 @@ export async function getAdminSystemOverview(): Promise<{
   return request<{ totals: { users: number; riders: number; drivers: number; companies: number; trips: number }; queues: { approvals: number; riskCases: number; safetyIncidents: number } }>("/admin/system/overview", { method: "GET" });
 }
 
+export type AdminNotificationResponse = {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown> | null;
+  readAt?: string | null;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export type AdminNotificationListResponse = {
+  items: AdminNotificationResponse[];
+  meta: { page: number; limit: number; total: number; pageCount?: number; totalPages?: number };
+};
+
+export async function listAdminNotifications(input: { page?: number; limit?: number; unreadOnly?: boolean } = {}): Promise<AdminNotificationListResponse> {
+  return request<AdminNotificationListResponse>("/notifications", {
+    method: "GET",
+    query: {
+      page: input.page ?? 1,
+      limit: input.limit ?? 20,
+      unreadOnly: input.unreadOnly,
+    },
+  });
+}
+
+export async function getAdminUnreadNotificationCount(): Promise<{ count: number }> {
+  return request<{ count: number }>("/notifications/unread-count", { method: "GET" });
+}
+
+export async function markAdminNotificationRead(id: string): Promise<AdminNotificationResponse> {
+  return request<AdminNotificationResponse>(`/notifications/${id}/read`, { method: "PATCH" });
+}
+
+export async function markAllAdminNotificationsRead(): Promise<{ updated: boolean }> {
+  return request<{ updated: boolean }>("/notifications/read-all", { method: "PATCH" });
+}
+
 // ── Reference Data Sync ─────────────────────────────────────────────────────
 
 export async function syncAdminReferenceData(): Promise<void> {
   if (typeof window === "undefined" || !getBackendEnabled() || !readAdminBackendAccessToken()) {
     return;
   }
-
-  // Fetch reference data to warm the backend session and keep the summary event
-  // source accurate. No localStorage caching is used; the admin portal reads
-  // directly from the backend on every relevant page.
-  await Promise.all([
-    listAdminRiders(),
-    listAdminDrivers(),
-    listAdminAuditEvents(),
-  ]);
 
   window.dispatchEvent(new Event(ADMIN_SUMMARY_UPDATED_EVENT));
 }
@@ -2114,15 +2146,6 @@ export async function getAdminOperationalSummary(): Promise<{
   payoutQueue: number;
   disabledServices: number;
   enabledFlags: number;
-  notifications: Array<{
-    id: string;
-    type: "warning" | "error" | "info" | "success";
-    title: string;
-    message: string;
-    time: string;
-    read: boolean;
-    path: string;
-  }>;
 }> {
   const [overview, approvals, riskCases, finance, services, flags] = await Promise.all([
     getAdminSystemOverview(),
@@ -2147,53 +2170,6 @@ export async function getAdminOperationalSummary(): Promise<{
     payoutQueue,
     disabledServices,
     enabledFlags,
-    notifications: [
-      {
-        id: "approvals",
-        type: pendingApprovals > 0 ? "warning" : "success",
-        title: "Company approvals",
-        message: `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting review`,
-        time: "live",
-        read: pendingApprovals === 0,
-        path: "/admin/approvals",
-      },
-      {
-        id: "payouts",
-        type: payoutQueue > 0 ? "warning" : "success",
-        title: "Payout queue",
-        message: `${payoutQueue.toLocaleString()} payout${payoutQueue === 1 ? "" : "s"} pending`,
-        time: "live",
-        read: payoutQueue === 0,
-        path: "/admin/finance",
-      },
-      {
-        id: "incidents",
-        type: openIncidents > 0 ? "error" : "success",
-        title: "Service health",
-        message: `${openIncidents} incident${openIncidents === 1 ? "" : "s"} need attention`,
-        time: "live",
-        read: openIncidents === 0,
-        path: "/admin/safety",
-      },
-      {
-        id: "risk",
-        type: openRiskCases > 0 ? "warning" : "success",
-        title: "Risk desk",
-        message: `${openRiskCases} case${openRiskCases === 1 ? "" : "s"} open`,
-        time: "live",
-        read: openRiskCases === 0,
-        path: "/admin/risk",
-      },
-      {
-        id: "services",
-        type: disabledServices > 0 ? "info" : "success",
-        title: "Integrations health",
-        message: `${disabledServices} service${disabledServices === 1 ? "" : "s"} disabled · ${enabledFlags} feature flag${enabledFlags === 1 ? "" : "s"} enabled`,
-        time: "live",
-        read: disabledServices === 0,
-        path: "/admin/system/integrations",
-      },
-    ],
   };
 }
 

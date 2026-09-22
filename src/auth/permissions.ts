@@ -63,6 +63,8 @@ const ROLE_PERMISSIONS: Record<AdminBackendRole, readonly AdminPermission[]> = {
     "view_rides",
     "manage_rides",
     "view_delivery_labels",
+    "print_delivery_labels",
+    "activate_blank_labels",
   ],
   super_admin: ALL_PERMISSIONS,
   operations_admin: [

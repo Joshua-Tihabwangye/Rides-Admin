@@ -31,8 +31,9 @@ function buildUserFromSession(session: Awaited<ReturnType<typeof backendFetchSes
         ? "super_admin"
         : normalizeAdminRole(roles[0])
   const roleLabel = ADMIN_ROLE_OPTIONS.find((option) => option.value === activeRole)?.label ?? "Admin"
+  const realName = [session.user.firstName, session.user.lastName].filter(Boolean).join(" ").trim()
   return {
-    name: session.user.email.split("@")[0] || "Admin",
+    name: realName || session.user.email,
     email: session.user.email,
     role: roleLabel,
     roles,

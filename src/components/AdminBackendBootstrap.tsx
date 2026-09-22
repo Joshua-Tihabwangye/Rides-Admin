@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { useLocation } from "react-router-dom"
 import { isAuthed } from "../auth/auth"
 import {
   createAdminSocket,
@@ -9,7 +8,6 @@ import {
 import { startAdminProactiveSessionRefresh } from "../services/api/httpClient"
 
 export default function AdminBackendBootstrap() {
-  const location = useLocation()
   const [adminBackendEnabled] = useState(() => isAdminBackendEnabled())
 
   useEffect(() => {
@@ -20,7 +18,7 @@ export default function AdminBackendBootstrap() {
     void syncAdminReferenceData().catch((error) => {
       console.warn("Admin backend sync failed. Keeping current local store.", error)
     })
-  }, [adminBackendEnabled, location.pathname])
+  }, [adminBackendEnabled])
 
   useEffect(() => {
     if (!adminBackendEnabled || !isAuthed()) {

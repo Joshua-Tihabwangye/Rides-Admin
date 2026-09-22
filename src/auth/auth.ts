@@ -180,7 +180,7 @@ async function finalizeBackendAuth(backend: {
   const authUser = buildAuthUser(
     session.user.email,
     resolvedRoles,
-    preferredName,
+    [session.user.firstName, session.user.lastName].filter(Boolean).join(" ").trim() || preferredName,
     session.defaultRedirect,
     Array.isArray(session.permissions) ? session.permissions : [],
     preferredRole,
@@ -266,6 +266,7 @@ export async function registerWithCredentials(credentials: {
   password: string
   fullName?: string
   phone?: string
+  role?: AdminBackendRole
 }): Promise<AuthUser> {
   const normalizedEmail = credentials.email.trim().toLowerCase()
 
@@ -278,9 +279,10 @@ export async function registerWithCredentials(credentials: {
     password: credentials.password,
     fullName: credentials.fullName,
     phone: credentials.phone,
+    adminRole: credentials.role ?? "admin",
   })
 
-  return finalizeBackendAuth(backend, credentials.fullName, "admin")
+  return finalizeBackendAuth(backend, credentials.fullName, credentials.role ?? "admin")
 }
 
 export async function loginWithCredentials(credentials: { email: string; password: string; role?: AdminBackendRole }): Promise<AuthUser> {

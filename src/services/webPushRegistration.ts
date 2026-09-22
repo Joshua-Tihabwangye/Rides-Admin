@@ -33,14 +33,11 @@ function getOrCreateDeviceId(): string {
 export async function registerWebPush(token: string): Promise<void> {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
   if (!token) return;
+  if (!("Notification" in window)) return;
   if (Notification.permission === "denied") return;
+  if (Notification.permission !== "granted") return;
 
   try {
-    if (Notification.permission === "default") {
-      const result = await Notification.requestPermission();
-      if (result !== "granted") return;
-    }
-
     let registration = await navigator.serviceWorker.getRegistration("/");
     if (!registration) {
       registration = await navigator.serviceWorker.register("/sw.js");
@@ -84,5 +81,20 @@ export async function registerWebPush(token: string): Promise<void> {
     });
   } catch {
     // never throw — resolve silently
+  }
+}
+
+export async function requestWebPushPermissionAndRegister(token: string): Promise<void> {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (!token || Notification.permission === "denied") return;
+
+  try {
+    if (Notification.permission === "default") {
+      const result = await Notification.requestPermission();
+      if (result !== "granted") return;
+    }
+    await registerWebPush(token);
+  } catch {
+    // never throw — notification permission is optional
   }
 }

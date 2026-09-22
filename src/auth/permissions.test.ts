@@ -32,6 +32,11 @@ describe("admin permission resolution", () => {
   })
 
   it("maps named admin roles to their expected areas", () => {
+    expect(getPermissionsForRoles(["admin"])).toEqual(expect.arrayContaining([
+      "view_delivery_labels",
+      "print_delivery_labels",
+      "activate_blank_labels",
+    ]))
     expect(getPermissionsForRoles(["super_admin"])).toContain("manage_roles")
     expect(getPermissionsForRoles(["finance_admin"])).toContain("manage_finance")
     expect(getPermissionsForRoles(["operations_admin"])).toContain("manage_operations")
