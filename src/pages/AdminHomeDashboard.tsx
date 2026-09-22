@@ -27,6 +27,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import PeriodSelector, { type PeriodOption } from "../components/PeriodSelector";
@@ -34,23 +35,27 @@ import {
   getAdminSystemOverview,
   getAdminOperationsAnalytics,
   getAdminFinanceAnalytics,
+  getAdminMonitoringSnapshot,
   type AdminAnalyticsPeriod,
   type AdminFinanceAnalytics,
+  type AdminMonitoringSnapshot,
   type AdminOperationsAnalytics,
 } from "../services/api/adminApi";
 
 const EV_GREEN = "#03cd8c";
+const DELIVERY_PURPLE = "#8b5cf6";
 
 export default function AdminHomeDashboardPage() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodOption>("today");
-  const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" | "Delivery" | "Both">("Both");
+  const [tripTrendFilter, setTripTrendFilter] = useState<"Rides" | "Deliveries" | "Both">("Both");
   const [overview, setOverview] = useState<{
     totals?: { users?: number; riders?: number; drivers?: number; companies?: number; trips?: number };
     queues?: { approvals?: number; riskCases?: number; safetyIncidents?: number };
   } | null>(null);
   const [operationsAnalytics, setOperationsAnalytics] = useState<AdminOperationsAnalytics | null>(null);
   const [financeAnalytics, setFinanceAnalytics] = useState<AdminFinanceAnalytics | null>(null);
+  const [monitoringSnapshot, setMonitoringSnapshot] = useState<AdminMonitoringSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,15 +65,17 @@ export default function AdminHomeDashboardPage() {
       try {
         setLoading(true);
         setError(null);
-        const [ov, ops, fin] = await Promise.all([
+        const [ov, ops, fin, monitoring] = await Promise.all([
           getAdminSystemOverview(),
           getAdminOperationsAnalytics({ period: period as AdminAnalyticsPeriod }),
           getAdminFinanceAnalytics({ period: period as AdminAnalyticsPeriod }),
+          getAdminMonitoringSnapshot().catch(() => null),
         ]);
         if (!cancelled) {
           setOverview(ov);
           setOperationsAnalytics(ops);
           setFinanceAnalytics(fin);
+          setMonitoringSnapshot(monitoring);
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load dashboard data");
@@ -83,8 +90,9 @@ export default function AdminHomeDashboardPage() {
   const kpis = useMemo(() => {
     const totals = overview?.totals;
     const tripsTotal = totals?.trips ?? operationsAnalytics?.trips?.total ?? 0;
-    const activeDrivers = operationsAnalytics?.drivers?.online ?? 0;
+    const onlineDrivers = monitoringSnapshot?.onlineDrivers ?? 0;
     const driverTotal = operationsAnalytics?.drivers?.total ?? totals?.drivers ?? 0;
+    const offlineDrivers = monitoringSnapshot?.offlineDrivers ?? Math.max(0, driverTotal - onlineDrivers);
     const activeCompanies = totals?.companies ?? 0;
     const grossBookings = financeAnalytics?.grossEarnings ?? 0;
 
@@ -99,10 +107,18 @@ export default function AdminHomeDashboardPage() {
       },
       {
         label: "Online drivers",
-        value: activeDrivers.toLocaleString(),
+        value: onlineDrivers.toLocaleString(),
         helper: `${driverTotal.toLocaleString()} total drivers`,
         icon: <DirectionsCarIcon />,
         color: EV_GREEN,
+        onClick: () => navigate("/admin/monitoring"),
+      },
+      {
+        label: "Offline drivers",
+        value: offlineDrivers.toLocaleString(),
+        helper: "No fresh heartbeat inside 15s",
+        icon: <DirectionsCarIcon />,
+        color: "#64748b",
         onClick: () => navigate("/admin/monitoring"),
       },
       {
@@ -122,7 +138,7 @@ export default function AdminHomeDashboardPage() {
         onClick: () => navigate("/admin/finance"),
       },
     ];
-  }, [financeAnalytics, navigate, operationsAnalytics, overview]);
+  }, [financeAnalytics, monitoringSnapshot, navigate, operationsAnalytics, overview]);
 
   const tripTrends = useMemo(() => {
     const hourly = operationsAnalytics?.hourly;
@@ -131,22 +147,16 @@ export default function AdminHomeDashboardPage() {
       hour: row.time ?? "",
       rides: Number(row.rides ?? 0),
       deliveries: Number(row.deliveries ?? 0),
-      trips:
-        tripTrendFilter === "Rides"
-          ? Number(row.rides ?? 0)
-          : tripTrendFilter === "Delivery"
-            ? Number(row.deliveries ?? 0)
-            : Number(row.rides ?? 0) + Number(row.deliveries ?? 0),
       bookings: Number(row.bookings ?? 0),
     }));
-  }, [operationsAnalytics, tripTrendFilter]);
+  }, [operationsAnalytics]);
 
   const alerts = useMemo(() => {
     const queues = overview?.queues;
     if (!queues) return [];
     const driverTotal = overview?.totals?.drivers ?? operationsAnalytics?.drivers?.total ?? 0;
-    const driverOnline = operationsAnalytics?.drivers?.online ?? 0;
-    const offlineDrivers = Math.max(0, driverTotal - driverOnline);
+    const driverOnline = monitoringSnapshot?.onlineDrivers ?? 0;
+    const offlineDrivers = monitoringSnapshot?.offlineDrivers ?? Math.max(0, driverTotal - driverOnline);
 
     return [
       { text: "Company approvals pending", count: queues.approvals ?? 0, severity: "medium", path: "/admin/approvals", action: "Review approvals" },
@@ -154,13 +164,14 @@ export default function AdminHomeDashboardPage() {
       { text: "Safety incidents open", count: queues.safetyIncidents ?? 0, severity: "high", path: "/admin/safety", action: "Open safety" },
       { text: "Risk cases", count: queues.riskCases ?? 0, severity: "medium", path: "/admin/risk", action: "Review risk" },
     ];
-  }, [operationsAnalytics, overview]);
+  }, [monitoringSnapshot, operationsAnalytics, overview]);
 
   const safetyHighlights = useMemo(() => [
     { label: "Completed trips", value: operationsAnalytics?.trips?.completed ?? 0 },
-    { label: "Drivers online", value: `${operationsAnalytics?.drivers?.online ?? 0} / ${operationsAnalytics?.drivers?.total ?? 0}` },
+    { label: "Drivers online", value: `${monitoringSnapshot?.onlineDrivers ?? 0} / ${operationsAnalytics?.drivers?.total ?? overview?.totals?.drivers ?? 0}` },
+    { label: "Drivers offline", value: monitoringSnapshot?.offlineDrivers ?? Math.max(0, (operationsAnalytics?.drivers?.total ?? overview?.totals?.drivers ?? 0) - (monitoringSnapshot?.onlineDrivers ?? 0)) },
     { label: "Open incidents", value: overview?.queues?.safetyIncidents ?? 0 },
-  ], [operationsAnalytics, overview]);
+  ], [monitoringSnapshot, operationsAnalytics, overview]);
 
   const financeSnapshot = useMemo(() => [
     { label: "Gross bookings", value: `UGX ${Number(financeAnalytics?.grossEarnings ?? 0).toLocaleString()}` },
@@ -185,7 +196,7 @@ export default function AdminHomeDashboardPage() {
 
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", xl: "repeat(4, 1fr)" }, gap: 2, mb: 3 }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", xl: "repeat(5, 1fr)" }, gap: 2, mb: 3 }}>
         {kpis.map((kpi) => (
           <MetricCard key={kpi.label} {...kpi} loading={loading} />
         ))}
@@ -195,8 +206,8 @@ export default function AdminHomeDashboardPage() {
         <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)", overflow: "hidden" }}>
           <Box sx={{ px: 2, py: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Trip Trends</Typography>
-              <Typography variant="caption" color="text.secondary">Hourly demand from operations analytics</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Ride & Delivery Trends</Typography>
+              <Typography variant="caption" color="text.secondary">Hourly ride and delivery demand from operations analytics</Typography>
             </Box>
             <ToggleButtonGroup
               value={tripTrendFilter}
@@ -205,7 +216,7 @@ export default function AdminHomeDashboardPage() {
               size="small"
             >
               <ToggleButton value="Rides" sx={{ textTransform: "none" }}>Rides</ToggleButton>
-              <ToggleButton value="Delivery" sx={{ textTransform: "none" }}>Delivery</ToggleButton>
+              <ToggleButton value="Deliveries" sx={{ textTransform: "none" }}>Deliveries</ToggleButton>
               <ToggleButton value="Both" sx={{ textTransform: "none" }}>Both</ToggleButton>
             </ToggleButtonGroup>
           </Box>
@@ -225,12 +236,22 @@ export default function AdminHomeDashboardPage() {
                       <stop offset="5%" stopColor={EV_GREEN} stopOpacity={0.35} />
                       <stop offset="95%" stopColor={EV_GREEN} stopOpacity={0} />
                     </linearGradient>
+                    <linearGradient id="deliveryGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={DELIVERY_PURPLE} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={DELIVERY_PURPLE} stopOpacity={0} />
+                    </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="hour" tick={{ fontSize: 11 }} stroke="#94a3b8" />
                   <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
                   <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-                  <Area type="monotone" dataKey="trips" stroke={EV_GREEN} strokeWidth={2} fill="url(#tripGradient)" />
+                  <Legend />
+                  {tripTrendFilter !== "Deliveries" ? (
+                    <Area type="monotone" dataKey="rides" name="Rides" stroke={EV_GREEN} strokeWidth={2} fill="url(#tripGradient)" />
+                  ) : null}
+                  {tripTrendFilter !== "Rides" ? (
+                    <Area type="monotone" dataKey="deliveries" name="Deliveries" stroke={DELIVERY_PURPLE} strokeWidth={2} fill="url(#deliveryGradient)" />
+                  ) : null}
                 </AreaChart>
               </ResponsiveContainer>
             )}

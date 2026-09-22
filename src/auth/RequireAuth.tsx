@@ -1,15 +1,42 @@
 import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { backendFetchSession, isBackendAuthEnabled } from '../services/api/authApi'
-import { signIn, signOut, type AuthUser, isAuthed } from './auth'
+import {
+  ADMIN_BACKEND_ROLE_ENUMS,
+  ADMIN_ROLE_OPTIONS,
+  getAuthUser,
+  signIn,
+  signOut,
+  type AdminBackendRole,
+  type AuthUser,
+  isAuthed,
+} from './auth'
+
+const ADMIN_ROLE_SET = new Set<string>(ADMIN_BACKEND_ROLE_ENUMS)
+
+function normalizeAdminRole(value?: string): AdminBackendRole | undefined {
+  const normalized = value?.trim().toLowerCase()
+  return normalized && ADMIN_ROLE_SET.has(normalized) ? normalized as AdminBackendRole : undefined
+}
 
 function buildUserFromSession(session: Awaited<ReturnType<typeof backendFetchSession>>): AuthUser {
-  const roles = Array.isArray(session.user.roles) ? session.user.roles : []
+  const roles = Array.isArray(session.user.roles)
+    ? session.user.roles.filter((role) => normalizeAdminRole(role))
+    : []
+  const previousActiveRole = normalizeAdminRole(getAuthUser()?.activeRole)
+  const activeRole =
+    previousActiveRole && roles.includes(previousActiveRole)
+      ? previousActiveRole
+      : roles.includes("super_admin")
+        ? "super_admin"
+        : normalizeAdminRole(roles[0])
+  const roleLabel = ADMIN_ROLE_OPTIONS.find((option) => option.value === activeRole)?.label ?? "Admin"
   return {
     name: session.user.email.split("@")[0] || "Admin",
     email: session.user.email,
-    role: roles.includes("super_admin") ? "Super Admin" : "Admin",
+    role: roleLabel,
     roles,
+    activeRole,
     permissions: Array.isArray(session.permissions) ? session.permissions : [],
     defaultRedirect: session.defaultRedirect,
   }

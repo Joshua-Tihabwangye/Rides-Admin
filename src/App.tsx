@@ -444,22 +444,22 @@ export default function App() {
           />
           {/* Rides Administration (Phase 1): first-class ride list + detail */}
           <Route path="rides" element={<RequirePermission anyOf={["view_rides"]}><RidesListPage /></RequirePermission>} />
-          <Route path="rides/:rideId" element={<RequirePermission anyOf={["view_rides"]}><RideDetailPage /></RequirePermission>} />
           <Route path="rides/anomalies" element={<RequirePermission anyOf={["view_rides"]}><RideAnomaliesPage /></RequirePermission>} />
+          <Route path="rides/:rideId" element={<RequirePermission anyOf={["view_rides"]}><RideDetailPage /></RequirePermission>} />
           {/* Reverse logistics & returns (DLV-192) */}
-          <Route
-            path="returns"
-            element={
-              <RequirePermission anyOf={["view_deliveries"]}>
-                <ReturnShipmentsPage />
-              </RequirePermission>
-            }
-          />
           <Route
             path="returns/requests"
             element={
               <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
                 <ReturnRequestsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="returns/reconciliation"
+            element={
+              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+                <ReturnReconciliationPage />
               </RequirePermission>
             }
           />
@@ -472,10 +472,10 @@ export default function App() {
             }
           />
           <Route
-            path="returns/reconciliation"
+            path="returns"
             element={
-              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
-                <ReturnReconciliationPage />
+              <RequirePermission anyOf={["view_deliveries"]}>
+                <ReturnShipmentsPage />
               </RequirePermission>
             }
           />
@@ -496,14 +496,6 @@ export default function App() {
             }
           />
           <Route
-            path="delivery-labels"
-            element={
-              <RequirePermission anyOf={["view_delivery_labels"]}>
-                <DeliveryLabelsPage />
-              </RequirePermission>
-            }
-          />
-          <Route
             path="delivery-labels/print-queue"
             element={
               <RequirePermission anyOf={["print_delivery_labels"]}>
@@ -516,6 +508,14 @@ export default function App() {
             element={
               <RequirePermission anyOf={["view_delivery_labels"]}>
                 <LabelExceptionsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="delivery-labels"
+            element={
+              <RequirePermission anyOf={["view_delivery_labels"]}>
+                <DeliveryLabelsPage />
               </RequirePermission>
             }
           />

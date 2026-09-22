@@ -861,6 +861,8 @@ export async function getAdminFinanceAnalytics(
   return request<AdminFinanceAnalytics>(
     `/admin/analytics/finance${toQueryString({
       period: mapPeriodToBackend(query.period),
+      start: query.start,
+      end: query.end,
     })}`,
     { method: "GET" }
   );
@@ -872,6 +874,8 @@ export async function getAdminOperationsAnalytics(
   return request<AdminOperationsAnalytics>(
     `/admin/analytics/operations${toQueryString({
       period: mapPeriodToBackend(query.period),
+      start: query.start,
+      end: query.end,
     })}`,
     { method: "GET" }
   );
@@ -1147,6 +1151,8 @@ export async function listAdminSafetyEmergencies(params?: {
   limit?: number;
   status?: string;
   sos?: boolean;
+  fromDate?: string;
+  toDate?: string;
 }): Promise<AdminSafetyIncidentPage> {
   const query = new URLSearchParams({
     page: String(params?.page ?? 1),
@@ -1154,6 +1160,8 @@ export async function listAdminSafetyEmergencies(params?: {
   });
   if (params?.status && params.status !== "ALL") query.set("status", params.status);
   if (params?.sos !== undefined) query.set("sos", String(params.sos));
+  if (params?.fromDate) query.set("fromDate", params.fromDate);
+  if (params?.toDate) query.set("toDate", params.toDate);
   return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
 }
 
@@ -1269,6 +1277,8 @@ export type AdminAnalyticsFilters = {
   period?: string;
   service?: string;
   region?: string;
+  start?: string;
+  end?: string;
 };
 
 export async function getAdminAnalyticsTimeseries(
@@ -1282,6 +1292,8 @@ export async function getAdminAnalyticsTimeseries(
       period: backendPeriod,
       service: filters.service,
       region: filters.region,
+      start: filters.start,
+      end: filters.end,
     },
   });
 }
@@ -1323,6 +1335,8 @@ export async function getAdminAnalyticsDrivers(
       period: mapAnalyticsPeriod(period),
       service: filters.service,
       region: filters.region,
+      start: filters.start,
+      end: filters.end,
     },
   });
 }
@@ -1337,6 +1351,8 @@ export async function getAdminAnalyticsCompanies(
       period: mapAnalyticsPeriod(period),
       service: filters.service,
       region: filters.region,
+      start: filters.start,
+      end: filters.end,
     },
   });
 }

@@ -15,14 +15,55 @@ import {
 } from "../services/api/adminApi"
 import { getUserPermissions } from "./permissions"
 
-export const ADMIN_BACKEND_ROLE_ENUMS = ["admin", "super_admin"] as const
+export const ADMIN_BACKEND_ROLE_ENUMS = [
+  "admin",
+  "super_admin",
+  "operations_admin",
+  "finance_admin",
+  "compliance_admin",
+  "support_admin",
+] as const
 export type AdminBackendRole = (typeof ADMIN_BACKEND_ROLE_ENUMS)[number]
+
+export const ADMIN_ROLE_OPTIONS: Array<{ value: AdminBackendRole; label: string; description: string }> = [
+  {
+    value: "admin",
+    label: "Admin",
+    description: "General operations, people, companies, rides, pricing, and finance access.",
+  },
+  {
+    value: "super_admin",
+    label: "Super Admin",
+    description: "Full access, including admin users, roles, and system settings.",
+  },
+  {
+    value: "operations_admin",
+    label: "Operations Admin",
+    description: "Operations dashboards, monitoring, dispatch, approvals, and live service controls.",
+  },
+  {
+    value: "finance_admin",
+    label: "Finance Admin",
+    description: "Finance dashboards, payouts, cashouts, payments, settlements, and reconciliation.",
+  },
+  {
+    value: "compliance_admin",
+    label: "Compliance Admin",
+    description: "Approvals, risk, document review, audit, policy, and governance work.",
+  },
+  {
+    value: "support_admin",
+    label: "Support Admin",
+    description: "Rider, driver, safety, ride, delivery, and support workflows.",
+  },
+]
 
 export type AuthUser = {
     name: string
     email: string
     role: string
     roles?: string[]
+    activeRole?: AdminBackendRole
     permissions?: string[]
     defaultRedirect?: string
 }
@@ -83,14 +124,18 @@ function buildAuthUser(
   name?: string,
   defaultRedirect?: string,
   permissions: string[] = [],
+  activeRole?: AdminBackendRole,
 ): AuthUser {
   const normalizedEmail = email.trim().toLowerCase()
   const resolvedName = name?.trim() || normalizedEmail.split("@")[0] || "Admin"
+  const selectedRole = activeRole && roles.includes(activeRole) ? activeRole : roles.includes("super_admin") ? "super_admin" : roles[0]
+  const roleLabel = ADMIN_ROLE_OPTIONS.find((option) => option.value === selectedRole)?.label ?? "Admin"
   return {
     name: resolvedName,
     email: normalizedEmail,
-    role: roles.includes("super_admin") ? "Super Admin" : "Admin",
+    role: roleLabel,
     roles,
+    activeRole: selectedRole,
     permissions,
     defaultRedirect,
   }
@@ -100,7 +145,7 @@ async function finalizeBackendAuth(backend: {
   accessToken: string
   refreshToken: string
   user: { email: string; roles?: string[] }
-}, preferredName?: string): Promise<AuthUser> {
+}, preferredName?: string, preferredRole?: AdminBackendRole): Promise<AuthUser> {
   saveAdminBackendTokens(backend.accessToken)
 
   const session = await backendFetchSession()
@@ -126,6 +171,11 @@ async function finalizeBackendAuth(backend: {
     signOut()
     throw new Error("Admin account has no supported backend role.")
   }
+  if (preferredRole && !resolvedRoles.includes(preferredRole)) {
+    signOut()
+    const roleLabel = ADMIN_ROLE_OPTIONS.find((option) => option.value === preferredRole)?.label ?? preferredRole
+    throw new Error(`This admin account is not assigned the ${roleLabel} role.`)
+  }
 
   const authUser = buildAuthUser(
     session.user.email,
@@ -133,6 +183,7 @@ async function finalizeBackendAuth(backend: {
     preferredName,
     session.defaultRedirect,
     Array.isArray(session.permissions) ? session.permissions : [],
+    preferredRole,
   )
   signIn(authUser)
   void syncAdminReferenceData().catch((error) => {
@@ -153,13 +204,15 @@ export function getAuthUser(): AuthUser | null {
 }
 
 export function getAuthRoles(): AdminBackendRole[] {
+  const user = getAuthUser()
+  if (user?.activeRole) return [user.activeRole]
+
   const claimRoles = resolveClaimRoles()
   if (claimRoles.hasUnknownRoles) {
     signOut()
     return []
   }
   if (claimRoles.roles.length > 0) return claimRoles.roles
-  const user = getAuthUser()
   return parseAdminRoles(user?.roles).roles
 }
 
@@ -227,10 +280,10 @@ export async function registerWithCredentials(credentials: {
     phone: credentials.phone,
   })
 
-  return finalizeBackendAuth(backend, credentials.fullName)
+  return finalizeBackendAuth(backend, credentials.fullName, "admin")
 }
 
-export async function loginWithCredentials(credentials: { email: string; password: string }): Promise<AuthUser> {
+export async function loginWithCredentials(credentials: { email: string; password: string; role?: AdminBackendRole }): Promise<AuthUser> {
   const normalizedEmail = credentials.email.trim().toLowerCase()
 
   if (!isBackendAuthEnabled()) {
@@ -242,7 +295,7 @@ export async function loginWithCredentials(credentials: { email: string; passwor
     password: credentials.password,
   })
 
-  return finalizeBackendAuth(backend)
+  return finalizeBackendAuth(backend, undefined, credentials.role)
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

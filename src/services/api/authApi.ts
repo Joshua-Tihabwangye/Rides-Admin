@@ -86,6 +86,7 @@ export async function backendRegister(input: BackendRegisterInput): Promise<Back
       password: input.password,
       fullName: input.fullName,
       phone: input.phone,
+      role: "ADMIN",
       roles: ["admin"],
     },
   });
