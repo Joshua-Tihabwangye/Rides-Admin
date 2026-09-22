@@ -56,11 +56,6 @@ export type LiveDriverMarker = {
   };
 };
 
-// Server-side proximity origin used ONLY to scope the backend active-drivers
-// query. It is never used as a displayed map center and never overrides real
-// driver coordinates rendered on the map.
-const QUERY_ORIGIN = { lat: 0, lng: 0 };
-
 // Returns the operator's real browser position to seed the initial viewport,
 // or null when unavailable. The map only centers on real driver data.
 function requestBrowserCenter(): Promise<{ lat: number; lng: number } | null> {
@@ -166,10 +161,10 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
-      const origin = centerRef.current ?? QUERY_ORIGIN;
+      const origin = centerRef.current;
       const { drivers: markers } = await getActiveDrivers(
-        origin.lat,
-        origin.lng,
+        origin?.lat,
+        origin?.lng,
         50,
         300,
       );

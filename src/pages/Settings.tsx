@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
     Box,
     Alert,
@@ -14,7 +14,6 @@ import {
     MenuItem,
     FormControl,
     InputLabel,
-	Chip,
 	} from '@mui/material'
 	import type { AlertColor, SelectChangeEvent } from '@mui/material'
 	import {
@@ -31,6 +30,12 @@ const EV_COLORS = {
 type NotificationSettings = AdminPortalSettingsResponse['notifications']
 type SaveStatus = { type: AlertColor; message: string } | null
 
+function getSupportedTimezones(selected: string): string[] {
+    const intlWithZones = Intl as typeof Intl & { supportedValuesOf?: (key: 'timeZone') => string[] }
+    const zones = intlWithZones.supportedValuesOf?.('timeZone') ?? []
+    return selected && !zones.includes(selected) ? [selected, ...zones] : zones
+}
+
 export default function Settings() {
     const [notifications, setNotifications] = useState<NotificationSettings>({
         email: true,
@@ -42,6 +47,7 @@ export default function Settings() {
     const [timezone, setTimezone] = useState('')
     const [saving, setSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
+    const timezoneOptions = useMemo(() => getSupportedTimezones(timezone), [timezone])
 
     React.useEffect(() => {
         const load = async () => {
@@ -227,22 +233,11 @@ export default function Settings() {
                                     onChange={(e: SelectChangeEvent) => setTimezone(e.target.value)}
                                 >
                                     <MenuItem value=""><em>Select timezone</em></MenuItem>
-                                    <MenuItem value="Africa/Kampala">East Africa Time (EAT)</MenuItem>
-                                    <MenuItem value="Africa/Lagos">West Africa Time (WAT)</MenuItem>
-                                    <MenuItem value="Africa/Johannesburg">South Africa Standard Time (SAST)</MenuItem>
-                                    <MenuItem value="UTC">UTC</MenuItem>
+                                    {timezoneOptions.map((zone) => (
+                                        <MenuItem key={zone} value={zone}>{zone}</MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
-                            <Box>
-                                <Typography variant="caption" color="text.secondary">
-                                    Default Region Scope
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                                    <Chip label="All Regions" size="small" color="primary" />
-                                    <Chip label="East Africa" size="small" variant="outlined" />
-                                    <Chip label="West Africa" size="small" variant="outlined" />
-                                </Box>
-                            </Box>
                         </Box>
                     </CardContent>
                 </Card>

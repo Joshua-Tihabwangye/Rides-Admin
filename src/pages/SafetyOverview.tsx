@@ -30,6 +30,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import PeriodSelector from "../components/PeriodSelector";
 import type { PeriodOption } from "../components/PeriodSelector";
 import {
+  createAdminSocket,
   listAdminDrivers,
   listAdminRiders,
   listAdminRiskCases,
@@ -39,6 +40,7 @@ import {
   updateAdminSafetyIncident,
 } from "../services/api/adminApi";
 import type { AdminDriverResponse, AdminRiskCaseResponse, AdminRiderResponse, AdminSafetyIncident } from "../services/api/adminApi";
+import { attachAdminRealtimeSocket } from "../services/adminRealtime";
 
 const EV_GREEN = "#03cd8c";
 const ACTIVE_SAFETY_STATUSES = new Set(["OPEN", "ACKNOWLEDGED", "RESPONDING"]);
@@ -255,6 +257,24 @@ export default function SafetyOverviewDashboardPage() {
     void load();
     const timer = window.setInterval(() => void load(), 30000);
     return () => window.clearInterval(timer);
+  }, [load]);
+
+  useEffect(() => {
+    const refresh = () => {
+      void load();
+    };
+    const detach = attachAdminRealtimeSocket(createAdminSocket(), {
+      rooms: ["operations"],
+      events: {
+        "safety.incident.new": refresh,
+        "safety.incident.updated": refresh,
+        "sos.session.update": refresh,
+        "safety.emergency.message.new": refresh,
+      },
+    });
+    return () => {
+      detach();
+    };
   }, [load]);
 
   const rows = useMemo(() => [...incidents.map(incidentToRow), ...riskCases.map(riskToRow)], [incidents, riskCases]);

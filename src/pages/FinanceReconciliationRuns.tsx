@@ -13,8 +13,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControl,
-  InputLabel,
   MenuItem,
   Select,
   Stack,
@@ -44,9 +42,6 @@ import {
 } from "../services/api/adminApi";
 
 const EV_GREEN = "#03cd8c";
-const RUN_TYPES = ["PAYMENTS", "PAYOUTS", "CORPORATEPAY"];
-const RUN_STATUSES = ["OPEN", "RUNNING", "COMPLETED", "FAILED"];
-const RECORD_STATUSES = ["OPEN", "MATCHED", "VARIANCE", "RESOLVED", "IGNORED"];
 
 const statusColor = (status: string) => {
   switch (status?.toUpperCase()) {
@@ -247,20 +242,22 @@ export default function FinanceReconciliationRunsPage() {
       <Card elevation={1} sx={{ borderRadius: 1, border: "1px solid rgba(148,163,184,0.45)", mb: 3 }}>
         <CardContent sx={{ p: 2 }}>
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            <FormControl size="small" sx={{ minWidth: 170 }}>
-              <InputLabel>Run type</InputLabel>
-              <Select label="Run type" value={runTypeFilter} onChange={(event) => setRunTypeFilter(event.target.value)}>
-                <MenuItem value="">All types</MenuItem>
-                {RUN_TYPES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 170 }}>
-              <InputLabel>Status</InputLabel>
-              <Select label="Status" value={runStatusFilter} onChange={(event) => setRunStatusFilter(event.target.value)}>
-                <MenuItem value="">All statuses</MenuItem>
-                {RUN_STATUSES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
-              </Select>
-            </FormControl>
+            <TextField
+              size="small"
+              sx={{ minWidth: 170 }}
+              label="Run type"
+              value={runTypeFilter}
+              onChange={(event) => setRunTypeFilter(event.target.value)}
+              placeholder="All types"
+            />
+            <TextField
+              size="small"
+              sx={{ minWidth: 170 }}
+              label="Status"
+              value={runStatusFilter}
+              onChange={(event) => setRunStatusFilter(event.target.value)}
+              placeholder="All statuses"
+            />
           </Box>
         </CardContent>
       </Card>
@@ -315,13 +312,14 @@ export default function FinanceReconciliationRunsPage() {
                           <Box sx={{ p: 2, bgcolor: "action.hover" }}>
                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 1.5, flexWrap: "wrap" }}>
                               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Run Records</Typography>
-                              <FormControl size="small" sx={{ minWidth: 180 }}>
-                                <InputLabel>Record status</InputLabel>
-                                <Select label="Record status" value={recordStatusFilter} onChange={(event) => setRecordStatusFilter(event.target.value)}>
-                                  <MenuItem value="">All record statuses</MenuItem>
-                                  {RECORD_STATUSES.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
-                                </Select>
-                              </FormControl>
+                              <TextField
+                                size="small"
+                                sx={{ minWidth: 180 }}
+                                label="Record status"
+                                value={recordStatusFilter}
+                                onChange={(event) => setRecordStatusFilter(event.target.value)}
+                                placeholder="All record statuses"
+                              />
                             </Box>
                             {recordsLoading ? <CircularProgress size={22} /> : (
                               <Table size="small">
@@ -376,7 +374,7 @@ export default function FinanceReconciliationRunsPage() {
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Start reconciliation run</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-          <TextField label="Type" value={type} onChange={(event) => setType(event.target.value)} fullWidth size="small" helperText="PAYMENTS, PAYOUTS or CORPORATEPAY" />
+          <TextField label="Type" value={type} onChange={(event) => setType(event.target.value)} fullWidth size="small" helperText="Backend reconciliation type" />
           <Select value={provider} displayEmpty fullWidth size="small" onChange={(event) => setProvider(event.target.value)}>
             <MenuItem value=""><em>All providers</em></MenuItem>
             {providers.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
@@ -397,10 +395,7 @@ export default function FinanceReconciliationRunsPage() {
         <DialogTitle>Resolve record</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           <Typography variant="body2">Variance: {money(selectedRecord?.variance)}</Typography>
-          <Select value={recordStatus} fullWidth size="small" onChange={(event) => setRecordStatus(event.target.value)}>
-            <MenuItem value="RESOLVED">Resolved</MenuItem>
-            <MenuItem value="IGNORED">Ignored</MenuItem>
-          </Select>
+          <TextField label="Status" value={recordStatus} onChange={(event) => setRecordStatus(event.target.value)} fullWidth size="small" helperText="Backend reconciliation record status" />
           <TextField label="Resolution note" value={recordResolution} onChange={(event) => setRecordResolution(event.target.value)} fullWidth size="small" />
         </DialogContent>
         <DialogActions>

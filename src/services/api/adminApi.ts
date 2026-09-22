@@ -300,14 +300,24 @@ export type ActiveDriverMarker = {
 };
 
 export async function getActiveDrivers(
-  latitude: number,
-  longitude: number,
+  latitude?: number | null,
+  longitude?: number | null,
   radiusKm = 50,
   limit = 300,
 ): Promise<{ drivers: ActiveDriverMarker[] }> {
+  const hasOrigin =
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude);
   return request<{ drivers: ActiveDriverMarker[] }>("/geo/drivers/active", {
     method: "GET",
-    query: { latitude, longitude, radiusKm, limit },
+    query: {
+      latitude: hasOrigin ? latitude : undefined,
+      longitude: hasOrigin ? longitude : undefined,
+      radiusKm,
+      limit,
+    },
   });
 }
 
