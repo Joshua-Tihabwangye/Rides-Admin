@@ -102,6 +102,7 @@ export default function DetailedAnalyticsPage() {
 	const [realDrivers, setRealDrivers] = useState<AdminAnalyticsDriverPoint[]>([]);
 	const [realCompanies, setRealCompanies] = useState<AdminAnalyticsCompanyPoint[]>([]);
 	const [analyticsLoading, setAnalyticsLoading] = useState(false);
+	const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 	const [reportTab, setReportTab] = useState<"favorites" | "recent" | "all">(
 		"all",
 	);
@@ -118,16 +119,24 @@ export default function DetailedAnalyticsPage() {
 			...(period === "custom" ? isoRange(customRange) : {}),
 		};
 		setAnalyticsLoading(true);
+		setAnalyticsError(null);
+		const optional = <T,>(label: string, task: Promise<T>) => task.catch((error) => ({
+			failed: `${label}: ${error instanceof Error ? error.message : "unavailable"}`,
+		}));
 		Promise.all([
-			getAdminAnalyticsTimeseries(period, backendFilters).catch(() => []),
-			getAdminAnalyticsDrivers(period, backendFilters).catch(() => []),
-			getAdminAnalyticsCompanies(period, backendFilters).catch(() => []),
+			optional("Trip volume", getAdminAnalyticsTimeseries(period, backendFilters)),
+			optional("Driver performance", getAdminAnalyticsDrivers(period, backendFilters)),
+			optional("Company performance", getAdminAnalyticsCompanies(period, backendFilters)),
 		])
 			.then(([series, drivers, companies]) => {
 				if (!active) return;
-				setRealSeries(Array.isArray(series) ? series : []);
-				setRealDrivers(Array.isArray(drivers) ? drivers : []);
-				setRealCompanies(Array.isArray(companies) ? companies : []);
+				const failures = [series, drivers, companies].flatMap((value) =>
+					value && typeof value === "object" && "failed" in value ? [value.failed] : [],
+				);
+				if (failures.length) setAnalyticsError(failures.join("; "));
+				if (Array.isArray(series)) setRealSeries(series);
+				if (Array.isArray(drivers)) setRealDrivers(drivers);
+				if (Array.isArray(companies)) setRealCompanies(companies);
 			})
 			.finally(() => {
 				if (active) setAnalyticsLoading(false);
@@ -446,6 +455,8 @@ export default function DetailedAnalyticsPage() {
 					/>
 				</Box>
 			</Box>
+
+			{analyticsError ? <Alert severity="warning" sx={{ mb: 2, fontSize: 12 }}>{analyticsError}. Showing the last successful results where available.</Alert> : null}
 
 			{/* Helper text */}
 			<Alert severity="info" sx={{ mb: 2, fontSize: 12 }}>

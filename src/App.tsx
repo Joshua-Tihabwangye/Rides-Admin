@@ -4,12 +4,23 @@ import RequireAuth from './auth/RequireAuth'
 import RequirePermission from './auth/RequirePermission'
 import AdminShell from './layout/AdminShell'
 import AdminBackendBootstrap from './components/AdminBackendBootstrap'
+import AdminHomeDashboard from './pages/AdminHomeDashboard'
+import RiderManagement from './pages/RiderManagement'
+import RiderDetail from './pages/RiderDetail'
+import DriverManagement from './pages/DriverManagement'
+import DriverDetail from './pages/DriverDetail'
+import SafetyOverview from './pages/SafetyOverview'
+import OperationsDashboard from './pages/OperationsDashboard'
+import MonitoringPage from './pages/MonitoringPage'
+import LiveDriversMapPage from './pages/LiveDriversMapPage'
+import MatchingInspectionPage from './pages/MatchingInspectionPage'
+import DetailedAnalytics from './pages/DetailedAnalytics'
+import RiskFraudCenter from './pages/RiskFraudCenter'
+import RidesListPage from './pages/RidesListPage'
+import RideDetailPage from './pages/RideDetailPage'
+import RideAnomaliesPage from './pages/RideAnomaliesPage'
 
-const routePreloaders: Array<() => Promise<unknown>> = []
-const ADMIN_ROUTE_PRELOAD_EVENT = 'evzone:admin-preload-route-chunks'
 const ADMIN_ASSET_RELOAD_KEY = 'evzone-admin-asset-reload'
-let preloadStarted = false
-
 
 function reloadOnceForStaleAsset() {
   if (typeof window === 'undefined') return
@@ -49,25 +60,6 @@ function useStaleAssetRecovery() {
     }
   }, [])
 }
-
-function preloadAdminRouteChunks(cancelled: () => boolean = () => false) {
-  if (preloadStarted) return Promise.resolve()
-  preloadStarted = true
-  const pending = [...routePreloaders]
-  const workers = Array.from({ length: 4 }, async () => {
-    while (!cancelled() && pending.length) {
-      const preload = pending.shift()
-      if (!preload) return
-      try {
-        await preload()
-      } catch {
-        // recoverableLazy handles stale chunks when a route is actually opened.
-      }
-    }
-  })
-  return Promise.all(workers).then(() => undefined)
-}
-
 function RouteLoading() {
   return (
     <div style={{ minHeight: 280, display: 'grid', placeItems: 'center', color: '#475569', fontSize: 13 }}>
@@ -98,27 +90,7 @@ function recoverableLazy<T extends React.ComponentType<any>>(loader: () => Promi
       }
       throw error
     })
-  routePreloaders.push(load)
   return lazy(load)
-}
-
-function useIdleRoutePreload() {
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-    let cancelled = false
-    const run = () => void preloadAdminRouteChunks(() => cancelled)
-    const handlePreloadRequest = () => run()
-    window.addEventListener(ADMIN_ROUTE_PRELOAD_EVENT, handlePreloadRequest)
-    const requestIdle = (window as any).requestIdleCallback as undefined | ((callback: () => void) => number)
-    const cancelIdle = (window as any).cancelIdleCallback as undefined | ((id: number) => void)
-    const id = requestIdle ? requestIdle(run) : window.setTimeout(run, 1500)
-    return () => {
-      cancelled = true
-      window.removeEventListener(ADMIN_ROUTE_PRELOAD_EVENT, handlePreloadRequest)
-      if (requestIdle && cancelIdle) cancelIdle(id)
-      else window.clearTimeout(id)
-    }
-  }, [])
 }
 
 const AdminAuthSignIn = recoverableLazy(() => import('./pages/AdminAuthSignIn'))
@@ -128,18 +100,11 @@ const VerifyResetOtp = recoverableLazy(() => import('./pages/VerifyResetOtp'))
 const ResetPassword = recoverableLazy(() => import('./pages/ResetPassword'))
 const AdminWelcomeNotice = recoverableLazy(() => import('./pages/AdminWelcomeNotice'))
 const AdminOnboardingChecklist = recoverableLazy(() => import('./pages/AdminOnboardingChecklist'))
-const AdminHomeDashboard = recoverableLazy(() => import('./pages/AdminHomeDashboard'))
 const AdminProfileRegions = recoverableLazy(() => import('./pages/AdminProfileRegions'))
 const AdminGlobalSearch = recoverableLazy(() => import('./pages/AdminGlobalSearch'))
-const RiderManagement = recoverableLazy(() => import('./pages/RiderManagement'))
-const RiderDetail = recoverableLazy(() => import('./pages/RiderDetail'))
 const RiderCreate = recoverableLazy(() => import('./pages/RiderCreate'))
-const DriverManagement = recoverableLazy(() => import('./pages/DriverManagement'))
-const DriverDetail = recoverableLazy(() => import('./pages/DriverDetail'))
 const DriverCreate = recoverableLazy(() => import('./pages/DriverCreate'))
-const SafetyOverview = recoverableLazy(() => import('./pages/SafetyOverview'))
 const SosIncidentDetailPage = recoverableLazy(() => import('./pages/SosIncidentDetailPage'))
-const RiskFraudCenter = recoverableLazy(() => import('./pages/RiskFraudCenter'))
 const RiskDetail = recoverableLazy(() => import('./pages/RiskDetail'))
 const CompanyList = recoverableLazy(() => import('./pages/CompanyList'))
 const CompanyDetail = recoverableLazy(() => import('./pages/CompanyDetail'))
@@ -154,11 +119,6 @@ const FinanceReconciliationRuns = recoverableLazy(() => import('./pages/FinanceR
 const CompanyApprovals = recoverableLazy(() => import('./pages/CompanyApprovals'))
 const RegionTaxConfigEditor = recoverableLazy(() => import('./pages/RegionTaxConfigEditor'))
 const InvoiceTemplatePreview = recoverableLazy(() => import('./pages/InvoiceTemplatePreview'))
-const OperationsDashboard = recoverableLazy(() => import('./pages/OperationsDashboard'))
-const MonitoringPage = recoverableLazy(() => import('./pages/MonitoringPage'))
-const LiveDriversMapPage = recoverableLazy(() => import('./pages/LiveDriversMapPage'))
-const MatchingInspectionPage = recoverableLazy(() => import('./pages/MatchingInspectionPage'))
-const DetailedAnalytics = recoverableLazy(() => import('./pages/DetailedAnalytics'))
 const ApprovalsDashboard = recoverableLazy(() => import('./pages/ApprovalsDashboard'))
 const ApprovalDetail = recoverableLazy(() => import('./pages/ApprovalDetail'))
 const DocumentReviewPage = recoverableLazy(() => import('./pages/DocumentReviewPage'))
@@ -192,9 +152,6 @@ const Settings = recoverableLazy(() => import('./pages/Settings'))
 const AccessDenied = recoverableLazy(() => import('./pages/AccessDenied'))
 const DeliveryListPage = recoverableLazy(() => import('./pages/DeliveryListPage'))
 const DeliveryDetailPage = recoverableLazy(() => import('./pages/DeliveryDetailPage'))
-const RidesListPage = recoverableLazy(() => import('./pages/RidesListPage'))
-const RideDetailPage = recoverableLazy(() => import('./pages/RideDetailPage'))
-const RideAnomaliesPage = recoverableLazy(() => import('./pages/RideAnomaliesPage'))
 const ReturnRequestsPage = recoverableLazy(() => import('./pages/ReturnRequestsPage'))
 const DisputesPage = recoverableLazy(() => import('./pages/DisputesPage'))
 const ReturnShipmentsPage = recoverableLazy(() => import('./pages/ReturnShipmentsPage'))
@@ -212,7 +169,6 @@ const MarketplaceSellerOrderDetailPage = recoverableLazy(() => import('./pages/m
 
 export default function App() {
   useStaleAssetRecovery()
-  useIdleRoutePreload()
   return (
     <BrowserRouter>
       <AdminBackendBootstrap />

@@ -85,9 +85,7 @@ export function rideRouteMapPoints(
   route?: Record<string, unknown>,
 ): MapPoint[] {
   const routePoints = rideRoutePathPoints(route);
-  return routePoints.length > 1
-    ? routePoints
-    : validRideRouteStops(stops).map((stop) => ({ lat: stop.latitude, lng: stop.longitude }));
+  return routePoints.length > 1 ? routePoints : [];
 }
 
 export function rideRouteMapCenter(points: MapPoint[]): MapPoint | undefined {
