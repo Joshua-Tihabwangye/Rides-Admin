@@ -5,6 +5,69 @@ import RequirePermission from './auth/RequirePermission'
 import AdminShell from './layout/AdminShell'
 import AdminBackendBootstrap from './components/AdminBackendBootstrap'
 
+const routePreloaders: Array<() => Promise<unknown>> = []
+const ADMIN_ROUTE_PRELOAD_EVENT = 'evzone:admin-preload-route-chunks'
+const ADMIN_ASSET_RELOAD_KEY = 'evzone-admin-asset-reload'
+let preloadStarted = false
+
+
+function reloadOnceForStaleAsset() {
+  if (typeof window === 'undefined') return
+  if (window.sessionStorage.getItem(ADMIN_ASSET_RELOAD_KEY)) return
+  window.sessionStorage.setItem(ADMIN_ASSET_RELOAD_KEY, '1')
+  window.location.reload()
+}
+
+function isAdminBuildAsset(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false
+  if (target instanceof HTMLScriptElement) return target.src.includes('/assets/')
+  if (target instanceof HTMLLinkElement) {
+    return target.href.includes('/assets/') && (target.rel === 'stylesheet' || target.rel === 'modulepreload')
+  }
+  return false
+}
+
+function useStaleAssetRecovery() {
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const releaseReloadGuard = window.setTimeout(() => {
+      window.sessionStorage.removeItem(ADMIN_ASSET_RELOAD_KEY)
+    }, 5000)
+    const handlePreloadError = (event: Event) => {
+      event.preventDefault()
+      reloadOnceForStaleAsset()
+    }
+    const handleResourceError = (event: Event) => {
+      if (isAdminBuildAsset(event.target)) reloadOnceForStaleAsset()
+    }
+    window.addEventListener('vite:preloadError', handlePreloadError as EventListener)
+    window.addEventListener('error', handleResourceError, true)
+    return () => {
+      window.clearTimeout(releaseReloadGuard)
+      window.removeEventListener('vite:preloadError', handlePreloadError as EventListener)
+      window.removeEventListener('error', handleResourceError, true)
+    }
+  }, [])
+}
+
+function preloadAdminRouteChunks(cancelled: () => boolean = () => false) {
+  if (preloadStarted) return Promise.resolve()
+  preloadStarted = true
+  const pending = [...routePreloaders]
+  const workers = Array.from({ length: 4 }, async () => {
+    while (!cancelled() && pending.length) {
+      const preload = pending.shift()
+      if (!preload) return
+      try {
+        await preload()
+      } catch {
+        // recoverableLazy handles stale chunks when a route is actually opened.
+      }
+    }
+  })
+  return Promise.all(workers).then(() => undefined)
+}
+
 function RouteLoading() {
   return (
     <div style={{ minHeight: 280, display: 'grid', placeItems: 'center', color: '#475569', fontSize: 13 }}>
@@ -14,7 +77,7 @@ function RouteLoading() {
 }
 
 function recoverableLazy<T extends React.ComponentType<any>>(loader: () => Promise<{ default: T }>) {
-  return lazy(() =>
+  const load = () =>
     loader().then((module) => {
       if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem('evzone-admin-chunk-reload')
@@ -34,8 +97,28 @@ function recoverableLazy<T extends React.ComponentType<any>>(loader: () => Promi
         return new Promise<{ default: T }>(() => {})
       }
       throw error
-    }),
-  )
+    })
+  routePreloaders.push(load)
+  return lazy(load)
+}
+
+function useIdleRoutePreload() {
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    let cancelled = false
+    const run = () => void preloadAdminRouteChunks(() => cancelled)
+    const handlePreloadRequest = () => run()
+    window.addEventListener(ADMIN_ROUTE_PRELOAD_EVENT, handlePreloadRequest)
+    const requestIdle = (window as any).requestIdleCallback as undefined | ((callback: () => void) => number)
+    const cancelIdle = (window as any).cancelIdleCallback as undefined | ((id: number) => void)
+    const id = requestIdle ? requestIdle(run) : window.setTimeout(run, 1500)
+    return () => {
+      cancelled = true
+      window.removeEventListener(ADMIN_ROUTE_PRELOAD_EVENT, handlePreloadRequest)
+      if (requestIdle && cancelIdle) cancelIdle(id)
+      else window.clearTimeout(id)
+    }
+  }, [])
 }
 
 const AdminAuthSignIn = recoverableLazy(() => import('./pages/AdminAuthSignIn'))
@@ -128,6 +211,8 @@ const MarketplaceSellerOrdersPage = recoverableLazy(() => import('./pages/market
 const MarketplaceSellerOrderDetailPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceSellerOrderDetailPage'))
 
 export default function App() {
+  useStaleAssetRecovery()
+  useIdleRoutePreload()
   return (
     <BrowserRouter>
       <AdminBackendBootstrap />

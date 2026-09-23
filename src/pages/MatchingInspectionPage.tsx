@@ -70,7 +70,7 @@ export default function MatchingInspectionPage() {
 
   useEffect(() => {
     void loadJobs();
-    const interval = window.setInterval(loadJobs, 15000);
+    const interval = window.setInterval(loadJobs, 5000);
     return () => window.clearInterval(interval);
   }, []);
 

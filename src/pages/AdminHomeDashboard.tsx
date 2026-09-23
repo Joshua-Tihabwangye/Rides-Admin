@@ -33,14 +33,13 @@ import {
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import PeriodSelector, { type PeriodOption } from "../components/PeriodSelector";
+import { useAdminLiveData } from "../components/AdminLiveDataProvider";
 import {
   getAdminSystemOverview,
   getAdminOperationsAnalytics,
   getAdminFinanceAnalytics,
-  getAdminMonitoringSnapshot,
   type AdminAnalyticsPeriod,
   type AdminFinanceAnalytics,
-  type AdminMonitoringSnapshot,
   type AdminOperationsAnalytics,
 } from "../services/api/adminApi";
 
@@ -71,9 +70,9 @@ export default function AdminHomeDashboardPage() {
   } | null>(null);
   const [operationsAnalytics, setOperationsAnalytics] = useState<AdminOperationsAnalytics | null>(null);
   const [financeAnalytics, setFinanceAnalytics] = useState<AdminFinanceAnalytics | null>(null);
-  const [monitoringSnapshot, setMonitoringSnapshot] = useState<AdminMonitoringSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { monitoringSnapshot } = useAdminLiveData();
   const range = useMemo(() => periodRange(period, customRange), [customRange, period]);
 
   useEffect(() => {
@@ -82,17 +81,15 @@ export default function AdminHomeDashboardPage() {
       try {
         setLoading(true);
         setError(null);
-        const [ov, ops, fin, monitoring] = await Promise.all([
+        const [ov, ops, fin] = await Promise.all([
           getAdminSystemOverview(),
           getAdminOperationsAnalytics({ period: period as AdminAnalyticsPeriod, start: range.start, end: range.end }),
           getAdminFinanceAnalytics({ period: period as AdminAnalyticsPeriod, start: range.start, end: range.end }),
-          getAdminMonitoringSnapshot().catch(() => null),
         ]);
         if (!cancelled) {
           setOverview(ov);
           setOperationsAnalytics(ops);
           setFinanceAnalytics(fin);
-          setMonitoringSnapshot(monitoring);
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load dashboard data");

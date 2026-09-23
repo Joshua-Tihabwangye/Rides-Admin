@@ -255,7 +255,7 @@ export default function SafetyOverviewDashboardPage() {
 
   useEffect(() => {
     void load();
-    const timer = window.setInterval(() => void load(), 30000);
+    const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
   }, [load]);
 

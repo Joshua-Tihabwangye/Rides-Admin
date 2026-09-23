@@ -20,7 +20,7 @@ import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
-import { createAdminSocket, getActiveDrivers } from "../services/api/adminApi";
+import { useAdminLiveData, type LiveDriverMarker } from "../components/AdminLiveDataProvider";
 import MapErrorBoundary from "../components/MapErrorBoundary";
 import {
   driverVehicleKind,
@@ -29,32 +29,6 @@ import {
   vehicleMarkerIconUrl,
   vehicleMarkerSize,
 } from "../utils/vehicleMarkerIcons";
-
-export type LiveDriverMarker = {
-  driverId: string;
-  latitude: number;
-  longitude: number;
-  heading?: number;
-  vehicleType?: string;
-  availabilityStatus: string;
-  lastLocationAt?: string;
-  distanceKm: number;
-  name?: string;
-  plate?: string;
-  serviceType?: string;
-  serviceId?: string;
-  activeAssignment?: {
-    serviceType: "RIDE" | "DELIVERY";
-    serviceId: string;
-    status?: string;
-    pickup?: string;
-    destination?: string;
-    distanceKm?: number;
-    durationMinutes?: number;
-    trackingCode?: string;
-    routeId?: string;
-  };
-};
 
 // Returns the operator's real browser position to seed the initial viewport,
 // or null when unavailable. The map only centers on real driver data.
@@ -67,17 +41,6 @@ function requestBrowserCenter(): Promise<{ lat: number; lng: number } | null> {
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
     );
   });
-}
-
-const FRESHNESS_MS = 15 * 60 * 1000;
-
-function isValidFreshLocation(loc: { latitude?: number; longitude?: number; lastLocationAt?: string }): boolean {
-  if (typeof loc.latitude !== "number" || typeof loc.longitude !== "number") return false;
-  if (typeof loc.lastLocationAt === "string") {
-    const age = Date.now() - new Date(loc.lastLocationAt).getTime();
-    if (!Number.isFinite(age) || age > FRESHNESS_MS) return false;
-  }
-  return true;
 }
 
 function vehicleIcon(vehicleType?: string) {
@@ -97,7 +60,7 @@ function markerIcon(driver: LiveDriverMarker, google: any) {
   };
 }
 
-function formatLastSeen(value?: string) {
+function formatLastSeen(value?: string | Date | null) {
   if (!value) return "—";
   const minutes = Math.floor((Date.now() - new Date(value).getTime()) / 60000);
   if (minutes < 1) return "just now";
@@ -131,22 +94,22 @@ export default function LiveDriversMapPage() {
     preventGoogleFontsLoading: true,
   });
 
-const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const {
+    drivers,
+    loading,
+    refreshing,
+    error,
+    lastUpdated,
+    refresh: refreshLiveData,
+  } = useAdminLiveData();
   const [selected, setSelected] = useState<LiveDriverMarker | null>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [zoom, setZoom] = useState(12);
   const [filter, setFilter] = useState<"ALL" | "ONLINE" | "BUSY">("ALL");
   const mapRef = useRef<any>(null);
-  const driversRef = useRef<LiveDriverMarker[]>([]);
-  driversRef.current = drivers;
   const centerRef = useRef(center);
   centerRef.current = center;
   const abortCtrl = useRef<AbortController | null>(null);
-  const locationTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     abortCtrl.current = new AbortController();
@@ -158,99 +121,26 @@ const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
     };
   }, []);
 
-  const refresh = useCallback(async (silent = false) => {
-    if (!silent) setRefreshing(true);
-    try {
-      const origin = centerRef.current;
-      const { drivers: markers } = await getActiveDrivers(
-        origin?.lat,
-        origin?.lng,
-        50,
-        300,
-      );
-      setDrivers(markers);
-      // Seed the viewport from the first real driver when no center is set yet.
-      if (!centerRef.current && markers.length > 0) {
-        const first = markers[0];
-        setCenter({ lat: first.latitude, lng: first.longitude });
-      }
-      setLastUpdated(new Date().toISOString());
-      setError(null);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to load active drivers");
-    } finally {
-      setRefreshing(false);
-      setLoading(false);
+  useEffect(() => {
+    if (!centerRef.current && drivers.length > 0) {
+      const first = drivers[0];
+      setCenter({ lat: first.latitude, lng: first.longitude });
     }
-  }, []);
+  }, [drivers]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (!selected) return;
+    const fresh = drivers.find((driver) => driver.driverId === selected.driverId);
+    if (fresh && fresh !== selected) setSelected(fresh);
+  }, [drivers, selected]);
 
-  useEffect(() => {
-    if (!googleMapsApiKey) return;
-    const socket = createAdminSocket();
-    const onServiceUpdated = (payload: {
-      serviceType?: string;
-      serviceId?: string;
-      data?: { event?: string; location?: LiveDriverMarker };
-    }) => {
-      const data = payload?.data;
-      if (data?.event !== "driver.location" || !data.location) return;
-      const location = data.location;
-      if (!isValidFreshLocation(location)) return;
-      // Debounce location updates so rapid socket messages don't cause
-      // excessive state re-renders.
-      if (locationTimeoutRef.current !== null) {
-        window.clearTimeout(locationTimeoutRef.current);
-      }
-      locationTimeoutRef.current = window.setTimeout(() => {
-        setDrivers((prev) => {
-          const index = prev.findIndex((d) => d.driverId === location.driverId);
-          if (index === -1) {
-            if (!centerRef.current) {
-              setCenter({ lat: location.latitude, lng: location.longitude });
-            }
-            return [...prev, { ...location, distanceKm: 0 }];
-          }
-          const next = [...prev];
-          next[index] = {
-            ...next[index],
-            ...location,
-            activeAssignment: location.activeAssignment ?? next[index].activeAssignment,
-            serviceType: location.serviceType ?? next[index].serviceType,
-            serviceId: location.serviceId ?? next[index].serviceId,
-          };
-          return next;
-        });
-        locationTimeoutRef.current = null;
-      }, 250);
-    };
-    socket.on("service.updated", onServiceUpdated);
-    socket.on("operations.service.updated", onServiceUpdated);
-    socket.connect();
-    return () => {
-      socket.off("service.updated", onServiceUpdated);
-      socket.off("operations.service.updated", onServiceUpdated);
-      socket.disconnect();
-    };
-  }, [googleMapsApiKey]);
+  const refresh = useCallback(async (silent = false) => {
+    await refreshLiveData(!silent);
+  }, [refreshLiveData]);
 
   useEffect(() => {
     return () => abortCtrl.current?.abort();
   }, []);
-
-  useEffect(() => {
-    abortCtrl.current = new AbortController();
-    const interval = window.setInterval(() => {
-      void refresh(true);
-    }, 15000);
-    return () => {
-      abortCtrl.current?.abort();
-      window.clearInterval(interval);
-    };
-  }, [refresh]);
 
   const visibleDrivers = useMemo(
     () => drivers.filter((driver) => filter === "ALL" || driver.availabilityStatus === filter),

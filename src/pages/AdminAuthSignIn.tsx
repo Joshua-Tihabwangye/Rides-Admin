@@ -153,13 +153,13 @@ export default function AuthSignIn() {
   const hoverStyles: Record<"big" | "small", CSSProperties> = {
     big: {
       background: EV.lightGray,
-      borderColor:"#cbd5e1",
+      border:`1px solid #cbd5e1`,
       transform:"translateY(-1px)",
       boxShadow:"0 10px 25px rgba(15, 23, 42, 0.08)",
     },
     small: {
       background: EV.lightGray,
-      borderColor:"#cbd5e1",
+      border:`1px solid #cbd5e1`,
       transform:"translateY(-1px)",
       boxShadow:"0 10px 20px rgba(15, 23, 42, 0.08)",
     },

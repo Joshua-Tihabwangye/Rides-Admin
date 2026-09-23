@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -25,12 +25,7 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useNavigate } from "react-router-dom";
-import {
-  getAdminMonitoringSnapshot,
-  listAdminMonitoringDrivers,
-  listAdminMonitoringFailedDispatches,
-  listAdminMonitoringJobs,
-} from "../services/api/adminApi";
+import { useAdminLiveData } from "../components/AdminLiveDataProvider";
 import type {
   AdminMonitoringDriver,
   AdminMonitoringFailedDispatch,
@@ -71,47 +66,19 @@ function EmptyRow({ colSpan, text }: { colSpan: number; text: string }) {
 
 export default function MonitoringPage() {
   const navigate = useNavigate();
-  const [snapshot, setSnapshot] = useState<AdminMonitoringSnapshot | null>(null);
-  const [drivers, setDrivers] = useState<AdminMonitoringDriver[]>([]);
-  const [rideJobs, setRideJobs] = useState<AdminMonitoringJob[]>([]);
-  const [deliveryJobs, setDeliveryJobs] = useState<AdminMonitoringJob[]>([]);
-  const [failedDispatches, setFailedDispatches] = useState<AdminMonitoringFailedDispatch[]>([]);
+  const {
+    monitoringSnapshot: snapshot,
+    monitoringDrivers: drivers,
+    rideJobs,
+    deliveryJobs,
+    failedDispatches,
+    loading,
+    refreshing,
+    error,
+    lastUpdated,
+    refresh,
+  } = useAdminLiveData();
   const [selectedView, setSelectedView] = useState<MonitorView>("offline");
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const load = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setRefreshing(true);
-    setError(null);
-    try {
-      const [snapshotData, driverData, rideJobData, deliveryJobData, failedData] = await Promise.all([
-        getAdminMonitoringSnapshot(),
-        listAdminMonitoringDrivers(),
-        listAdminMonitoringJobs("ride"),
-        listAdminMonitoringJobs("delivery"),
-        listAdminMonitoringFailedDispatches(),
-      ]);
-      setSnapshot(snapshotData);
-      setDrivers(driverData ?? []);
-      setRideJobs(rideJobData ?? []);
-      setDeliveryJobs(deliveryJobData ?? []);
-      setFailedDispatches(failedData ?? []);
-      setLastUpdated(new Date());
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to load monitoring data");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    const interval = window.setInterval(() => void load(), 10000);
-    return () => window.clearInterval(interval);
-  }, [load]);
 
   const onlineDrivers = useMemo(() => drivers.filter((driver) => driver.online), [drivers]);
   const offlineDrivers = useMemo(() => drivers.filter((driver) => !driver.online), [drivers]);
@@ -196,7 +163,7 @@ export default function MonitoringPage() {
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
           {lastUpdated ? <Typography variant="caption" color="text.secondary">Updated {lastUpdated.toLocaleTimeString()}</Typography> : null}
-          <Button variant="outlined" size="small" startIcon={refreshing ? <CircularProgress size={14} /> : <RefreshIcon />} onClick={() => void load(true)} disabled={refreshing} sx={{ textTransform: "none", borderRadius: 2 }}>
+          <Button variant="outlined" size="small" startIcon={refreshing ? <CircularProgress size={14} /> : <RefreshIcon />} onClick={() => void refresh(true)} disabled={refreshing} sx={{ textTransform: "none", borderRadius: 2 }}>
             Refresh
           </Button>
         </Stack>
