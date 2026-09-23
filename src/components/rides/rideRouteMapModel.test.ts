@@ -29,7 +29,7 @@ describe("rideRouteMapModel", () => {
     ];
 
     expect(validRideRouteStops(stops).map((item) => item.id)).toEqual(["pickup"]);
-    expect(rideRouteMapPoints(stops)).toEqual([{ lat: 0.3476, lng: 32.5825 }]);
+    expect(rideRouteMapPoints(stops)).toEqual([]);
   });
 
   it("uses backend route path points when at least two valid points exist", () => {
@@ -71,7 +71,7 @@ describe("rideRouteMapModel", () => {
     ]);
   });
 
-  it("decodes encoded route polylines before falling back to stops", () => {
+  it("decodes encoded route polylines", () => {
     expect(rideRoutePathPoints({ polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@" })).toEqual([
       { lat: 38.5, lng: -120.2 },
       { lat: 40.7, lng: -120.95 },

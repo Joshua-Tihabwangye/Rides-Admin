@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -210,15 +210,23 @@ export default function SafetyOverviewDashboardPage() {
   const [period, setPeriod] = useState<PeriodOption>("today");
   const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ severity: "success" | "error"; message: string } | null>(null);
 
   const selectedRange = useMemo(() => periodRange(period, customRange), [period, customRange]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options: { initial?: boolean } = {}) => {
+    const initial = options.initial === true;
+    if (initial) setInitialLoading(true);
+    else setRefreshing(true);
     setError(null);
+    const optionalErrors: string[] = [];
+    const optional = <T,>(label: string, task: Promise<T>) => task.catch((err) => {
+      optionalErrors.push(`${label}: ${err instanceof Error ? err.message : "unavailable"}`);
+      return undefined;
+    });
     try {
       const [incidentPage, sosPage, cases, riders, drivers] = await Promise.all([
         listAdminSafetyEmergencies({ page: 1, limit: 100, fromDate: selectedRange.start, toDate: selectedRange.end }),
@@ -230,15 +238,17 @@ export default function SafetyOverviewDashboardPage() {
           status: statusFilter,
           search,
         }),
-        listAdminRiskCases().catch(() => []),
-        listAdminRiders().catch(() => []),
-        listAdminDrivers().catch(() => []),
+        optional("Risk cases", listAdminRiskCases()),
+        optional("Rider review queue", listAdminRiders()),
+        optional("Driver review queue", listAdminDrivers()),
       ]);
       const mergedIncidents = new Map<string, AdminSafetyIncident>();
       for (const incident of incidentPage?.items ?? []) mergedIncidents.set(incident.id, incident);
       for (const incident of sosPage?.items ?? []) mergedIncidents.set(incident.id, incident);
       setIncidents([...mergedIncidents.values()]);
-      setRiskCases((Array.isArray(cases) ? cases : []).filter((riskCase) => inRange(riskCase.createdAt, selectedRange)));
+      if (cases !== undefined) {
+        setRiskCases(cases.filter((riskCase) => inRange(riskCase.createdAt, selectedRange)));
+      }
       const riderReview: ReviewAccount[] = (Array.isArray(riders) ? riders : [])
         .filter((rider: AdminRiderResponse) => rider.status !== "active")
         .map((rider: AdminRiderResponse) => ({
@@ -257,40 +267,48 @@ export default function SafetyOverviewDashboardPage() {
           contact: driver.phone || driver.email || "-",
           status: driver.status,
         }));
-      setReviewAccounts([...riderReview, ...driverReview]);
+      if (riders !== undefined && drivers !== undefined) {
+        setReviewAccounts([...riderReview, ...driverReview]);
+      }
+      if (optionalErrors.length) setError(optionalErrors.join("; "));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load safety data");
-      setIncidents([]);
-      setRiskCases([]);
-      setReviewAccounts([]);
     } finally {
-      setLoading(false);
+      if (initial) setInitialLoading(false);
+      setRefreshing(false);
     }
   }, [search, selectedRange, statusFilter]);
 
   useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), 5000);
+    void load({ initial: true });
+    const timer = window.setInterval(() => void load(), 30000);
     return () => window.clearInterval(timer);
   }, [load]);
 
-  useEffect(() => {
-    const refresh = () => {
+  const refreshTimerRef = useRef<number | null>(null);
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = window.setTimeout(() => {
+      refreshTimerRef.current = null;
       void load();
-    };
+    }, 600);
+  }, [load]);
+
+  useEffect(() => {
     const detach = attachAdminRealtimeSocket(createAdminSocket(), {
       rooms: ["operations"],
       events: {
-        "safety.incident.new": refresh,
-        "safety.incident.updated": refresh,
-        "sos.session.update": refresh,
-        "safety.emergency.message.new": refresh,
+        "safety.incident.new": scheduleRefresh,
+        "safety.incident.updated": scheduleRefresh,
+        "sos.session.update": scheduleRefresh,
+        "safety.emergency.message.new": scheduleRefresh,
       },
     });
     return () => {
       detach();
+      if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
     };
-  }, [load]);
+  }, [scheduleRefresh]);
 
   const rows = useMemo(() => [...incidents.map(incidentToRow), ...riskCases.map(riskToRow)], [incidents, riskCases]);
   const sosRows = useMemo(() => rows.filter((row) => row.category === "SOS"), [rows]);
@@ -334,7 +352,7 @@ export default function SafetyOverviewDashboardPage() {
     }
   };
 
-  if (loading) {
+  if (initialLoading && incidents.length === 0 && riskCases.length === 0 && reviewAccounts.length === 0) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 6 }}>
         <CircularProgress />
@@ -364,8 +382,8 @@ export default function SafetyOverviewDashboardPage() {
             customStart={customRange[0]}
             customEnd={customRange[1]}
           />
-          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => void load()} sx={{ borderRadius: 999, textTransform: "none" }}>
-            Refresh
+          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => void load()} disabled={refreshing} sx={{ borderRadius: 999, textTransform: "none" }}>
+            {refreshing ? "Refreshing" : "Refresh"}
           </Button>
         </Stack>
       </Box>

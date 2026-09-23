@@ -115,9 +115,8 @@ export default function RideAnomaliesPage() {
         setTotal(typeof res.total === "number" ? res.total : nextItems.length);
       })
       .catch((err) => {
+        // A failed refresh is unavailable data, not proof that no anomalies exist.
         setError(err instanceof Error ? err.message : "Failed to load anomalies");
-        setItems([]);
-        setTotal(0);
       })
       .finally(() => setLoading(false));
   }, []);

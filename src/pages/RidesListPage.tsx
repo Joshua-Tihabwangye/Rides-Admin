@@ -125,8 +125,9 @@ export default function RidesListPage() {
       setTotal(response.meta?.total ?? 0);
       setLastUpdated(new Date());
     } catch (err) {
+      // Keep the last successful page visible so a transient API failure cannot
+      // look like an empty ride system.
       setError(err instanceof Error ? err.message : 'Failed to load rides');
-      setItems([]);
     } finally {
       setLoading(false);
     }

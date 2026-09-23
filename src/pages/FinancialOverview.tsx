@@ -106,26 +106,29 @@ export default function FinancialOverviewPage() {
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const optionalErrors: string[] = [];
+    const optional = <T,>(label: string, task: Promise<T>) => task.catch((err) => {
+      optionalErrors.push(`${label}: ${err instanceof Error ? err.message : "unavailable"}`);
+      return undefined;
+    });
     try {
       const [financeData, trendData, companyData, revenueData, pendingPayouts] = await Promise.all([
         getAdminFinanceAnalytics({ period, start: range.start, end: range.end }),
-        getAdminAnalyticsTimeseries(period, { start: range.start, end: range.end }).catch(() => []),
-        getAdminAnalyticsCompanies(period, { start: range.start, end: range.end }).catch(() => []),
-        getAdminRevenueSummary({ from: range.start, to: range.end }).catch(() => null),
-        listAdminPayouts({ status: "PENDING", limit: 10 }).then((r) => r.items).catch(() => []),
+        optional("Trend data", getAdminAnalyticsTimeseries(period, { start: range.start, end: range.end })),
+        optional("Company data", getAdminAnalyticsCompanies(period, { start: range.start, end: range.end })),
+        optional("Revenue data", getAdminRevenueSummary({ from: range.start, to: range.end })),
+        optional("Payout queue", listAdminPayouts({ status: "PENDING", limit: 10 }).then((r) => r.items)),
       ]);
       setAnalytics(financeData);
-      setTimeseries(Array.isArray(trendData) ? trendData : []);
-      setCompanies(Array.isArray(companyData) ? companyData : []);
-      setRevenue(revenueData);
-      setPayouts(Array.isArray(pendingPayouts) ? pendingPayouts : []);
+      if (trendData !== undefined) setTimeseries(Array.isArray(trendData) ? trendData : []);
+      if (companyData !== undefined) setCompanies(Array.isArray(companyData) ? companyData : []);
+      if (revenueData !== undefined) setRevenue(revenueData);
+      if (pendingPayouts !== undefined) setPayouts(Array.isArray(pendingPayouts) ? pendingPayouts : []);
+      if (optionalErrors.length) setError(optionalErrors.join("; "));
     } catch (err: any) {
+      // Preserve the last successful snapshot. A failed refresh is not a zero
+      // balance, an empty payout queue, or an empty company report.
       setError(err?.message ?? "Failed to load financial analytics");
-      setAnalytics(null);
-      setTimeseries([]);
-      setCompanies([]);
-      setRevenue(null);
-      setPayouts([]);
     } finally {
       setLoading(false);
     }
