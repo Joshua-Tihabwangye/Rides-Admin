@@ -208,6 +208,8 @@ export function AdminLiveDataProvider({ children }: { children: React.ReactNode 
     socket.on("service.updated", onDriverLocation);
     socket.on("operations.service.updated", onDriverLocation);
     socket.on("driver.location.updated", onDriverLocation);
+    socket.on("driver.availability_updated", requestFastRefresh);
+    socket.on("driver.availability.changed", requestFastRefresh);
     socket.on("ride.created", requestFastRefresh);
     socket.on("ride.updated", requestFastRefresh);
     socket.on("delivery.updated", requestFastRefresh);
@@ -216,6 +218,8 @@ export function AdminLiveDataProvider({ children }: { children: React.ReactNode 
       socket.off("service.updated", onDriverLocation);
       socket.off("operations.service.updated", onDriverLocation);
       socket.off("driver.location.updated", onDriverLocation);
+      socket.off("driver.availability_updated", requestFastRefresh);
+      socket.off("driver.availability.changed", requestFastRefresh);
       socket.off("ride.created", requestFastRefresh);
       socket.off("ride.updated", requestFastRefresh);
       socket.off("delivery.updated", requestFastRefresh);
