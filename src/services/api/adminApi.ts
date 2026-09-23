@@ -896,7 +896,9 @@ export async function getAdminOperationsAnalytics(
 
 export type AdminMonitoringSnapshot = {
   onlineDrivers: number;
+  busyDrivers?: number;
   offlineDrivers?: number;
+  unavailableDrivers?: number;
   staleDrivers: number;
   activeRideJobs: number;
   activeDeliveryJobs: number;
@@ -919,6 +921,7 @@ export type AdminMonitoringDriver = {
   availabilityStatus: string;
   online: boolean;
   busy: boolean;
+  locationFresh?: boolean;
   stale: boolean;
   lastLatitude?: number;
   lastLongitude?: number;
@@ -1010,6 +1013,16 @@ export type AdminSafetyIncidentView = {
   capturedAt?: string | null;
 };
 
+export type AdminSafetyNotifiedContact = {
+  name?: string;
+  phone?: string;
+  source?: string;
+  attemptedAt?: string;
+  status?: string;
+  provider?: string;
+  providerResult?: { messageId?: string; error?: string };
+};
+
 export type AdminSafetyIncident = {
   id: string;
   reporterUserId: string;
@@ -1026,18 +1039,39 @@ export type AdminSafetyIncident = {
   audioMimeType?: string | null;
   audioDurationMs?: number | null;
   sos: boolean;
-  notifiedContacts?: Array<{
-    name?: string;
-    phone?: string;
-    source?: string;
-    attemptedAt?: string;
-    status?: string;
-    provider?: string;
-    providerResult?: { messageId?: string; error?: string };
-  }>;
+  notifiedContacts?: AdminSafetyNotifiedContact[];
   assignedToUserId?: string | null;
   resolvedAt?: string | null;
   view?: AdminSafetyIncidentView | null;
+  communication?: {
+    messages?: AdminEmergencyMessage[];
+    voiceNotes?: Array<AdminEmergencyMessage | {
+      id: string;
+      audioUrl?: string | null;
+      audioMimeType?: string | null;
+      audioDurationMs?: number | null;
+      createdAt?: string;
+      source?: string;
+    }>;
+    emergencyContacts?: AdminSafetyNotifiedContact[];
+  };
+  callSession?: {
+    id: string;
+    status: string;
+    startedAt: string;
+    answeredAt?: string | null;
+    endedAt?: string | null;
+    recipients?: Array<{
+      id: string;
+      type: "ADMIN" | "EMERGENCY_CONTACT" | "POLICE";
+      name: string;
+      channel: "IN_APP" | "VOICE" | string;
+      status: string;
+      callId?: string | null;
+      failureReason?: string | null;
+    }>;
+  };
+  history?: AdminIncidentEventLog[];
   contextSnapshot?: {
     contextKind?: string | null;
     capturedAt?: string | null;
@@ -1174,6 +1208,47 @@ export async function listAdminSafetyEmergencies(params?: {
   if (params?.fromDate) query.set("fromDate", params.fromDate);
   if (params?.toDate) query.set("toDate", params.toDate);
   return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
+}
+
+export async function listAdminSosIncidents(params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+  reporterUserId?: string;
+  riderId?: string;
+  driverId?: string;
+  rideId?: string;
+  serviceType?: string;
+  serviceId?: string;
+  vehicleId?: string;
+  plateNumber?: string;
+  callStatus?: string;
+  hasAudio?: boolean;
+  hasLocation?: boolean;
+}): Promise<AdminSafetyIncidentPage> {
+  const query = new URLSearchParams({
+    page: String(params?.page ?? 1),
+    limit: String(params?.limit ?? 100),
+  });
+  if (params?.status && params.status !== "ALL" && params.status !== "ACTIVE") query.set("status", params.status);
+  if (params?.fromDate) query.set("fromDate", params.fromDate);
+  if (params?.toDate) query.set("toDate", params.toDate);
+  if (params?.search?.trim()) query.set("search", params.search.trim());
+  if (params?.reporterUserId) query.set("reporterUserId", params.reporterUserId);
+  if (params?.riderId) query.set("riderId", params.riderId);
+  if (params?.driverId) query.set("driverId", params.driverId);
+  if (params?.rideId) query.set("rideId", params.rideId);
+  if (params?.serviceType) query.set("serviceType", params.serviceType);
+  if (params?.serviceId) query.set("serviceId", params.serviceId);
+  if (params?.vehicleId) query.set("vehicleId", params.vehicleId);
+  if (params?.plateNumber) query.set("plateNumber", params.plateNumber);
+  if (params?.callStatus) query.set("callStatus", params.callStatus);
+  if (params?.hasAudio !== undefined) query.set("hasAudio", String(params.hasAudio));
+  if (params?.hasLocation !== undefined) query.set("hasLocation", String(params.hasLocation));
+  return request<AdminSafetyIncidentPage>(`/safety/sos-incidents?${query}`, { method: "GET" });
 }
 
 export async function getAdminSafetyIncident(id: string): Promise<AdminSafetyIncident> {

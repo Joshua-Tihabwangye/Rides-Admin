@@ -42,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Build (pointing at the production API)
-        run: npm run build
+        run: npm run build:verify
         env:
           VITE_BACKEND_BASE_URL: https://${{ vars.APP_DOMAIN }}
           VITE_API_BASE_URL: https://${{ vars.APP_DOMAIN }}
@@ -64,6 +64,15 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
       - name: Run remote deployment
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -98,3 +107,8 @@ jobs:
             sudo bash "$DEPLOY_DIR/deploy/setup-ssl.sh" "$DOMAIN" "$SSL_EMAIL"
 
             echo "==> Admin web deploy complete for $DOMAIN"
+
+      - name: Smoke deployed admin assets
+        run: npm run smoke:deployment
+        env:
+          ADMIN_SMOKE_BASE_URL: https://${{ vars.ADMIN_DOMAIN }}

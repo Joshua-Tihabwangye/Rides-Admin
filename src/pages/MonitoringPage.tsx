@@ -8,6 +8,7 @@ import {
   Chip,
   CircularProgress,
   Grid,
+  Skeleton,
   Stack,
   Table,
   TableBody,
@@ -35,7 +36,7 @@ import type {
 
 const EV_GREEN = "#03cd8c";
 const EV_ORANGE = "#f77f00";
-type MonitorView = "online" | "offline" | "rides" | "deliveries" | "failed" | "compliance";
+type MonitorView = "online" | "busy" | "offline" | "stale" | "rides" | "deliveries" | "failed" | "compliance";
 
 function formatTimestamp(value?: string) {
   if (!value) return "-";
@@ -52,6 +53,22 @@ function formatAge(seconds?: number) {
 
 function shortId(value?: string) {
   return value ? value.slice(0, 8) : "-";
+}
+
+function availabilityLabel(driver: AdminMonitoringDriver) {
+  if (driver.busy) return "Busy";
+  if (driver.online) return "Online";
+  return driver.availabilityStatus ? driver.availabilityStatus.replace(/_/g, " ") : "Offline";
+}
+
+function availabilityColor(driver: AdminMonitoringDriver): "success" | "warning" | "default" {
+  if (driver.online) return "success";
+  if (driver.busy) return "warning";
+  return "default";
+}
+
+function gpsIsFresh(driver: AdminMonitoringDriver) {
+  return driver.locationFresh ?? !driver.stale;
 }
 
 function EmptyRow({ colSpan, text }: { colSpan: number; text: string }) {
@@ -81,25 +98,50 @@ export default function MonitoringPage() {
   const [selectedView, setSelectedView] = useState<MonitorView>("offline");
 
   const onlineDrivers = useMemo(() => drivers.filter((driver) => driver.online), [drivers]);
-  const offlineDrivers = useMemo(() => drivers.filter((driver) => !driver.online), [drivers]);
-  const problemCount = (snapshot?.failedDispatches ?? 0) + (snapshot?.offlineDrivers ?? offlineDrivers.length) + (snapshot?.expiredDocumentCount ?? 0);
+  const busyDrivers = useMemo(() => drivers.filter((driver) => driver.busy), [drivers]);
+  const offlineDrivers = useMemo(
+    () => drivers.filter((driver) => String(driver.availabilityStatus).toUpperCase() === "OFFLINE"),
+    [drivers],
+  );
+  const staleLocationDrivers = useMemo(() => drivers.filter((driver) => driver.stale && (driver.online || driver.busy)), [drivers]);
+  const problemCount =
+    (snapshot?.failedDispatches ?? 0) +
+    (snapshot?.offlineDrivers ?? offlineDrivers.length) +
+    (snapshot?.staleDrivers ?? staleLocationDrivers.length) +
+    (snapshot?.expiredDocumentCount ?? 0);
 
   const cards = [
     {
       key: "online" as const,
       label: "Online drivers",
       value: snapshot?.onlineDrivers ?? onlineDrivers.length,
-      helper: "Heartbeat received within 15s",
+      helper: "Availability is ONLINE",
       icon: <CheckCircleIcon fontSize="small" />,
       accent: EV_GREEN,
+    },
+    {
+      key: "busy" as const,
+      label: "Busy drivers",
+      value: snapshot?.busyDrivers ?? busyDrivers.length,
+      helper: "Availability is BUSY",
+      icon: <DirectionsCarIcon fontSize="small" />,
+      accent: "#f59e0b",
     },
     {
       key: "offline" as const,
       label: "Offline drivers",
       value: snapshot?.offlineDrivers ?? offlineDrivers.length,
-      helper: "No fresh heartbeat inside 15s",
+      helper: "Availability is OFFLINE",
       icon: <ErrorOutlineIcon fontSize="small" />,
       accent: EV_ORANGE,
+    },
+    {
+      key: "stale" as const,
+      label: "Stale GPS",
+      value: snapshot?.staleDrivers ?? staleLocationDrivers.length,
+      helper: "Online or busy drivers with stale location",
+      icon: <ErrorOutlineIcon fontSize="small" />,
+      accent: "#64748b",
     },
     {
       key: "rides" as const,
@@ -136,11 +178,7 @@ export default function MonitoringPage() {
   ];
 
   if (loading && !snapshot) {
-    return (
-      <Box sx={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <MonitoringPageSkeleton />;
   }
 
   return (
@@ -158,7 +196,7 @@ export default function MonitoringPage() {
             <Chip size="small" label={problemCount > 0 ? `${problemCount} needs attention` : "Healthy"} color={problemCount > 0 ? "warning" : "success"} variant="outlined" />
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            Driver heartbeat is expected every 10 seconds and treated as offline after 15 seconds.
+            Availability comes from the driver presence state. GPS heartbeat freshness is tracked separately.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
@@ -173,7 +211,7 @@ export default function MonitoringPage() {
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {cards.map((card) => (
-          <Grid item xs={12} sm={6} lg={4} xl={2} key={card.key}>
+          <Grid item xs={12} sm={6} lg={4} xl={3} key={card.key}>
             <Card
               variant="outlined"
               onClick={() => setSelectedView(card.key)}
@@ -202,8 +240,27 @@ export default function MonitoringPage() {
 
       <Card variant="outlined" sx={{ borderRadius: 2 }}>
         <CardContent>
-          {selectedView === "online" || selectedView === "offline" ? (
-            <DriverTable title={selectedView === "online" ? "Online drivers" : "Offline drivers"} drivers={selectedView === "online" ? onlineDrivers : offlineDrivers} />
+          {selectedView === "online" || selectedView === "busy" || selectedView === "offline" || selectedView === "stale" ? (
+            <DriverTable
+              title={
+                selectedView === "online"
+                  ? "Online drivers"
+                  : selectedView === "busy"
+                  ? "Busy drivers"
+                  : selectedView === "stale"
+                  ? "Drivers with stale GPS"
+                  : "Offline drivers"
+              }
+              drivers={
+                selectedView === "online"
+                  ? onlineDrivers
+                  : selectedView === "busy"
+                  ? busyDrivers
+                  : selectedView === "stale"
+                  ? staleLocationDrivers
+                  : offlineDrivers
+              }
+            />
           ) : selectedView === "rides" ? (
             <JobTable title="Active ride jobs" jobs={rideJobs} />
           ) : selectedView === "deliveries" ? (
@@ -226,34 +283,83 @@ export default function MonitoringPage() {
   );
 }
 
+function MonitoringPageSkeleton() {
+  return (
+    <Box sx={{ pb: 4 }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+        <Skeleton variant="rounded" width={80} height={32} />
+      </Stack>
+      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 3 }}>
+        <Box sx={{ width: { xs: "100%", md: 420 } }}>
+          <Skeleton variant="text" width="70%" height={36} />
+          <Skeleton variant="text" width="100%" height={22} />
+        </Box>
+        <Skeleton variant="rounded" width={140} height={34} />
+      </Stack>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {Array.from({ length: 8 }).map((_, index) => (
+          <Grid item xs={12} sm={6} lg={4} xl={3} key={index}>
+            <Card variant="outlined" sx={{ borderRadius: 2 }}>
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box sx={{ flex: 1 }}>
+                    <Skeleton variant="text" width="55%" height={18} />
+                    <Skeleton variant="text" width="35%" height={44} />
+                  </Box>
+                  <Skeleton variant="rounded" width={36} height={36} />
+                </Stack>
+                <Skeleton variant="text" width="78%" height={22} />
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+      <Card variant="outlined" sx={{ borderRadius: 2 }}>
+        <CardContent>
+          <Skeleton variant="text" width={180} height={28} />
+          <Skeleton variant="text" width="60%" height={22} sx={{ mb: 2 }} />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} variant="rounded" height={36} sx={{ mb: 1 }} />
+          ))}
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}
+
 function DriverTable({ title, drivers }: { title: string; drivers: AdminMonitoringDriver[] }) {
   return (
     <Box>
       <Typography variant="h6" fontWeight={800}>{title}</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Online means the last heartbeat is within the 15 second grace window.</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Presence follows driver availability. GPS freshness is shown separately from online/offline state.</Typography>
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Driver</TableCell>
               <TableCell>Vehicle</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell>Presence</TableCell>
+              <TableCell>GPS</TableCell>
               <TableCell>Heartbeat age</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {drivers.slice(0, 50).map((driver) => (
-              <TableRow key={driver.driverId} hover>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={700}>{driver.name || shortId(driver.driverId)}</Typography>
-                  <Typography variant="caption" color="text.secondary">{driver.phone || shortId(driver.driverId)}</Typography>
-                </TableCell>
-                <TableCell>{driver.vehicleType || "-"}</TableCell>
-                <TableCell><Chip size="small" label={driver.online ? "Online" : "Offline"} color={driver.online ? "success" : "default"} variant="outlined" /></TableCell>
-                <TableCell>{formatAge(driver.secondsSinceHeartbeat)}</TableCell>
-              </TableRow>
-            ))}
-            {drivers.length === 0 ? <EmptyRow colSpan={4} text={`No ${title.toLowerCase()} returned by the monitoring endpoint.`} /> : null}
+            {drivers.slice(0, 50).map((driver) => {
+              const fresh = gpsIsFresh(driver);
+              return (
+                <TableRow key={driver.driverId} hover>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={700}>{driver.name || shortId(driver.driverId)}</Typography>
+                    <Typography variant="caption" color="text.secondary">{driver.phone || shortId(driver.driverId)}</Typography>
+                  </TableCell>
+                  <TableCell>{driver.vehicleType || "-"}</TableCell>
+                  <TableCell><Chip size="small" label={availabilityLabel(driver)} color={availabilityColor(driver)} variant="outlined" /></TableCell>
+                  <TableCell><Chip size="small" label={fresh ? "Fresh" : "Stale"} color={fresh ? "success" : "warning"} variant="outlined" /></TableCell>
+                  <TableCell>{formatAge(driver.secondsSinceHeartbeat)}</TableCell>
+                </TableRow>
+              );
+            })}
+            {drivers.length === 0 ? <EmptyRow colSpan={5} text={`No ${title.toLowerCase()} returned by the monitoring endpoint.`} /> : null}
           </TableBody>
         </Table>
       </TableContainer>

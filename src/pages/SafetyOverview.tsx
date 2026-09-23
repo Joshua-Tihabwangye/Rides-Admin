@@ -35,6 +35,7 @@ import {
   listAdminRiders,
   listAdminRiskCases,
   listAdminSafetyEmergencies,
+  listAdminSosIncidents,
   patchAdminDriver,
   patchAdminRider,
   updateAdminSafetyIncident,
@@ -142,7 +143,10 @@ function incidentToRow(incident: AdminSafetyIncident): SafetyRow {
   const vehicle = incident.view?.vehicle?.plate || incident.contextSnapshot?.ride?.assignedVehicle?.plate;
   const pickup = incident.view?.ride?.pickup || incident.contextSnapshot?.ride?.pickup?.address;
   const destination = incident.view?.ride?.destination || incident.contextSnapshot?.ride?.destination?.address;
-  const contacts = incident.notifiedContacts?.length ?? 0;
+  const contacts = incident.communication?.emergencyContacts?.length ?? incident.notifiedContacts?.length ?? 0;
+  const messages = incident.communication?.messages?.length ?? 0;
+  const voiceNotes = incident.communication?.voiceNotes?.length ?? (incident.audioUrl ? 1 : 0);
+  const responders = incident.callSession?.recipients?.length ?? 0;
   const mapUrl = mapsLink(incident);
   return {
     id: incident.id,
@@ -161,6 +165,10 @@ function incidentToRow(incident: AdminSafetyIncident): SafetyRow {
       vehicle ? `Vehicle ${vehicle}` : "",
       pickup || destination ? `Route ${pickup || "-"} -> ${destination || "-"}` : "",
       contacts ? `${contacts} notified contact${contacts === 1 ? "" : "s"}` : "No notified contacts recorded",
+      incident.callSession?.status ? `Call ${titleize(incident.callSession.status)}` : "No SOS call session recorded",
+      responders ? `${responders} responder attempt${responders === 1 ? "" : "s"}` : "No responder attempts recorded",
+      messages ? `${messages} message${messages === 1 ? "" : "s"}` : "No messages",
+      voiceNotes ? `${voiceNotes} voice note${voiceNotes === 1 ? "" : "s"}` : "No voice notes",
     ].filter(Boolean),
     openPath: `/admin/safety/${incident.id}`,
     source: "incident",
@@ -214,7 +222,14 @@ export default function SafetyOverviewDashboardPage() {
     try {
       const [incidentPage, sosPage, cases, riders, drivers] = await Promise.all([
         listAdminSafetyEmergencies({ page: 1, limit: 100, fromDate: selectedRange.start, toDate: selectedRange.end }),
-        listAdminSafetyEmergencies({ page: 1, limit: 100, sos: true }),
+        listAdminSosIncidents({
+          page: 1,
+          limit: 100,
+          fromDate: selectedRange.start,
+          toDate: selectedRange.end,
+          status: statusFilter,
+          search,
+        }),
         listAdminRiskCases().catch(() => []),
         listAdminRiders().catch(() => []),
         listAdminDrivers().catch(() => []),
@@ -251,7 +266,7 @@ export default function SafetyOverviewDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedRange]);
+  }, [search, selectedRange, statusFilter]);
 
   useEffect(() => {
     void load();
@@ -393,33 +408,61 @@ export default function SafetyOverviewDashboardPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>SOS</TableCell>
-                <TableCell>Reporter / parties</TableCell>
-                <TableCell>Route and location</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Reported</TableCell>
-                <TableCell align="right">Action</TableCell>
+                <TableCell>Incident</TableCell>
+                <TableCell>Reporter / ride</TableCell>
+                <TableCell>Driver / rider / vehicle</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Call state</TableCell>
+                <TableCell>Incident state</TableCell>
+                <TableCell>Triggered</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {sosRows.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5 }}>No SOS incidents in this period.</TableCell></TableRow>
-              ) : sosRows.map((row) => (
-                <TableRow key={row.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 800, fontFamily: "monospace" }}>{row.id.slice(0, 8)}</Typography>
-                    <Chip size="small" color="error" label="SOS" sx={{ mt: 0.5 }} />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{row.subject}</Typography>
-                    <Typography variant="caption" color="text.secondary">{row.details.join(" | ")}</Typography>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 360 }}>{renderLocation(row)}</TableCell>
-                  <TableCell><StatusChip status={row.status} /></TableCell>
-                  <TableCell>{formatDate(row.reportedAt)}</TableCell>
-                  <TableCell align="right"><Button size="small" onClick={() => navigate(row.openPath)} sx={{ textTransform: "none" }}>Open full details</Button></TableCell>
-                </TableRow>
-              ))}
+                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 5 }}>No SOS incidents in this period.</TableCell></TableRow>
+              ) : sosRows.map((row) => {
+                const incident = row.incident;
+                const ride = incident?.contextSnapshot?.ride;
+                const driver = incident?.view?.driver?.name || ride?.assignedDriver?.name || "-";
+                const rider = incident?.view?.rider?.name || ride?.rider?.name || "-";
+                const plate = incident?.view?.vehicle?.plate || ride?.assignedVehicle?.plate || "-";
+                const route = [incident?.view?.ride?.pickup || ride?.pickup?.address, incident?.view?.ride?.destination || ride?.destination?.address].filter(Boolean).join(" -> ");
+                const callStatus = incident?.callSession?.status || "No session";
+                const responderCount = incident?.callSession?.recipients?.length ?? 0;
+                const messageCount = incident?.communication?.messages?.length ?? 0;
+                const voiceCount = incident?.communication?.voiceNotes?.length ?? (incident?.audioUrl ? 1 : 0);
+                return (
+                  <TableRow key={row.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 800, fontFamily: "monospace" }}>{row.id.slice(0, 8)}</Typography>
+                      <Chip size="small" color="error" label="SOS" sx={{ mt: 0.5 }} />
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 260 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{row.subject}</Typography>
+                      <Typography variant="caption" color="text.secondary">{ride?.rideId || incident?.serviceId || "No ride linked"}</Typography>
+                      {route ? <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{route}</Typography> : null}
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 260 }}>
+                      <Typography variant="caption" sx={{ display: "block" }}>Driver: {driver}</Typography>
+                      <Typography variant="caption" sx={{ display: "block" }}>Rider: {rider}</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Vehicle: {plate}</Typography>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 220 }}>{renderLocation(row)}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={titleize(callStatus)} color={callStatus === "CONNECTED" ? "success" : callStatus === "No session" ? "default" : "warning"} variant="outlined" />
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                        {responderCount} responder(s) · {messageCount} msg · {voiceCount} voice
+                      </Typography>
+                    </TableCell>
+                    <TableCell><StatusChip status={row.status} /></TableCell>
+                    <TableCell>{formatDate(row.reportedAt)}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" startIcon={<VisibilityIcon fontSize="small" />} onClick={() => navigate(row.openPath)} sx={{ textTransform: "none" }}>Details</Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
