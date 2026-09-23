@@ -39,31 +39,15 @@ import {
   YAxis,
 } from "recharts";
 import PeriodSelector, { PeriodOption } from "../components/PeriodSelector";
-import {
-  getAdminDashboard,
-  getAdminOperationsAnalytics,
-  listAdminRides,
-} from "../services/api/adminApi";
+import { useAdminLiveData } from "../components/AdminLiveDataProvider";
+import { getAdminOperationsAnalytics } from "../services/api/adminApi";
 import type {
-  AdminDashboardCounts,
   AdminOperationsAnalytics,
   AdminRideListItemResponse,
 } from "../services/api/adminApi";
 
 const EV_GREEN = "#03cd8c";
 const EV_ORANGE = "#f77f00";
-const ACTIVE_RIDE_STATUSES = new Set([
-  "SEARCHING",
-  "OFFERED",
-  "ACCEPTED",
-  "DRIVER_ASSIGNED",
-  "DRIVER_EN_ROUTE",
-  "ARRIVED",
-  "WAITING",
-  "VERIFIED",
-  "IN_PROGRESS",
-]);
-
 const PERIOD_LABELS: Record<PeriodOption, string> = {
   today: "Today",
   "7days": "Last 7 days",
@@ -127,8 +111,15 @@ export default function OperationsDashboardPage() {
   const [summary, setSummary] = useState<AdminOperationsAnalytics | null>(null);
   const [demandAnalytics, setDemandAnalytics] = useState<AdminOperationsAnalytics | null>(null);
   const [mixAnalytics, setMixAnalytics] = useState<AdminOperationsAnalytics | null>(null);
-  const [dashboard, setDashboard] = useState<AdminDashboardCounts | null>(null);
-  const [activeRides, setActiveRides] = useState<AdminRideListItemResponse[]>([]);
+  const {
+    dashboard,
+    activeRides,
+    loading: liveLoading,
+    refreshing: liveRefreshing,
+    error: liveError,
+    lastUpdated: liveLastUpdated,
+    refresh: refreshLiveData,
+  } = useAdminLiveData();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,22 +133,14 @@ export default function OperationsDashboardPage() {
       const summaryQuery = summaryPeriod === "custom" ? customDateRange(summaryRange) : {};
       const demandQuery = demandPeriod === "custom" ? customDateRange(demandRange) : {};
       const mixQuery = mixPeriod === "custom" ? customDateRange(mixRange) : {};
-      const [summaryData, demandData, mixData, dashboardData, ridesData] = await Promise.all([
+      const [summaryData, demandData, mixData] = await Promise.all([
         getAdminOperationsAnalytics({ period: summaryPeriod, ...summaryQuery }),
         getAdminOperationsAnalytics({ period: demandPeriod, ...demandQuery }),
         getAdminOperationsAnalytics({ period: mixPeriod, ...mixQuery }),
-        getAdminDashboard(),
-        listAdminRides({ page: 1, limit: 100 }),
       ]);
       setSummary(summaryData);
       setDemandAnalytics(demandData);
       setMixAnalytics(mixData);
-      setDashboard(dashboardData);
-      setActiveRides(
-        (ridesData.items ?? [])
-          .filter((ride) => ACTIVE_RIDE_STATUSES.has(String(ride.status).toUpperCase()))
-          .slice(0, 12),
-      );
       setLastUpdated(new Date());
     } catch (err: any) {
       setError(err?.message ?? "Failed to load operations data");
@@ -170,7 +153,7 @@ export default function OperationsDashboardPage() {
   useEffect(() => {
     setLoading(true);
     void load();
-    const interval = window.setInterval(() => void load(), 20000);
+    const interval = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(interval);
   }, [summaryPeriod, demandPeriod, mixPeriod, summaryRange, demandRange, mixRange]);
 
@@ -245,7 +228,11 @@ export default function OperationsDashboardPage() {
     },
   ];
 
-  if (loading && !summary) {
+  const pageRefreshing = refreshing || liveRefreshing;
+  const pageError = error ?? liveError;
+  const displayLastUpdated = liveLastUpdated ?? lastUpdated;
+
+  if ((loading || liveLoading) && !summary) {
     return (
       <Box sx={{ minHeight: 360, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <CircularProgress />
@@ -278,9 +265,9 @@ export default function OperationsDashboardPage() {
           <Button
             variant="outlined"
             size="small"
-            startIcon={refreshing ? <CircularProgress size={14} /> : <RefreshIcon />}
-            onClick={() => void load(true)}
-            disabled={refreshing}
+            startIcon={pageRefreshing ? <CircularProgress size={14} /> : <RefreshIcon />}
+            onClick={() => void Promise.all([load(true), refreshLiveData(true)])}
+            disabled={pageRefreshing}
             sx={{ textTransform: "none", borderRadius: 2 }}
           >
             Refresh
@@ -288,7 +275,7 @@ export default function OperationsDashboardPage() {
         </Stack>
       </Stack>
 
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+      {pageError ? <Alert severity="error" sx={{ mb: 2 }}>{pageError}</Alert> : null}
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {kpis.map((kpi) => (
@@ -430,9 +417,9 @@ export default function OperationsDashboardPage() {
         </Grid>
       </Grid>
 
-      {lastUpdated ? (
+      {displayLastUpdated ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
-          Last updated {lastUpdated.toLocaleTimeString()}
+          Last updated {displayLastUpdated.toLocaleTimeString()}
         </Typography>
       ) : null}
     </Box>

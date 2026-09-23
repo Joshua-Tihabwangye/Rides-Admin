@@ -33,6 +33,11 @@ const invoiceTemplatePreview = read("src/pages/InvoiceTemplatePreview.tsx");
 const adminGlobalSearch = read("src/pages/AdminGlobalSearch.tsx");
 const financeReconciliationRuns = read("src/pages/FinanceReconciliationRuns.tsx");
 const settings = read("src/pages/Settings.tsx");
+const adminLiveDataProvider = read("src/components/AdminLiveDataProvider.tsx");
+const operationsDashboard = read("src/pages/OperationsDashboard.tsx");
+const monitoringPage = read("src/pages/MonitoringPage.tsx");
+const matchingInspection = read("src/pages/MatchingInspectionPage.tsx");
+const safetyOverview = read("src/pages/SafetyOverview.tsx");
 const vercel = read("vercel.json");
 
 check(
@@ -165,19 +170,46 @@ check(
 );
 
 check(
-  "Lazy route chunks recover from stale deployments",
+  "Lazy route chunks and stale assets recover from deployments",
   app.includes("function recoverableLazy") &&
+    app.includes("useIdleRoutePreload") &&
+    app.includes("useStaleAssetRecovery") &&
+    app.includes("vite:preloadError") &&
+    app.includes("rel === 'stylesheet'") &&
+    app.includes("evzone:admin-preload-route-chunks") &&
+    shell.includes("onMouseEnter={requestRoutePreload}") &&
+    shell.includes("onFocus={requestRoutePreload}") &&
     app.includes("Failed to fetch dynamically imported module") &&
     app.includes("window.location.reload()") &&
     !app.includes("= lazy(() => import("),
-  "App lazy imports should use recoverableLazy for stale hashed chunk recovery"
+  "App lazy imports and CSS/static build assets should recover when stale hashed files disappear after a deploy"
+);
+
+check(
+  "Live operations state persists across Admin route changes",
+  shell.includes("AdminLiveDataProvider") &&
+    adminLiveDataProvider.includes("STATUS_POLL_MS = 2_000") &&
+    adminLiveDataProvider.includes("MOVEMENT_POLL_MS = 5_000") &&
+    adminLiveDataProvider.includes("createAdminSocket") &&
+    adminLiveDataProvider.includes("driver.location.updated") &&
+    adminLiveDataProvider.includes("listAdminMonitoringDrivers") &&
+    liveDriversMap.includes("useAdminLiveData") &&
+    operationsDashboard.includes("useAdminLiveData") &&
+    monitoringPage.includes("useAdminLiveData") &&
+    operationsDashboard.includes("window.setInterval(() => void load(), 5000)") &&
+    matchingInspection.includes("window.setInterval(loadJobs, 5000)") &&
+    safetyOverview.includes("window.setInterval(() => void load(), 5000)") &&
+    !liveDriversMap.includes("createAdminSocket") &&
+    !monitoringPage.includes("window.setInterval"),
+  "Live map, monitoring, and operations pages should read warm shared realtime state with a fast driver-status lane instead of resetting local sockets on navigation"
 );
 
 check(
   "Live drivers map avoids the 0,0 query sentinel",
   !liveDriversMap.includes("QUERY_ORIGIN") &&
-    liveDriversMap.includes("origin?.lat") &&
-    adminApi.includes("latitude?: number | null"),
+    adminLiveDataProvider.includes("getActiveDrivers(undefined, undefined") &&
+    adminApi.includes("latitude?: number | null") &&
+    adminApi.includes("cacheTtlMs: 0"),
   "LiveDriversMapPage should represent global queries by omitting coordinates"
 );
 

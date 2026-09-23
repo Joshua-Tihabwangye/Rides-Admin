@@ -32,6 +32,7 @@ interface RequestOptions {
   query?: Record<string, QueryValue>;
   retryOnUnauthorized?: boolean;
   unwrapData?: boolean;
+  cacheTtlMs?: number;
 }
 
 export class ApiRequestError extends Error {
@@ -204,11 +205,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const key = requestCacheKey(method, url);
   const isGet = method === "GET";
   const bypass = options.retryOnUnauthorized === false;
-  const cacheable = isGet && !bypass;
+  const cacheTtlMs = options.cacheTtlMs ?? GET_CACHE_TTL_MS;
+  const dedupeGet = isGet && !bypass;
+  const cacheable = dedupeGet && cacheTtlMs > 0;
 
-  if (cacheable) {
+  if (dedupeGet) {
     const inflight = IN_FLIGHT.get(key);
     if (inflight) return inflight as Promise<T>;
+  }
+
+  if (cacheable) {
     const cached = REQUEST_CACHE.get(key);
     if (cached && cached.expires > Date.now()) return cached.value as T;
   }
@@ -270,7 +276,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     }
 
     if (cacheable) {
-      REQUEST_CACHE.set(key, { value: result, expires: Date.now() + GET_CACHE_TTL_MS });
+      REQUEST_CACHE.set(key, { value: result, expires: Date.now() + cacheTtlMs });
     } else if (!isGet) {
       // Any mutation invalidates cached lists so they refetch fresh data.
       REQUEST_CACHE.clear();
@@ -278,7 +284,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     return result;
   };
 
-  if (cacheable) {
+  if (dedupeGet) {
     const promise = run().finally(() => {
       IN_FLIGHT.delete(key);
     });

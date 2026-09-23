@@ -1,14 +1,14 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Button,
+  Divider,
   Popover,
+  Stack,
+  Typography,
 } from '@mui/material'
-import type { SelectChangeEvent } from '@mui/material/Select'
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
@@ -31,6 +31,8 @@ const PERIOD_LABELS: Record<PeriodOption, string> = {
   custom: 'Custom range',
 }
 
+const PERIOD_OPTIONS: PeriodOption[] = ['today', '7days', 'thisMonth', 'thisYear', 'custom']
+
 export default function PeriodSelector({
   value,
   onChange,
@@ -38,99 +40,159 @@ export default function PeriodSelector({
   customEnd,
 }: PeriodSelectorProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+  const [draftPeriod, setDraftPeriod] = useState<PeriodOption>(value)
   const [tempStart, setTempStart] = useState<Dayjs | null>(customStart ?? dayjs().subtract(7, 'day'))
   const [tempEnd, setTempEnd] = useState<Dayjs | null>(customEnd ?? dayjs())
 
-  const handleChange = (event: SelectChangeEvent<PeriodOption>) => {
-    const newValue = event.target.value as PeriodOption
-    onChange(newValue)
-  }
+  useEffect(() => {
+    setDraftPeriod(value)
+  }, [value])
 
-  const handleCustomClick = (event: React.MouseEvent<HTMLElement>) => {
+  useEffect(() => {
+    if (customStart) setTempStart(customStart)
+    if (customEnd) setTempEnd(customEnd)
+  }, [customEnd, customStart])
+
+  const open = Boolean(anchorEl)
+  const selectedLabel = value === 'custom' && customStart && customEnd
+    ? `${customStart.format('MMM D')} - ${customEnd.format('MMM D, YYYY')}`
+    : PERIOD_LABELS[value]
+
+  const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setDraftPeriod(value)
     setAnchorEl(event.currentTarget)
   }
 
-  const handleCustomClose = () => {
-    setAnchorEl(null)
+  const handleClose = () => setAnchorEl(null)
+
+  const handlePickPeriod = (nextPeriod: PeriodOption) => {
+    setDraftPeriod(nextPeriod)
+    if (nextPeriod !== 'custom') {
+      onChange(nextPeriod)
+      handleClose()
+    }
   }
 
   const handleApplyCustom = () => {
-    if (tempStart && tempEnd) {
-      onChange('custom', { start: tempStart, end: tempEnd })
-    }
-    handleCustomClose()
+    if (!tempStart || !tempEnd) return
+    const start = tempStart.isAfter(tempEnd) ? tempEnd : tempStart
+    const end = tempStart.isAfter(tempEnd) ? tempStart : tempEnd
+    onChange('custom', { start, end })
+    handleClose()
   }
-
-  const open = Boolean(anchorEl)
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel id="period-select-label" sx={{ fontSize: 12 }}>
-            Period
-          </InputLabel>
-          <Select
-            labelId="period-select-label"
-            value={value}
-            label="Period"
-            onChange={handleChange}
-            sx={{ fontSize: 12, borderRadius: 2 }}
-          >
-            {Object.entries(PERIOD_LABELS).map(([key, label]) => (
-              <MenuItem key={key} value={key} sx={{ fontSize: 12 }}>
-                {label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<CalendarTodayIcon fontSize="small" />}
+          endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+          onClick={handleOpen}
+          aria-haspopup="dialog"
+          aria-expanded={open ? 'true' : undefined}
+          sx={{
+            minHeight: 40,
+            px: 1.5,
+            borderRadius: 2,
+            textTransform: 'none',
+            fontSize: 12,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {selectedLabel}
+        </Button>
+        <Popover
+          open={open}
+          anchorEl={anchorEl}
+          onClose={handleClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          disableAutoFocus
+          disableEnforceFocus
+          PaperProps={{
+            sx: {
+              mt: 1,
+              width: 320,
+              maxWidth: 'calc(100vw - 32px)',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 18px 45px rgba(15,23,42,0.16)',
+              overflow: 'hidden',
+            },
+          }}
+        >
+          <Box sx={{ p: 1 }}>
+            <Stack spacing={0.5}>
+              {PERIOD_OPTIONS.map((option) => {
+                const selected = draftPeriod === option
+                return (
+                  <Button
+                    key={option}
+                    fullWidth
+                    size="small"
+                    variant={selected ? 'contained' : 'text'}
+                    onClick={() => handlePickPeriod(option)}
+                    sx={{
+                      justifyContent: 'flex-start',
+                      minHeight: 34,
+                      borderRadius: 1.5,
+                      textTransform: 'none',
+                      fontSize: 12,
+                      bgcolor: selected ? '#03cd8c' : 'transparent',
+                      color: selected ? '#020617' : 'text.primary',
+                      '&:hover': { bgcolor: selected ? '#0fb589' : 'action.hover' },
+                    }}
+                  >
+                    {PERIOD_LABELS[option]}
+                  </Button>
+                )
+              })}
+            </Stack>
 
-        {value === 'custom' && (
-          <>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={handleCustomClick}
-              sx={{ textTransform: 'none', fontSize: 11, borderRadius: 999 }}
-            >
-              {tempStart?.format('MMM D')} - {tempEnd?.format('MMM D, YYYY')}
-            </Button>
-            <Popover
-              open={open}
-              anchorEl={anchorEl}
-              onClose={handleCustomClose}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            >
-              <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <DatePicker
-                  label="Start date"
-                  value={tempStart}
-                  onChange={(newValue) => setTempStart(newValue)}
-                  slotProps={{ textField: { size: 'small' } }}
-                />
-                <DatePicker
-                  label="End date"
-                  value={tempEnd}
-                  onChange={(newValue) => setTempEnd(newValue)}
-                  slotProps={{ textField: { size: 'small' } }}
-                />
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleApplyCustom}
-                  sx={{
-                    textTransform: 'none',
-                    borderRadius: 999,
-                    bgcolor: '#03cd8c',
-                    '&:hover': { bgcolor: '#0fb589' },
-                  }}
-                >
-                  Apply
-                </Button>
-              </Box>
-            </Popover>
-          </>
-        )}
+            {draftPeriod === 'custom' ? (
+              <>
+                <Divider sx={{ my: 1.25 }} />
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 700 }}>
+                  Custom dates
+                </Typography>
+                <Stack spacing={1.5}>
+                  <DatePicker
+                    label="Start date"
+                    value={tempStart}
+                    onChange={(newValue) => setTempStart(newValue)}
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                  />
+                  <DatePicker
+                    label="End date"
+                    value={tempEnd}
+                    onChange={(newValue) => setTempEnd(newValue)}
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleApplyCustom}
+                    disabled={!tempStart || !tempEnd}
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: 1.5,
+                      bgcolor: '#03cd8c',
+                      color: '#020617',
+                      '&:hover': { bgcolor: '#0fb589' },
+                    }}
+                  >
+                    Apply range
+                  </Button>
+                </Stack>
+              </>
+            ) : null}
+          </Box>
+        </Popover>
       </Box>
     </LocalizationProvider>
   )

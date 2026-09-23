@@ -80,6 +80,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeContext } from '../theme/evzoneTheme'
+import { AdminLiveDataProvider } from '../components/AdminLiveDataProvider'
 import { getAuthUser, isAuthed, signOut } from '../auth/auth'
 import { getUserPermissions, type AdminPermission } from '../auth/permissions'
 import {
@@ -95,6 +96,7 @@ import AdminIncomingCallOverlay from '../components/AdminIncomingCallOverlay'
 
 const drawerWidth = 220
 const drawerWidthMini = 88
+const ADMIN_ROUTE_PRELOAD_EVENT = 'evzone:admin-preload-route-chunks'
 
 
 type NavItem = { label: string; to: string; icon: React.ReactNode; anyOf?: AdminPermission[] }
@@ -263,6 +265,21 @@ function mapNotification(notification: AdminNotificationResponse): NotificationI
   }
 }
 
+function notificationItems(response: unknown): AdminNotificationResponse[] {
+  if (response && typeof response === 'object') {
+    const maybeItems = (response as { items?: unknown }).items
+    if (Array.isArray(maybeItems)) return maybeItems as AdminNotificationResponse[]
+
+    const maybeData = (response as { data?: unknown }).data
+    if (maybeData && typeof maybeData === 'object') {
+      const envelopedItems = (maybeData as { items?: unknown }).items
+      if (Array.isArray(envelopedItems)) return envelopedItems as AdminNotificationResponse[]
+    }
+  }
+
+  return []
+}
+
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).slice(0, 2)
   return parts.map((p) => p[0]?.toUpperCase()).join('') || 'AA'
@@ -302,7 +319,7 @@ export default function AdminShell() {
       try {
         const response = await listAdminNotifications({ page: 1, limit: 30 })
         if (cancelled) return
-        setNotifications(response.items.map(mapNotification))
+        setNotifications(notificationItems(response).map(mapNotification))
       } catch (error) {
         console.warn('Failed to load admin notifications.', error)
       }
@@ -880,7 +897,9 @@ export default function AdminShell() {
         {/* Content */}
         <Box sx={{ flex: 1, p: { xs: 2, sm: 3 }, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ flex: 1 }}>
-            <Outlet />
+            <AdminLiveDataProvider>
+              <Outlet />
+            </AdminLiveDataProvider>
           </Box>
 
 
@@ -897,6 +916,10 @@ export default function AdminShell() {
 
 function NavItemComponent({ to, label, icon, minimized }: { to: string; label: string; icon: React.ReactNode; minimized: boolean }) {
   const location = useLocation()
+  const requestRoutePreload = React.useCallback(() => {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new Event(ADMIN_ROUTE_PRELOAD_EVENT))
+  }, [])
   
   // More precise active matching - only exact match or direct children
   // Avoid highlighting parent routes when on child routes
@@ -914,6 +937,9 @@ function NavItemComponent({ to, label, icon, minimized }: { to: string; label: s
     <ListItemButton
       component={NavLink}
       to={to}
+      onMouseEnter={requestRoutePreload}
+      onFocus={requestRoutePreload}
+      onTouchStart={requestRoutePreload}
       sx={{
         position: 'relative',
         borderRadius: 2,

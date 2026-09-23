@@ -312,6 +312,7 @@ export async function getActiveDrivers(
     Number.isFinite(longitude);
   return request<{ drivers: ActiveDriverMarker[] }>("/geo/drivers/active", {
     method: "GET",
+    cacheTtlMs: 0,
     query: {
       latitude: hasOrigin ? latitude : undefined,
       longitude: hasOrigin ? longitude : undefined,
@@ -906,7 +907,7 @@ export type AdminMonitoringSnapshot = {
 };
 
 export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnapshot> {
-  return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET" });
+  return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET", cacheTtlMs: 0 });
 }
 
 export type AdminMonitoringDriver = {
@@ -928,7 +929,7 @@ export type AdminMonitoringDriver = {
 };
 
 export async function listAdminMonitoringDrivers(): Promise<AdminMonitoringDriver[]> {
-  return request<AdminMonitoringDriver[]>("/admin/monitoring/drivers", { method: "GET" });
+  return request<AdminMonitoringDriver[]>("/admin/monitoring/drivers", { method: "GET", cacheTtlMs: 0 });
 }
 
 export type AdminMonitoringJob = {
@@ -949,7 +950,7 @@ export async function listAdminMonitoringJobs(
 ): Promise<AdminMonitoringJob[]> {
   return request<AdminMonitoringJob[]>(
     `/admin/monitoring/jobs/${serviceType}`,
-    { method: "GET" },
+    { method: "GET", cacheTtlMs: 0 },
   );
 }
 
@@ -965,7 +966,7 @@ export type AdminMonitoringFailedDispatch = {
 };
 
 export async function listAdminMonitoringFailedDispatches(): Promise<AdminMonitoringFailedDispatch[]> {
-  return request<AdminMonitoringFailedDispatch[]>("/admin/monitoring/failed-dispatches", { method: "GET" });
+  return request<AdminMonitoringFailedDispatch[]>("/admin/monitoring/failed-dispatches", { method: "GET", cacheTtlMs: 0 });
 }
 
 // ── Safety incidents / SOS (backend GET /safety/emergencies) ────────────────
