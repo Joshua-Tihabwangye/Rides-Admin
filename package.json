@@ -15,7 +15,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:ci": "vitest run --ci",
-    "test:admin-contracts": "vitest run src/services/api/adminApi.drivers.test.ts src/services/api/adminApi.deliveries.test.ts src/services/api/adminApi.returns.test.ts src/services/api/adminApi.disputes.test.ts src/services/api/adminApi.companyPayouts.test.ts src/services/api/adminApi.content.test.ts src/services/api/adminApi.roles.test.ts src/services/api/adminApi.agentAnalytics.test.ts src/services/api/adminApi.pricing.test.ts src/services/api/adminApi.reconciliation.test.ts src/services/api/adminApi.finance.test.ts src/services/api/adminApi.rides.test.ts src/services/adminRealtime.test.ts",
+    "test:admin-contracts": "vitest run src/services/api/adminApi.drivers.test.ts src/services/api/adminApi.deliveries.test.ts src/services/api/adminApi.returns.test.ts src/services/api/adminApi.disputes.test.ts src/services/api/adminApi.companyPayouts.test.ts src/services/api/adminApi.content.test.ts src/services/api/adminApi.roles.test.ts src/services/api/adminApi.agentAnalytics.test.ts src/services/api/adminApi.pricing.test.ts src/services/api/adminApi.reconciliation.test.ts src/services/api/adminApi.finance.test.ts src/services/api/adminApi.rides.test.ts src/services/api/adminApi.safety.test.ts src/services/adminRealtime.test.ts",
     "contracts:generate": "node scripts/generate-contracts.mjs",
     "check:delivery-contract": "node scripts/check-delivery-contract-manifest.mjs",
     "check:regression": "node scripts/check-admin-regressions.mjs",

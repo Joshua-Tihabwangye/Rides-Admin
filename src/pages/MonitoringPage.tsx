@@ -31,7 +31,6 @@ import type {
   AdminMonitoringDriver,
   AdminMonitoringFailedDispatch,
   AdminMonitoringJob,
-  AdminMonitoringSnapshot,
 } from "../services/api/adminApi";
 
 const EV_GREEN = "#03cd8c";
@@ -103,7 +102,13 @@ export default function MonitoringPage() {
     () => drivers.filter((driver) => String(driver.availabilityStatus).toUpperCase() === "OFFLINE"),
     [drivers],
   );
-  const staleLocationDrivers = useMemo(() => drivers.filter((driver) => driver.stale && (driver.online || driver.busy)), [drivers]);
+  const staleLocationDrivers = useMemo(
+    () => drivers.filter((driver) => {
+      const reportedStatus = String(driver.reportedAvailabilityStatus ?? driver.availabilityStatus).toUpperCase();
+      return driver.stale && (reportedStatus === "ONLINE" || reportedStatus === "BUSY");
+    }),
+    [drivers],
+  );
   const problemCount =
     (snapshot?.failedDispatches ?? 0) +
     (snapshot?.offlineDrivers ?? offlineDrivers.length) +
@@ -115,7 +120,7 @@ export default function MonitoringPage() {
       key: "online" as const,
       label: "Online drivers",
       value: snapshot?.onlineDrivers ?? onlineDrivers.length,
-      helper: "Availability is ONLINE",
+      helper: "ONLINE presence with a fresh heartbeat",
       icon: <CheckCircleIcon fontSize="small" />,
       accent: EV_GREEN,
     },
@@ -123,7 +128,7 @@ export default function MonitoringPage() {
       key: "busy" as const,
       label: "Busy drivers",
       value: snapshot?.busyDrivers ?? busyDrivers.length,
-      helper: "Availability is BUSY",
+      helper: "BUSY presence with a fresh heartbeat",
       icon: <DirectionsCarIcon fontSize="small" />,
       accent: "#f59e0b",
     },
@@ -196,7 +201,7 @@ export default function MonitoringPage() {
             <Chip size="small" label={problemCount > 0 ? `${problemCount} needs attention` : "Healthy"} color={problemCount > 0 ? "warning" : "success"} variant="outlined" />
           </Stack>
           <Typography variant="body2" color="text.secondary">
-            Availability comes from the driver presence state. GPS heartbeat freshness is tracked separately.
+            A driver is live only when presence is ONLINE or BUSY and the heartbeat is fresh. Stale sessions are shown as offline.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
@@ -331,7 +336,7 @@ function DriverTable({ title, drivers }: { title: string; drivers: AdminMonitori
   return (
     <Box>
       <Typography variant="h6" fontWeight={800}>{title}</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Presence follows driver availability. GPS freshness is shown separately from online/offline state.</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Online and busy presence requires a fresh heartbeat. Older persisted sessions are treated as offline.</Typography>
       <TableContainer>
         <Table size="small">
           <TableHead>

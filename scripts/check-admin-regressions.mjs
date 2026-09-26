@@ -28,10 +28,15 @@ const adminApi = read("src/services/api/adminApi.ts");
 const adminRealtime = read("src/services/adminRealtime.ts");
 const driverManagement = read("src/pages/DriverManagement.tsx");
 const app = read("src/App.tsx");
+const main = read("src/main.tsx");
+const indexHtml = read("index.html");
+const viteConfig = read("vite.config.ts");
 const liveDriversMap = read("src/pages/LiveDriversMapPage.tsx");
 const invoiceTemplatePreview = read("src/pages/InvoiceTemplatePreview.tsx");
 const adminGlobalSearch = read("src/pages/AdminGlobalSearch.tsx");
-const financeReconciliationRuns = read("src/pages/FinanceReconciliationRuns.tsx");
+const financeReconciliationRuns = read(
+  "src/pages/FinanceReconciliationRuns.tsx",
+);
 const settings = read("src/pages/Settings.tsx");
 const adminLiveDataProvider = read("src/components/AdminLiveDataProvider.tsx");
 const operationsDashboard = read("src/pages/OperationsDashboard.tsx");
@@ -45,7 +50,7 @@ check(
   requireAuth.includes("backendFetchSession") &&
     requireAuth.includes("setHydrated(true)") &&
     requireAuth.includes("if (!hydrated)"),
-  "RequireAuth should stay silent while the backend session refresh resolves"
+  "RequireAuth should stay silent while the backend session refresh resolves",
 );
 
 check(
@@ -55,14 +60,14 @@ check(
     training.includes("patchAdminTrainingModule") &&
     training.includes("deleteAdminTrainingModule") &&
     training.includes("Training modules are persisted in the backend"),
-  "GlobalTrainingManager should stop treating localStorage as the source of truth"
+  "GlobalTrainingManager should stop treating localStorage as the source of truth",
 );
 
 check(
   "Feature flags remain backend-backed",
   featureFlags.includes("listAdminFeatureFlags") &&
     featureFlags.includes("patchAdminFeatureFlag"),
-  "FeatureFlagsExperiments should stay connected to backend flag endpoints"
+  "FeatureFlagsExperiments should stay connected to backend flag endpoints",
 );
 
 check(
@@ -70,14 +75,14 @@ check(
   approvals.includes("bulkReview") &&
     approvals.includes("exportCsv") &&
     approvals.includes("reviewAdminApproval"),
-  "ApprovalsDashboard should remain operational for queue handling"
+  "ApprovalsDashboard should remain operational for queue handling",
 );
 
 check(
   "Admin shell continues to wire live summary notifications",
   shell.includes("listAdminNotifications") &&
     shell.includes("ADMIN_SUMMARY_UPDATED_EVENT"),
-  "AdminShell should continue refreshing backend notifications from summary update events"
+  "AdminShell should continue refreshing backend notifications from summary update events",
 );
 
 check(
@@ -86,7 +91,7 @@ check(
     systemOverview.includes("listAdminServices") &&
     systemOverview.includes("listAdminFeatureFlags") &&
     systemOverview.includes("listAdminAuditEvents"),
-  "SystemOverview should load live service, flag and audit summaries"
+  "SystemOverview should load live service, flag and audit summaries",
 );
 
 check(
@@ -95,19 +100,25 @@ check(
     companyPayouts.includes("getAdminCompanyPayoutSettings") &&
     companyPayouts.includes("patchAdminCompanyPayoutSettings") &&
     companyPayouts.includes("listAdminCompanyPayouts") &&
-    companyPayouts.includes("No company payouts were returned by the backend.") &&
+    companyPayouts.includes(
+      "No company payouts were returned by the backend.",
+    ) &&
     !companyPayouts.includes("payout-001"),
-  "CompanyPayouts should keep settings and payout rows backend-backed without fake payout history"
+  "CompanyPayouts should keep settings and payout rows backend-backed without fake payout history",
 );
 
 check(
   "Experiment results use backend experiment analytics contract",
   experimentResults.includes("getAdminExperimentResults") &&
     experimentResults.includes("Variant Performance") &&
-    experimentResults.includes("No backend metrics are attached to this experiment record yet") &&
+    experimentResults.includes(
+      "No backend metrics are attached to this experiment record yet",
+    ) &&
     !experimentResults.includes("listAdminFeatureFlags") &&
-    !experimentResults.includes("Experiment metrics and A/B variant series are not exposed by the backend yet"),
-  "ExperimentResults should render backend experiment results, not the old flag-placeholder page"
+    !experimentResults.includes(
+      "Experiment metrics and A/B variant series are not exposed by the backend yet",
+    ),
+  "ExperimentResults should render backend experiment results, not the old flag-placeholder page",
 );
 
 check(
@@ -118,17 +129,23 @@ check(
     agentDetail.includes("getAdminAgentChat") &&
     agentDetail.includes("sendAdminAgentChat") &&
     !agentManagement.includes("Admin agent creation is not exposed"),
-  "Agent pages should stay on dedicated agent endpoints with real create/chat/metrics flows"
+  "Agent pages should stay on dedicated agent endpoints with real create/chat/metrics flows",
 );
 
 check(
   "Detailed analytics filters refetch backend aggregates",
-  detailedAnalytics.includes("getAdminAnalyticsTimeseries(period, backendFilters)") &&
-    detailedAnalytics.includes("getAdminAnalyticsDrivers(period, backendFilters)") &&
-    detailedAnalytics.includes("getAdminAnalyticsCompanies(period, backendFilters)") &&
+  detailedAnalytics.includes(
+    "getAdminAnalyticsTimeseries(period, backendFilters)",
+  ) &&
+    detailedAnalytics.includes(
+      "getAdminAnalyticsDrivers(period, backendFilters)",
+    ) &&
+    detailedAnalytics.includes(
+      "getAdminAnalyticsCompanies(period, backendFilters)",
+    ) &&
     detailedAnalytics.includes("filters.region") &&
     detailedAnalytics.includes("filters.service"),
-  "DetailedAnalytics service/region filters must remain backend query filters"
+  "DetailedAnalytics service/region filters must remain backend query filters",
 );
 
 check(
@@ -138,17 +155,23 @@ check(
     labelExceptions.includes("toDate: toDate || undefined") &&
     labelExceptions.includes("listAdminDeliveryLabels") &&
     adminApi.includes("search: filters.search"),
-  "LabelExceptionsPage should keep status/search/date filters backed by the delivery label registry"
+  "LabelExceptionsPage should keep status/search/date filters backed by the delivery label registry",
 );
 
 check(
   "SOS realtime surfaces share reconnect subscription helper",
   adminRealtime.includes("attachAdminRealtimeSocket") &&
     adminRealtime.includes('socket.on("reconnect", subscribe)') &&
-    read("src/pages/SafetyOverview.tsx").includes("attachAdminRealtimeSocket") &&
-    read("src/pages/SosIncidentDetailPage.tsx").includes("attachAdminRealtimeSocket") &&
-    read("src/components/SafetyIncidentPopup.tsx").includes("attachAdminRealtimeSocket"),
-  "Safety/SOS realtime surfaces should resubscribe on reconnect through the shared helper"
+    read("src/pages/SafetyOverview.tsx").includes(
+      "attachAdminRealtimeSocket",
+    ) &&
+    read("src/pages/SosIncidentDetailPage.tsx").includes(
+      "attachAdminRealtimeSocket",
+    ) &&
+    read("src/components/SafetyIncidentPopup.tsx").includes(
+      "attachAdminRealtimeSocket",
+    ),
+  "Safety/SOS realtime surfaces should resubscribe on reconnect through the shared helper",
 );
 
 check(
@@ -158,36 +181,37 @@ check(
     adminApi.includes("page <= maxPages") &&
     adminApi.includes("listAdminDriversPaginated(page, pageSize)") &&
     adminApi.includes("normalizePaginatedDriver"),
-  "DriverManagement should not fall back to a single page of drivers"
+  "DriverManagement should not fall back to a single page of drivers",
 );
 
 check(
   "Production admin build runs CSS and asset verification",
   vercel.includes('"buildCommand": "npm run build:verify"') &&
     vercel.includes('"Cache-Control"') &&
-    vercel.includes('max-age=31536000, immutable'),
-  "Vercel production deploys must run build:verify and send explicit cache headers"
+    vercel.includes("max-age=31536000, immutable"),
+  "Vercel production deploys must run build:verify and send explicit cache headers",
 );
 
 check(
-  "Lazy route chunks and stale assets recover from deployments",
-  app.includes("function recoverableLazy") &&
-    app.includes("useIdleRoutePreload") &&
-    app.includes("useStaleAssetRecovery") &&
-    app.includes("vite:preloadError") &&
-    app.includes("rel === 'stylesheet'") &&
-    app.includes("evzone:admin-preload-route-chunks") &&
-    shell.includes("onMouseEnter={requestRoutePreload}") &&
-    shell.includes("onFocus={requestRoutePreload}") &&
-    app.includes("Failed to fetch dynamically imported module") &&
-    app.includes("window.location.reload()") &&
-    !app.includes("= lazy(() => import("),
-  "App lazy imports and CSS/static build assets should recover when stale hashed files disappear after a deploy"
+  "Admin pages use the August static loading path",
+  app.includes('import AdminAuthSignIn from "./pages/AdminAuthSignIn"') &&
+    !app.includes("recoverableLazy") &&
+    !app.includes("<Suspense") &&
+    !app.includes("lazy(() => import(") &&
+    !app.includes("window.location.reload()") &&
+    !shell.includes("evzone:admin-preload-route-chunks") &&
+    main.includes('import "./styles/tailwind.css"') &&
+    !main.includes("ensureAdminStylesLoaded") &&
+    !main.includes("tailwindUtilitiesAreActive") &&
+    !indexHtml.includes('data-evzone-admin-css="tailwind"') &&
+    !viteConfig.includes("force: true"),
+  "Admin routes should be statically imported with one CSS entry and no reload or forced optimization race",
 );
 
 check(
   "Live operations state persists across Admin route changes",
-  shell.includes("AdminLiveDataProvider") &&
+  app.includes("<AdminLiveDataProvider>") &&
+    shell.includes("useAdminLiveData") &&
     adminLiveDataProvider.includes("STATUS_POLL_MS = 2_000") &&
     adminLiveDataProvider.includes("MOVEMENT_POLL_MS = 5_000") &&
     adminLiveDataProvider.includes("createAdminSocket") &&
@@ -196,12 +220,40 @@ check(
     liveDriversMap.includes("useAdminLiveData") &&
     operationsDashboard.includes("useAdminLiveData") &&
     monitoringPage.includes("useAdminLiveData") &&
-    operationsDashboard.includes("window.setInterval(() => void load(), 5000)") &&
+    operationsDashboard.includes(
+      "window.setInterval(() => void load(), 5000)",
+    ) &&
     matchingInspection.includes("window.setInterval(loadJobs, 5000)") &&
-    safetyOverview.includes("window.setInterval(() => void load(), 5000)") &&
+    safetyOverview.includes("window.setInterval(() => void load(), 30000)") &&
+    safetyOverview.includes("initialLoading") &&
+    safetyOverview.includes("refreshing") &&
     !liveDriversMap.includes("createAdminSocket") &&
     !monitoringPage.includes("window.setInterval"),
-  "Live map, monitoring, and operations pages should read warm shared realtime state with a fast driver-status lane instead of resetting local sockets on navigation"
+  "Live map, monitoring, and operations pages should read warm shared realtime state with a fast driver-status lane instead of resetting local sockets on navigation",
+);
+
+check(
+  "Sidebar counters and rider demand heatmap use live backend data",
+  shell.includes("const navCounters") &&
+    shell.includes("counter={navCounters[item.to]}") &&
+    adminLiveDataProvider.includes("getAdminRiderDemand") &&
+    liveDriversMap.includes("HeatmapLayerF") &&
+    liveDriversMap.includes('value="RIDER_DEMAND"') &&
+    adminApi.includes(
+      'request<AdminRiderDemandSnapshot>("/admin/monitoring/rider-demand"',
+    ) &&
+    !adminApi.includes("secondsSinceHeartbeat: 0"),
+  "Admin navigation counts and rider demand must come from live backend snapshots without fabricated monitoring fallbacks",
+);
+
+check(
+  "Safety loads canonical all-time SOS history",
+  safetyOverview.includes('useState<PeriodOption>("allTime")') &&
+    safetyOverview.includes('useState("ALL")') &&
+    safetyOverview.includes("listAllAdminSosIncidents") &&
+    safetyOverview.includes("sos: false") &&
+    safetyOverview.includes("includeAllTime"),
+  "Safety should show historical and current SOS records from the enriched canonical endpoint by default",
 );
 
 check(
@@ -210,7 +262,7 @@ check(
     adminLiveDataProvider.includes("getActiveDrivers(undefined, undefined") &&
     adminApi.includes("latitude?: number | null") &&
     adminApi.includes("cacheTtlMs: 0"),
-  "LiveDriversMapPage should represent global queries by omitting coordinates"
+  "LiveDriversMapPage should represent global queries by omitting coordinates",
 );
 
 check(
@@ -219,7 +271,7 @@ check(
     !invoiceTemplatePreview.includes("UGX 1,000") &&
     !invoiceTemplatePreview.includes("UGX 9,000") &&
     invoiceTemplatePreview.includes("calculated by backend"),
-  "InvoiceTemplatePreview should not present fake financial values as production data"
+  "InvoiceTemplatePreview should not present fake financial values as production data",
 );
 
 check(
@@ -232,7 +284,7 @@ check(
     !financeReconciliationRuns.includes("const RECORD_STATUSES") &&
     settings.includes("supportedValuesOf?.('timeZone')") &&
     !settings.includes('value="Africa/Kampala"'),
-  "Markets, payout schedules, reconciliation statuses, and timezones should come from backend/browser capabilities instead of hand-maintained UI lists"
+  "Markets, payout schedules, reconciliation statuses, and timezones should come from backend/browser capabilities instead of hand-maintained UI lists",
 );
 
 console.log("\nAdmin regression checks passed.");

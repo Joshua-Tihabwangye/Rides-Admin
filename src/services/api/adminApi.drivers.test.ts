@@ -10,7 +10,9 @@ const okResponse = (data: unknown) =>
   }) as unknown as Response;
 
 const fetchCalls = () =>
-  (fetch as ReturnType<typeof vi.fn>).mock.calls as Array<[string, RequestInit]>;
+  (fetch as ReturnType<typeof vi.fn>).mock.calls as Array<
+    [string, RequestInit]
+  >;
 
 // The httpClient short-TTL GET cache persists for 10s across tests on the same
 // URL, so network tests load a fresh module copy to guarantee a real fetch.
@@ -50,7 +52,10 @@ describe("admin driver listing helpers", () => {
 
   it("listAdminDriversPaginated requests page/limit against /admin/drivers", async () => {
     const api = await loadApi();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse({ items: [], meta: { total: 0 } })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(okResponse({ items: [], meta: { total: 0 } })),
+    );
     await api.listAdminDriversPaginated(3, 50);
 
     const [url, init] = fetchCalls().at(-1)!;
@@ -64,11 +69,25 @@ describe("admin driver listing helpers", () => {
     const api = await loadApi();
     const page1: AdminApi.AdminDriverListResponse = {
       items: [rawRow(1), rawRow(2)],
-      meta: { page: 1, limit: 2, total: 3, totalPages: 2, hasNext: true, hasPrevious: false },
+      meta: {
+        page: 1,
+        limit: 2,
+        total: 3,
+        totalPages: 2,
+        hasNext: true,
+        hasPrevious: false,
+      },
     };
     const page2: AdminApi.AdminDriverListResponse = {
       items: [rawRow(3)],
-      meta: { page: 2, limit: 2, total: 3, totalPages: 2, hasNext: false, hasPrevious: true },
+      meta: {
+        page: 2,
+        limit: 2,
+        total: 3,
+        totalPages: 2,
+        hasNext: false,
+        hasPrevious: true,
+      },
     };
     vi.stubGlobal(
       "fetch",
@@ -84,7 +103,11 @@ describe("admin driver listing helpers", () => {
     expect(drivers).toHaveLength(3);
     expect(drivers.map((d) => d.fullName)).toEqual(["F1 L1", "F2 L2", "F3 L3"]);
     // The normalized driverId matches the backend mapped `mapDriver` shape (profile id).
-    expect(drivers.map((d) => d.driverId)).toEqual(["profile-1", "profile-2", "profile-3"]);
+    expect(drivers.map((d) => d.driverId)).toEqual([
+      "profile-1",
+      "profile-2",
+      "profile-3",
+    ]);
     expect(drivers.map((d) => d.totalTrips)).toEqual([12, 12, 12]);
   });
 
@@ -149,7 +172,10 @@ describe("admin driver listing helpers", () => {
 
   it("getActiveDrivers omits coordinates for global queries instead of sending a 0,0 sentinel", async () => {
     const api = await loadApi();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse({ drivers: [] })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(okResponse({ drivers: [] })),
+    );
 
     await api.getActiveDrivers(null, null, 50, 300);
 
@@ -160,6 +186,37 @@ describe("admin driver listing helpers", () => {
     expect(url).toContain("radiusKm=50");
     expect(url).toContain("limit=300");
     expect(init.method).toBe("GET");
+  });
+
+  it("getAdminRiderDemand requests the live monitoring heatmap without cache", async () => {
+    const api = await loadApi();
+    const snapshot: AdminApi.AdminRiderDemandSnapshot = {
+      points: [
+        {
+          id: "job-1",
+          serviceType: "RIDE",
+          serviceId: "ride-1",
+          status: "WAITING",
+          latitude: 0.3476,
+          longitude: 32.5825,
+          weight: 1,
+          waitingSeconds: 12,
+          requestedAt: "2026-09-26T18:00:00.000Z",
+          updatedAt: "2026-09-26T18:00:12.000Z",
+        },
+      ],
+      total: 1,
+      byService: { RIDE: 1 },
+      generatedAt: "2026-09-26T18:00:12.000Z",
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(okResponse(snapshot)));
+
+    const result = await api.getAdminRiderDemand();
+
+    const [url, init] = fetchCalls().at(-1)!;
+    expect(url).toContain("/admin/monitoring/rider-demand");
+    expect(init.method).toBe("GET");
+    expect(result).toEqual(snapshot);
   });
 
   it("normalizePaginatedDriver merges the nested user row into the mapped shape", () => {
