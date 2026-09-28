@@ -1380,26 +1380,28 @@ function normalizeAdminSafetyIncidentPage(
   fallbackPage: number,
   fallbackLimit: number,
 ): AdminSafetyIncidentPage {
-  const nested =
-    !Array.isArray(response) && response.data && !Array.isArray(response.data)
-      ? response.data
-      : undefined;
+  const objectResponse = Array.isArray(response) ? undefined : response;
+  const data =
+    objectResponse && "data" in objectResponse ? objectResponse.data : undefined;
+  const nested = data && !Array.isArray(data) ? data : undefined;
   const items = Array.isArray(response)
     ? response
-    : Array.isArray(response.items)
-      ? response.items
-      : Array.isArray(response.data)
-        ? response.data
+    : Array.isArray(objectResponse?.items)
+      ? objectResponse.items
+      : Array.isArray(data)
+        ? data
         : (nested?.items ?? []);
-  const wireMeta = !Array.isArray(response) ? response.meta : undefined;
+  const wireMeta = objectResponse?.meta;
   const nestedMeta = nested?.meta;
   const meta = wireMeta ?? nestedMeta;
   const page = Number(meta?.page ?? fallbackPage);
   const limit = Number(meta?.limit ?? fallbackLimit);
   const total = Number(meta?.total ?? items.length);
+  const totalPages =
+    meta && "totalPages" in meta ? meta.totalPages : undefined;
   const pageCount = Number(
     meta?.pageCount ??
-      meta?.totalPages ??
+      totalPages ??
       (total === 0 ? 0 : Math.ceil(total / Math.max(1, limit))),
   );
   return {
@@ -1994,6 +1996,10 @@ export type AdminDashboardCounts = {
     manualBookings: number;
     dispatchAgents: number;
     schoolConnections: number;
+  };
+  actionRequired: {
+    driverApprovals: number;
+    sosIncidents: number;
   };
   payments: {
     paidTransactions: number;

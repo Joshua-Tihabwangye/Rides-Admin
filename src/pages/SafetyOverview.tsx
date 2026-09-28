@@ -36,6 +36,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import PeriodSelector from "../components/PeriodSelector";
 import type { PeriodOption } from "../components/PeriodSelector";
 import {
+  ADMIN_SUMMARY_UPDATED_EVENT,
   createAdminSocket,
   listAdminDrivers,
   listAdminRiders,
@@ -327,6 +328,9 @@ export default function SafetyOverviewDashboardPage() {
     severity: "success" | "error";
     message: string;
   } | null>(null);
+  // A newer filter request must always win. Without this guard, a slow request
+  // for the prior period can finish after the new one and restore stale rows.
+  const loadRequestRef = useRef(0);
 
   const selectedRange = useMemo(
     () => periodRange(period, customRange),
@@ -335,6 +339,8 @@ export default function SafetyOverviewDashboardPage() {
 
   const load = useCallback(
     async (options: { initial?: boolean } = {}) => {
+      const requestId = ++loadRequestRef.current;
+      const isCurrentRequest = () => requestId === loadRequestRef.current;
       const initial = options.initial === true;
       if (initial) setInitialLoading(true);
       else setRefreshing(true);
@@ -367,6 +373,7 @@ export default function SafetyOverviewDashboardPage() {
             optional("Rider review queue", listAdminRiders()),
             optional("Driver review queue", listAdminDrivers()),
           ]);
+        if (!isCurrentRequest()) return;
         const mergedIncidents = new Map<string, AdminSafetyIncident>();
         for (const incident of incidentPage?.items ?? [])
           mergedIncidents.set(incident.id, incident);
@@ -407,12 +414,16 @@ export default function SafetyOverviewDashboardPage() {
         }
         if (optionalErrors.length) setError(optionalErrors.join("; "));
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load safety data",
-        );
+        if (isCurrentRequest()) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load safety data",
+          );
+        }
       } finally {
-        if (initial) setInitialLoading(false);
-        setRefreshing(false);
+        if (isCurrentRequest()) {
+          if (initial) setInitialLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [search, selectedRange, statusFilter],
@@ -458,6 +469,10 @@ export default function SafetyOverviewDashboardPage() {
   const sosRows = useMemo(
     () => rows.filter((row) => row.category === "SOS"),
     [rows],
+  );
+  const activeSosRows = useMemo(
+    () => sosRows.filter((row) => ACTIVE_SAFETY_STATUSES.has(row.status)),
+    [sosRows],
   );
   const activeIncidents = useMemo(
     () =>
@@ -538,6 +553,7 @@ export default function SafetyOverviewDashboardPage() {
     setNotice(null);
     try {
       await updateAdminSafetyIncident(incident.id, { status });
+      window.dispatchEvent(new Event(ADMIN_SUMMARY_UPDATED_EVENT));
       await load();
       setNotice({
         severity: "success",
@@ -573,7 +589,7 @@ export default function SafetyOverviewDashboardPage() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1680, mx: "auto" }}>
       <Box
         sx={{
           display: "flex",
@@ -592,8 +608,8 @@ export default function SafetyOverviewDashboardPage() {
             </Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            SOS incidents, trip anomalies, and safety risk signals loaded from
-            the database.
+            Live SOS response, safety incidents, trip anomalies, and risk signals.
+            Filters are applied from the backend time window.
           </Typography>
         </Box>
         <Stack
@@ -650,9 +666,9 @@ export default function SafetyOverviewDashboardPage() {
       >
         <MetricCard
           icon={<ReportProblemIcon />}
-          label="SOS incidents"
-          value={sosRows.length}
-          helper="Emergency activations"
+          label="Active SOS"
+          value={activeSosRows.length}
+          helper="Needs a safety response"
           color={CATEGORY_COLORS.SOS}
           onClick={() => setCategoryFilter("SOS")}
           active={categoryFilter === "SOS"}
@@ -701,7 +717,16 @@ export default function SafetyOverviewDashboardPage() {
         />
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          borderRadius: 3,
+          mb: 3,
+          bgcolor: "background.paper",
+          boxShadow: "0 8px 28px rgba(15,23,42,0.08)",
+        }}
+      >
         <Box
           sx={{
             display: "grid",
@@ -751,11 +776,11 @@ export default function SafetyOverviewDashboardPage() {
 
       <Paper
         variant="outlined"
-        sx={{ borderRadius: 2, overflow: "hidden", mb: 3 }}
+        sx={{ borderRadius: 3, overflow: "hidden", mb: 3, boxShadow: "0 8px 28px rgba(15,23,42,0.08)" }}
       >
         <SectionHeader
           title="SOS Incidents"
-          subtitle={`${sosRows.length} SOS records from the backend`}
+          subtitle={`${sosRows.length} records in the selected period · ${activeSosRows.length} still need a response`}
         />
         <TableContainer>
           <Table size="small">

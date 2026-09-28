@@ -531,12 +531,7 @@ export default function AdminShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { mode, toggle } = React.useContext(ColorModeContext);
-  const {
-    dashboard,
-    drivers: liveDrivers,
-    monitoringSnapshot,
-    riderDemand,
-  } = useAdminLiveData();
+  const { dashboard } = useAdminLiveData();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(true);
@@ -634,29 +629,10 @@ export default function AdminShell() {
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const services = dashboard?.services;
-  const operations = dashboard?.operations;
+  const actionRequired = dashboard?.actionRequired;
   const navCounters: Record<string, number | undefined> = {
-    "/admin/ops": services
-      ? services.rides.active + services.deliveries.active
-      : undefined,
-    "/admin/live-map": dashboard ? liveDrivers.length : undefined,
-    "/admin/monitoring": monitoringSnapshot
-      ? (monitoringSnapshot.offlineDrivers ?? 0) +
-        monitoringSnapshot.failedDispatches +
-        monitoringSnapshot.compliancePendingCount
-      : undefined,
-    "/admin/matching": riderDemand?.total,
-    "/admin/reports": services
-      ? services.rides.total + services.deliveries.total
-      : undefined,
-    "/admin/rides": services?.rides.total,
-    "/admin/riders": dashboard?.riders.total,
-    "/admin/drivers": dashboard?.drivers.total,
-    "/admin/safety": operations?.openEmergencies,
-    "/admin/agents": operations?.dispatchAgents,
-    "/admin/companies": operations?.organizations,
-    "/admin/deliveries": services?.deliveries.total,
+    "/admin/drivers": actionRequired?.driverApprovals,
+    "/admin/safety": actionRequired?.sosIncidents,
   };
 
   const handleDrawerToggle = () => setMobileOpen((v) => !v);
@@ -1454,10 +1430,10 @@ function NavItemComponent({
         sx={{
           opacity: minimized ? 0 : 1,
           display: minimized ? "none" : "block",
-          pr: counter !== undefined ? 2.5 : 0,
+          pr: counter && counter > 0 ? 2.5 : 0,
         }}
       />
-      {counter !== undefined ? (
+      {counter !== undefined && counter > 0 ? (
         <Box
           component="span"
           aria-label={`${counter} items`}
@@ -1472,10 +1448,10 @@ function NavItemComponent({
             alignItems: "center",
             justifyContent: "center",
             borderRadius: "9px",
-            bgcolor: isActive ? "primary.main" : "action.selected",
-            color: isActive ? "primary.contrastText" : "text.secondary",
+            bgcolor: EV_COLORS.secondary,
+            color: "#fff",
             border: "1px solid",
-            borderColor: isActive ? "primary.main" : "divider",
+            borderColor: "rgba(255,255,255,0.5)",
             fontSize: 9,
             fontWeight: 800,
             lineHeight: 1,

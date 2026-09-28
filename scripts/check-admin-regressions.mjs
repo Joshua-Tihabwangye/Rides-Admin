@@ -204,16 +204,24 @@ check(
     !main.includes("ensureAdminStylesLoaded") &&
     !main.includes("tailwindUtilitiesAreActive") &&
     !indexHtml.includes('data-evzone-admin-css="tailwind"') &&
-    !viteConfig.includes("force: true"),
-  "Admin routes should be statically imported with one CSS entry and no reload or forced optimization race",
+    viteConfig.includes("force: true") &&
+    viteConfig.includes("noDiscovery: true") &&
+    viteConfig.includes('"prop-types"') &&
+    viteConfig.includes('"react-is"') &&
+    viteConfig.includes("muiSystemEsm") &&
+    viteConfig.includes("muiUtilsEsm"),
+  "Admin routes should be statically imported with one CSS entry and the August deterministic dependency pre-bundle",
 );
 
 check(
-  "Live operations state persists across Admin route changes",
+  "Live operations polling is scoped to live operations screens",
   app.includes("<AdminLiveDataProvider>") &&
     shell.includes("useAdminLiveData") &&
-    adminLiveDataProvider.includes("STATUS_POLL_MS = 2_000") &&
-    adminLiveDataProvider.includes("MOVEMENT_POLL_MS = 5_000") &&
+    adminLiveDataProvider.includes("useLocation") &&
+    adminLiveDataProvider.includes("needsLiveOperationsData") &&
+    adminLiveDataProvider.includes("STATUS_POLL_MS = 10_000") &&
+    adminLiveDataProvider.includes("MOVEMENT_POLL_MS = 15_000") &&
+    adminLiveDataProvider.includes("DASHBOARD_POLL_MS = 30_000") &&
     adminLiveDataProvider.includes("createAdminSocket") &&
     adminLiveDataProvider.includes("driver.location.updated") &&
     adminLiveDataProvider.includes("listAdminMonitoringDrivers") &&
@@ -229,7 +237,7 @@ check(
     safetyOverview.includes("refreshing") &&
     !liveDriversMap.includes("createAdminSocket") &&
     !monitoringPage.includes("window.setInterval"),
-  "Live map, monitoring, and operations pages should read warm shared realtime state with a fast driver-status lane instead of resetting local sockets on navigation",
+  "Ordinary admin pages should avoid map and monitoring polling while live operations screens retain their shared realtime state",
 );
 
 check(

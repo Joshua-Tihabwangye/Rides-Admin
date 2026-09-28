@@ -2,8 +2,18 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import packageJson from "./package.json" with { type: "json" };
 import { execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const appVersion = packageJson.version;
+const muiSystemEsm = fileURLToPath(
+  new URL("./node_modules/@mui/system/esm", import.meta.url),
+);
+const muiUtilsEsm = fileURLToPath(
+  new URL("./node_modules/@mui/utils/esm", import.meta.url),
+);
+const muiIconsEsm = fileURLToPath(
+  new URL("./node_modules/@mui/icons-material/esm", import.meta.url),
+);
 
 function gitSha() {
   try {
@@ -22,17 +32,24 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      // Use the ESM builds of MUI icons so Vite does not wrap the CJS
-      // default export in a broken namespace object (Rides-Admin would
-      // otherwise render a blank page because every icon becomes an
-      // invalid React element type).
+      // Material's source build is ESM but its deep imports target CommonJS
+      // System and Utils files. Resolve those subpaths to absolute ESM files
+      // so Vite never serves incompatible named/default exports on cold load.
+      {
+        find: /^@mui\/system\/(.+)$/,
+        replacement: `${muiSystemEsm}/$1`,
+      },
+      {
+        find: /^@mui\/utils\/(.+)$/,
+        replacement: `${muiUtilsEsm}/$1`,
+      },
       {
         find: /^@mui\/icons-material\/(.+)$/,
-        replacement: "@mui/icons-material/esm/$1",
+        replacement: `${muiIconsEsm}/$1`,
       },
       {
         find: /^@mui\/icons-material$/,
-        replacement: "@mui/icons-material/esm/index.js",
+        replacement: `${muiIconsEsm}/index.js`,
       },
     ],
   },
@@ -50,7 +67,11 @@ export default defineConfig({
       "react-router-dom",
       "@emotion/react",
       "@emotion/styled",
+      "prop-types",
+      "react-is",
       "@mui/material",
+      "@mui/system",
+      "@mui/utils",
       "@mui/icons-material",
       "@mui/x-date-pickers/AdapterDayjs",
       "@mui/x-date-pickers/DatePicker",

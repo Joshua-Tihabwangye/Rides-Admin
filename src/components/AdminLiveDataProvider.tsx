@@ -7,7 +7,9 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useLocation } from "react-router-dom";
 import {
+  ADMIN_SUMMARY_UPDATED_EVENT,
   createAdminSocket,
   getActiveDrivers,
   getAdminDashboard,
@@ -60,8 +62,9 @@ const ACTIVE_RIDE_STATUSES = new Set([
   "ARRIVED",
   "IN_PROGRESS",
 ]);
-const STATUS_POLL_MS = 2_000;
-const MOVEMENT_POLL_MS = 5_000;
+const STATUS_POLL_MS = 10_000;
+const MOVEMENT_POLL_MS = 15_000;
+const DASHBOARD_POLL_MS = 30_000;
 const ACTIVE_DRIVER_LIMIT = 300;
 
 type AdminLiveDataState = {
@@ -157,6 +160,15 @@ export function AdminLiveDataProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const location = useLocation();
+  // Monitoring and map data is expensive (several joined backend queries). It
+  // should only run on live-operations screens, not every admin route.
+  const needsLiveOperationsData = [
+    "/admin/home",
+    "/admin/ops",
+    "/admin/monitoring",
+    "/admin/live-map",
+  ].includes(location.pathname);
   const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
   const [monitoringSnapshot, setMonitoringSnapshot] =
     useState<AdminMonitoringSnapshot | null>(null);
@@ -250,36 +262,60 @@ export function AdminLiveDataProvider({
     return request;
   }, []);
 
+  const refreshDashboard = useCallback(async () => {
+    try {
+      const dashboardData = await getAdminDashboard();
+      setDashboard(dashboardData);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to load admin summary");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const refresh = useCallback(
     async (showSpinner = false) => {
       if (showSpinner) setRefreshing(true);
       try {
-        await Promise.all([refreshStatus(), refreshMovement()]);
+        if (needsLiveOperationsData) {
+          await Promise.all([refreshStatus(), refreshMovement()]);
+        } else {
+          await refreshDashboard();
+        }
       } finally {
         if (showSpinner) setRefreshing(false);
       }
     },
-    [refreshMovement, refreshStatus],
+    [needsLiveOperationsData, refreshDashboard, refreshMovement, refreshStatus],
   );
 
   useEffect(() => {
-    void refreshStatus();
-    void refreshMovement();
-    const statusInterval = window.setInterval(
-      () => void refreshStatus(),
-      STATUS_POLL_MS,
-    );
-    const movementInterval = window.setInterval(
-      () => void refreshMovement(),
-      MOVEMENT_POLL_MS,
-    );
+    void refresh();
+    if (!needsLiveOperationsData) {
+      const dashboardInterval = window.setInterval(
+        () => void refreshDashboard(),
+        DASHBOARD_POLL_MS,
+      );
+      return () => window.clearInterval(dashboardInterval);
+    }
+    const statusInterval = window.setInterval(() => void refreshStatus(), STATUS_POLL_MS);
+    const movementInterval = window.setInterval(() => void refreshMovement(), MOVEMENT_POLL_MS);
     return () => {
       window.clearInterval(statusInterval);
       window.clearInterval(movementInterval);
     };
-  }, [refreshMovement, refreshStatus]);
+  }, [needsLiveOperationsData, refresh, refreshDashboard, refreshMovement, refreshStatus]);
 
   useEffect(() => {
+    const refreshActionSummary = () => void refreshDashboard();
+    window.addEventListener(ADMIN_SUMMARY_UPDATED_EVENT, refreshActionSummary);
+    return () => window.removeEventListener(ADMIN_SUMMARY_UPDATED_EVENT, refreshActionSummary);
+  }, [refreshDashboard]);
+
+  useEffect(() => {
+    if (!needsLiveOperationsData) return undefined;
     const socket = createAdminSocket();
     const onDriverLocation = (payload: any) => {
       const location = normalizeSocketLocation(payload);
@@ -321,7 +357,7 @@ export function AdminLiveDataProvider({
       socket.off("domain.event", onDomainEvent);
       socket.disconnect();
     };
-  }, [refreshMovement, refreshStatus]);
+  }, [needsLiveOperationsData, refreshMovement, refreshStatus]);
 
   const value = useMemo<AdminLiveDataState>(
     () => ({
