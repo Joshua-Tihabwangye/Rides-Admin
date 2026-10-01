@@ -1,11 +1,5 @@
 const env = import.meta.env as Record<string, string | undefined>;
 
-function parseBooleanFlag(value: string | undefined, fallback = false): boolean {
-  if (!value) return fallback;
-  const normalized = value.trim().toLowerCase();
-  return normalized === "true" || normalized === "1" || normalized === "yes";
-}
-
 function normalizeBaseUrl(value: string | undefined): string {
   const raw = value?.trim();
   if (!raw) {
@@ -52,10 +46,8 @@ function assertValidProductionOrigin(value: string, name: string): string {
 }
 
 const backendBaseUrlEnv = env.VITE_BACKEND_BASE_URL ?? env.VITE_API_BASE_URL;
-const backendEnabledEnv = env.VITE_BACKEND_ENABLED ?? env.VITE_USE_BACKEND;
 const IS_NON_PROD = (env.MODE?.trim().toLowerCase() ?? "development") !== "production";
 
-export const USE_BACKEND = parseBooleanFlag(backendEnabledEnv, true);
 export const API_BASE_URL = assertValidProductionOrigin(
   normalizeBaseUrl(backendBaseUrlEnv),
   "VITE_BACKEND_BASE_URL",
@@ -79,10 +71,6 @@ export interface CanonicalRouteContract {
 
 interface CanonicalRouteEnvelope {
   data?: CanonicalRouteContract;
-}
-
-export function getBackendEnabled(): boolean {
-  return USE_BACKEND;
 }
 
 let runtimeCanonicalContract: CanonicalRouteContract | null = null;

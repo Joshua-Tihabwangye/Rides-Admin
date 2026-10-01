@@ -21,6 +21,7 @@ import {
 	    patchAdminPortalSettings,
 	    type AdminPortalSettingsResponse,
 	} from '../services/api/adminApi'
+	import { languageDisplayName, useAdminReferenceData } from '../hooks/useAdminReferenceData'
 
 const EV_COLORS = {
     primary: '#03cd8c',
@@ -38,13 +39,19 @@ function getSupportedTimezones(selected: string): string[] {
 
 export default function Settings() {
     const [notifications, setNotifications] = useState<NotificationSettings>({
-        email: true,
-        push: true,
+        email: false,
+        push: false,
         sms: false,
-        weeklyDigest: true,
+        weeklyDigest: false,
     })
+    const [settingsLoaded, setSettingsLoaded] = useState(false)
     const [language, setLanguage] = useState('')
     const [timezone, setTimezone] = useState('')
+    const { referenceData } = useAdminReferenceData()
+    const languageOptions = useMemo(() => {
+        const codes = referenceData?.languages ?? []
+        return language && !codes.includes(language) ? [language, ...codes] : codes
+    }, [referenceData, language])
     const [saving, setSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
     const timezoneOptions = useMemo(() => getSupportedTimezones(timezone), [timezone])
@@ -56,8 +63,12 @@ export default function Settings() {
                 setNotifications(settings.notifications)
                 setLanguage(settings.language)
                 setTimezone(settings.timezone)
+                setSettingsLoaded(true)
             } catch (error) {
-                console.warn('Failed to load admin settings from backend.', error)
+                setSaveStatus({
+                    type: 'error',
+                    message: error instanceof Error ? `Could not load your settings: ${error.message}` : 'Could not load your settings.',
+                })
             }
         }
         void load()
@@ -219,10 +230,9 @@ export default function Settings() {
                                     onChange={(e: SelectChangeEvent) => setLanguage(e.target.value)}
                                 >
                                     <MenuItem value=""><em>Select language</em></MenuItem>
-                                    <MenuItem value="en">English</MenuItem>
-                                    <MenuItem value="fr">Français</MenuItem>
-                                    <MenuItem value="sw">Kiswahili</MenuItem>
-                                    <MenuItem value="pt">Português</MenuItem>
+                                    {languageOptions.map((code) => (
+                                        <MenuItem key={code} value={code}>{languageDisplayName(code)}</MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
                             <FormControl fullWidth size="small">
@@ -364,7 +374,7 @@ export default function Settings() {
                 <Button
                     variant="contained"
                     onClick={handleSave}
-                    disabled={saving}
+                    disabled={saving || !settingsLoaded}
                     sx={{
                         textTransform: 'none',
                         borderRadius: 999,

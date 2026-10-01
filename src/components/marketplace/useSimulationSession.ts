@@ -5,12 +5,9 @@ import {
   type SimulationSession,
 } from "../../services/api/marketplaceApi";
 
-const STORAGE_KEY = "evzone_admin_mkt_sim_session_id";
-
 /**
  * UI-level holder for the active marketplace simulation session. The session
- * itself lives in PostgreSQL; only its id is remembered for navigation across
- * pages and reloads (never authoritative business data).
+ * itself lives in PostgreSQL; the backend chooses the current active session on each load.
  */
 export function useSimulationSession() {
   const [session, setSession] = useState<SimulationSession | null>(null);
@@ -27,19 +24,10 @@ export function useSimulationSession() {
     setLoading(true);
     setError(null);
     try {
-      const remembered = window.localStorage.getItem(STORAGE_KEY);
       const { items } = await listSimulationSessions();
       const eligible = items.filter((item) => !isExpired(item));
       const active = eligible[0] ?? null;
-      const chosen =
-        (remembered ? eligible.find((item) => item.id === remembered) : undefined) ??
-        active ??
-        null;
-      if (chosen) {
-        window.localStorage.setItem(STORAGE_KEY, chosen.id);
-      } else {
-        window.localStorage.removeItem(STORAGE_KEY);
-      }
+      const chosen = active;
       setSession(chosen);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load simulation sessions");
@@ -56,7 +44,6 @@ export function useSimulationSession() {
     async (input: { buyerUserId: string; sellerOrganizationId: string; merchantLocationId?: string }) => {
       setError(null);
       const created = await createSimulationSession(input);
-      window.localStorage.setItem(STORAGE_KEY, created.id);
       setSession(created);
       return created;
     },

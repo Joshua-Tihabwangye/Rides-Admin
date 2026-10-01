@@ -5,15 +5,13 @@ import {
   backendResetPassword,
   backendRegister,
   backendVerifyOtp,
-  isBackendAuthEnabled,
-} from "../services/api/authApi"
+} from "../services/api/authApi";
 import {
   clearAdminBackendTokens,
-  readAdminBackendAccessToken,
   saveAdminBackendTokens,
   syncAdminReferenceData,
-} from "../services/api/adminApi"
-import { getUserPermissions } from "./permissions"
+} from "../services/api/adminApi";
+import { getUserPermissions } from "./permissions";
 
 export const ADMIN_BACKEND_ROLE_ENUMS = [
   "admin",
@@ -22,100 +20,92 @@ export const ADMIN_BACKEND_ROLE_ENUMS = [
   "finance_admin",
   "compliance_admin",
   "support_admin",
-] as const
-export type AdminBackendRole = (typeof ADMIN_BACKEND_ROLE_ENUMS)[number]
+] as const;
+export type AdminBackendRole = (typeof ADMIN_BACKEND_ROLE_ENUMS)[number];
 
-export const ADMIN_ROLE_OPTIONS: Array<{ value: AdminBackendRole; label: string; description: string }> = [
+export const ADMIN_ROLE_OPTIONS: Array<{
+  value: AdminBackendRole;
+  label: string;
+  description: string;
+}> = [
   {
     value: "admin",
     label: "Admin",
-    description: "General operations, people, companies, rides, pricing, and finance access.",
+    description:
+      "General operations, people, companies, rides, pricing, and finance access.",
   },
   {
     value: "super_admin",
     label: "Super Admin",
-    description: "Full access, including admin users, roles, and system settings.",
+    description:
+      "Full access, including admin users, roles, and system settings.",
   },
   {
     value: "operations_admin",
     label: "Operations Admin",
-    description: "Operations dashboards, monitoring, dispatch, approvals, and live service controls.",
+    description:
+      "Operations dashboards, monitoring, dispatch, approvals, and live service controls.",
   },
   {
     value: "finance_admin",
     label: "Finance Admin",
-    description: "Finance dashboards, payouts, cashouts, payments, settlements, and reconciliation.",
+    description:
+      "Finance dashboards, payouts, cashouts, payments, settlements, and reconciliation.",
   },
   {
     value: "compliance_admin",
     label: "Compliance Admin",
-    description: "Approvals, risk, document review, audit, policy, and governance work.",
+    description:
+      "Approvals, risk, document review, audit, policy, and governance work.",
   },
   {
     value: "support_admin",
     label: "Support Admin",
-    description: "Rider, driver, safety, ride, delivery, and support workflows.",
+    description:
+      "Rider, driver, safety, ride, delivery, and support workflows.",
   },
-]
+];
 
 export type AuthUser = {
-    name: string
-    email: string
-    role: string
-    roles?: string[]
-    activeRole?: AdminBackendRole
-    permissions?: string[]
-    defaultRedirect?: string
-}
+  name: string;
+  email: string;
+  role: string;
+  roles?: string[];
+  activeRole?: AdminBackendRole;
+  permissions?: string[];
+  defaultRedirect?: string;
+  approvalPending?: boolean;
+};
 
-type JwtPayload = { exp?: number; roles?: unknown }
-type AdminRoleClaimStatus = { roles: AdminBackendRole[]; hasUnknownRoles: boolean }
+type AdminRoleClaimStatus = {
+  roles: AdminBackendRole[];
+  hasUnknownRoles: boolean;
+};
 
-const STORAGE_KEY = "evzone_admin_auth"
-const ADMIN_ROLE_SET = new Set<string>(ADMIN_BACKEND_ROLE_ENUMS)
-
-function parseJwtPayload(token: string): JwtPayload | null {
-  const parts = token.split(".")
-  if (parts.length < 2) return null
-
-  try {
-    const normalized = parts[1]!.replace(/-/g, "+").replace(/_/g, "/")
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")
-    const json = atob(padded)
-    return JSON.parse(json) as JwtPayload
-  } catch {
-    return null
-  }
-}
+let currentAuthUser: AuthUser | null = null;
+const ADMIN_ROLE_SET = new Set<string>(ADMIN_BACKEND_ROLE_ENUMS);
 
 function parseAdminRoles(roles: unknown): AdminRoleClaimStatus {
   if (!Array.isArray(roles)) {
-    return { roles: [], hasUnknownRoles: false }
+    return { roles: [], hasUnknownRoles: false };
   }
 
-  const normalized = new Set<AdminBackendRole>()
+  const normalized = new Set<AdminBackendRole>();
 
   for (const value of roles) {
     if (typeof value !== "string") {
-      continue
+      continue;
     }
 
-    const role = value.trim().toLowerCase()
-    if (!role || !ADMIN_ROLE_SET.has(role)) continue
-    normalized.add(role as AdminBackendRole)
+    const role = value.trim().toLowerCase();
+    if (!role || !ADMIN_ROLE_SET.has(role)) continue;
+    normalized.add(role as AdminBackendRole);
   }
 
   return {
     roles: Array.from(normalized),
     hasUnknownRoles: false,
-  }
-}
-
-function resolveClaimRoles(): AdminRoleClaimStatus {
-  const accessToken = readAdminBackendAccessToken()
-  if (!accessToken) return { roles: [], hasUnknownRoles: false }
-  const payload = parseJwtPayload(accessToken)
-  return parseAdminRoles(payload?.roles)
+  };
 }
 
 function buildAuthUser(
@@ -126,10 +116,17 @@ function buildAuthUser(
   permissions: string[] = [],
   activeRole?: AdminBackendRole,
 ): AuthUser {
-  const normalizedEmail = email.trim().toLowerCase()
-  const resolvedName = name?.trim() || normalizedEmail.split("@")[0] || "Admin"
-  const selectedRole = activeRole && roles.includes(activeRole) ? activeRole : roles.includes("super_admin") ? "super_admin" : roles[0]
-  const roleLabel = ADMIN_ROLE_OPTIONS.find((option) => option.value === selectedRole)?.label ?? "Admin"
+  const normalizedEmail = email.trim().toLowerCase();
+  const resolvedName = name?.trim() || normalizedEmail.split("@")[0] || "Admin";
+  const selectedRole =
+    activeRole && roles.includes(activeRole)
+      ? activeRole
+      : roles.includes("super_admin")
+        ? "super_admin"
+        : roles[0];
+  const roleLabel =
+    ADMIN_ROLE_OPTIONS.find((option) => option.value === selectedRole)?.label ??
+    "Admin";
   return {
     name: resolvedName,
     email: normalizedEmail,
@@ -138,82 +135,72 @@ function buildAuthUser(
     activeRole: selectedRole,
     permissions,
     defaultRedirect,
-  }
+  };
 }
 
-async function finalizeBackendAuth(backend: {
-  accessToken: string
-  refreshToken: string
-  user: { email: string; roles?: string[] }
-}, preferredName?: string, preferredRole?: AdminBackendRole): Promise<AuthUser> {
-  saveAdminBackendTokens(backend.accessToken)
+async function finalizeBackendAuth(
+  backend: {
+    accessToken: string;
+    refreshToken?: string;
+    user: { email: string; roles?: string[] };
+  },
+  preferredName?: string,
+  preferredRole?: AdminBackendRole,
+): Promise<AuthUser> {
+  saveAdminBackendTokens(backend.accessToken);
 
-  const session = await backendFetchSession()
-  const sessionRoles = parseAdminRoles(session.user.roles)
+  const session = await backendFetchSession();
+  const sessionRoles = parseAdminRoles(session.user.roles);
   if (sessionRoles.hasUnknownRoles) {
-    signOut()
-    throw new Error("Received unsupported admin role claims.")
+    signOut();
+    throw new Error("Received unsupported admin role claims.");
   }
 
-  const roleClaims = resolveClaimRoles()
-  if (roleClaims.hasUnknownRoles) {
-    signOut()
-    throw new Error("Received unsupported admin role claims.")
-  }
-
-  const resolvedRoles =
-    sessionRoles.roles.length > 0
-      ? sessionRoles.roles
-      : roleClaims.roles.length > 0
-        ? roleClaims.roles
-        : parseAdminRoles(backend.user.roles).roles
+  const resolvedRoles = sessionRoles.roles;
   if (resolvedRoles.length === 0) {
-    signOut()
-    throw new Error("Admin account has no supported backend role.")
+    signOut();
+    throw new Error("Admin account has no supported backend role.");
   }
   if (preferredRole && !resolvedRoles.includes(preferredRole)) {
-    signOut()
-    const roleLabel = ADMIN_ROLE_OPTIONS.find((option) => option.value === preferredRole)?.label ?? preferredRole
-    throw new Error(`This admin account is not assigned the ${roleLabel} role.`)
+    signOut();
+    const roleLabel =
+      ADMIN_ROLE_OPTIONS.find((option) => option.value === preferredRole)
+        ?.label ?? preferredRole;
+    throw new Error(
+      `This admin account is not assigned the ${roleLabel} role.`,
+    );
   }
 
   const authUser = buildAuthUser(
     session.user.email,
     resolvedRoles,
-    [session.user.firstName, session.user.lastName].filter(Boolean).join(" ").trim() || preferredName,
+    [session.user.firstName, session.user.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || preferredName,
     session.defaultRedirect,
     Array.isArray(session.permissions) ? session.permissions : [],
     preferredRole,
-  )
-  signIn(authUser)
+  );
+  authUser.approvalPending = Boolean(session.user.approvalPending);
+  signIn(authUser);
   void syncAdminReferenceData().catch((error) => {
-    console.warn("Admin backend bootstrap sync failed. Keeping current local store.", error)
-  })
-  return authUser
+    console.warn(
+      "Admin backend bootstrap sync failed. Keeping current local store.",
+      error,
+    );
+  });
+  return authUser;
 }
 
 export function getAuthUser(): AuthUser | null {
-  if (typeof window === "undefined") return null
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw) as AuthUser
-  } catch {
-    return null
-  }
+  return currentAuthUser;
 }
 
 export function getAuthRoles(): AdminBackendRole[] {
-  const user = getAuthUser()
-  if (user?.activeRole) return [user.activeRole]
-
-  const claimRoles = resolveClaimRoles()
-  if (claimRoles.hasUnknownRoles) {
-    signOut()
-    return []
-  }
-  if (claimRoles.roles.length > 0) return claimRoles.roles
-  return parseAdminRoles(user?.roles).roles
+  return currentAuthUser?.activeRole
+    ? [currentAuthUser.activeRole]
+    : parseAdminRoles(currentAuthUser?.roles).roles;
 }
 
 export function getAuthPermissions(): string[] {
@@ -228,51 +215,30 @@ export function getAuthPermissions(): string[] {
 }
 
 export function hasInvalidRoleClaims(): boolean {
-  return resolveClaimRoles().hasUnknownRoles
+  return false;
 }
 
 export function signIn(user: AuthUser) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+  currentAuthUser = user;
 }
 
-export function signOut() {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem(STORAGE_KEY)
-  }
-  clearAdminBackendTokens()
+export function signOut(notifyBackend = true) {
+  currentAuthUser = null;
+  clearAdminBackendTokens(notifyBackend);
 }
 
 export function isAuthed() {
-  const user = getAuthUser()
-  if (!user) return false
-
-  if (isBackendAuthEnabled()) {
-    const token = readAdminBackendAccessToken()
-    // An expired access token is no longer a sign-out condition on its own:
-    // the HttpOnly refresh cookie can still recover the session. RequireAuth
-    // revalidates via /auth/session, which refreshes on 401 and only signs
-    // out when the refresh genuinely fails.
-    if (!token || hasInvalidRoleClaims()) {
-      signOut()
-      return false
-    }
-  }
-
-  return true
+  return currentAuthUser !== null;
 }
 
 export async function registerWithCredentials(credentials: {
-  email: string
-  password: string
-  fullName?: string
-  phone?: string
-  role?: AdminBackendRole
-}): Promise<AuthUser> {
-  const normalizedEmail = credentials.email.trim().toLowerCase()
-
-  if (!isBackendAuthEnabled()) {
-    throw new Error("Admin backend authentication is disabled.")
-  }
+  email: string;
+  password: string;
+  fullName?: string;
+  phone?: string;
+  role?: AdminBackendRole;
+}): Promise<void> {
+  const normalizedEmail = credentials.email.trim().toLowerCase();
 
   const backend = await backendRegister({
     email: normalizedEmail,
@@ -280,53 +246,50 @@ export async function registerWithCredentials(credentials: {
     fullName: credentials.fullName,
     phone: credentials.phone,
     adminRole: credentials.role ?? "admin",
-  })
+  });
 
-  return finalizeBackendAuth(backend, credentials.fullName, credentials.role ?? "admin")
+  if ("approvalRequired" in backend) return;
+  await finalizeBackendAuth(
+    backend,
+    credentials.fullName,
+    credentials.role ?? "admin",
+  );
 }
 
-export async function loginWithCredentials(credentials: { email: string; password: string; role?: AdminBackendRole }): Promise<AuthUser> {
-  const normalizedEmail = credentials.email.trim().toLowerCase()
-
-  if (!isBackendAuthEnabled()) {
-    throw new Error("Admin backend authentication is disabled.")
-  }
+export async function loginWithCredentials(credentials: {
+  email: string;
+  password: string;
+  role?: AdminBackendRole;
+}): Promise<AuthUser> {
+  const normalizedEmail = credentials.email.trim().toLowerCase();
 
   const backend = await backendLogin({
     email: normalizedEmail,
     password: credentials.password,
-  })
+  });
 
-  return finalizeBackendAuth(backend, undefined, credentials.role)
+  return finalizeBackendAuth(backend, undefined, credentials.role);
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  if (!isBackendAuthEnabled()) {
-    throw new Error("Admin backend authentication is disabled.")
-  }
-
-  await backendForgotPassword({ email: email.trim().toLowerCase() })
+  await backendForgotPassword({ email: email.trim().toLowerCase() });
 }
 
 export async function verifyPasswordResetOtp(email: string, otp: string) {
-  if (!isBackendAuthEnabled()) {
-    throw new Error("Admin backend authentication is disabled.")
-  }
-
   return backendVerifyOtp({
     email: email.trim().toLowerCase(),
     otp: otp.trim(),
-  })
+  });
 }
 
-export async function resetPasswordWithOtp(email: string, otp: string, newPassword: string) {
-  if (!isBackendAuthEnabled()) {
-    throw new Error("Admin backend authentication is disabled.")
-  }
-
+export async function resetPasswordWithOtp(
+  email: string,
+  otp: string,
+  newPassword: string,
+) {
   return backendResetPassword({
     email: email.trim().toLowerCase(),
     otp: otp.trim(),
     newPassword,
-  })
+  });
 }

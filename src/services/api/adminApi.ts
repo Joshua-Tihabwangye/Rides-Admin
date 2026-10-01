@@ -1,15 +1,18 @@
 import { io, type Socket } from "socket.io-client";
-import { SOCKET_BASE_URL, SOCKET_PATH, getBackendEnabled } from "./config";
-import { request, configureHttpClientAuth, type TokenRefreshResult } from "./httpClient";
+import { SOCKET_BASE_URL, SOCKET_PATH } from "./config";
+import {
+  request,
+  configureHttpClientAuth,
+  type TokenRefreshResult,
+} from "./httpClient";
 import {
   normalizeAdminCreateDriverInput,
   normalizeAdminCreatePlatformUserInput,
   normalizeAdminCreateRiderInput,
 } from "./validators";
 
-export const ADMIN_BACKEND_ACCESS_TOKEN_KEY = "admin_backend_access_token";
 export const ADMIN_SUMMARY_UPDATED_EVENT = "evzone:admin-summary-updated";
-const ADMIN_AUTH_STORAGE_KEY = "evzone_admin_auth";
+let adminBackendAccessToken: string | null = null;
 
 export type AdminRiderResponse = {
   id: string;
@@ -28,7 +31,7 @@ export type AdminRiderResponse = {
   updatedAt?: string | number;
   rating?: number;
   totalTrips?: number;
-  status: 'active' | 'deleted' | 'suspended';
+  status: "active" | "deleted" | "suspended";
   roles: string[];
   user?: unknown; // nested user object if needed, but we mainly need above
 };
@@ -42,10 +45,10 @@ export type AdminDriverResponse = {
   email?: string;
   phone: string;
   city: string;
-  status: 'active' | 'deleted' | 'suspended';
+  status: "active" | "deleted" | "suspended";
   /** Backend-driven availability (ONLINE / OFFLINE / BUSY / INACTIVE / SUSPENDED). */
   availabilityStatus?: string;
-  vehicleType: 'Bike' | 'Car';
+  vehicleType: "Bike" | "Car";
   totalTrips?: number;
   licensePlate?: string;
   model?: string;
@@ -82,7 +85,13 @@ export type AdminUserResponse = {
   email: string;
   roles: string[];
   regions: string;
-  status: "Active" | "Suspended";
+  status: "Active" | "Pending approval" | "Suspended";
+  phone?: string;
+  createdAt?: string;
+  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | string;
+  approvalRequestedAt?: string;
+  approvalReviewedAt?: string | null;
+  approvalReason?: string | null;
   lastLogin: number;
   twoFA: boolean;
   avatarColor?: string;
@@ -90,24 +99,21 @@ export type AdminUserResponse = {
 
 // Auth helpers for admin backend tokens
 export function readAdminBackendAccessToken(): string | null {
-  try {
-    return localStorage.getItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
-  } catch {
-    return null;
-  }
+  return adminBackendAccessToken;
 }
 
 export function writeAdminBackendAccessToken(token: string): void {
-  localStorage.setItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY, token);
+  adminBackendAccessToken = token;
 }
 
-export function clearAdminBackendTokens(): void {
-  try {
-    localStorage.removeItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
-    localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
-  } catch {
-    // no-op
-  }
+export function clearAdminBackendTokens(notifyBackend = true): void {
+  adminBackendAccessToken = null;
+  if (!notifyBackend) return;
+  void request("/auth/logout", {
+    method: "POST",
+    body: { clientApp: "ADMIN" },
+    retryOnUnauthorized: false,
+  }).catch(() => undefined);
 }
 
 async function refreshAdminBackendTokens(): Promise<TokenRefreshResult> {
@@ -120,6 +126,13 @@ async function refreshAdminBackendTokens(): Promise<TokenRefreshResult> {
   return {
     accessToken: payload.accessToken,
   };
+}
+
+/** Restore an in-memory access token from the HttpOnly ADMIN refresh cookie. */
+export async function restoreAdminBackendSession(): Promise<void> {
+  if (readAdminBackendAccessToken()) return;
+  const refreshed = await refreshAdminBackendTokens();
+  saveAdminBackendTokens(refreshed.accessToken);
 }
 
 configureHttpClientAuth({
@@ -141,21 +154,30 @@ export async function listAdminRiders(): Promise<AdminRiderResponse[]> {
   return request<AdminRiderResponse[]>("/admin/riders", { method: "GET" });
 }
 
-export async function getAdminRider(riderId: string): Promise<AdminRiderResponse> {
-  return request<AdminRiderResponse>(`/admin/riders/${riderId}`, { method: "GET" });
+export async function getAdminRider(
+  riderId: string,
+): Promise<AdminRiderResponse> {
+  return request<AdminRiderResponse>(`/admin/riders/${riderId}`, {
+    method: "GET",
+  });
 }
 
 // Alias for legacy import name
 export { getAdminRider as getRider };
 
-export async function createAdminRider(input: AdminCreateUserInput): Promise<{ userId: string }> {
+export async function createAdminRider(
+  input: AdminCreateUserInput,
+): Promise<{ userId: string }> {
   return request<{ userId: string }>("/admin/riders", {
     method: "POST",
     body: normalizeAdminCreateRiderInput(input),
   });
 }
 
-export async function patchAdminRider(userId: string, input: AdminUpdateUserInput) {
+export async function patchAdminRider(
+  userId: string,
+  input: AdminUpdateUserInput,
+) {
   return request<AdminRiderResponse>(`/admin/riders/${userId}`, {
     method: "PATCH",
     body: input,
@@ -173,7 +195,14 @@ export type ListAdminDriversFilters = {
 
 export type AdminDriverListResponse = {
   items: RawAdminDriverRow[];
-  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  };
 };
 
 /**
@@ -239,31 +268,51 @@ export async function listAllAdminDrivers(
 }
 
 /** Map the raw paginated driver row (profile + nested user) to the mapped shape. */
-export function normalizePaginatedDriver(item: RawAdminDriverRow): AdminDriverResponse {
+export function normalizePaginatedDriver(
+  item: RawAdminDriverRow,
+): AdminDriverResponse {
   const user = item.user ?? {};
   const firstName = String(user.firstName ?? item.firstName ?? "");
   const lastName = String(user.lastName ?? item.lastName ?? "");
   const city = String(user.city ?? item.city ?? "");
   const rawStatus = item.status ?? (user.status as string);
-  const status: "active" | "deleted" | "suspended" = rawStatus ? (rawStatus.toLowerCase() as "active" | "deleted" | "suspended") : "suspended";
+  const status: "active" | "deleted" | "suspended" = rawStatus
+    ? (rawStatus.toLowerCase() as "active" | "deleted" | "suspended")
+    : "suspended";
   const phone = String(user.phone ?? item.phone ?? "");
   const completedRides = Number(item.completedRides ?? NaN);
   const completedDeliveries = Number(item.completedDeliveries ?? NaN);
-  const tripsKnown = Number.isFinite(completedRides) || Number.isFinite(completedDeliveries);
+  const tripsKnown =
+    Number.isFinite(completedRides) || Number.isFinite(completedDeliveries);
   const totalTrips =
     item.totalTrips ??
-    (tripsKnown ? (Number.isFinite(completedRides) ? completedRides : 0) + (Number.isFinite(completedDeliveries) ? completedDeliveries : 0) : undefined);
+    (tripsKnown
+      ? (Number.isFinite(completedRides) ? completedRides : 0) +
+        (Number.isFinite(completedDeliveries) ? completedDeliveries : 0)
+      : undefined);
   return {
-    driverId: item.driverId ?? (item.id as string) ?? (user.id as string) ?? item.userId ?? "",
-    userId: item.userId ?? (user.id as string) ?? (item.id as string) ?? item.driverId ?? "",
-    fullName: item.fullName ?? [firstName, lastName].filter(Boolean).join(" ").trim(),
+    driverId:
+      item.driverId ??
+      (item.id as string) ??
+      (user.id as string) ??
+      item.userId ??
+      "",
+    userId:
+      item.userId ??
+      (user.id as string) ??
+      (item.id as string) ??
+      item.driverId ??
+      "",
+    fullName:
+      item.fullName ?? [firstName, lastName].filter(Boolean).join(" ").trim(),
     firstName: firstName || undefined,
     lastName: lastName || undefined,
     email: String(user.email ?? item.email ?? ""),
     phone,
     city,
     status,
-    availabilityStatus: item.availabilityStatus ?? String(user.availabilityStatus ?? ""),
+    availabilityStatus:
+      item.availabilityStatus ?? String(user.availabilityStatus ?? ""),
     vehicleType: item.vehicleType ?? "Car",
     totalTrips,
     licensePlate: item.licensePlate ?? undefined,
@@ -281,6 +330,8 @@ export type ActiveDriverMarker = {
   vehicleType?: string;
   availabilityStatus: string;
   lastLocationAt?: string;
+  locationFresh?: boolean;
+  stale?: boolean;
   distanceKm: number;
   name?: string;
   plate?: string;
@@ -304,6 +355,7 @@ export async function getActiveDrivers(
   longitude?: number | null,
   radiusKm = 50,
   limit = 300,
+  includeStale = false,
 ): Promise<{ drivers: ActiveDriverMarker[] }> {
   const hasOrigin =
     typeof latitude === "number" &&
@@ -318,12 +370,17 @@ export async function getActiveDrivers(
       longitude: hasOrigin ? longitude : undefined,
       radiusKm,
       limit,
+      includeStale: includeStale || undefined,
     },
   });
 }
 
-export async function getAdminDriver(driverId: string): Promise<AdminDriverResponse> {
-  return request<AdminDriverResponse>(`/admin/drivers/${driverId}`, { method: "GET" });
+export async function getAdminDriver(
+  driverId: string,
+): Promise<AdminDriverResponse> {
+  return request<AdminDriverResponse>(`/admin/drivers/${driverId}`, {
+    method: "GET",
+  });
 }
 
 export interface AdminDriverEarningEntry {
@@ -377,10 +434,13 @@ export async function getAdminDriverEarnings(
   const query: Record<string, string> = {};
   if (start) query.start = start;
   if (end) query.end = end;
-  return request<AdminDriverEarningEntry[]>(`/delivery-earnings/driver/${driverId}/earnings`, {
-    method: "GET",
-    query: Object.keys(query).length > 0 ? query : undefined,
-  });
+  return request<AdminDriverEarningEntry[]>(
+    `/delivery-earnings/driver/${driverId}/earnings`,
+    {
+      method: "GET",
+      query: Object.keys(query).length > 0 ? query : undefined,
+    },
+  );
 }
 
 export async function getAdminDriverEarningsSummary(
@@ -401,14 +461,19 @@ export async function getAdminDriverEarningsStatement(
   );
 }
 
-export async function createAdminDriver(input: AdminCreateDriverInput): Promise<{ driverId: string }> {
+export async function createAdminDriver(
+  input: AdminCreateDriverInput,
+): Promise<{ driverId: string }> {
   return request<{ driverId: string }>("/admin/drivers", {
     method: "POST",
     body: normalizeAdminCreateDriverInput(input),
   });
 }
 
-export async function patchAdminDriver(driverId: string, input: AdminUpdateDriverInput) {
+export async function patchAdminDriver(
+  driverId: string,
+  input: AdminUpdateDriverInput,
+) {
   return request<AdminDriverResponse>(`/admin/drivers/${driverId}`, {
     method: "PATCH",
     body: input,
@@ -444,8 +509,29 @@ export type AdminPortalSettingsResponse = {
   limitAssignedOnly: boolean;
 };
 
+export type AdminReferenceData = {
+  platform: {
+    countryCode: string;
+    currency: string;
+    timezone: string;
+    language: string;
+  };
+  countries: string[];
+  languages: string[];
+  currencies: string[];
+  mapCenter: { lat: number; lng: number } | null;
+  support: { email: string | null; phone: string | null };
+  documentationUrl: string | null;
+};
+
+export async function getAdminReferenceData(): Promise<AdminReferenceData> {
+  return request<AdminReferenceData>("/admin/reference-data", { method: "GET" });
+}
+
 export async function getAdminMyProfile(): Promise<AdminSelfProfileResponse> {
-  return request<AdminSelfProfileResponse>("/admins/me/profile", { method: "GET" });
+  return request<AdminSelfProfileResponse>("/admins/me/profile", {
+    method: "GET",
+  });
 }
 
 export async function patchAdminMyProfile(
@@ -454,7 +540,7 @@ export async function patchAdminMyProfile(
     lastName: string;
     department: string;
     permissions: Record<string, unknown>;
-  }>
+  }>,
 ): Promise<AdminSelfProfileResponse> {
   return request<AdminSelfProfileResponse>("/admins/me/profile", {
     method: "PATCH",
@@ -463,7 +549,9 @@ export async function patchAdminMyProfile(
 }
 
 export async function getAdminPortalSettings(): Promise<AdminPortalSettingsResponse> {
-  return request<AdminPortalSettingsResponse>("/admins/me/settings", { method: "GET" });
+  return request<AdminPortalSettingsResponse>("/admins/me/settings", {
+    method: "GET",
+  });
 }
 
 export async function patchAdminPortalSettings(
@@ -476,7 +564,7 @@ export async function patchAdminPortalSettings(
     };
     language: string;
     timezone: string;
-  }>
+  }>,
 ): Promise<AdminPortalSettingsResponse> {
   return request<AdminPortalSettingsResponse>("/admins/me/settings", {
     method: "PATCH",
@@ -494,7 +582,7 @@ export async function patchAdminProfileRegions(
       global?: boolean;
     };
     limitAssignedOnly: boolean;
-  }>
+  }>,
 ): Promise<AdminPortalSettingsResponse> {
   return request<AdminPortalSettingsResponse>("/admins/me/profile-regions", {
     method: "PATCH",
@@ -529,12 +617,17 @@ export async function listAdminRoles(): Promise<AdminRoleResponse[]> {
 }
 
 export async function listAdminPermissions(): Promise<string[]> {
-  const response = await request<{ permissions: string[] }>("/admin/permissions", { method: "GET" });
+  const response = await request<{ permissions: string[] }>(
+    "/admin/permissions",
+    { method: "GET" },
+  );
   return response.permissions ?? [];
 }
 
 export async function getAdminRole(roleId: string): Promise<AdminRoleResponse> {
-  return request<AdminRoleResponse>(`/admin/roles/${roleId}`, { method: "GET" });
+  return request<AdminRoleResponse>(`/admin/roles/${roleId}`, {
+    method: "GET",
+  });
 }
 
 export async function createAdminRole(input: AdminCreateRoleInput) {
@@ -544,7 +637,10 @@ export async function createAdminRole(input: AdminCreateRoleInput) {
   });
 }
 
-export async function patchAdminRole(roleId: string, input: AdminUpdateRoleInput) {
+export async function patchAdminRole(
+  roleId: string,
+  input: AdminUpdateRoleInput,
+) {
   return request<AdminRoleResponse>(`/admin/roles/${roleId}`, {
     method: "PATCH",
     body: input,
@@ -579,22 +675,31 @@ export type AdminUpdatePricingZoneInput = Partial<{
   pricingRules: Record<string, any> | Record<string, any>[];
 }>;
 
-export async function getAdminPricingZone(zoneId: string): Promise<AdminPricingZoneResponse> {
+export async function getAdminPricingZone(
+  zoneId: string,
+): Promise<AdminPricingZoneResponse> {
   return request<AdminPricingZoneResponse>(`/admin/pricing-zones/${zoneId}`);
 }
 
-export async function listAdminPricingZones(): Promise<AdminPricingZoneResponse[]> {
+export async function listAdminPricingZones(): Promise<
+  AdminPricingZoneResponse[]
+> {
   return request<AdminPricingZoneResponse[]>("/admin/pricing-zones");
 }
 
-export async function createAdminPricingZone(input: Partial<AdminPricingZoneResponse>) {
+export async function createAdminPricingZone(
+  input: Partial<AdminPricingZoneResponse>,
+) {
   return request<AdminPricingZoneResponse>("/admin/pricing-zones", {
     method: "POST",
     body: input,
   });
 }
 
-export async function patchAdminPricingZone(zoneId: string, input: AdminUpdatePricingZoneInput) {
+export async function patchAdminPricingZone(
+  zoneId: string,
+  input: AdminUpdatePricingZoneInput,
+) {
   return request<AdminPricingZoneResponse>(`/admin/pricing-zones/${zoneId}`, {
     method: "PATCH",
     body: input,
@@ -625,7 +730,7 @@ export async function listAdminServices(): Promise<AdminServiceResponse[]> {
 
 export async function patchAdminService(
   serviceId: string,
-  input: AdminUpdateServiceInput
+  input: AdminUpdateServiceInput,
 ): Promise<AdminServiceResponse> {
   return request<AdminServiceResponse>(`/admin/services/${serviceId}`, {
     method: "PATCH",
@@ -668,7 +773,9 @@ export type AdminUpdateOnboardingInput = Partial<{
 }>;
 
 export async function getAdminOnboardingStatus(): Promise<AdminOnboardingStatusResponse> {
-  return request<AdminOnboardingStatusResponse>("/admins/me/onboarding", { method: "GET" });
+  return request<AdminOnboardingStatusResponse>("/admins/me/onboarding", {
+    method: "GET",
+  });
 }
 
 export async function patchAdminOnboardingStatus(
@@ -687,14 +794,19 @@ export type AdminCreateTrainingModuleInput = {
   content?: string;
 };
 
-export type AdminUpdateTrainingModuleInput = Partial<AdminCreateTrainingModuleInput>;
+export type AdminUpdateTrainingModuleInput =
+  Partial<AdminCreateTrainingModuleInput>;
 
-export async function listAdminTrainingModules(): Promise<AdminTrainingModuleResponse[]> {
-  return request<AdminTrainingModuleResponse[]>("/admin/training/modules", { method: "GET" });
+export async function listAdminTrainingModules(): Promise<
+  AdminTrainingModuleResponse[]
+> {
+  return request<AdminTrainingModuleResponse[]>("/admin/training/modules", {
+    method: "GET",
+  });
 }
 
 export async function createAdminTrainingModule(
-  input: AdminCreateTrainingModuleInput
+  input: AdminCreateTrainingModuleInput,
 ): Promise<AdminTrainingModuleResponse> {
   return request<AdminTrainingModuleResponse>("/admin/training/modules", {
     method: "POST",
@@ -704,15 +816,20 @@ export async function createAdminTrainingModule(
 
 export async function patchAdminTrainingModule(
   moduleId: string,
-  input: AdminUpdateTrainingModuleInput
+  input: AdminUpdateTrainingModuleInput,
 ): Promise<AdminTrainingModuleResponse> {
-  return request<AdminTrainingModuleResponse>(`/admin/training/modules/${moduleId}`, {
-    method: "PATCH",
-    body: input,
-  });
+  return request<AdminTrainingModuleResponse>(
+    `/admin/training/modules/${moduleId}`,
+    {
+      method: "PATCH",
+      body: input,
+    },
+  );
 }
 
-export async function deleteAdminTrainingModule(moduleId: string): Promise<{ deleted: boolean }> {
+export async function deleteAdminTrainingModule(
+  moduleId: string,
+): Promise<{ deleted: boolean }> {
   return request<{ deleted: boolean }>(`/admin/training/modules/${moduleId}`, {
     method: "DELETE",
   });
@@ -736,13 +853,17 @@ export type AdminUpdateFeatureFlagInput = Partial<{
   description: string;
 }>;
 
-export async function listAdminFeatureFlags(): Promise<AdminFeatureFlagResponse[]> {
-  return request<AdminFeatureFlagResponse[]>("/admin/system/flags", { method: "GET" });
+export async function listAdminFeatureFlags(): Promise<
+  AdminFeatureFlagResponse[]
+> {
+  return request<AdminFeatureFlagResponse[]>("/admin/system/flags", {
+    method: "GET",
+  });
 }
 
 export async function patchAdminFeatureFlag(
   flagKey: string,
-  input: AdminUpdateFeatureFlagInput
+  input: AdminUpdateFeatureFlagInput,
 ): Promise<AdminFeatureFlagResponse> {
   return request<AdminFeatureFlagResponse>(`/admin/system/flags/${flagKey}`, {
     method: "PATCH",
@@ -794,17 +915,27 @@ export type AdminExperimentResultsResponse = {
   };
 };
 
-export async function listAdminExperiments(): Promise<AdminExperimentResponse[]> {
-  return request<AdminExperimentResponse[]>("/admin/experiments", { method: "GET" });
+export async function listAdminExperiments(): Promise<
+  AdminExperimentResponse[]
+> {
+  return request<AdminExperimentResponse[]>("/admin/experiments", {
+    method: "GET",
+  });
 }
 
-export async function getAdminExperimentResults(experimentId: string): Promise<AdminExperimentResultsResponse> {
-  return request<AdminExperimentResultsResponse>(`/admin/experiments/${experimentId}/results`, { method: "GET" });
+export async function getAdminExperimentResults(
+  experimentId: string,
+): Promise<AdminExperimentResultsResponse> {
+  return request<AdminExperimentResultsResponse>(
+    `/admin/experiments/${experimentId}/results`,
+    { method: "GET" },
+  );
 }
 
 // ── Analytics ───────────────────────────────────────────────────────────────
 
-export type AdminAnalyticsPeriod = "today" | "7days" | "thisMonth" | "thisYear" | "custom";
+export type AdminAnalyticsPeriod =
+  "today" | "7days" | "thisMonth" | "thisYear" | "custom";
 
 export type AdminFinanceAnalytics = {
   grossEarnings: number;
@@ -831,9 +962,21 @@ export type AdminOperationsAnalytics = {
     rider: number;
     driver: number;
   };
-  hourly?: Array<{ time?: string; demand?: number; supply?: number; rides?: number; deliveries?: number; bookings?: number }>;
+  hourly?: Array<{
+    time?: string;
+    demand?: number;
+    supply?: number;
+    rides?: number;
+    deliveries?: number;
+    bookings?: number;
+  }>;
   regions?: Array<{ region?: string; rides?: number; deliveries?: number }>;
-  serviceMix?: Array<{ service?: string; total?: number; completed?: number; active?: number }>;
+  serviceMix?: Array<{
+    service?: string;
+    total?: number;
+    completed?: number;
+    active?: number;
+  }>;
 };
 
 type AnalyticsQuery = {
@@ -842,7 +985,9 @@ type AnalyticsQuery = {
   end?: string;
 };
 
-function mapPeriodToBackend(period: AdminAnalyticsPeriod): "day" | "week" | "month" | "year" {
+function mapPeriodToBackend(
+  period: AdminAnalyticsPeriod,
+): "day" | "week" | "month" | "year" {
   switch (period) {
     case "today":
       return "day";
@@ -857,17 +1002,20 @@ function mapPeriodToBackend(period: AdminAnalyticsPeriod): "day" | "week" | "mon
   }
 }
 
-function toQueryString(input: Record<string, string | number | boolean | undefined>): string {
+function toQueryString(
+  input: Record<string, string | number | boolean | undefined>,
+): string {
   const search = new URLSearchParams();
   Object.entries(input).forEach(([key, value]) => {
-    if (value !== undefined && value !== "" && value !== null) search.set(key, String(value));
+    if (value !== undefined && value !== "" && value !== null)
+      search.set(key, String(value));
   });
   const raw = search.toString();
   return raw ? `?${raw}` : "";
 }
 
 export async function getAdminFinanceAnalytics(
-  query: AnalyticsQuery
+  query: AnalyticsQuery,
 ): Promise<AdminFinanceAnalytics> {
   return request<AdminFinanceAnalytics>(
     `/admin/analytics/finance${toQueryString({
@@ -875,12 +1023,12 @@ export async function getAdminFinanceAnalytics(
       start: query.start,
       end: query.end,
     })}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
 export async function getAdminOperationsAnalytics(
-  query: AnalyticsQuery
+  query: AnalyticsQuery,
 ): Promise<AdminOperationsAnalytics> {
   return request<AdminOperationsAnalytics>(
     `/admin/analytics/operations${toQueryString({
@@ -888,7 +1036,7 @@ export async function getAdminOperationsAnalytics(
       start: query.start,
       end: query.end,
     })}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
@@ -909,7 +1057,10 @@ export type AdminMonitoringSnapshot = {
 };
 
 export async function getAdminMonitoringSnapshot(): Promise<AdminMonitoringSnapshot> {
-  return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", { method: "GET", cacheTtlMs: 0 });
+  return request<AdminMonitoringSnapshot>("/admin/monitoring/snapshot", {
+    method: "GET",
+    cacheTtlMs: 0,
+  });
 }
 
 export type AdminMonitoringDriver = {
@@ -919,6 +1070,8 @@ export type AdminMonitoringDriver = {
   city?: string;
   vehicleType?: string;
   availabilityStatus: string;
+  /** Raw persisted presence before heartbeat freshness is applied. */
+  reportedAvailabilityStatus?: string;
   online: boolean;
   busy: boolean;
   locationFresh?: boolean;
@@ -931,8 +1084,40 @@ export type AdminMonitoringDriver = {
   verificationStatus?: string;
 };
 
-export async function listAdminMonitoringDrivers(): Promise<AdminMonitoringDriver[]> {
-  return request<AdminMonitoringDriver[]>("/admin/monitoring/drivers", { method: "GET", cacheTtlMs: 0 });
+export async function listAdminMonitoringDrivers(): Promise<
+  AdminMonitoringDriver[]
+> {
+  return request<AdminMonitoringDriver[]>("/admin/monitoring/drivers", {
+    method: "GET",
+    cacheTtlMs: 0,
+  });
+}
+
+export type AdminRiderDemandPoint = {
+  id: string;
+  serviceType: string;
+  serviceId: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  weight: number;
+  waitingSeconds: number;
+  requestedAt: string;
+  updatedAt: string;
+};
+
+export type AdminRiderDemandSnapshot = {
+  points: AdminRiderDemandPoint[];
+  total: number;
+  byService: Record<string, number>;
+  generatedAt: string;
+};
+
+export async function getAdminRiderDemand(): Promise<AdminRiderDemandSnapshot> {
+  return request<AdminRiderDemandSnapshot>("/admin/monitoring/rider-demand", {
+    method: "GET",
+    cacheTtlMs: 0,
+  });
 }
 
 export type AdminMonitoringJob = {
@@ -968,8 +1153,13 @@ export type AdminMonitoringFailedDispatch = {
   createdAt?: string;
 };
 
-export async function listAdminMonitoringFailedDispatches(): Promise<AdminMonitoringFailedDispatch[]> {
-  return request<AdminMonitoringFailedDispatch[]>("/admin/monitoring/failed-dispatches", { method: "GET", cacheTtlMs: 0 });
+export async function listAdminMonitoringFailedDispatches(): Promise<
+  AdminMonitoringFailedDispatch[]
+> {
+  return request<AdminMonitoringFailedDispatch[]>(
+    "/admin/monitoring/failed-dispatches",
+    { method: "GET", cacheTtlMs: 0 },
+  );
 }
 
 // ── Safety incidents / SOS (backend GET /safety/emergencies) ────────────────
@@ -981,7 +1171,11 @@ export type AdminSafetyIncidentView = {
     phone?: string | null;
     role?: string | null;
   };
-  rider: { userId?: string; name?: string | null; phone?: string | null } | null;
+  rider: {
+    userId?: string;
+    name?: string | null;
+    phone?: string | null;
+  } | null;
   driver: {
     driverId?: string;
     userId?: string;
@@ -1045,14 +1239,17 @@ export type AdminSafetyIncident = {
   view?: AdminSafetyIncidentView | null;
   communication?: {
     messages?: AdminEmergencyMessage[];
-    voiceNotes?: Array<AdminEmergencyMessage | {
-      id: string;
-      audioUrl?: string | null;
-      audioMimeType?: string | null;
-      audioDurationMs?: number | null;
-      createdAt?: string;
-      source?: string;
-    }>;
+    voiceNotes?: Array<
+      | AdminEmergencyMessage
+      | {
+          id: string;
+          audioUrl?: string | null;
+          audioMimeType?: string | null;
+          audioDurationMs?: number | null;
+          createdAt?: string;
+          source?: string;
+        }
+    >;
     emergencyContacts?: AdminSafetyNotifiedContact[];
   };
   callSession?: {
@@ -1140,7 +1337,11 @@ export type AdminSafetyRideSnapshot = {
     color?: string;
   } | null;
   pickup?: { address?: string; latitude?: number; longitude?: number } | null;
-  destination?: { address?: string; latitude?: number; longitude?: number } | null;
+  destination?: {
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+  } | null;
   stops?: Array<{
     sequence?: number;
     type?: string;
@@ -1191,6 +1392,57 @@ export type AdminSafetyIncidentPage = {
   meta: { page: number; limit: number; total: number; pageCount: number };
 };
 
+type AdminSafetyIncidentPageWire =
+  | AdminSafetyIncident[]
+  | AdminSafetyIncidentPage
+  | {
+      data?: AdminSafetyIncident[] | AdminSafetyIncidentPage;
+      items?: AdminSafetyIncident[];
+      meta?: {
+        page?: number;
+        limit?: number;
+        total?: number;
+        pageCount?: number;
+        totalPages?: number;
+      };
+    };
+
+function normalizeAdminSafetyIncidentPage(
+  response: AdminSafetyIncidentPageWire,
+  fallbackPage: number,
+  fallbackLimit: number,
+): AdminSafetyIncidentPage {
+  const objectResponse = Array.isArray(response) ? undefined : response;
+  const data =
+    objectResponse && "data" in objectResponse
+      ? objectResponse.data
+      : undefined;
+  const nested = data && !Array.isArray(data) ? data : undefined;
+  const items = Array.isArray(response)
+    ? response
+    : Array.isArray(objectResponse?.items)
+      ? objectResponse.items
+      : Array.isArray(data)
+        ? data
+        : (nested?.items ?? []);
+  const wireMeta = objectResponse?.meta;
+  const nestedMeta = nested?.meta;
+  const meta = wireMeta ?? nestedMeta;
+  const page = Number(meta?.page ?? fallbackPage);
+  const limit = Number(meta?.limit ?? fallbackLimit);
+  const total = Number(meta?.total ?? items.length);
+  const totalPages = meta && "totalPages" in meta ? meta.totalPages : undefined;
+  const pageCount = Number(
+    meta?.pageCount ??
+      totalPages ??
+      (total === 0 ? 0 : Math.ceil(total / Math.max(1, limit))),
+  );
+  return {
+    items,
+    meta: { page, limit, total, pageCount },
+  };
+}
+
 export async function listAdminSafetyEmergencies(params?: {
   page?: number;
   limit?: number;
@@ -1203,14 +1455,23 @@ export async function listAdminSafetyEmergencies(params?: {
     page: String(params?.page ?? 1),
     limit: String(params?.limit ?? 100),
   });
-  if (params?.status && params.status !== "ALL") query.set("status", params.status);
+  if (params?.status && params.status !== "ALL")
+    query.set("status", params.status);
   if (params?.sos !== undefined) query.set("sos", String(params.sos));
   if (params?.fromDate) query.set("fromDate", params.fromDate);
   if (params?.toDate) query.set("toDate", params.toDate);
-  return request<AdminSafetyIncidentPage>(`/safety/emergencies?${query}`, { method: "GET" });
+  const response = await request<AdminSafetyIncidentPageWire>(
+    `/safety/emergencies?${query}`,
+    { method: "GET", unwrapData: false },
+  );
+  return normalizeAdminSafetyIncidentPage(
+    response,
+    params?.page ?? 1,
+    params?.limit ?? 100,
+  );
 }
 
-export async function listAdminSosIncidents(params?: {
+export type AdminSosIncidentQuery = {
   page?: number;
   limit?: number;
   status?: string;
@@ -1228,16 +1489,22 @@ export async function listAdminSosIncidents(params?: {
   callStatus?: string;
   hasAudio?: boolean;
   hasLocation?: boolean;
-}): Promise<AdminSafetyIncidentPage> {
+};
+
+export async function listAdminSosIncidents(
+  params?: AdminSosIncidentQuery,
+): Promise<AdminSafetyIncidentPage> {
   const query = new URLSearchParams({
     page: String(params?.page ?? 1),
     limit: String(params?.limit ?? 100),
   });
-  if (params?.status && params.status !== "ALL" && params.status !== "ACTIVE") query.set("status", params.status);
+  if (params?.status && params.status !== "ALL" && params.status !== "ACTIVE")
+    query.set("status", params.status);
   if (params?.fromDate) query.set("fromDate", params.fromDate);
   if (params?.toDate) query.set("toDate", params.toDate);
   if (params?.search?.trim()) query.set("search", params.search.trim());
-  if (params?.reporterUserId) query.set("reporterUserId", params.reporterUserId);
+  if (params?.reporterUserId)
+    query.set("reporterUserId", params.reporterUserId);
   if (params?.riderId) query.set("riderId", params.riderId);
   if (params?.driverId) query.set("driverId", params.driverId);
   if (params?.rideId) query.set("rideId", params.rideId);
@@ -1246,17 +1513,57 @@ export async function listAdminSosIncidents(params?: {
   if (params?.vehicleId) query.set("vehicleId", params.vehicleId);
   if (params?.plateNumber) query.set("plateNumber", params.plateNumber);
   if (params?.callStatus) query.set("callStatus", params.callStatus);
-  if (params?.hasAudio !== undefined) query.set("hasAudio", String(params.hasAudio));
-  if (params?.hasLocation !== undefined) query.set("hasLocation", String(params.hasLocation));
-  return request<AdminSafetyIncidentPage>(`/safety/sos-incidents?${query}`, { method: "GET" });
+  if (params?.hasAudio !== undefined)
+    query.set("hasAudio", String(params.hasAudio));
+  if (params?.hasLocation !== undefined)
+    query.set("hasLocation", String(params.hasLocation));
+  const response = await request<AdminSafetyIncidentPageWire>(
+    `/safety/sos-incidents?${query}`,
+    { method: "GET", unwrapData: false },
+  );
+  return normalizeAdminSafetyIncidentPage(
+    response,
+    params?.page ?? 1,
+    params?.limit ?? 100,
+  );
 }
 
-export async function getAdminSafetyIncident(id: string): Promise<AdminSafetyIncident> {
-  return request<AdminSafetyIncident>(`/safety/emergencies/${id}`, { method: "GET" });
+export async function listAllAdminSosIncidents(
+  params?: Omit<AdminSosIncidentQuery, "page" | "limit">,
+): Promise<AdminSafetyIncident[]> {
+  const incidents: AdminSafetyIncident[] = [];
+  let page = 1;
+  let pageCount = 1;
+
+  do {
+    const response = await listAdminSosIncidents({
+      ...params,
+      page,
+      limit: 200,
+    });
+    incidents.push(...(Array.isArray(response.items) ? response.items : []));
+    pageCount = Math.max(1, response.meta?.pageCount ?? 1);
+    page += 1;
+  } while (page <= pageCount);
+
+  return incidents;
 }
 
-export async function listAdminEmergencyMessages(id: string): Promise<AdminEmergencyMessage[]> {
-  return request<AdminEmergencyMessage[]>(`/safety/emergencies/${id}/messages`, { method: "GET" });
+export async function getAdminSafetyIncident(
+  id: string,
+): Promise<AdminSafetyIncident> {
+  return request<AdminSafetyIncident>(`/safety/emergencies/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function listAdminEmergencyMessages(
+  id: string,
+): Promise<AdminEmergencyMessage[]> {
+  return request<AdminEmergencyMessage[]>(
+    `/safety/emergencies/${id}/messages`,
+    { method: "GET" },
+  );
 }
 
 export type AdminIncidentEventLog = {
@@ -1384,12 +1691,20 @@ export async function getAdminAnalyticsTimeseries(
   });
 }
 
-export async function getAdminAnalyticsOperations(): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>("/admin/analytics/operations", { method: "GET" });
+export async function getAdminAnalyticsOperations(): Promise<
+  Record<string, unknown>
+> {
+  return request<Record<string, unknown>>("/admin/analytics/operations", {
+    method: "GET",
+  });
 }
 
-export async function getAdminAnalyticsFinance(): Promise<Record<string, unknown>> {
-  return request<Record<string, unknown>>("/admin/analytics/finance", { method: "GET" });
+export async function getAdminAnalyticsFinance(): Promise<
+  Record<string, unknown>
+> {
+  return request<Record<string, unknown>>("/admin/analytics/finance", {
+    method: "GET",
+  });
 }
 
 export type AdminAnalyticsDriverPoint = {
@@ -1441,140 +1756,6 @@ export async function getAdminAnalyticsCompanies(
       end: filters.end,
     },
   });
-}
-
-// ── Monitoring detail endpoints (observability dashboards) ──────────────────
-// NOTE: These endpoints are not fully exposed by the backend yet. The wrappers
-// below fall back to the closest existing endpoints so the UI can render real
-// data as soon as the backend implements them, while staying accurate today.
-
-export type AdminOnlineDriver = AdminDriverResponse & {
-  lastHeartbeatAt?: string;
-};
-
-export type AdminStaleDriver = AdminOnlineDriver & {
-  secondsSinceHeartbeat: number;
-};
-
-export type AdminActiveJob = {
-  id: string;
-  serviceType: "ride" | "delivery";
-  status: string;
-  pickupAddress?: string;
-  dropoffAddress?: string;
-  driverId?: string;
-  driverName?: string;
-  riderId?: string;
-  riderName?: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export type AdminFailedDispatch = {
-  id: string;
-  serviceType: "ride" | "delivery";
-  reason?: string;
-  pickupAddress?: string;
-  dropoffAddress?: string;
-  createdAt?: string;
-};
-
-function normalizeBookingToJob(
-  booking: AdminRecentBooking,
-  serviceType: "ride" | "delivery"
-): AdminActiveJob {
-  return {
-    id: booking.id,
-    serviceType,
-    status: booking.status,
-    pickupAddress:
-      typeof booking.pickup === "string"
-        ? booking.pickup
-        : booking.pickupAddress,
-    dropoffAddress:
-      typeof booking.destination === "string"
-        ? booking.destination
-        : typeof booking.dropoff === "string"
-        ? booking.dropoff
-        : booking.dropoffAddress,
-    createdAt: booking.createdAt,
-    updatedAt: booking.updatedAt,
-  };
-}
-
-export async function listAdminOnlineDrivers(): Promise<AdminOnlineDriver[]> {
-  // Phase 9: "online" is a backend-driven availability status (ONLINE / BUSY),
-  // not the account approval status. Filter on availabilityStatus so only
-  // drivers actually available are counted as online.
-  const drivers = await listAdminDrivers();
-  const online = new Set(["ONLINE", "BUSY"]);
-  return drivers.filter(
-    (driver) => driver.availabilityStatus != null && online.has(driver.availabilityStatus.toUpperCase()),
-  );
-}
-
-export async function listAdminStaleDrivers(): Promise<AdminStaleDriver[]> {
-  // Gap: backend does not expose driver heartbeat timestamps yet.
-  const drivers = await listAdminOnlineDrivers();
-  return drivers.map((driver) => ({
-    ...driver,
-    secondsSinceHeartbeat: 0,
-  }));
-}
-
-export async function listAdminActiveRideJobs(): Promise<AdminActiveJob[]> {
-  // Gap: backend has no dedicated active-jobs endpoint yet.
-  // Closest existing endpoint is recent bookings.
-  const recent = await getAdminRecentBookings();
-  return (recent.rides || [])
-    .filter(
-      (booking) =>
-        booking.status && !["completed", "cancelled", "failed"].includes(booking.status)
-    )
-    .map((booking) => normalizeBookingToJob(booking, "ride"));
-}
-
-export async function listAdminActiveDeliveryJobs(): Promise<AdminActiveJob[]> {
-  const recent = await getAdminRecentBookings();
-  return (recent.deliveries || [])
-    .filter(
-      (booking) =>
-        booking.status && !["completed", "cancelled", "failed"].includes(booking.status)
-    )
-    .map((booking) => normalizeBookingToJob(booking, "delivery"));
-}
-
-export async function listAdminFailedDispatches(): Promise<AdminFailedDispatch[]> {
-  // Gap: backend has no dedicated failed-dispatches endpoint yet.
-  const recent = await getAdminRecentBookings();
-  const mapBooking = (
-    booking: AdminRecentBooking,
-    serviceType: "ride" | "delivery"
-  ): AdminFailedDispatch => ({
-    id: booking.id,
-    serviceType,
-    reason: booking.status,
-    pickupAddress:
-      typeof booking.pickup === "string"
-        ? booking.pickup
-        : booking.pickupAddress,
-    dropoffAddress:
-      typeof booking.destination === "string"
-        ? booking.destination
-        : typeof booking.dropoff === "string"
-        ? booking.dropoff
-        : booking.dropoffAddress,
-    createdAt: booking.createdAt,
-  });
-
-  const rides = (recent.rides || [])
-    .filter((booking) => ["failed", "no_driver", "cancelled"].includes(booking.status))
-    .map((booking) => mapBooking(booking, "ride"));
-  const deliveries = (recent.deliveries || [])
-    .filter((booking) => ["failed", "no_driver", "cancelled"].includes(booking.status))
-    .map((booking) => mapBooking(booking, "delivery"));
-
-  return [...rides, ...deliveries];
 }
 
 // ── Matching Inspection ─────────────────────────────────────────────────────
@@ -1645,12 +1826,21 @@ export async function listAdminMatchingJobs(
   );
 }
 
-export async function getAdminMatchingJobDetail(id: string): Promise<AdminMatchingJobDetail> {
-  return request<AdminMatchingJobDetail>(`/matching/jobs/${id}`, { method: "GET" });
+export async function getAdminMatchingJobDetail(
+  id: string,
+): Promise<AdminMatchingJobDetail> {
+  return request<AdminMatchingJobDetail>(`/matching/jobs/${id}`, {
+    method: "GET",
+  });
 }
 
-export async function retryAdminMatchingJob(id: string): Promise<{ dispatched: boolean; reason?: string }> {
-  return request<{ dispatched: boolean; reason?: string }>(`/matching/jobs/${id}/retry`, { method: "POST" });
+export async function retryAdminMatchingJob(
+  id: string,
+): Promise<{ dispatched: boolean; reason?: string }> {
+  return request<{ dispatched: boolean; reason?: string }>(
+    `/matching/jobs/${id}/retry`,
+    { method: "POST" },
+  );
 }
 
 // ── Driver / Vehicle Document Review ────────────────────────────────────────
@@ -1715,20 +1905,28 @@ export type AdminFileAssetResponse = {
   downloadExpiresAt?: number;
 };
 
-export function extractFileAssetIdFromUrl(fileUrl?: string | null): string | undefined {
+export function extractFileAssetIdFromUrl(
+  fileUrl?: string | null,
+): string | undefined {
   if (!fileUrl) return undefined;
   const match = fileUrl.match(/\/files\/([^/?#]+)(?:\/download)?/);
   return match?.[1] ? decodeURIComponent(match[1]) : undefined;
 }
 
-export async function getFreshFileDownloadUrl(fileUrl?: string | null, fileAssetId?: string | null): Promise<string> {
+export async function getFreshFileDownloadUrl(
+  fileUrl?: string | null,
+  fileAssetId?: string | null,
+): Promise<string> {
   const id = fileAssetId || extractFileAssetIdFromUrl(fileUrl);
   if (!id) {
     if (fileUrl) return fileUrl;
     throw new Error("Document file is not available.");
   }
 
-  const asset = await request<AdminFileAssetResponse>(`/files/${encodeURIComponent(id)}`, { method: "GET" });
+  const asset = await request<AdminFileAssetResponse>(
+    `/files/${encodeURIComponent(id)}`,
+    { method: "GET" },
+  );
   const freshUrl = asset.downloadUrl || asset.accessUrl || asset.fileUrl;
   if (!freshUrl) {
     throw new Error("Document download link is not available.");
@@ -1741,59 +1939,115 @@ export type AdminDocumentReviewInput = {
   rejectionReason?: string;
 };
 
-export async function listAdminPendingDriverDocuments(page = 1, limit = 20): Promise<{
+export async function listAdminPendingDriverDocuments(
+  page = 1,
+  limit = 20,
+): Promise<{
   items: AdminPendingDocument[];
   meta: { page: number; limit: number; total: number; pageCount: number };
 }> {
-  return request<{ items: AdminPendingDocument[]; meta: { page: number; limit: number; total: number; pageCount: number } }>(
+  return request<{
+    items: AdminPendingDocument[];
+    meta: { page: number; limit: number; total: number; pageCount: number };
+  }>(
     `/admin/driver-documents/pending${toQueryString({ page: String(page), limit: String(limit) })}`,
     { method: "GET" },
   );
 }
 
-export async function reviewAdminDriverDocument(id: string, input: AdminDocumentReviewInput) {
-  return request<AdminPendingDocument>(`/admin/driver-documents/${id}/review`, { method: "PATCH", body: input });
+export async function reviewAdminDriverDocument(
+  id: string,
+  input: AdminDocumentReviewInput,
+) {
+  return request<AdminPendingDocument>(`/admin/driver-documents/${id}/review`, {
+    method: "PATCH",
+    body: input,
+  });
 }
 
-export async function listAdminPendingVehicleDocuments(page = 1, limit = 20): Promise<{
+export async function listAdminPendingVehicleDocuments(
+  page = 1,
+  limit = 20,
+): Promise<{
   items: AdminPendingDocument[];
   meta: { page: number; limit: number; total: number; pageCount: number };
 }> {
-  return request<{ items: AdminPendingDocument[]; meta: { page: number; limit: number; total: number; pageCount: number } }>(
+  return request<{
+    items: AdminPendingDocument[];
+    meta: { page: number; limit: number; total: number; pageCount: number };
+  }>(
     `/admin/vehicle-documents/pending${toQueryString({ page: String(page), limit: String(limit) })}`,
     { method: "GET" },
   );
 }
 
-export async function reviewAdminVehicleDocument(id: string, input: AdminDocumentReviewInput) {
-  return request<AdminPendingDocument>(`/admin/vehicle-documents/${id}/review`, { method: "PATCH", body: input });
+export async function reviewAdminVehicleDocument(
+  id: string,
+  input: AdminDocumentReviewInput,
+) {
+  return request<AdminPendingDocument>(
+    `/admin/vehicle-documents/${id}/review`,
+    { method: "PATCH", body: input },
+  );
 }
 
-export async function listAdminRiderDocuments(riderId: string): Promise<AdminDocumentHistoryItem[]> {
-  return request<AdminDocumentHistoryItem[]>(`/admin/riders/${riderId}/documents`, { method: "GET" });
+export async function listAdminRiderDocuments(
+  riderId: string,
+): Promise<AdminDocumentHistoryItem[]> {
+  return request<AdminDocumentHistoryItem[]>(
+    `/admin/riders/${riderId}/documents`,
+    { method: "GET" },
+  );
 }
 
-export async function listAdminDriverDocuments(driverId: string): Promise<AdminDriverDocumentHistoryResponse> {
-  return request<AdminDriverDocumentHistoryResponse>(`/admin/drivers/${driverId}/documents`, { method: "GET" });
+export async function listAdminDriverDocuments(
+  driverId: string,
+): Promise<AdminDriverDocumentHistoryResponse> {
+  return request<AdminDriverDocumentHistoryResponse>(
+    `/admin/drivers/${driverId}/documents`,
+    { method: "GET" },
+  );
 }
 
 export type AdminDashboardCounts = {
-  activeRides: number;
-  activeDeliveries: number;
-  drivers: number;
-  rides: number;
-  deliveries: number;
+  users: { total: number; active: number };
+  riders: { total: number };
+  drivers: { total: number; online: number; busy: number };
+  vehicles: { active: number };
+  services: {
+    rides: { total: number; active: number };
+    deliveries: { total: number; active: number };
+    touristVehicles: { total: number };
+    ambulance: { total: number };
+    carRental: { total: number };
+  };
+  operations: {
+    openEmergencies: number;
+    openSupportTickets: number;
+    organizations: number;
+    activeFleets: number;
+    manualBookings: number;
+    dispatchAgents: number;
+    schoolConnections: number;
+  };
+  actionRequired: {
+    driverApprovals: number;
+    sosIncidents: number;
+  };
+  payments: {
+    paidTransactions: number;
+    corporatePayTransactions: number;
+    grossVolume: number;
+    currency: string;
+  };
+  generatedAt: string;
 };
 
 export async function getAdminDashboard(): Promise<AdminDashboardCounts> {
-  const raw = await request<Record<string, number>>("/admin/dashboard", { method: "GET" });
-  return {
-    activeRides: raw.activeRides ?? 0,
-    activeDeliveries: raw.activeDeliveries ?? 0,
-    drivers: raw.drivers ?? 0,
-    rides: raw.rides ?? 0,
-    deliveries: raw.deliveries ?? 0,
-  };
+  return request<AdminDashboardCounts>("/admin/dashboard", {
+    method: "GET",
+    cacheTtlMs: 0,
+  });
 }
 
 export type AdminRecentBooking = {
@@ -1817,8 +2071,13 @@ export type AdminRecentBookings = {
   carRentals: AdminRecentBooking[];
 };
 
-export async function getAdminRecentBookings(limit = 50): Promise<AdminRecentBookings> {
-  return request<AdminRecentBookings>(`/admin/bookings/recent${toQueryString({ limit: String(limit) })}`, { method: "GET" });
+export async function getAdminRecentBookings(
+  limit = 50,
+): Promise<AdminRecentBookings> {
+  return request<AdminRecentBookings>(
+    `/admin/bookings/recent${toQueryString({ limit: String(limit) })}`,
+    { method: "GET" },
+  );
 }
 
 // ── Admin Finance ───────────────────────────────────────────────────────────
@@ -1887,56 +2146,140 @@ export type AdminRevenueSummary = {
   byService?: Array<{ serviceType: string; amount: number }>;
 };
 
-export async function listAdminCashouts(query: AdminFinanceListQuery = {}): Promise<{ items: AdminCashout[]; meta?: { page: number; limit: number; total: number } }> {
-  return request<{ items: AdminCashout[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/cashouts${toQueryString(query)}`, { method: "GET" });
+export async function listAdminCashouts(
+  query: AdminFinanceListQuery = {},
+): Promise<{
+  items: AdminCashout[];
+  meta?: { page: number; limit: number; total: number };
+}> {
+  return request<{
+    items: AdminCashout[];
+    meta?: { page: number; limit: number; total: number };
+  }>(`/admin-finance/cashouts${toQueryString(query)}`, { method: "GET" });
 }
 
-export async function reviewAdminCashout(id: string, input: { status: string; reason?: string; provider?: string }) {
-  return request<AdminCashout>(`/admin-finance/cashouts/${id}/review`, { method: "PATCH", body: input });
+export async function reviewAdminCashout(
+  id: string,
+  input: { status: string; reason?: string; provider?: string },
+) {
+  return request<AdminCashout>(`/admin-finance/cashouts/${id}/review`, {
+    method: "PATCH",
+    body: input,
+  });
 }
 
-export async function listAdminPayouts(query: AdminFinanceListQuery = {}): Promise<{ items: AdminPayout[]; meta?: { page: number; limit: number; total: number } }> {
-  return request<{ items: AdminPayout[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/payouts${toQueryString(query)}`, { method: "GET" });
+export async function listAdminPayouts(
+  query: AdminFinanceListQuery = {},
+): Promise<{
+  items: AdminPayout[];
+  meta?: { page: number; limit: number; total: number };
+}> {
+  return request<{
+    items: AdminPayout[];
+    meta?: { page: number; limit: number; total: number };
+  }>(`/admin-finance/payouts${toQueryString(query)}`, { method: "GET" });
 }
 
 export async function retryAdminPayout(id: string) {
-  return request<AdminPayout>(`/admin-finance/payouts/${id}/retry`, { method: "POST" });
+  return request<AdminPayout>(`/admin-finance/payouts/${id}/retry`, {
+    method: "POST",
+  });
 }
 
-export async function listAdminPayments(query: AdminFinanceListQuery = {}): Promise<{ items: AdminPayment[]; meta?: { page: number; limit: number; total: number } }> {
-  return request<{ items: AdminPayment[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/payments${toQueryString(query)}`, { method: "GET" });
+export async function listAdminPayments(
+  query: AdminFinanceListQuery = {},
+): Promise<{
+  items: AdminPayment[];
+  meta?: { page: number; limit: number; total: number };
+}> {
+  return request<{
+    items: AdminPayment[];
+    meta?: { page: number; limit: number; total: number };
+  }>(`/admin-finance/payments${toQueryString(query)}`, { method: "GET" });
 }
 
-export async function refundAdminPayment(id: string, input: { amount?: number; reason?: string; idempotencyKey?: string }) {
-  return request<AdminPayment>(`/admin-finance/payments/${id}/refund`, { method: "POST", body: input });
+export async function refundAdminPayment(
+  id: string,
+  input: { amount?: number; reason?: string; idempotencyKey?: string },
+) {
+  return request<AdminPayment>(`/admin-finance/payments/${id}/refund`, {
+    method: "POST",
+    body: input,
+  });
 }
 
-export async function getAdminRevenueSummary(query: AdminFinanceListQuery = {}): Promise<AdminRevenueSummary> {
-  return request<AdminRevenueSummary>(`/admin-finance/revenue/summary${toQueryString(query)}`, { method: "GET" });
+export async function getAdminRevenueSummary(
+  query: AdminFinanceListQuery = {},
+): Promise<AdminRevenueSummary> {
+  return request<AdminRevenueSummary>(
+    `/admin-finance/revenue/summary${toQueryString(query)}`,
+    { method: "GET" },
+  );
 }
 
-export async function listAdminSettlements(query: AdminFinanceListQuery = {}): Promise<{ items: AdminSettlement[]; meta?: { page: number; limit: number; total: number } }> {
-  return request<{ items: AdminSettlement[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/settlements${toQueryString(query)}`, { method: "GET" });
+export async function listAdminSettlements(
+  query: AdminFinanceListQuery = {},
+): Promise<{
+  items: AdminSettlement[];
+  meta?: { page: number; limit: number; total: number };
+}> {
+  return request<{
+    items: AdminSettlement[];
+    meta?: { page: number; limit: number; total: number };
+  }>(`/admin-finance/settlements${toQueryString(query)}`, { method: "GET" });
 }
 
-export async function createAdminSettlement(input: { periodStart: string; periodEnd: string; currency?: string; totalAmount?: number; provider?: string; settlementDate?: string }) {
-  return request<AdminSettlement>("/admin-finance/settlements", { method: "POST", body: input });
+export async function createAdminSettlement(input: {
+  periodStart: string;
+  periodEnd: string;
+  currency?: string;
+  totalAmount?: number;
+  provider?: string;
+  settlementDate?: string;
+}) {
+  return request<AdminSettlement>("/admin-finance/settlements", {
+    method: "POST",
+    body: input,
+  });
 }
 
 export async function postAdminSettlement(id: string) {
-  return request<AdminSettlement>(`/admin-finance/settlements/${id}/post`, { method: "PATCH" });
+  return request<AdminSettlement>(`/admin-finance/settlements/${id}/post`, {
+    method: "PATCH",
+  });
 }
 
 export async function cancelAdminSettlement(id: string) {
-  return request<AdminSettlement>(`/admin-finance/settlements/${id}/cancel`, { method: "PATCH" });
+  return request<AdminSettlement>(`/admin-finance/settlements/${id}/cancel`, {
+    method: "PATCH",
+  });
 }
 
-export async function listAdminWalletReconciliations(query: AdminFinanceListQuery = {}): Promise<{ items: AdminWalletReconciliation[]; meta?: { page: number; limit: number; total: number } }> {
-  return request<{ items: AdminWalletReconciliation[]; meta?: { page: number; limit: number; total: number } }>(`/admin-finance/wallet-reconciliation${toQueryString(query)}`, { method: "GET" });
+export async function listAdminWalletReconciliations(
+  query: AdminFinanceListQuery = {},
+): Promise<{
+  items: AdminWalletReconciliation[];
+  meta?: { page: number; limit: number; total: number };
+}> {
+  return request<{
+    items: AdminWalletReconciliation[];
+    meta?: { page: number; limit: number; total: number };
+  }>(`/admin-finance/wallet-reconciliation${toQueryString(query)}`, {
+    method: "GET",
+  });
 }
 
-export async function createAdminWalletReconciliation(input: { periodStart: string; periodEnd: string; type?: string; currency?: string; runId?: string }) {
-  return request<AdminWalletReconciliation>("/admin-finance/wallet-reconciliation", { method: "POST", body: input });
+export async function createAdminWalletReconciliation(input: {
+  periodStart: string;
+  periodEnd: string;
+  type?: string;
+  currency?: string;
+  runId?: string;
+}) {
+  return request<AdminWalletReconciliation>(
+    "/admin-finance/wallet-reconciliation",
+    { method: "POST", body: input },
+  );
 }
 
 // ── Reconciliation ──────────────────────────────────────────────────────────
@@ -1966,28 +2309,63 @@ export type AdminReconciliationRecord = {
   createdAt: string;
 };
 
-export async function listAdminReconciliationRuns(query: { type?: string; status?: string } = {}): Promise<AdminReconciliationRun[]> {
-  return request<AdminReconciliationRun[]>(`/admin/reconciliation/runs${toQueryString(query)}`, { method: "GET" });
+export async function listAdminReconciliationRuns(
+  query: { type?: string; status?: string } = {},
+): Promise<AdminReconciliationRun[]> {
+  return request<AdminReconciliationRun[]>(
+    `/admin/reconciliation/runs${toQueryString(query)}`,
+    { method: "GET" },
+  );
 }
 
-export async function startAdminReconciliationRun(input: { type: string; periodStart: string; periodEnd: string; provider?: string; tolerance?: number }) {
-  return request<AdminReconciliationRun>("/admin/reconciliation/runs", { method: "POST", body: input });
+export async function startAdminReconciliationRun(input: {
+  type: string;
+  periodStart: string;
+  periodEnd: string;
+  provider?: string;
+  tolerance?: number;
+}) {
+  return request<AdminReconciliationRun>("/admin/reconciliation/runs", {
+    method: "POST",
+    body: input,
+  });
 }
 
-export async function getAdminReconciliationRun(id: string): Promise<AdminReconciliationRun> {
-  return request<AdminReconciliationRun>(`/admin/reconciliation/runs/${id}`, { method: "GET" });
+export async function getAdminReconciliationRun(
+  id: string,
+): Promise<AdminReconciliationRun> {
+  return request<AdminReconciliationRun>(`/admin/reconciliation/runs/${id}`, {
+    method: "GET",
+  });
 }
 
-export async function listAdminReconciliationRecords(runId: string, query: { status?: string } = {}): Promise<AdminReconciliationRecord[]> {
-  return request<AdminReconciliationRecord[]>(`/admin/reconciliation/runs/${runId}/records${toQueryString(query)}`, { method: "GET" });
+export async function listAdminReconciliationRecords(
+  runId: string,
+  query: { status?: string } = {},
+): Promise<AdminReconciliationRecord[]> {
+  return request<AdminReconciliationRecord[]>(
+    `/admin/reconciliation/runs/${runId}/records${toQueryString(query)}`,
+    { method: "GET" },
+  );
 }
 
-export async function resolveAdminReconciliationRecord(runId: string, recordId: string, input: { status: string; resolution?: string }) {
-  return request<AdminReconciliationRecord>(`/admin/reconciliation/runs/${runId}/records/${recordId}/resolve`, { method: "POST", body: input });
+export async function resolveAdminReconciliationRecord(
+  runId: string,
+  recordId: string,
+  input: { status: string; resolution?: string },
+) {
+  return request<AdminReconciliationRecord>(
+    `/admin/reconciliation/runs/${runId}/records/${recordId}/resolve`,
+    { method: "POST", body: input },
+  );
 }
 
-export async function listAdminReconciliationProviders(): Promise<{ providers: string[] }> {
-  return request<{ providers: string[] }>("/admin/reconciliation/providers", { method: "GET" });
+export async function listAdminReconciliationProviders(): Promise<{
+  providers: string[];
+}> {
+  return request<{ providers: string[] }>("/admin/reconciliation/providers", {
+    method: "GET",
+  });
 }
 
 // ── Promotions ──────────────────────────────────────────────────────────────
@@ -2010,19 +2388,27 @@ export type AdminCreatePromoInput = {
   discountValue: number;
 };
 
-export type AdminUpdatePromoInput = Partial<AdminCreatePromoInput & {
-  status: "active" | "inactive";
-}>;
+export type AdminUpdatePromoInput = Partial<
+  AdminCreatePromoInput & {
+    status: "active" | "inactive";
+  }
+>;
 
 export async function listAdminPromos(): Promise<AdminPromoResponse[]> {
   return request<AdminPromoResponse[]>("/admin/promos", { method: "GET" });
 }
 
-export async function getAdminPromo(promoId: string): Promise<AdminPromoResponse> {
-  return request<AdminPromoResponse>(`/admin/promos/${promoId}`, { method: "GET" });
+export async function getAdminPromo(
+  promoId: string,
+): Promise<AdminPromoResponse> {
+  return request<AdminPromoResponse>(`/admin/promos/${promoId}`, {
+    method: "GET",
+  });
 }
 
-export async function createAdminPromo(input: AdminCreatePromoInput): Promise<{ promoId: string }> {
+export async function createAdminPromo(
+  input: AdminCreatePromoInput,
+): Promise<{ promoId: string }> {
   return request<{ promoId: string }>("/admin/promos", {
     method: "POST",
     body: input,
@@ -2031,7 +2417,7 @@ export async function createAdminPromo(input: AdminCreatePromoInput): Promise<{ 
 
 export async function patchAdminPromo(
   promoId: string,
-  input: AdminUpdatePromoInput
+  input: AdminUpdatePromoInput,
 ): Promise<AdminPromoResponse> {
   return request<AdminPromoResponse>(`/admin/promos/${promoId}`, {
     method: "PATCH",
@@ -2041,7 +2427,9 @@ export async function patchAdminPromo(
 
 // ── Generic Admin Content ──────────────────────────────────────────────────
 
-export type AdminContentItem<T extends Record<string, unknown> = Record<string, unknown>> = T & {
+export type AdminContentItem<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> = T & {
   id: string;
   kind?: string;
   title?: string;
@@ -2050,31 +2438,37 @@ export type AdminContentItem<T extends Record<string, unknown> = Record<string, 
   updatedAt?: number;
 };
 
-export async function listAdminContent<T extends Record<string, unknown> = Record<string, unknown>>(
-  kind: string,
-): Promise<Array<AdminContentItem<T>>> {
-  return request<Array<AdminContentItem<T>>>(`/admin/content/${encodeURIComponent(kind)}`, { method: "GET" });
+export async function listAdminContent<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(kind: string): Promise<Array<AdminContentItem<T>>> {
+  return request<Array<AdminContentItem<T>>>(
+    `/admin/content/${encodeURIComponent(kind)}`,
+    { method: "GET" },
+  );
 }
 
-export async function createAdminContent<T extends Record<string, unknown> = Record<string, unknown>>(
-  kind: string,
-  input: T,
-): Promise<AdminContentItem<T>> {
-  return request<AdminContentItem<T>>(`/admin/content/${encodeURIComponent(kind)}`, {
-    method: "POST",
-    body: input,
-  });
+export async function createAdminContent<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(kind: string, input: T): Promise<AdminContentItem<T>> {
+  return request<AdminContentItem<T>>(
+    `/admin/content/${encodeURIComponent(kind)}`,
+    {
+      method: "POST",
+      body: input,
+    },
+  );
 }
 
-export async function patchAdminContent<T extends Record<string, unknown> = Record<string, unknown>>(
-  kind: string,
-  id: string,
-  input: Partial<T>,
-): Promise<AdminContentItem<T>> {
-  return request<AdminContentItem<T>>(`/admin/content/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    body: input,
-  });
+export async function patchAdminContent<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(kind: string, id: string, input: Partial<T>): Promise<AdminContentItem<T>> {
+  return request<AdminContentItem<T>>(
+    `/admin/content/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: input,
+    },
+  );
 }
 
 // ── Risk Cases ──────────────────────────────────────────────────────────────
@@ -2100,11 +2494,17 @@ export type AdminUpdateRiskCaseInput = Partial<{
 }>;
 
 export async function listAdminRiskCases(): Promise<AdminRiskCaseResponse[]> {
-  return request<AdminRiskCaseResponse[]>("/admin/risk/cases", { method: "GET" });
+  return request<AdminRiskCaseResponse[]>("/admin/risk/cases", {
+    method: "GET",
+  });
 }
 
-export async function getAdminRiskCase(riskCaseId: string): Promise<AdminRiskCaseResponse> {
-  return request<AdminRiskCaseResponse>(`/admin/risk/cases/${riskCaseId}`, { method: "GET" });
+export async function getAdminRiskCase(
+  riskCaseId: string,
+): Promise<AdminRiskCaseResponse> {
+  return request<AdminRiskCaseResponse>(`/admin/risk/cases/${riskCaseId}`, {
+    method: "GET",
+  });
 }
 
 export async function patchAdminRiskCase(
@@ -2139,12 +2539,17 @@ export async function listAdminRiderServices(query?: {
       status: query?.status,
       riderId: query?.riderId,
     })}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
-export async function getAdminRiderService(requestId: string): Promise<AdminRiderServiceResponse> {
-  return request<AdminRiderServiceResponse>(`/admin/rider-services/${requestId}`, { method: "GET" });
+export async function getAdminRiderService(
+  requestId: string,
+): Promise<AdminRiderServiceResponse> {
+  return request<AdminRiderServiceResponse>(
+    `/admin/rider-services/${requestId}`,
+    { method: "GET" },
+  );
 }
 
 // ── Admin Backend Token Helpers ────────────────────────────────────────────
@@ -2154,24 +2559,45 @@ export function saveAdminBackendTokens(accessToken: string): void {
 }
 
 export function isAdminBackendEnabled(): boolean {
-  return getBackendEnabled();
+  return true;
 }
 
 // ── Audit Events ────────────────────────────────────────────────────────────
 
-export async function listAdminAuditEvents(): Promise<AdminAuditEventResponse[]> {
-  return request<AdminAuditEventResponse[]>("/admin/system/audit-log", { method: "GET" });
+export async function listAdminAuditEvents(): Promise<
+  AdminAuditEventResponse[]
+> {
+  return request<AdminAuditEventResponse[]>("/admin/system/audit-log", {
+    method: "GET",
+  });
 }
 
 export async function getAdminIntegrationsHealth(): Promise<AdminIntegrationHealthResponse> {
-  return request<AdminIntegrationHealthResponse>("/admin/integrations/health", { method: "GET" });
+  return request<AdminIntegrationHealthResponse>("/admin/integrations/health", {
+    method: "GET",
+  });
 }
 
 export async function getAdminSystemOverview(): Promise<{
-  totals: { users: number; riders: number; drivers: number; companies: number; trips: number };
+  totals: {
+    users: number;
+    riders: number;
+    drivers: number;
+    companies: number;
+    trips: number;
+  };
   queues: { approvals: number; riskCases: number; safetyIncidents: number };
 }> {
-  return request<{ totals: { users: number; riders: number; drivers: number; companies: number; trips: number }; queues: { approvals: number; riskCases: number; safetyIncidents: number } }>("/admin/system/overview", { method: "GET" });
+  return request<{
+    totals: {
+      users: number;
+      riders: number;
+      drivers: number;
+      companies: number;
+      trips: number;
+    };
+    queues: { approvals: number; riskCases: number; safetyIncidents: number };
+  }>("/admin/system/overview", { method: "GET" });
 }
 
 export type AdminNotificationResponse = {
@@ -2189,10 +2615,18 @@ export type AdminNotificationResponse = {
 
 export type AdminNotificationListResponse = {
   items: AdminNotificationResponse[];
-  meta: { page: number; limit: number; total: number; pageCount?: number; totalPages?: number };
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    pageCount?: number;
+    totalPages?: number;
+  };
 };
 
-export async function listAdminNotifications(input: { page?: number; limit?: number; unreadOnly?: boolean } = {}): Promise<AdminNotificationListResponse> {
+export async function listAdminNotifications(
+  input: { page?: number; limit?: number; unreadOnly?: boolean } = {},
+): Promise<AdminNotificationListResponse> {
   return request<AdminNotificationListResponse>("/notifications", {
     method: "GET",
     query: {
@@ -2203,22 +2637,34 @@ export async function listAdminNotifications(input: { page?: number; limit?: num
   });
 }
 
-export async function getAdminUnreadNotificationCount(): Promise<{ count: number }> {
-  return request<{ count: number }>("/notifications/unread-count", { method: "GET" });
+export async function getAdminUnreadNotificationCount(): Promise<{
+  count: number;
+}> {
+  return request<{ count: number }>("/notifications/unread-count", {
+    method: "GET",
+  });
 }
 
-export async function markAdminNotificationRead(id: string): Promise<AdminNotificationResponse> {
-  return request<AdminNotificationResponse>(`/notifications/${id}/read`, { method: "PATCH" });
+export async function markAdminNotificationRead(
+  id: string,
+): Promise<AdminNotificationResponse> {
+  return request<AdminNotificationResponse>(`/notifications/${id}/read`, {
+    method: "PATCH",
+  });
 }
 
-export async function markAllAdminNotificationsRead(): Promise<{ updated: boolean }> {
-  return request<{ updated: boolean }>("/notifications/read-all", { method: "PATCH" });
+export async function markAllAdminNotificationsRead(): Promise<{
+  updated: boolean;
+}> {
+  return request<{ updated: boolean }>("/notifications/read-all", {
+    method: "PATCH",
+  });
 }
 
 // ── Reference Data Sync ─────────────────────────────────────────────────────
 
 export async function syncAdminReferenceData(): Promise<void> {
-  if (typeof window === "undefined" || !getBackendEnabled() || !readAdminBackendAccessToken()) {
+  if (typeof window === "undefined" || !readAdminBackendAccessToken()) {
     return;
   }
 
@@ -2233,21 +2679,31 @@ export async function getAdminOperationalSummary(): Promise<{
   disabledServices: number;
   enabledFlags: number;
 }> {
-  const [overview, approvals, riskCases, finance, services, flags] = await Promise.all([
-    getAdminSystemOverview(),
-    listAdminApprovals(),
-    listAdminRiskCases(),
-    getAdminFinanceAnalytics({ period: "today" }),
-    listAdminServices(),
-    listAdminFeatureFlags(),
-  ]);
+  const [overview, approvals, riskCases, finance, services, flags] =
+    await Promise.all([
+      getAdminSystemOverview(),
+      listAdminApprovals(),
+      listAdminRiskCases(),
+      getAdminFinanceAnalytics({ period: "today" }),
+      listAdminServices(),
+      listAdminFeatureFlags(),
+    ]);
 
-  const pendingApprovals = Array.isArray(approvals) ? approvals.filter((approval) => approval.status === "pending").length : 0;
-  const openRiskCases = Array.isArray(riskCases) ? riskCases.filter((riskCase) => (riskCase.status ?? "open") !== "resolved").length : overview.queues.riskCases ?? 0;
+  const pendingApprovals = Array.isArray(approvals)
+    ? approvals.filter((approval) => approval.status === "pending").length
+    : 0;
+  const openRiskCases = Array.isArray(riskCases)
+    ? riskCases.filter((riskCase) => (riskCase.status ?? "open") !== "resolved")
+        .length
+    : (overview.queues.riskCases ?? 0);
   const openIncidents = overview.queues.safetyIncidents ?? 0;
   const payoutQueue = finance.payoutsPending ?? 0;
-  const disabledServices = Array.isArray(services) ? services.filter((service) => !service.enabled).length : 0;
-  const enabledFlags = Array.isArray(flags) ? flags.filter((flag) => flag.enabled).length : 0;
+  const disabledServices = Array.isArray(services)
+    ? services.filter((service) => !service.enabled).length
+    : 0;
+  const enabledFlags = Array.isArray(flags)
+    ? flags.filter((flag) => flag.enabled).length
+    : 0;
 
   return {
     pendingApprovals,
@@ -2293,7 +2749,7 @@ export type AdminUpdateUserInput = Partial<{
   email: string;
   phone: string;
   city: string;
-  status: 'active' | 'deleted' | 'suspended';
+  status: "active" | "deleted" | "suspended";
   roles: string[];
 }>;
 
@@ -2307,17 +2763,17 @@ export type AdminCreateDriverInput = {
   invite?: boolean;
   licensePlate?: string;
   model?: string;
-  vehicleType: 'Bike' | 'Car';
+  vehicleType: "Bike" | "Car";
 };
 
 export type AdminUpdateDriverInput = Partial<{
   fullName: string;
   phone: string;
   city: string;
-  status: 'active' | 'deleted' | 'suspended';
+  status: "active" | "deleted" | "suspended";
   licensePlate: string;
   model: string;
-  vehicleType: 'Bike' | 'Car';
+  vehicleType: "Bike" | "Car";
 }>;
 
 export type AdminCreatePlatformUserInput = {
@@ -2331,7 +2787,9 @@ export type AdminCreatePlatformUserInput = {
   country?: string;
 };
 
-export async function createAdminUser(input: AdminCreatePlatformUserInput): Promise<{ userId: string }> {
+export async function createAdminUser(
+  input: AdminCreatePlatformUserInput,
+): Promise<{ userId: string }> {
   const created = await request<{
     id: string;
   }>("/admin/users", {
@@ -2346,14 +2804,49 @@ export async function listAdminUsers(): Promise<AdminUserResponse[]> {
 }
 
 export async function getAdminUser(userId: string): Promise<AdminUserResponse> {
-  return request<AdminUserResponse>(`/admin/users/${userId}`, { method: "GET" });
+  return request<AdminUserResponse>(`/admin/users/${userId}`, {
+    method: "GET",
+  });
 }
 
-export async function patchAdminUser(userId: string, input: AdminUpdateUserInput): Promise<AdminUserResponse> {
+export async function patchAdminUser(
+  userId: string,
+  input: AdminUpdateUserInput,
+): Promise<AdminUserResponse> {
   return request<AdminUserResponse>(`/admin/users/${userId}`, {
     method: "PATCH",
     body: input,
   });
+}
+
+export async function approveAdminUser(
+  userId: string,
+  reason?: string,
+): Promise<AdminUserResponse> {
+  return request<AdminUserResponse>(
+    "/admin/admin-approvals/" + userId + "/approve",
+    { method: "PATCH", body: { reason } },
+  );
+}
+
+export async function rejectAdminUser(
+  userId: string,
+  reason?: string,
+): Promise<AdminUserResponse> {
+  return request<AdminUserResponse>(
+    "/admin/admin-approvals/" + userId + "/reject",
+    { method: "PATCH", body: { reason } },
+  );
+}
+
+export async function suspendAdminUser(
+  userId: string,
+  reason?: string,
+): Promise<AdminUserResponse> {
+  return request<AdminUserResponse>(
+    "/admin/admin-approvals/" + userId + "/suspend",
+    { method: "PATCH", body: { reason } },
+  );
 }
 
 // ── Admin Agents ───────────────────────────────────────────────────────────
@@ -2417,24 +2910,26 @@ export type AdminAgentResponse = AdminUserResponse & {
   };
 };
 
-export type AdminCreateAgentInput = AdminCreatePlatformUserInput & Partial<{
-  organizationId: string;
-  employeeCode: string;
-  portalRole: string;
-  title: string;
-  department: string;
-  timezone: string;
-  language: string;
-  teamId: string;
-  permissions: string[];
-  serviceCapabilities: string[];
-}>;
+export interface AdminCreateAgentInput extends AdminCreatePlatformUserInput {
+  organizationId?: string;
+  employeeCode?: string;
+  portalRole?: string;
+  title?: string;
+  department?: string;
+  timezone?: string;
+  language?: string;
+  teamId?: string;
+  permissions?: string[];
+  serviceCapabilities?: string[];
+}
 
 export async function listAdminAgents(): Promise<AdminAgentResponse[]> {
   return request<AdminAgentResponse[]>("/admin/agents", { method: "GET" });
 }
 
-export async function createAdminAgent(input: AdminCreateAgentInput): Promise<AdminAgentResponse> {
+export async function createAdminAgent(
+  input: AdminCreateAgentInput,
+): Promise<AdminAgentResponse> {
   const userPayload = normalizeAdminCreatePlatformUserInput({
     ...input,
     roles: input.roles?.length ? input.roles : ["agent"],
@@ -2457,8 +2952,12 @@ export async function createAdminAgent(input: AdminCreateAgentInput): Promise<Ad
   });
 }
 
-export async function getAdminAgent(agentUserId: string): Promise<AdminAgentResponse> {
-  return request<AdminAgentResponse>(`/admin/agents/${agentUserId}`, { method: "GET" });
+export async function getAdminAgent(
+  agentUserId: string,
+): Promise<AdminAgentResponse> {
+  return request<AdminAgentResponse>(`/admin/agents/${agentUserId}`, {
+    method: "GET",
+  });
 }
 
 export async function getAdminAgentChat(agentUserId: string): Promise<{
@@ -2498,16 +2997,22 @@ export type AdminReviewApprovalInput = {
 };
 
 export async function listAdminApprovals(): Promise<AdminApprovalResponse[]> {
-  return request<AdminApprovalResponse[]>("/admin/approvals", { method: "GET" });
+  return request<AdminApprovalResponse[]>("/admin/approvals", {
+    method: "GET",
+  });
 }
 
-export async function getAdminApproval(approvalId: string): Promise<AdminApprovalResponse> {
-  return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}`, { method: "GET" });
+export async function getAdminApproval(
+  approvalId: string,
+): Promise<AdminApprovalResponse> {
+  return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}`, {
+    method: "GET",
+  });
 }
 
 export async function reviewAdminApproval(
   approvalId: string,
-  input: AdminReviewApprovalInput
+  input: AdminReviewApprovalInput,
 ): Promise<AdminApprovalResponse> {
   return request<AdminApprovalResponse>(`/admin/approvals/${approvalId}`, {
     method: "PATCH",
@@ -2551,13 +3056,17 @@ export async function listAdminCompanies(): Promise<AdminCompanyResponse[]> {
   return request<AdminCompanyResponse[]>("/admin/companies", { method: "GET" });
 }
 
-export async function getAdminCompany(companyId: string): Promise<AdminCompanyResponse> {
-  return request<AdminCompanyResponse>(`/admin/companies/${companyId}`, { method: "GET" });
+export async function getAdminCompany(
+  companyId: string,
+): Promise<AdminCompanyResponse> {
+  return request<AdminCompanyResponse>(`/admin/companies/${companyId}`, {
+    method: "GET",
+  });
 }
 
 export async function patchAdminCompany(
   companyId: string,
-  input: AdminUpdateCompanyInput
+  input: AdminUpdateCompanyInput,
 ): Promise<AdminCompanyResponse> {
   return request<AdminCompanyResponse>(`/admin/companies/${companyId}`, {
     method: "PATCH",
@@ -2582,22 +3091,34 @@ export type AdminUpdateCompanyPayoutSettingsInput = Partial<{
   enabled: boolean;
 }>;
 
-export async function getAdminCompanyPayoutSettings(companyId: string): Promise<AdminCompanyPayoutSettings> {
-  return request<AdminCompanyPayoutSettings>(`/admin/companies/${companyId}/payout-settings`, { method: "GET" });
+export async function getAdminCompanyPayoutSettings(
+  companyId: string,
+): Promise<AdminCompanyPayoutSettings> {
+  return request<AdminCompanyPayoutSettings>(
+    `/admin/companies/${companyId}/payout-settings`,
+    { method: "GET" },
+  );
 }
 
 export async function patchAdminCompanyPayoutSettings(
   companyId: string,
   input: AdminUpdateCompanyPayoutSettingsInput,
 ): Promise<AdminCompanyPayoutSettings> {
-  return request<AdminCompanyPayoutSettings>(`/admin/companies/${companyId}/payout-settings`, {
-    method: "PATCH",
-    body: input,
-  });
+  return request<AdminCompanyPayoutSettings>(
+    `/admin/companies/${companyId}/payout-settings`,
+    {
+      method: "PATCH",
+      body: input,
+    },
+  );
 }
 
-export async function listAdminCompanyPayouts(companyId: string): Promise<AdminPayout[]> {
-  return request<AdminPayout[]>(`/admin/companies/${companyId}/payouts`, { method: "GET" });
+export async function listAdminCompanyPayouts(
+  companyId: string,
+): Promise<AdminPayout[]> {
+  return request<AdminPayout[]>(`/admin/companies/${companyId}/payouts`, {
+    method: "GET",
+  });
 }
 
 export type AdminCommissionRule = {
@@ -2660,23 +3181,41 @@ export async function listAdminCommissionRules(query?: {
   );
 }
 
-export async function createAdminCommissionRule(input: AdminCommissionRuleInput): Promise<AdminCommissionRule> {
-  return request<AdminCommissionRule>("/admin/commission-rules", { method: "POST", body: input });
+export async function createAdminCommissionRule(
+  input: AdminCommissionRuleInput,
+): Promise<AdminCommissionRule> {
+  return request<AdminCommissionRule>("/admin/commission-rules", {
+    method: "POST",
+    body: input,
+  });
 }
 
 export async function patchAdminCommissionRule(
   ruleId: string,
   input: AdminCommissionRuleInput,
 ): Promise<AdminCommissionRule> {
-  return request<AdminCommissionRule>(`/admin/commission-rules/${ruleId}`, { method: "PATCH", body: input });
+  return request<AdminCommissionRule>(`/admin/commission-rules/${ruleId}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
 
-export async function activateAdminCommissionRule(ruleId: string): Promise<AdminCommissionRule> {
-  return request<AdminCommissionRule>(`/admin/commission-rules/${ruleId}/activate`, { method: "POST" });
+export async function activateAdminCommissionRule(
+  ruleId: string,
+): Promise<AdminCommissionRule> {
+  return request<AdminCommissionRule>(
+    `/admin/commission-rules/${ruleId}/activate`,
+    { method: "POST" },
+  );
 }
 
-export async function deactivateAdminCommissionRule(ruleId: string): Promise<AdminCommissionRule> {
-  return request<AdminCommissionRule>(`/admin/commission-rules/${ruleId}/deactivate`, { method: "POST" });
+export async function deactivateAdminCommissionRule(
+  ruleId: string,
+): Promise<AdminCommissionRule> {
+  return request<AdminCommissionRule>(
+    `/admin/commission-rules/${ruleId}/deactivate`,
+    { method: "POST" },
+  );
 }
 
 // ── Centralized Pricing Management ─────────────────────────────────────────
@@ -2752,82 +3291,163 @@ export type FarePreview = {
 };
 
 // Vehicle categories
-export async function listVehicleCategories(type?: string): Promise<VehicleCategory[]> {
+export async function listVehicleCategories(
+  type?: string,
+): Promise<VehicleCategory[]> {
   const qs = type ? `?type=${type}` : "";
   return request<VehicleCategory[]>(`/admin/pricing/vehicle-categories${qs}`);
 }
-export async function createVehicleCategory(input: Partial<VehicleCategory>): Promise<VehicleCategory> {
-  return request<VehicleCategory>("/admin/pricing/vehicle-categories", { method: "POST", body: input });
+export async function createVehicleCategory(
+  input: Partial<VehicleCategory>,
+): Promise<VehicleCategory> {
+  return request<VehicleCategory>("/admin/pricing/vehicle-categories", {
+    method: "POST",
+    body: input,
+  });
 }
-export async function patchVehicleCategory(id: string, input: Partial<VehicleCategory>): Promise<VehicleCategory> {
-  return request<VehicleCategory>(`/admin/pricing/vehicle-categories/${id}`, { method: "PATCH", body: input });
+export async function patchVehicleCategory(
+  id: string,
+  input: Partial<VehicleCategory>,
+): Promise<VehicleCategory> {
+  return request<VehicleCategory>(`/admin/pricing/vehicle-categories/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
-export async function deleteVehicleCategory(id: string): Promise<{ deleted: boolean }> {
-  return request<{ deleted: boolean }>(`/admin/pricing/vehicle-categories/${id}`, { method: "DELETE" });
+export async function deleteVehicleCategory(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(
+    `/admin/pricing/vehicle-categories/${id}`,
+    { method: "DELETE" },
+  );
 }
 
 // Ride pricing
 export async function listRidePricing(): Promise<RidePricing[]> {
   return request<RidePricing[]>("/admin/pricing/rides");
 }
-export async function createRidePricing(input: Partial<RidePricing>): Promise<RidePricing> {
-  return request<RidePricing>("/admin/pricing/rides", { method: "POST", body: input });
+export async function createRidePricing(
+  input: Partial<RidePricing>,
+): Promise<RidePricing> {
+  return request<RidePricing>("/admin/pricing/rides", {
+    method: "POST",
+    body: input,
+  });
 }
-export async function patchRidePricing(id: string, input: Partial<RidePricing>): Promise<RidePricing> {
-  return request<RidePricing>(`/admin/pricing/rides/${id}`, { method: "PATCH", body: input });
+export async function patchRidePricing(
+  id: string,
+  input: Partial<RidePricing>,
+): Promise<RidePricing> {
+  return request<RidePricing>(`/admin/pricing/rides/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
-export async function deleteRidePricing(id: string): Promise<{ deleted: boolean }> {
-  return request<{ deleted: boolean }>(`/admin/pricing/rides/${id}`, { method: "DELETE" });
+export async function deleteRidePricing(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/rides/${id}`, {
+    method: "DELETE",
+  });
 }
 
 // Delivery pricing
 export async function listDeliveryPricing(): Promise<DeliveryPricing[]> {
   return request<DeliveryPricing[]>("/admin/pricing/deliveries");
 }
-export async function createDeliveryPricing(input: Partial<DeliveryPricing>): Promise<DeliveryPricing> {
-  return request<DeliveryPricing>("/admin/pricing/deliveries", { method: "POST", body: input });
+export async function createDeliveryPricing(
+  input: Partial<DeliveryPricing>,
+): Promise<DeliveryPricing> {
+  return request<DeliveryPricing>("/admin/pricing/deliveries", {
+    method: "POST",
+    body: input,
+  });
 }
-export async function patchDeliveryPricing(id: string, input: Partial<DeliveryPricing>): Promise<DeliveryPricing> {
-  return request<DeliveryPricing>(`/admin/pricing/deliveries/${id}`, { method: "PATCH", body: input });
+export async function patchDeliveryPricing(
+  id: string,
+  input: Partial<DeliveryPricing>,
+): Promise<DeliveryPricing> {
+  return request<DeliveryPricing>(`/admin/pricing/deliveries/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
-export async function deleteDeliveryPricing(id: string): Promise<{ deleted: boolean }> {
-  return request<{ deleted: boolean }>(`/admin/pricing/deliveries/${id}`, { method: "DELETE" });
+export async function deleteDeliveryPricing(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/deliveries/${id}`, {
+    method: "DELETE",
+  });
 }
 
 // Rental pricing
 export async function listRentalPricing(): Promise<RentalPricing[]> {
   return request<RentalPricing[]>("/admin/pricing/rentals");
 }
-export async function createRentalPricing(input: Partial<RentalPricing>): Promise<RentalPricing> {
-  return request<RentalPricing>("/admin/pricing/rentals", { method: "POST", body: input });
+export async function createRentalPricing(
+  input: Partial<RentalPricing>,
+): Promise<RentalPricing> {
+  return request<RentalPricing>("/admin/pricing/rentals", {
+    method: "POST",
+    body: input,
+  });
 }
-export async function patchRentalPricing(id: string, input: Partial<RentalPricing>): Promise<RentalPricing> {
-  return request<RentalPricing>(`/admin/pricing/rentals/${id}`, { method: "PATCH", body: input });
+export async function patchRentalPricing(
+  id: string,
+  input: Partial<RentalPricing>,
+): Promise<RentalPricing> {
+  return request<RentalPricing>(`/admin/pricing/rentals/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
-export async function deleteRentalPricing(id: string): Promise<{ deleted: boolean }> {
-  return request<{ deleted: boolean }>(`/admin/pricing/rentals/${id}`, { method: "DELETE" });
+export async function deleteRentalPricing(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/rentals/${id}`, {
+    method: "DELETE",
+  });
 }
 
 // Ambulance pricing
 export async function listAmbulancePricing(): Promise<AmbulancePricing[]> {
   return request<AmbulancePricing[]>("/admin/pricing/ambulances");
 }
-export async function createAmbulancePricing(input: Partial<AmbulancePricing>): Promise<AmbulancePricing> {
-  return request<AmbulancePricing>("/admin/pricing/ambulances", { method: "POST", body: input });
+export async function createAmbulancePricing(
+  input: Partial<AmbulancePricing>,
+): Promise<AmbulancePricing> {
+  return request<AmbulancePricing>("/admin/pricing/ambulances", {
+    method: "POST",
+    body: input,
+  });
 }
-export async function patchAmbulancePricing(id: string, input: Partial<AmbulancePricing>): Promise<AmbulancePricing> {
-  return request<AmbulancePricing>(`/admin/pricing/ambulances/${id}`, { method: "PATCH", body: input });
+export async function patchAmbulancePricing(
+  id: string,
+  input: Partial<AmbulancePricing>,
+): Promise<AmbulancePricing> {
+  return request<AmbulancePricing>(`/admin/pricing/ambulances/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
-export async function deleteAmbulancePricing(id: string): Promise<{ deleted: boolean }> {
-  return request<{ deleted: boolean }>(`/admin/pricing/ambulances/${id}`, { method: "DELETE" });
+export async function deleteAmbulancePricing(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/admin/pricing/ambulances/${id}`, {
+    method: "DELETE",
+  });
 }
 
 // Fare preview
 export async function previewFare(
   serviceType: "ride" | "delivery" | "rental" | "ambulance",
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
 ): Promise<FarePreview> {
-  return request<FarePreview>(`/admin/pricing/preview/${serviceType}`, { method: "POST", body: input });
+  return request<FarePreview>(`/admin/pricing/preview/${serviceType}`, {
+    method: "POST",
+    body: input,
+  });
 }
 
 // Canonical /api/v1/pricing endpoints
@@ -2875,40 +3495,79 @@ export type PromoCode = {
 export async function listPricingRules(): Promise<PricingRule[]> {
   return request<PricingRule[]>("/pricing/rules");
 }
-export async function createPricingRule(input: Partial<PricingRule>): Promise<PricingRule> {
-  return request<PricingRule>("/pricing/rules", { method: "POST", body: input });
+export async function createPricingRule(
+  input: Partial<PricingRule>,
+): Promise<PricingRule> {
+  return request<PricingRule>("/pricing/rules", {
+    method: "POST",
+    body: input,
+  });
 }
-export async function patchPricingRule(id: string, input: Partial<PricingRule>): Promise<PricingRule> {
-  return request<PricingRule>(`/pricing/rules/${id}`, { method: "PATCH", body: input });
+export async function patchPricingRule(
+  id: string,
+  input: Partial<PricingRule>,
+): Promise<PricingRule> {
+  return request<PricingRule>(`/pricing/rules/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
-export async function deletePricingRule(id: string): Promise<{ deleted: boolean }> {
-  return request<{ deleted: boolean }>(`/pricing/rules/${id}`, { method: "DELETE" });
+export async function deletePricingRule(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/pricing/rules/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export async function listSurgeZones(): Promise<SurgeZone[]> {
   return request<SurgeZone[]>("/pricing/surges");
 }
-export async function createSurgeZone(input: Partial<SurgeZone>): Promise<SurgeZone> {
+export async function createSurgeZone(
+  input: Partial<SurgeZone>,
+): Promise<SurgeZone> {
   return request<SurgeZone>("/pricing/surges", { method: "POST", body: input });
 }
-export async function patchSurgeZone(id: string, input: Partial<SurgeZone>): Promise<SurgeZone> {
-  return request<SurgeZone>(`/pricing/surges/${id}`, { method: "PATCH", body: input });
+export async function patchSurgeZone(
+  id: string,
+  input: Partial<SurgeZone>,
+): Promise<SurgeZone> {
+  return request<SurgeZone>(`/pricing/surges/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
-export async function deleteSurgeZone(id: string): Promise<{ deleted: boolean }> {
-  return request<{ deleted: boolean }>(`/pricing/surges/${id}`, { method: "DELETE" });
+export async function deleteSurgeZone(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/pricing/surges/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export async function listPromoCodes(): Promise<PromoCode[]> {
   return request<PromoCode[]>("/pricing/promos");
 }
-export async function createPromoCode(input: Partial<PromoCode>): Promise<PromoCode> {
+export async function createPromoCode(
+  input: Partial<PromoCode>,
+): Promise<PromoCode> {
   return request<PromoCode>("/pricing/promos", { method: "POST", body: input });
 }
-export async function patchPromoCode(id: string, input: Partial<PromoCode>): Promise<PromoCode> {
-  return request<PromoCode>(`/pricing/promos/${id}`, { method: "PATCH", body: input });
+export async function patchPromoCode(
+  id: string,
+  input: Partial<PromoCode>,
+): Promise<PromoCode> {
+  return request<PromoCode>(`/pricing/promos/${id}`, {
+    method: "PATCH",
+    body: input,
+  });
 }
-export async function deletePromoCode(id: string): Promise<{ deleted: boolean }> {
-  return request<{ deleted: boolean }>(`/pricing/promos/${id}`, { method: "DELETE" });
+export async function deletePromoCode(
+  id: string,
+): Promise<{ deleted: boolean }> {
+  return request<{ deleted: boolean }>(`/pricing/promos/${id}`, {
+    method: "DELETE",
+  });
 }
 
 // ── Delivery Workspace & Package Labels ───────────────────────────────────
@@ -2937,27 +3596,21 @@ export type AdminDeliveryLocation = {
 // feature flags; the UI must render gracefully when they are absent.
 
 export type DeliveryAttributeValueType =
-  | 'TEXT'
-  | 'NUMBER'
-  | 'BOOLEAN'
-  | 'ENUM'
-  | 'DATE';
+  "TEXT" | "NUMBER" | "BOOLEAN" | "ENUM" | "DATE";
 
 export type DeliveryAttributeVisibility =
-  | 'PUBLIC_LABEL'
-  | 'DRIVER_AFTER_PICKUP'
-  | 'INTERNAL_ONLY';
+  "PUBLIC_LABEL" | "DRIVER_AFTER_PICKUP" | "INTERNAL_ONLY";
 
 export type DeliveryAttributeSource =
-  | 'P2P_ITEM'
-  | 'P2P_PACKAGE'
-  | 'MARKETPLACE_PRODUCT'
-  | 'MARKETPLACE_VARIANT'
-  | 'MARKETPLACE_ORDER_ITEM'
-  | 'SELLER_PACKAGE'
-  | 'SYSTEM';
+  | "P2P_ITEM"
+  | "P2P_PACKAGE"
+  | "MARKETPLACE_PRODUCT"
+  | "MARKETPLACE_VARIANT"
+  | "MARKETPLACE_ORDER_ITEM"
+  | "SELLER_PACKAGE"
+  | "SYSTEM";
 
-export type DeliveryAttributePriority = 'REQUIRED' | 'HIGH' | 'NORMAL';
+export type DeliveryAttributePriority = "REQUIRED" | "HIGH" | "NORMAL";
 
 export type DeliveryLabelAttribute = {
   key: string;
@@ -3010,8 +3663,8 @@ export type AdminDeliveryLabelResponse = {
   id: string;
   packageId: string;
   version: number;
-  status: 'active' | 'revoked' | 'failed' | 'draft' | string;
-  format: 'pdf' | 'png' | string;
+  status: "active" | "revoked" | "failed" | "draft" | string;
+  format: "pdf" | "png" | string;
   downloadUrl?: string;
   qrDownloadUrl?: string;
   generatedAt?: string;
@@ -3057,7 +3710,12 @@ export type AdminDeliveryAuditLogResponse = {
 
 export async function getAdminDeliveryAuditLogs(
   orderId: string,
-  filters?: { action?: string; actorRole?: string; page?: number; limit?: number },
+  filters?: {
+    action?: string;
+    actorRole?: string;
+    page?: number;
+    limit?: number;
+  },
 ): Promise<{ items: AdminDeliveryAuditLogResponse[]; total: number }> {
   return request<{ items: AdminDeliveryAuditLogResponse[]; total: number }>(
     `/admin/deliveries/${orderId}/audit${toQueryString({
@@ -3170,7 +3828,14 @@ export type AdminDeliveryOrderResponse = {
 
 export type AdminDeliveryListResponse = {
   items: AdminDeliveryListItemResponse[];
-  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  };
 };
 
 export type ListAdminDeliveriesFilters = {
@@ -3189,7 +3854,7 @@ export type ListAdminDeliveriesFilters = {
 };
 
 export async function listAdminDeliveries(
-  filters: ListAdminDeliveriesFilters = {}
+  filters: ListAdminDeliveriesFilters = {},
 ): Promise<AdminDeliveryListResponse> {
   return request<AdminDeliveryListResponse>(
     `/admin/deliveries${toQueryString({
@@ -3206,12 +3871,16 @@ export async function listAdminDeliveries(
       fromDate: filters.fromDate,
       toDate: filters.toDate,
     })}`,
-    { method: "GET", unwrapData: false }
+    { method: "GET", unwrapData: false },
   );
 }
 
-export async function getAdminDelivery(id: string): Promise<AdminDeliveryOrderResponse> {
-  return request<AdminDeliveryOrderResponse>(`/admin/deliveries/${id}`, { method: "GET" });
+export async function getAdminDelivery(
+  id: string,
+): Promise<AdminDeliveryOrderResponse> {
+  return request<AdminDeliveryOrderResponse>(`/admin/deliveries/${id}`, {
+    method: "GET",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -3233,10 +3902,13 @@ export async function adminForceDeliveryStatus(
   status: string,
   reason: string,
 ): Promise<AdminDeliveryControlResult> {
-  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}/status`, {
-    method: "POST",
-    body: { status, reason },
-  });
+  return request<AdminDeliveryControlResult>(
+    `/admin/deliveries/orders/${orderId}/status`,
+    {
+      method: "POST",
+      body: { status, reason },
+    },
+  );
 }
 
 export async function adminReassignDelivery(
@@ -3244,20 +3916,26 @@ export async function adminReassignDelivery(
   newDriverId: string,
   reason: string,
 ): Promise<AdminDeliveryControlResult> {
-  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}/reassign`, {
-    method: "POST",
-    body: { newDriverId, reason },
-  });
+  return request<AdminDeliveryControlResult>(
+    `/admin/deliveries/orders/${orderId}/reassign`,
+    {
+      method: "POST",
+      body: { newDriverId, reason },
+    },
+  );
 }
 
 export async function adminCancelDelivery(
   orderId: string,
   reason: string,
 ): Promise<AdminDeliveryControlResult> {
-  return request<AdminDeliveryControlResult>(`/admin/deliveries/orders/${orderId}`, {
-    method: "DELETE",
-    body: { status: "CANCELLED", reason },
-  });
+  return request<AdminDeliveryControlResult>(
+    `/admin/deliveries/orders/${orderId}`,
+    {
+      method: "DELETE",
+      body: { status: "CANCELLED", reason },
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -3366,11 +4044,11 @@ export async function getAdminDeliveryProofs(
 }
 
 export async function getAdminDeliveryPackages(
-  id: string
+  id: string,
 ): Promise<AdminDeliveryPackageView[]> {
   const response = await request<{ items: AdminDeliveryPackageView[] }>(
     `/admin/deliveries/${id}/packages`,
-    { method: "GET" }
+    { method: "GET" },
   );
   return Array.isArray(response?.items) ? response.items : [];
 }
@@ -3508,7 +4186,17 @@ export type AdminRideDetailResponse = {
   parentRideId?: string;
   legIndex?: number;
   rider?: AdminRideContact & { name?: string; phone?: string };
-  driver?: { id: string; profileId?: string; userId?: string; name?: string; phone?: string; rating?: number; availabilityStatus?: string; verificationStatus?: string; lastLocationAt?: string };
+  driver?: {
+    id: string;
+    profileId?: string;
+    userId?: string;
+    name?: string;
+    phone?: string;
+    rating?: number;
+    availabilityStatus?: string;
+    verificationStatus?: string;
+    lastLocationAt?: string;
+  };
   vehicle?: AdminRideVehicleResponse;
   route?: {
     pickupAddress?: string;
@@ -3564,7 +4252,14 @@ export type AdminRideDetailResponse = {
   feedback?: AdminRideFeedbackResponse;
   createdAt?: string;
   updatedAt?: string;
-  adminAudit?: Array<{ id: string; action: string; actorUserId?: string; reason?: string; route?: string; createdAt: string }>;
+  adminAudit?: Array<{
+    id: string;
+    action: string;
+    actorUserId?: string;
+    reason?: string;
+    route?: string;
+    createdAt: string;
+  }>;
 };
 
 export type AdminRideListItemResponse = {
@@ -3593,7 +4288,7 @@ export type AdminRideListItemResponse = {
   cancellationReason?: string;
   cancelledAt?: string;
   cancelledByUserId?: string;
-  cancelledByRole?: 'RIDER' | 'DRIVER' | 'ADMIN' | 'SYSTEM';
+  cancelledByRole?: "RIDER" | "DRIVER" | "ADMIN" | "SYSTEM";
   cancelledByName?: string;
 };
 
@@ -3612,16 +4307,25 @@ export type ListAdminRidesFilters = {
 
 export type AdminRideListResponse = {
   items: AdminRideListItemResponse[];
-  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  };
 };
 
 type AdminRideListEnvelope = {
   data?: AdminRideListItemResponse[] | AdminRideListResponse;
   items?: AdminRideListItemResponse[];
-  meta?: AdminRideListResponse['meta'];
+  meta?: AdminRideListResponse["meta"];
 };
 
-function normalizeAdminRideListResponse(response: AdminRideListEnvelope | AdminRideListItemResponse[]): AdminRideListResponse {
+function normalizeAdminRideListResponse(
+  response: AdminRideListEnvelope | AdminRideListItemResponse[],
+): AdminRideListResponse {
   const payload = Array.isArray(response)
     ? { items: response }
     : Array.isArray(response.data)
@@ -3631,7 +4335,7 @@ function normalizeAdminRideListResponse(response: AdminRideListEnvelope | AdminR
         : response;
 
   const items = Array.isArray(payload.items) ? payload.items : [];
-  const fallbackMeta: AdminRideListResponse['meta'] = {
+  const fallbackMeta: AdminRideListResponse["meta"] = {
     page: 1,
     limit: items.length || 20,
     total: items.length,
@@ -3649,7 +4353,9 @@ function normalizeAdminRideListResponse(response: AdminRideListEnvelope | AdminR
 export async function listAdminRides(
   filters: ListAdminRidesFilters = {},
 ): Promise<AdminRideListResponse> {
-  const response = await request<AdminRideListEnvelope | AdminRideListItemResponse[]>(
+  const response = await request<
+    AdminRideListEnvelope | AdminRideListItemResponse[]
+  >(
     `/admin/rides${toQueryString({
       page: filters.page,
       limit: filters.limit,
@@ -3662,13 +4368,17 @@ export async function listAdminRides(
       fromDate: filters.fromDate,
       toDate: filters.toDate,
     })}`,
-    { method: 'GET', unwrapData: false },
+    { method: "GET", unwrapData: false },
   );
   return normalizeAdminRideListResponse(response);
 }
 
-export async function getAdminRide(id: string): Promise<AdminRideDetailResponse> {
-  return request<AdminRideDetailResponse>(`/admin/rides/${id}`, { method: 'GET' });
+export async function getAdminRide(
+  id: string,
+): Promise<AdminRideDetailResponse> {
+  return request<AdminRideDetailResponse>(`/admin/rides/${id}`, {
+    method: "GET",
+  });
 }
 
 export type AdminRideControlResult = {
@@ -3683,7 +4393,7 @@ export async function adminCancelRide(
   reason: string,
 ): Promise<AdminRideControlResult> {
   return request<AdminRideControlResult>(`/admin/rides/${rideId}/cancel`, {
-    method: 'POST',
+    method: "POST",
     body: { reason },
   });
 }
@@ -3694,7 +4404,7 @@ export async function adminReassignRide(
   reason: string,
 ): Promise<AdminRideControlResult> {
   return request<AdminRideControlResult>(`/admin/rides/${rideId}/reassign`, {
-    method: 'POST',
+    method: "POST",
     body: { newDriverId, reason },
   });
 }
@@ -3712,15 +4422,29 @@ export type AdminRidePaymentResponse = {
   paidAt?: string;
   refundedAt?: string;
   refundedAmount: number;
-  attempts?: Array<{ id: string; attemptNumber: number; provider: string; providerReference?: string; status: string; channel?: string; initiatedAt?: string; completedAt?: string; failureCode?: string; failureReason?: string }>;
+  attempts?: Array<{
+    id: string;
+    attemptNumber: number;
+    provider: string;
+    providerReference?: string;
+    status: string;
+    channel?: string;
+    initiatedAt?: string;
+    completedAt?: string;
+    failureCode?: string;
+    failureReason?: string;
+  }>;
 };
 
 export async function getAdminRidePayments(
   rideId: string,
 ): Promise<{ payments: AdminRidePaymentResponse[] }> {
-  return request<{ payments: AdminRidePaymentResponse[] }>(`/admin/rides/${rideId}/payments`, {
-    method: 'GET',
-  });
+  return request<{ payments: AdminRidePaymentResponse[] }>(
+    `/admin/rides/${rideId}/payments`,
+    {
+      method: "GET",
+    },
+  );
 }
 
 export type AdminRideAnomalyItem = {
@@ -3739,77 +4463,80 @@ export type AdminRideAnomaliesResponse = {
   total: number;
 };
 
-export async function getAdminRideAnomalies(flag?: string, limit = 100): Promise<AdminRideAnomaliesResponse> {
+export async function getAdminRideAnomalies(
+  flag?: string,
+  limit = 100,
+): Promise<AdminRideAnomaliesResponse> {
   return request<AdminRideAnomaliesResponse>(
     `/admin/rides/anomalies${toQueryString({ flag, limit })}`,
-    { method: 'GET' },
+    { method: "GET" },
   );
 }
 
 export async function getAdminPackageLabels(
-  packageId: string
+  packageId: string,
 ): Promise<AdminDeliveryLabelResponse[]> {
   const response = await request<{ items: AdminDeliveryLabelResponse[] }>(
     `/admin/delivery-packages/${packageId}/labels`,
-    { method: "GET" }
+    { method: "GET" },
   );
   return response.items ?? [];
 }
 
 export async function downloadAdminLabelAsset(
   labelId: string,
-  format: 'pdf' | 'png' | 'qr' = 'pdf'
+  format: "pdf" | "png" | "qr" = "pdf",
 ): Promise<{ downloadUrl: string; mimeType: string; fileName: string }> {
   return request<{ downloadUrl: string; mimeType: string; fileName: string }>(
     `/admin/delivery-labels/${labelId}/download${toQueryString({ format })}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
 export async function regenerateAdminPackageLabel(
   packageId: string,
   reason: string,
-  note?: string
+  note?: string,
 ): Promise<AdminDeliveryLabelResponse> {
   return request<AdminDeliveryLabelResponse>(
     `/admin/delivery-packages/${packageId}/labels/regenerate`,
     {
       method: "POST",
       body: { reason, note },
-    }
+    },
   );
 }
 
 export async function recordAdminLabelPrintEvent(
   labelId: string,
-  source?: string
+  source?: string,
 ): Promise<AdminDeliveryLabelResponse> {
   return request<AdminDeliveryLabelResponse>(
     `/admin/delivery-labels/${labelId}/print-events`,
     {
       method: "POST",
       body: { source },
-    }
+    },
   );
 }
 
 export async function markAdminLabelAttached(
   packageId: string,
   attachedByUserId?: string,
-  location?: string
+  location?: string,
 ): Promise<AdminDeliveryPackageView> {
   return request<AdminDeliveryPackageView>(
     `/admin/delivery-packages/${packageId}/mark-attached`,
     {
       method: "POST",
       body: { attachedByUserId, location },
-    }
+    },
   );
 }
 
 export async function bulkExportAdminLabels(
   packageIds: string[],
-  reason?: string
+  reason?: string,
 ): Promise<{
   batchId: string;
   actorUserId?: string;
@@ -3844,13 +4571,16 @@ export type AdminLabelExportEntry = {
   qrDownloadUrl?: string;
 };
 
-export async function getAdminLabelBatchDownload(
-  batchId: string
-): Promise<{ batchId: string; packageCount: number; labels: AdminLabelExportEntry[] }> {
-  return request<{ batchId: string; packageCount: number; labels: AdminLabelExportEntry[] }>(
-    `/admin/delivery-label-batches/${batchId}/download`,
-    { method: "GET" }
-  );
+export async function getAdminLabelBatchDownload(batchId: string): Promise<{
+  batchId: string;
+  packageCount: number;
+  labels: AdminLabelExportEntry[];
+}> {
+  return request<{
+    batchId: string;
+    packageCount: number;
+    labels: AdminLabelExportEntry[];
+  }>(`/admin/delivery-label-batches/${batchId}/download`, { method: "GET" });
 }
 
 export type AdminLabelRegistryResponse = AdminDeliveryLabelResponse & {
@@ -3899,14 +4629,28 @@ export type ListAdminLabelsFilters = {
 };
 
 export async function listAdminDeliveryLabels(
-  filters: ListAdminLabelsFilters = {}
+  filters: ListAdminLabelsFilters = {},
 ): Promise<{
   items: AdminLabelRegistryResponse[];
-  meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  };
 }> {
   return request<{
     items: AdminLabelRegistryResponse[];
-    meta: { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrevious: boolean };
+    meta: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrevious: boolean;
+    };
   }>(
     `/admin/delivery-labels${toQueryString({
       page: filters.page,
@@ -3916,7 +4660,7 @@ export async function listAdminDeliveryLabels(
       toDate: filters.toDate,
       search: filters.search,
     })}`,
-    { method: "GET" }
+    { method: "GET" },
   );
 }
 
@@ -3928,7 +4672,7 @@ export type AdminDropoffCredentialResponse = {
   pin: string;
   qrPayload: string;
   expiresAt: string;
-  status: 'active' | 'revoked' | 'consumed' | 'expired';
+  status: "active" | "revoked" | "consumed" | "expired";
   createdAt: string;
   revokedAt?: string;
   revokedBy?: string;
@@ -3975,10 +4719,11 @@ export async function generateAdminDeliveryDropoffCredential(
 export async function listAdminDeliveryDropoffCredentialHistory(
   deliveryId: string,
 ): Promise<AdminDropoffCredentialHistoryItem[]> {
-  const response = await request<{ items: AdminDropoffCredentialHistoryItem[] }>(
-    `/admin/deliveries/${deliveryId}/dropoff-credential/history`,
-    { method: "GET" },
-  );
+  const response = await request<{
+    items: AdminDropoffCredentialHistoryItem[];
+  }>(`/admin/deliveries/${deliveryId}/dropoff-credential/history`, {
+    method: "GET",
+  });
   return response?.items ?? [];
 }
 
@@ -4011,7 +4756,9 @@ export type AdminDeliveryOrderProduct = {
 };
 
 export async function listAdminProducts(): Promise<AdminDeliveryProduct[]> {
-  return request<AdminDeliveryProduct[]>("/deliveries/products", { method: "GET" });
+  return request<AdminDeliveryProduct[]>("/deliveries/products", {
+    method: "GET",
+  });
 }
 
 export async function createAdminProduct(data: {
@@ -4050,8 +4797,13 @@ export async function updateAdminProduct(
   });
 }
 
-export async function getAdminOrderProducts(orderId: string): Promise<AdminDeliveryOrderProduct[]> {
-  return request<AdminDeliveryOrderProduct[]>(`/deliveries/${orderId}/products`, { method: "GET" });
+export async function getAdminOrderProducts(
+  orderId: string,
+): Promise<AdminDeliveryOrderProduct[]> {
+  return request<AdminDeliveryOrderProduct[]>(
+    `/deliveries/${orderId}/products`,
+    { method: "GET" },
+  );
 }
 
 export async function attachAdminOrderProducts(
@@ -4066,10 +4818,13 @@ export async function attachAdminOrderProducts(
     metadata?: Record<string, unknown>;
   }>,
 ): Promise<AdminDeliveryOrderProduct[]> {
-  return request<AdminDeliveryOrderProduct[]>(`/deliveries/${orderId}/products`, {
-    method: "PUT",
-    body: { products },
-  });
+  return request<AdminDeliveryOrderProduct[]>(
+    `/deliveries/${orderId}/products`,
+    {
+      method: "PUT",
+      body: { products },
+    },
+  );
 }
 
 // ── Delivery Ledger & Reconciliation (DLV-164) ─────────────────────────────
@@ -4120,7 +4875,8 @@ export type AdminDeliveryLedgerView = {
   balanced: boolean;
 };
 
-export type AdminReconciliationAlertKind = "LEDGER_BALANCE" | "DRIVER_MISMATCH" | "MERCHANT_MISMATCH";
+export type AdminReconciliationAlertKind =
+  "LEDGER_BALANCE" | "DRIVER_MISMATCH" | "MERCHANT_MISMATCH";
 export type AdminReconciliationAlertStatus = "OPEN" | "RESOLVED" | "DISMISSED";
 
 export type AdminDeliveryReconciliationAlert = {
@@ -4148,7 +4904,9 @@ export type AdminDriverStatement = {
   entries: AdminDeliveryLedgerEntry[];
 };
 
-export async function getAdminDeliveryLedger(orderId: string): Promise<AdminDeliveryLedgerView> {
+export async function getAdminDeliveryLedger(
+  orderId: string,
+): Promise<AdminDeliveryLedgerView> {
   return request<AdminDeliveryLedgerView>(
     `/delivery-earnings/ledger/orders/${orderId}/entries`,
     { method: "GET" },
@@ -4206,8 +4964,10 @@ export async function dismissAdminDeliveryReconciliationAlert(
 
 // ── Reverse logistics & returns (DLV-192) ──────────────────────────────────
 
-export type AdminReturnRequestStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "CANCELLED" | "COMPLETED";
-export type AdminReturnRequestSource = "CUSTOMER" | "MERCHANT" | "FAILED_DELIVERY";
+export type AdminReturnRequestStatus =
+  "REQUESTED" | "APPROVED" | "REJECTED" | "CANCELLED" | "COMPLETED";
+export type AdminReturnRequestSource =
+  "CUSTOMER" | "MERCHANT" | "FAILED_DELIVERY";
 export type AdminReturnReason =
   | "WRONG_ITEM"
   | "DAMAGED"
@@ -4227,8 +4987,10 @@ export type AdminReturnShipmentStatus =
   | "DISPOSED"
   | "REFUNDED"
   | "CANCELLED";
-export type AdminReturnCredentialStatus = "ACTIVE" | "CONSUMED" | "REVOKED" | "EXPIRED";
-export type AdminReturnInspectionCondition = "ACCEPTABLE" | "DAMAGED" | "WRONG_ITEM" | "PARTIALLY_COMPLETE";
+export type AdminReturnCredentialStatus =
+  "ACTIVE" | "CONSUMED" | "REVOKED" | "EXPIRED";
+export type AdminReturnInspectionCondition =
+  "ACCEPTABLE" | "DAMAGED" | "WRONG_ITEM" | "PARTIALLY_COMPLETE";
 export type AdminReturnDisposition = "RESTOCK" | "DISPOSE";
 
 export type AdminReturnRequestView = {
@@ -4360,18 +5122,25 @@ export async function listAdminReturnShipments(filters?: {
   );
 }
 
-export async function getAdminReturnShipment(shipmentId: string): Promise<AdminReturnShipmentView> {
-  return request<AdminReturnShipmentView>(`/admin/returns/${shipmentId}`, { method: "GET" });
+export async function getAdminReturnShipment(
+  shipmentId: string,
+): Promise<AdminReturnShipmentView> {
+  return request<AdminReturnShipmentView>(`/admin/returns/${shipmentId}`, {
+    method: "GET",
+  });
 }
 
 export async function inspectAdminReturnShipment(
   shipmentId: string,
   input: AdminReturnInspectInput,
 ): Promise<AdminReturnShipmentView> {
-  return request<AdminReturnShipmentView>(`/admin/returns/${shipmentId}/inspect`, {
-    method: "POST",
-    body: input,
-  });
+  return request<AdminReturnShipmentView>(
+    `/admin/returns/${shipmentId}/inspect`,
+    {
+      method: "POST",
+      body: input,
+    },
+  );
 }
 
 export async function refundAdminReturnShipment(
@@ -4379,16 +5148,24 @@ export async function refundAdminReturnShipment(
   amountCents?: number,
   clientRequestId?: string,
 ): Promise<AdminReturnShipmentView> {
-  return request<AdminReturnShipmentView>(`/admin/returns/${shipmentId}/refund`, {
-    method: "POST",
-    body: { amountCents, clientRequestId },
-  });
+  return request<AdminReturnShipmentView>(
+    `/admin/returns/${shipmentId}/refund`,
+    {
+      method: "POST",
+      body: { amountCents, clientRequestId },
+    },
+  );
 }
 
-export async function listAdminReturnReconciliation(): Promise<AdminReturnReconciliationView[]> {
-  return request<AdminReturnReconciliationView[]>("/admin/returns/reconciliation", {
-    method: "GET",
-  });
+export async function listAdminReturnReconciliation(): Promise<
+  AdminReturnReconciliationView[]
+> {
+  return request<AdminReturnReconciliationView[]>(
+    "/admin/returns/reconciliation",
+    {
+      method: "GET",
+    },
+  );
 }
 
 // ── Delivery disputes (DLV-193) ─────────────────────────────────────────────
@@ -4405,17 +5182,10 @@ export type AdminDisputeReason =
   | "OTHER";
 
 export type AdminDisputeStatus =
-  | "OPEN"
-  | "UNDER_REVIEW"
-  | "RESOLVED"
-  | "REJECTED"
-  | "WITHDRAWN";
+  "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "REJECTED" | "WITHDRAWN";
 
 export type AdminDisputeResolution =
-  | "REFUND"
-  | "PARTIAL_REFUND"
-  | "REPLACEMENT"
-  | "NO_REMEDY";
+  "REFUND" | "PARTIAL_REFUND" | "REPLACEMENT" | "NO_REMEDY";
 
 export type AdminDisputeView = {
   id: string;
@@ -4459,11 +5229,17 @@ export async function listAdminDisputes(filters?: {
   );
 }
 
-export async function getAdminDispute(disputeId: string): Promise<AdminDisputeView> {
-  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}`, { method: "GET" });
+export async function getAdminDispute(
+  disputeId: string,
+): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}`, {
+    method: "GET",
+  });
 }
 
-export async function markAdminDisputeUnderReview(disputeId: string): Promise<AdminDisputeView> {
+export async function markAdminDisputeUnderReview(
+  disputeId: string,
+): Promise<AdminDisputeView> {
   return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/review`, {
     method: "POST",
   });
@@ -4473,14 +5249,22 @@ export async function decideAdminDispute(
   disputeId: string,
   input: AdminDisputeDecisionInput,
 ): Promise<AdminDisputeView> {
-  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/decision`, {
-    method: "POST",
-    body: input,
-  });
+  return request<AdminDisputeView>(
+    `/deliveries/disputes/${disputeId}/decision`,
+    {
+      method: "POST",
+      body: input,
+    },
+  );
 }
 
-export async function withdrawAdminDispute(disputeId: string): Promise<AdminDisputeView> {
-  return request<AdminDisputeView>(`/deliveries/disputes/${disputeId}/withdraw`, {
-    method: "POST",
-  });
+export async function withdrawAdminDispute(
+  disputeId: string,
+): Promise<AdminDisputeView> {
+  return request<AdminDisputeView>(
+    `/deliveries/disputes/${disputeId}/withdraw`,
+    {
+      method: "POST",
+    },
+  );
 }

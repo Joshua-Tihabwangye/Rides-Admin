@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { AuthUser } from "./auth"
-import { getPermissionsForRoles, getUserPermissions } from "./permissions"
+import { getUserPermissions } from "./permissions"
 
 const baseUser: AuthUser = {
   name: "Admin",
@@ -18,33 +18,18 @@ describe("admin permission resolution", () => {
     expect(permissions).toContain("manage_finance")
   })
 
-  it("scopes permissions to the active login role when one is selected", () => {
+  it("uses the backend-issued permission list as returned", () => {
     const permissions = getUserPermissions({
       ...baseUser,
-      roles: ["super_admin", "finance_admin", "admin"],
-      activeRole: "finance_admin",
-      permissions: ["*"],
+      roles: ["finance_admin"],
+      permissions: ["finance:revenue:read"],
     })
 
-    expect(permissions).toContain("manage_finance")
-    expect(permissions).not.toContain("manage_system")
-    expect(permissions).not.toContain("manage_admin_users")
+    expect(permissions).toEqual(["manage_finance"])
   })
 
-  it("maps named admin roles to their expected areas", () => {
-    expect(getPermissionsForRoles(["admin"])).toEqual(expect.arrayContaining([
-      "view_admin_users",
-      "view_roles",
-      "view_delivery_labels",
-      "print_delivery_labels",
-      "activate_blank_labels",
-    ]))
-    expect(getPermissionsForRoles(["admin"])).not.toContain("manage_admin_users")
-    expect(getPermissionsForRoles(["admin"])).not.toContain("manage_roles")
-    expect(getPermissionsForRoles(["super_admin"])).toContain("manage_roles")
-    expect(getPermissionsForRoles(["finance_admin"])).toContain("manage_finance")
-    expect(getPermissionsForRoles(["operations_admin"])).toContain("manage_operations")
-    expect(getPermissionsForRoles(["support_admin"])).toContain("manage_people")
+  it("grants nothing locally when the backend sends no permissions", () => {
+    expect(getUserPermissions({ ...baseUser, roles: ["super_admin"], permissions: [] })).toEqual([])
   })
 
   it("maps canonical backend permissions to frontend page access", () => {

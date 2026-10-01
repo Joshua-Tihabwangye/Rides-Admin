@@ -34,8 +34,8 @@ type ProfileState = {
 type RegionSettings = AdminPortalSettingsResponse["regions"];
 type SaveStatus = { type: AlertColor; message: string } | null;
 
-const DEFAULT_REGIONS: RegionSettings = {
-  eastAfrica: true,
+const UNLOADED_REGIONS: RegionSettings = {
+  eastAfrica: false,
   westAfrica: false,
   global: false,
 };
@@ -47,9 +47,10 @@ export default function AdminProfileRegionSettingsPage() {
     phone: "",
   });
 
-  const [regions, setRegions] = useState<RegionSettings>(DEFAULT_REGIONS);
+  const [regions, setRegions] = useState<RegionSettings>(UNLOADED_REGIONS);
 
-  const [limitAssignedOnly, setLimitAssignedOnly] = useState(true);
+  const [limitAssignedOnly, setLimitAssignedOnly] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(null);
 
@@ -69,8 +70,12 @@ export default function AdminProfileRegionSettingsPage() {
         }));
         setRegions(settings.regions);
         setLimitAssignedOnly(settings.limitAssignedOnly);
+        setSettingsLoaded(true);
       } catch (error) {
-        console.warn("Failed to load admin profile/region settings from backend.", error);
+        setSaveStatus({
+          type: "error",
+          message: error instanceof Error ? `Could not load your profile and regions: ${error.message}` : "Could not load your profile and regions.",
+        });
       }
     };
 
@@ -421,7 +426,7 @@ export default function AdminProfileRegionSettingsPage() {
       <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
         <Button
           variant="contained"
-          disabled={saving}
+          disabled={saving || !settingsLoaded}
           onClick={() => void handleSave()}
           sx={{
             textTransform: 'none',

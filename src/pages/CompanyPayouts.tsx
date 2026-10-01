@@ -34,6 +34,7 @@ import {
   type AdminCompanyResponse,
   type AdminPayout,
 } from "../services/api/adminApi";
+import { platformCurrency } from "../hooks/useAdminReferenceData";
 
 type SnackbarState = {
   open: boolean;
@@ -72,14 +73,14 @@ function settingsToForm(settings: AdminCompanyPayoutSettings): PayoutSettingsFor
   return {
     schedule: settings.schedule || "weekly",
     minimumAmount: Number.isFinite(settings.minimumAmount) ? String(settings.minimumAmount) : "0",
-    currency: settings.currency || "UGX",
+    currency: settings.currency || platformCurrency(),
     destination: settings.destination ?? "",
     enabled: settings.enabled,
   };
 }
 
 function formatMoney(amount: number | undefined, currency: string | undefined) {
-  return `${currency || "UGX"} ${(amount ?? 0).toLocaleString()}`;
+  return `${currency || platformCurrency()} ${(amount ?? 0).toLocaleString()}`;
 }
 
 function formatDate(value?: string) {

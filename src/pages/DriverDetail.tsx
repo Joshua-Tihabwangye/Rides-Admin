@@ -27,6 +27,7 @@ import type {
     AdminDriverEarningsStatement,
     AdminRideListItemResponse,
 } from '../services/api/adminApi'
+import { platformCurrency } from "../hooks/useAdminReferenceData";
 
 interface TabPanelProps {
     children?: React.ReactNode
@@ -58,16 +59,16 @@ function formatRating(value: unknown): string {
     return Number.isFinite(numericValue) ? numericValue.toFixed(1) : 'N/A'
 }
 
-function formatMoney(value: unknown, currency = 'UGX'): string {
+function formatMoney(value: unknown, currency = platformCurrency()): string {
     const numericValue = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
     if (!Number.isFinite(numericValue)) return '—'
-    return `${currency} ${numericValue.toLocaleString('en-UG')}`
+    return `${currency} ${numericValue.toLocaleString()}`
 }
 
 function formatDate(value: string | undefined | null): string {
     if (!value) return '—'
     const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-UG', { dateStyle: 'medium', timeStyle: 'short' })
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -482,7 +483,7 @@ export default function DriverDetail() {
                                                     <CardContent>
                                                         <Typography variant="caption" color="text.secondary">Total earned</Typography>
                                                         <Typography variant="h6" fontWeight={800}>
-                                                            {formatMoney(earningsSummary?.total ?? statement?.totalGross ?? 0, earningsSummary?.currency ?? statement?.currency ?? 'UGX')}
+                                                            {formatMoney(earningsSummary?.total ?? statement?.totalGross ?? 0, earningsSummary?.currency ?? statement?.currency ?? undefined)}
                                                         </Typography>
                                                     </CardContent>
                                                 </Card>
@@ -492,7 +493,7 @@ export default function DriverDetail() {
                                                     <CardContent>
                                                         <Typography variant="caption" color="text.secondary">Pending</Typography>
                                                         <Typography variant="h6" fontWeight={800} color="warning.main">
-                                                            {formatMoney(earningsSummary?.pending ?? 0, earningsSummary?.currency ?? 'UGX')}
+                                                            {formatMoney(earningsSummary?.pending ?? 0, earningsSummary?.currency ?? undefined)}
                                                         </Typography>
                                                     </CardContent>
                                                 </Card>
@@ -502,7 +503,7 @@ export default function DriverDetail() {
                                                     <CardContent>
                                                         <Typography variant="caption" color="text.secondary">Settled</Typography>
                                                         <Typography variant="h6" fontWeight={800} color="success.main">
-                                                            {formatMoney(earningsSummary?.settled ?? 0, earningsSummary?.currency ?? 'UGX')}
+                                                            {formatMoney(earningsSummary?.settled ?? 0, earningsSummary?.currency ?? undefined)}
                                                         </Typography>
                                                     </CardContent>
                                                 </Card>

@@ -18,6 +18,7 @@ import {
   patchAdminPromo,
   type AdminPromoResponse,
 } from "../services/api/adminApi";
+import { formatMoney } from "../hooks/useAdminReferenceData";
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -31,7 +32,7 @@ function formatDate(value?: number) {
 
 function discountLabel(promo: AdminPromoResponse) {
   if (promo.discountType === "percent") return `${promo.discountValue}% off`;
-  return `Flat ${promo.discountValue.toLocaleString("en-UG")} off`;
+  return `Flat ${formatMoney(promo.discountValue)} off`;
 }
 
 export default function PromoDetail() {

@@ -6,6 +6,7 @@ import {
   syncAdminReferenceData,
 } from "../services/api/adminApi"
 import { startAdminProactiveSessionRefresh } from "../services/api/httpClient"
+import { loadAdminReferenceData } from "../hooks/useAdminReferenceData"
 
 export default function AdminBackendBootstrap() {
   const [adminBackendEnabled] = useState(() => isAdminBackendEnabled())
@@ -17,6 +18,9 @@ export default function AdminBackendBootstrap() {
 
     void syncAdminReferenceData().catch((error) => {
       console.warn("Admin backend sync failed. Keeping current local store.", error)
+    })
+    void loadAdminReferenceData().catch((error) => {
+      console.warn("Platform reference data could not be loaded.", error)
     })
   }, [adminBackendEnabled])
 

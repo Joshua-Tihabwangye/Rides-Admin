@@ -28,8 +28,7 @@ import SecurityIcon from "@mui/icons-material/Security";
 import KeyIcon from "@mui/icons-material/Key";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import PageStateCard from "../components/PageStateCard";
-import { getAuthRoles } from "../auth/auth";
-import { hasPermissionByRoles } from "../auth/permissions";
+import { hasAuthPermission } from "../auth/permissions";
 import { createAdminRole, listAdminPermissions, listAdminRoles, patchAdminRole, type AdminRoleResponse } from "../services/api/adminApi";
 
 const EV_GREEN = "#03cd8c";
@@ -66,7 +65,7 @@ export default function RolesPermissionsPage() {
   const [roleSearch, setRoleSearch] = useState("");
   const [permissionSearch, setPermissionSearch] = useState("");
 
-  const canManageRoles = hasPermissionByRoles(getAuthRoles(), "manage_roles");
+  const canManageRoles = hasAuthPermission("manage_roles");
   const selectedRole = useMemo(() => roles.find((role) => role.id === selectedRoleId) || roles[0], [roles, selectedRoleId]);
 
   const loadRoles = useCallback(async () => {

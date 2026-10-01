@@ -1,178 +1,104 @@
-import React, { Suspense, lazy } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import RequireAuth from './auth/RequireAuth'
-import RequirePermission from './auth/RequirePermission'
-import AdminShell from './layout/AdminShell'
-import AdminBackendBootstrap from './components/AdminBackendBootstrap'
-import AdminHomeDashboard from './pages/AdminHomeDashboard'
-import RiderManagement from './pages/RiderManagement'
-import RiderDetail from './pages/RiderDetail'
-import DriverManagement from './pages/DriverManagement'
-import DriverDetail from './pages/DriverDetail'
-import SafetyOverview from './pages/SafetyOverview'
-import OperationsDashboard from './pages/OperationsDashboard'
-import MonitoringPage from './pages/MonitoringPage'
-import LiveDriversMapPage from './pages/LiveDriversMapPage'
-import MatchingInspectionPage from './pages/MatchingInspectionPage'
-import DetailedAnalytics from './pages/DetailedAnalytics'
-import RiskFraudCenter from './pages/RiskFraudCenter'
-import RidesListPage from './pages/RidesListPage'
-import RideDetailPage from './pages/RideDetailPage'
-import RideAnomaliesPage from './pages/RideAnomaliesPage'
+import React from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import RequireAuth from "./auth/RequireAuth";
+import RequirePermission from "./auth/RequirePermission";
+import AdminShell from "./layout/AdminShell";
+import AdminBackendBootstrap from "./components/AdminBackendBootstrap";
+import { AdminLiveDataProvider } from "./components/AdminLiveDataProvider";
 
-const ADMIN_ASSET_RELOAD_KEY = 'evzone-admin-asset-reload'
-
-function reloadOnceForStaleAsset() {
-  if (typeof window === 'undefined') return
-  if (window.sessionStorage.getItem(ADMIN_ASSET_RELOAD_KEY)) return
-  window.sessionStorage.setItem(ADMIN_ASSET_RELOAD_KEY, '1')
-  window.location.reload()
-}
-
-function isAdminBuildAsset(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false
-  if (target instanceof HTMLScriptElement) return target.src.includes('/assets/')
-  if (target instanceof HTMLLinkElement) {
-    return target.href.includes('/assets/') && (target.rel === 'stylesheet' || target.rel === 'modulepreload')
-  }
-  return false
-}
-
-function useStaleAssetRecovery() {
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-    const releaseReloadGuard = window.setTimeout(() => {
-      window.sessionStorage.removeItem(ADMIN_ASSET_RELOAD_KEY)
-    }, 5000)
-    const handlePreloadError = (event: Event) => {
-      event.preventDefault()
-      reloadOnceForStaleAsset()
-    }
-    const handleResourceError = (event: Event) => {
-      if (isAdminBuildAsset(event.target)) reloadOnceForStaleAsset()
-    }
-    window.addEventListener('vite:preloadError', handlePreloadError as EventListener)
-    window.addEventListener('error', handleResourceError, true)
-    return () => {
-      window.clearTimeout(releaseReloadGuard)
-      window.removeEventListener('vite:preloadError', handlePreloadError as EventListener)
-      window.removeEventListener('error', handleResourceError, true)
-    }
-  }, [])
-}
-function RouteLoading() {
-  return (
-    <div style={{ minHeight: 280, display: 'grid', placeItems: 'center', color: '#475569', fontSize: 13 }}>
-      Loading...
-    </div>
-  )
-}
-
-function recoverableLazy<T extends React.ComponentType<any>>(loader: () => Promise<{ default: T }>) {
-  const load = () =>
-    loader().then((module) => {
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.removeItem('evzone-admin-chunk-reload')
-      }
-      return module
-    }).catch((error) => {
-      const message = error instanceof Error ? error.message : String(error)
-      const chunkFailed =
-        /Failed to fetch dynamically imported module|ChunkLoadError|Loading chunk \d+ failed|Importing a module script failed/i.test(message)
-      if (
-        chunkFailed &&
-        typeof window !== 'undefined' &&
-        !window.sessionStorage.getItem('evzone-admin-chunk-reload')
-      ) {
-        window.sessionStorage.setItem('evzone-admin-chunk-reload', '1')
-        window.location.reload()
-        return new Promise<{ default: T }>(() => {})
-      }
-      throw error
-    })
-  return lazy(load)
-}
-
-const AdminAuthSignIn = recoverableLazy(() => import('./pages/AdminAuthSignIn'))
-const AdminAuthSignUp = recoverableLazy(() => import('./pages/AdminAuthSignUp'))
-const ForgotPassword = recoverableLazy(() => import('./pages/ForgotPassword'))
-const VerifyResetOtp = recoverableLazy(() => import('./pages/VerifyResetOtp'))
-const ResetPassword = recoverableLazy(() => import('./pages/ResetPassword'))
-const AdminWelcomeNotice = recoverableLazy(() => import('./pages/AdminWelcomeNotice'))
-const AdminOnboardingChecklist = recoverableLazy(() => import('./pages/AdminOnboardingChecklist'))
-const AdminProfileRegions = recoverableLazy(() => import('./pages/AdminProfileRegions'))
-const AdminGlobalSearch = recoverableLazy(() => import('./pages/AdminGlobalSearch'))
-const RiderCreate = recoverableLazy(() => import('./pages/RiderCreate'))
-const DriverCreate = recoverableLazy(() => import('./pages/DriverCreate'))
-const SosIncidentDetailPage = recoverableLazy(() => import('./pages/SosIncidentDetailPage'))
-const RiskDetail = recoverableLazy(() => import('./pages/RiskDetail'))
-const CompanyList = recoverableLazy(() => import('./pages/CompanyList'))
-const CompanyDetail = recoverableLazy(() => import('./pages/CompanyDetail'))
-const FinancialOverview = recoverableLazy(() => import('./pages/FinancialOverview'))
-const CompanyPayouts = recoverableLazy(() => import('./pages/CompanyPayouts'))
-const FinanceCashouts = recoverableLazy(() => import('./pages/FinanceCashouts'))
-const FinancePayouts = recoverableLazy(() => import('./pages/FinancePayouts'))
-const FinancePayments = recoverableLazy(() => import('./pages/FinancePayments'))
-const FinanceSettlements = recoverableLazy(() => import('./pages/FinanceSettlements'))
-const FinanceWalletReconciliation = recoverableLazy(() => import('./pages/FinanceWalletReconciliation'))
-const FinanceReconciliationRuns = recoverableLazy(() => import('./pages/FinanceReconciliationRuns'))
-const CompanyApprovals = recoverableLazy(() => import('./pages/CompanyApprovals'))
-const RegionTaxConfigEditor = recoverableLazy(() => import('./pages/RegionTaxConfigEditor'))
-const InvoiceTemplatePreview = recoverableLazy(() => import('./pages/InvoiceTemplatePreview'))
-const ApprovalsDashboard = recoverableLazy(() => import('./pages/ApprovalsDashboard'))
-const ApprovalDetail = recoverableLazy(() => import('./pages/ApprovalDetail'))
-const DocumentReviewPage = recoverableLazy(() => import('./pages/DocumentReviewPage'))
-const ServiceConfiguration = recoverableLazy(() => import('./pages/ServiceConfiguration'))
-const PricingManagement = recoverableLazy(() => import('./pages/PricingManagement'))
-const PricingRulesOverview = recoverableLazy(() => import('./pages/PricingRulesTariffs'))
-const ZoneCreate = recoverableLazy(() => import('./pages/ZoneCreate'))
-const ZonesGeofences = recoverableLazy(() => import('./pages/ZonesGeofences'))
-const ZoneMapView = recoverableLazy(() => import('./pages/ZoneMapView'))
-const ZonePricingDetail = recoverableLazy(() => import('./pages/ZonePricingDetail'))
-const ZonesList = recoverableLazy(() => import('./pages/ZonesList'))
-const PromotionsIncentives = recoverableLazy(() => import('./pages/PromotionsIncentives'))
-const PromoDetail = recoverableLazy(() => import('./pages/PromoDetail'))
-const VerticalPolicies = recoverableLazy(() => import('./pages/VerticalPolicies'))
-const AgentManagement = recoverableLazy(() => import('./pages/AgentManagement'))
-const AgentDetail = recoverableLazy(() => import('./pages/AgentDetail'))
-const AdminUsersManagement = recoverableLazy(() => import('./pages/AdminUsersManagement'))
-const AdminUserDetail = recoverableLazy(() => import('./pages/AdminUserDetail'))
-const RolesPermissions = recoverableLazy(() => import('./pages/RolesPermissions'))
-const GlobalTrainingManager = recoverableLazy(() => import('./pages/GlobalTrainingManager'))
-const TrainingModulePreview = recoverableLazy(() => import('./pages/TrainingModulePreview'))
-const LocalizationLanguageContent = recoverableLazy(() => import('./pages/LocalizationLanguageContent'))
-const PolicyRuleManagement = recoverableLazy(() => import('./pages/PolicyRuleManagement'))
-const FeatureFlagsExperiments = recoverableLazy(() => import('./pages/FeatureFlagsExperiments'))
-const ExperimentResults = recoverableLazy(() => import('./pages/ExperimentResults'))
-const ApprovalsHistory = recoverableLazy(() => import('./pages/ApprovalsHistory'))
-const Integrations = recoverableLazy(() => import('./pages/Integrations'))
-const AuditLog = recoverableLazy(() => import('./pages/AuditLog'))
-const SystemOverview = recoverableLazy(() => import('./pages/SystemOverview'))
-const Settings = recoverableLazy(() => import('./pages/Settings'))
-const AccessDenied = recoverableLazy(() => import('./pages/AccessDenied'))
-const DeliveryListPage = recoverableLazy(() => import('./pages/DeliveryListPage'))
-const DeliveryDetailPage = recoverableLazy(() => import('./pages/DeliveryDetailPage'))
-const ReturnRequestsPage = recoverableLazy(() => import('./pages/ReturnRequestsPage'))
-const DisputesPage = recoverableLazy(() => import('./pages/DisputesPage'))
-const ReturnShipmentsPage = recoverableLazy(() => import('./pages/ReturnShipmentsPage'))
-const ReturnShipmentDetailPage = recoverableLazy(() => import('./pages/ReturnShipmentDetailPage'))
-const ReturnReconciliationPage = recoverableLazy(() => import('./pages/ReturnReconciliationPage'))
-const PackageLabelPage = recoverableLazy(() => import('./pages/PackageLabelPage'))
-const DeliveryLabelsPage = recoverableLazy(() => import('./pages/DeliveryLabelsPage'))
-const PrintQueuePage = recoverableLazy(() => import('./pages/PrintQueuePage'))
-const LabelExceptionsPage = recoverableLazy(() => import('./pages/LabelExceptionsPage'))
-const BlankLabelStockPage = recoverableLazy(() => import('./pages/BlankLabelStockPage'))
-const MarketplaceClientProductsPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceClientProductsPage'))
-const MarketplaceClientCartPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceClientCartPage'))
-const MarketplaceSellerOrdersPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceSellerOrdersPage'))
-const MarketplaceSellerOrderDetailPage = recoverableLazy(() => import('./pages/marketplace/MarketplaceSellerOrderDetailPage'))
+import AdminAuthSignIn from "./pages/AdminAuthSignIn";
+import AdminAuthSignUp from "./pages/AdminAuthSignUp";
+import ForgotPassword from "./pages/ForgotPassword";
+import VerifyResetOtp from "./pages/VerifyResetOtp";
+import ResetPassword from "./pages/ResetPassword";
+import AdminWelcomeNotice from "./pages/AdminWelcomeNotice";
+import AdminOnboardingChecklist from "./pages/AdminOnboardingChecklist";
+import AdminProfileRegions from "./pages/AdminProfileRegions";
+import AdminGlobalSearch from "./pages/AdminGlobalSearch";
+import RiderCreate from "./pages/RiderCreate";
+import DriverCreate from "./pages/DriverCreate";
+import SosIncidentDetailPage from "./pages/SosIncidentDetailPage";
+import RiskDetail from "./pages/RiskDetail";
+import CompanyList from "./pages/CompanyList";
+import CompanyDetail from "./pages/CompanyDetail";
+import FinancialOverview from "./pages/FinancialOverview";
+import CompanyPayouts from "./pages/CompanyPayouts";
+import FinanceCashouts from "./pages/FinanceCashouts";
+import FinancePayouts from "./pages/FinancePayouts";
+import FinancePayments from "./pages/FinancePayments";
+import FinanceSettlements from "./pages/FinanceSettlements";
+import FinanceWalletReconciliation from "./pages/FinanceWalletReconciliation";
+import FinanceReconciliationRuns from "./pages/FinanceReconciliationRuns";
+import CompanyApprovals from "./pages/CompanyApprovals";
+import RegionTaxConfigEditor from "./pages/RegionTaxConfigEditor";
+import InvoiceTemplatePreview from "./pages/InvoiceTemplatePreview";
+import ApprovalsDashboard from "./pages/ApprovalsDashboard";
+import ApprovalDetail from "./pages/ApprovalDetail";
+import DocumentReviewPage from "./pages/DocumentReviewPage";
+import ServiceConfiguration from "./pages/ServiceConfiguration";
+import PricingManagement from "./pages/PricingManagement";
+import PricingRulesOverview from "./pages/PricingRulesTariffs";
+import ZoneCreate from "./pages/ZoneCreate";
+import ZonesGeofences from "./pages/ZonesGeofences";
+import ZoneMapView from "./pages/ZoneMapView";
+import ZonePricingDetail from "./pages/ZonePricingDetail";
+import ZonesList from "./pages/ZonesList";
+import PromotionsIncentives from "./pages/PromotionsIncentives";
+import PromoDetail from "./pages/PromoDetail";
+import VerticalPolicies from "./pages/VerticalPolicies";
+import AgentManagement from "./pages/AgentManagement";
+import AgentDetail from "./pages/AgentDetail";
+import AdminUsersManagement from "./pages/AdminUsersManagement";
+import AdminUserDetail from "./pages/AdminUserDetail";
+import RolesPermissions from "./pages/RolesPermissions";
+import GlobalTrainingManager from "./pages/GlobalTrainingManager";
+import TrainingModulePreview from "./pages/TrainingModulePreview";
+import LocalizationLanguageContent from "./pages/LocalizationLanguageContent";
+import PolicyRuleManagement from "./pages/PolicyRuleManagement";
+import FeatureFlagsExperiments from "./pages/FeatureFlagsExperiments";
+import ExperimentResults from "./pages/ExperimentResults";
+import ApprovalsHistory from "./pages/ApprovalsHistory";
+import Integrations from "./pages/Integrations";
+import AuditLog from "./pages/AuditLog";
+import SystemOverview from "./pages/SystemOverview";
+import Settings from "./pages/Settings";
+import AccessDenied from "./pages/AccessDenied";
+import DeliveryListPage from "./pages/DeliveryListPage";
+import DeliveryDetailPage from "./pages/DeliveryDetailPage";
+import ReturnRequestsPage from "./pages/ReturnRequestsPage";
+import DisputesPage from "./pages/DisputesPage";
+import ReturnShipmentsPage from "./pages/ReturnShipmentsPage";
+import ReturnShipmentDetailPage from "./pages/ReturnShipmentDetailPage";
+import ReturnReconciliationPage from "./pages/ReturnReconciliationPage";
+import PackageLabelPage from "./pages/PackageLabelPage";
+import DeliveryLabelsPage from "./pages/DeliveryLabelsPage";
+import PrintQueuePage from "./pages/PrintQueuePage";
+import LabelExceptionsPage from "./pages/LabelExceptionsPage";
+import BlankLabelStockPage from "./pages/BlankLabelStockPage";
+import MarketplaceClientProductsPage from "./pages/marketplace/MarketplaceClientProductsPage";
+import MarketplaceClientCartPage from "./pages/marketplace/MarketplaceClientCartPage";
+import MarketplaceSellerOrdersPage from "./pages/marketplace/MarketplaceSellerOrdersPage";
+import MarketplaceSellerOrderDetailPage from "./pages/marketplace/MarketplaceSellerOrderDetailPage";
+import AdminHomeDashboard from "./pages/AdminHomeDashboard";
+import RiderManagement from "./pages/RiderManagement";
+import RiderDetail from "./pages/RiderDetail";
+import DriverManagement from "./pages/DriverManagement";
+import DriverDetail from "./pages/DriverDetail";
+import SafetyOverview from "./pages/SafetyOverview";
+import OperationsDashboard from "./pages/OperationsDashboard";
+import MonitoringPage from "./pages/MonitoringPage";
+import LiveDriversMapPage from "./pages/LiveDriversMapPage";
+import MatchingInspectionPage from "./pages/MatchingInspectionPage";
+import DetailedAnalytics from "./pages/DetailedAnalytics";
+import RiskFraudCenter from "./pages/RiskFraudCenter";
+import RidesListPage from "./pages/RidesListPage";
+import RideDetailPage from "./pages/RideDetailPage";
+import RideAnomaliesPage from "./pages/RideAnomaliesPage";
 
 export default function App() {
-  useStaleAssetRecovery()
   return (
     <BrowserRouter>
       <AdminBackendBootstrap />
-      <Suspense fallback={<RouteLoading />}>
       <Routes>
         <Route path="/" element={<Navigate to="/admin/login" replace />} />
 
@@ -182,8 +108,14 @@ export default function App() {
         <Route path="/admin/forgot-password" element={<ForgotPassword />} />
         <Route path="/admin/verify-otp" element={<VerifyResetOtp />} />
         <Route path="/admin/reset-password" element={<ResetPassword />} />
-        <Route path="/admin/onboarding/welcome" element={<AdminWelcomeNotice />} />
-        <Route path="/admin/onboarding/checklist" element={<AdminOnboardingChecklist />} />
+        <Route
+          path="/admin/onboarding/welcome"
+          element={<AdminWelcomeNotice />}
+        />
+        <Route
+          path="/admin/onboarding/checklist"
+          element={<AdminOnboardingChecklist />}
+        />
         <Route path="/admin/access-denied" element={<AccessDenied />} />
 
         {/* Protected admin area */}
@@ -191,7 +123,9 @@ export default function App() {
           path="/admin"
           element={
             <RequireAuth>
-              <AdminShell />
+              <AdminLiveDataProvider>
+                <AdminShell />
+              </AdminLiveDataProvider>
             </RequireAuth>
           }
         >
@@ -507,14 +441,37 @@ export default function App() {
             }
           />
           {/* Rides Administration (Phase 1): first-class ride list + detail */}
-          <Route path="rides" element={<RequirePermission anyOf={["view_rides"]}><RidesListPage /></RequirePermission>} />
-          <Route path="rides/anomalies" element={<RequirePermission anyOf={["view_rides"]}><RideAnomaliesPage /></RequirePermission>} />
-          <Route path="rides/:rideId" element={<RequirePermission anyOf={["view_rides"]}><RideDetailPage /></RequirePermission>} />
+          <Route
+            path="rides"
+            element={
+              <RequirePermission anyOf={["view_rides"]}>
+                <RidesListPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="rides/anomalies"
+            element={
+              <RequirePermission anyOf={["view_rides"]}>
+                <RideAnomaliesPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="rides/:rideId"
+            element={
+              <RequirePermission anyOf={["view_rides"]}>
+                <RideDetailPage />
+              </RequirePermission>
+            }
+          />
           {/* Reverse logistics & returns (DLV-192) */}
           <Route
             path="returns/requests"
             element={
-              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+              <RequirePermission
+                anyOf={["view_deliveries", "manage_deliveries"]}
+              >
                 <ReturnRequestsPage />
               </RequirePermission>
             }
@@ -522,7 +479,9 @@ export default function App() {
           <Route
             path="returns/reconciliation"
             element={
-              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+              <RequirePermission
+                anyOf={["view_deliveries", "manage_deliveries"]}
+              >
                 <ReturnReconciliationPage />
               </RequirePermission>
             }
@@ -530,7 +489,9 @@ export default function App() {
           <Route
             path="returns/shipments/:shipmentId"
             element={
-              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+              <RequirePermission
+                anyOf={["view_deliveries", "manage_deliveries"]}
+              >
                 <ReturnShipmentDetailPage />
               </RequirePermission>
             }
@@ -546,7 +507,9 @@ export default function App() {
           <Route
             path="disputes"
             element={
-              <RequirePermission anyOf={["view_deliveries", "manage_deliveries"]}>
+              <RequirePermission
+                anyOf={["view_deliveries", "manage_deliveries"]}
+              >
                 <DisputesPage />
               </RequirePermission>
             }
@@ -745,7 +708,9 @@ export default function App() {
           <Route
             path="admin-users"
             element={
-              <RequirePermission anyOf={["view_admin_users", "manage_admin_users"]}>
+              <RequirePermission
+                anyOf={["view_admin_users", "manage_admin_users"]}
+              >
                 <AdminUsersManagement />
               </RequirePermission>
             }
@@ -753,7 +718,9 @@ export default function App() {
           <Route
             path="admin-users/:id"
             element={
-              <RequirePermission anyOf={["view_admin_users", "manage_admin_users"]}>
+              <RequirePermission
+                anyOf={["view_admin_users", "manage_admin_users"]}
+              >
                 <AdminUserDetail />
               </RequirePermission>
             }
@@ -847,7 +814,6 @@ export default function App() {
 
         <Route path="*" element={<Navigate to="/admin/login" replace />} />
       </Routes>
-      </Suspense>
     </BrowserRouter>
-  )
+  );
 }

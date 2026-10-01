@@ -1,9 +1,20 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useLocation } from "react-router-dom";
 import {
+  ADMIN_SUMMARY_UPDATED_EVENT,
   createAdminSocket,
   getActiveDrivers,
   getAdminDashboard,
   getAdminMonitoringSnapshot,
+  getAdminRiderDemand,
   listAdminMonitoringDrivers,
   listAdminMonitoringFailedDispatches,
   listAdminMonitoringJobs,
@@ -14,6 +25,7 @@ import {
   type AdminMonitoringJob,
   type AdminMonitoringSnapshot,
   type AdminRideListItemResponse,
+  type AdminRiderDemandSnapshot,
 } from "../services/api/adminApi";
 
 export type LiveDriverMarker = {
@@ -42,9 +54,17 @@ export type LiveDriverMarker = {
   };
 };
 
-const ACTIVE_RIDE_STATUSES = new Set(["SEARCHING", "OFFERED", "ACCEPTED", "ARRIVING", "ARRIVED", "IN_PROGRESS"]);
-const STATUS_POLL_MS = 2_000;
-const MOVEMENT_POLL_MS = 5_000;
+const ACTIVE_RIDE_STATUSES = new Set([
+  "SEARCHING",
+  "OFFERED",
+  "ACCEPTED",
+  "ARRIVING",
+  "ARRIVED",
+  "IN_PROGRESS",
+]);
+const STATUS_POLL_MS = 10_000;
+const MOVEMENT_POLL_MS = 15_000;
+const DASHBOARD_POLL_MS = 30_000;
 const ACTIVE_DRIVER_LIMIT = 300;
 
 type AdminLiveDataState = {
@@ -55,6 +75,7 @@ type AdminLiveDataState = {
   deliveryJobs: AdminMonitoringJob[];
   failedDispatches: AdminMonitoringFailedDispatch[];
   dashboard: AdminDashboardCounts | null;
+  riderDemand: AdminRiderDemandSnapshot | null;
   activeRides: AdminRideListItemResponse[];
   loading: boolean;
   refreshing: boolean;
@@ -65,10 +86,27 @@ type AdminLiveDataState = {
 
 const AdminLiveDataContext = createContext<AdminLiveDataState | null>(null);
 
-function mergeDriverLocation(prev: LiveDriverMarker[], location: Partial<LiveDriverMarker> & { driverId?: string }) {
-  if (!location.driverId || typeof location.latitude !== "number" || typeof location.longitude !== "number") return prev;
-  const index = prev.findIndex((driver) => driver.driverId === location.driverId);
-  if (index === -1) return [...prev, { ...(location as LiveDriverMarker), distanceKm: location.distanceKm ?? 0 }];
+function mergeDriverLocation(
+  prev: LiveDriverMarker[],
+  location: Partial<LiveDriverMarker> & { driverId?: string },
+) {
+  if (
+    !location.driverId ||
+    typeof location.latitude !== "number" ||
+    typeof location.longitude !== "number"
+  )
+    return prev;
+  const index = prev.findIndex(
+    (driver) => driver.driverId === location.driverId,
+  );
+  if (index === -1)
+    return [
+      ...prev,
+      {
+        ...(location as LiveDriverMarker),
+        distanceKm: location.distanceKm ?? 0,
+      },
+    ];
   const next = [...prev];
   next[index] = {
     ...next[index],
@@ -80,35 +118,74 @@ function mergeDriverLocation(prev: LiveDriverMarker[], location: Partial<LiveDri
   return next;
 }
 
-function normalizeSocketLocation(payload: any): Partial<LiveDriverMarker> | null {
+function normalizeSocketLocation(
+  payload: any,
+): Partial<LiveDriverMarker> | null {
   const data = payload?.data ?? payload;
   const event = data?.event ?? payload?.event;
   const location = data?.location ?? data;
-  if (event && event !== "driver.location" && event !== "driver.location.updated") return null;
+  if (
+    event &&
+    event !== "driver.location" &&
+    event !== "driver.location.updated"
+  )
+    return null;
   const driverId = location?.driverId ?? data?.driverId ?? payload?.driverId;
-  const latitude = Number(location?.latitude ?? data?.latitude ?? payload?.latitude);
-  const longitude = Number(location?.longitude ?? data?.longitude ?? payload?.longitude);
-  if (!driverId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  const latitude = Number(
+    location?.latitude ?? data?.latitude ?? payload?.latitude,
+  );
+  const longitude = Number(
+    location?.longitude ?? data?.longitude ?? payload?.longitude,
+  );
+  if (!driverId || !Number.isFinite(latitude) || !Number.isFinite(longitude))
+    return null;
   return {
     ...location,
     driverId,
     latitude,
     longitude,
-    serviceType: location?.serviceType ?? data?.serviceType ?? payload?.serviceType,
+    serviceType:
+      location?.serviceType ?? data?.serviceType ?? payload?.serviceType,
     serviceId: location?.serviceId ?? data?.serviceId ?? payload?.serviceId,
-    lastLocationAt: location?.lastLocationAt ?? data?.recordedAt ?? payload?.recordedAt ?? new Date().toISOString(),
+    lastLocationAt:
+      location?.lastLocationAt ??
+      data?.recordedAt ??
+      payload?.recordedAt ??
+      new Date().toISOString(),
   };
 }
 
-export function AdminLiveDataProvider({ children }: { children: React.ReactNode }) {
+export function AdminLiveDataProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const location = useLocation();
+  // Monitoring and map data is expensive (several joined backend queries). It
+  // should only run on live-operations screens, not every admin route.
+  const needsLiveOperationsData = [
+    "/admin/home",
+    "/admin/ops",
+    "/admin/monitoring",
+    "/admin/live-map",
+  ].includes(location.pathname);
   const [drivers, setDrivers] = useState<LiveDriverMarker[]>([]);
-  const [monitoringSnapshot, setMonitoringSnapshot] = useState<AdminMonitoringSnapshot | null>(null);
-  const [monitoringDrivers, setMonitoringDrivers] = useState<AdminMonitoringDriver[]>([]);
+  const [monitoringSnapshot, setMonitoringSnapshot] =
+    useState<AdminMonitoringSnapshot | null>(null);
+  const [monitoringDrivers, setMonitoringDrivers] = useState<
+    AdminMonitoringDriver[]
+  >([]);
   const [rideJobs, setRideJobs] = useState<AdminMonitoringJob[]>([]);
   const [deliveryJobs, setDeliveryJobs] = useState<AdminMonitoringJob[]>([]);
-  const [failedDispatches, setFailedDispatches] = useState<AdminMonitoringFailedDispatch[]>([]);
+  const [failedDispatches, setFailedDispatches] = useState<
+    AdminMonitoringFailedDispatch[]
+  >([]);
   const [dashboard, setDashboard] = useState<AdminDashboardCounts | null>(null);
-  const [activeRides, setActiveRides] = useState<AdminRideListItemResponse[]>([]);
+  const [riderDemand, setRiderDemand] =
+    useState<AdminRiderDemandSnapshot | null>(null);
+  const [activeRides, setActiveRides] = useState<AdminRideListItemResponse[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,8 +220,19 @@ export function AdminLiveDataProvider({ children }: { children: React.ReactNode 
     if (movementInFlightRef.current) return movementInFlightRef.current;
     const request = (async () => {
       try {
-        const [activeDrivers, rideJobRows, deliveryJobRows, failedRows, dashboardData, ridesData] = await Promise.all([
-          getActiveDrivers(undefined, undefined, 50, ACTIVE_DRIVER_LIMIT),
+        const [
+          activeDrivers,
+          demandData,
+          rideJobRows,
+          deliveryJobRows,
+          failedRows,
+          dashboardData,
+          ridesData,
+        ] = await Promise.all([
+          // Preserve the driver's chosen ONLINE/BUSY status on the operations
+          // map. Stale GPS is still exposed and blocks matching separately.
+          getActiveDrivers(undefined, undefined, 50, ACTIVE_DRIVER_LIMIT, true),
+          getAdminRiderDemand(),
           listAdminMonitoringJobs("ride"),
           listAdminMonitoringJobs("delivery"),
           listAdminMonitoringFailedDispatches(),
@@ -152,13 +240,16 @@ export function AdminLiveDataProvider({ children }: { children: React.ReactNode 
           listAdminRides({ page: 1, limit: 100 }),
         ]);
         setDrivers(activeDrivers.drivers ?? []);
+        setRiderDemand(demandData);
         setRideJobs(rideJobRows ?? []);
         setDeliveryJobs(deliveryJobRows ?? []);
         setFailedDispatches(failedRows ?? []);
         setDashboard(dashboardData);
         setActiveRides(
           (ridesData.items ?? [])
-            .filter((ride) => ACTIVE_RIDE_STATUSES.has(String(ride.status).toUpperCase()))
+            .filter((ride) =>
+              ACTIVE_RIDE_STATUSES.has(String(ride.status).toUpperCase()),
+            )
             .slice(0, 20),
         );
         setLastUpdated(new Date());
@@ -173,27 +264,60 @@ export function AdminLiveDataProvider({ children }: { children: React.ReactNode 
     return request;
   }, []);
 
-  const refresh = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setRefreshing(true);
+  const refreshDashboard = useCallback(async () => {
     try {
-      await Promise.all([refreshStatus(), refreshMovement()]);
+      const dashboardData = await getAdminDashboard();
+      setDashboard(dashboardData);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to load admin summary");
     } finally {
-      if (showSpinner) setRefreshing(false);
+      setLoading(false);
     }
-  }, [refreshMovement, refreshStatus]);
+  }, []);
+
+  const refresh = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) setRefreshing(true);
+      try {
+        if (needsLiveOperationsData) {
+          await Promise.all([refreshStatus(), refreshMovement()]);
+        } else {
+          await refreshDashboard();
+        }
+      } finally {
+        if (showSpinner) setRefreshing(false);
+      }
+    },
+    [needsLiveOperationsData, refreshDashboard, refreshMovement, refreshStatus],
+  );
 
   useEffect(() => {
-    void refreshStatus();
-    void refreshMovement();
+    void refresh();
+    if (!needsLiveOperationsData) {
+      const dashboardInterval = window.setInterval(
+        () => void refreshDashboard(),
+        DASHBOARD_POLL_MS,
+      );
+      return () => window.clearInterval(dashboardInterval);
+    }
     const statusInterval = window.setInterval(() => void refreshStatus(), STATUS_POLL_MS);
     const movementInterval = window.setInterval(() => void refreshMovement(), MOVEMENT_POLL_MS);
     return () => {
       window.clearInterval(statusInterval);
       window.clearInterval(movementInterval);
     };
-  }, [refreshMovement, refreshStatus]);
+  }, [needsLiveOperationsData, refresh, refreshDashboard, refreshMovement, refreshStatus]);
 
   useEffect(() => {
+    const refreshActionSummary = () => void refreshDashboard();
+    window.addEventListener(ADMIN_SUMMARY_UPDATED_EVENT, refreshActionSummary);
+    return () => window.removeEventListener(ADMIN_SUMMARY_UPDATED_EVENT, refreshActionSummary);
+  }, [refreshDashboard]);
+
+  useEffect(() => {
+    if (!needsLiveOperationsData) return undefined;
     const socket = createAdminSocket();
     const onDriverLocation = (payload: any) => {
       const location = normalizeSocketLocation(payload);
@@ -205,6 +329,14 @@ export function AdminLiveDataProvider({ children }: { children: React.ReactNode 
       void refreshStatus();
       void refreshMovement();
     };
+    const onDomainEvent = (payload: { topic?: string; eventType?: string }) => {
+      if (
+        payload?.topic === "matching" ||
+        String(payload?.eventType ?? "").startsWith("matching.")
+      ) {
+        requestFastRefresh();
+      }
+    };
     socket.on("service.updated", onDriverLocation);
     socket.on("operations.service.updated", onDriverLocation);
     socket.on("driver.location.updated", onDriverLocation);
@@ -213,6 +345,7 @@ export function AdminLiveDataProvider({ children }: { children: React.ReactNode 
     socket.on("ride.created", requestFastRefresh);
     socket.on("ride.updated", requestFastRefresh);
     socket.on("delivery.updated", requestFastRefresh);
+    socket.on("domain.event", onDomainEvent);
     socket.connect();
     return () => {
       socket.off("service.updated", onDriverLocation);
@@ -223,31 +356,58 @@ export function AdminLiveDataProvider({ children }: { children: React.ReactNode 
       socket.off("ride.created", requestFastRefresh);
       socket.off("ride.updated", requestFastRefresh);
       socket.off("delivery.updated", requestFastRefresh);
+      socket.off("domain.event", onDomainEvent);
       socket.disconnect();
     };
-  }, [refreshMovement, refreshStatus]);
+  }, [needsLiveOperationsData, refreshMovement, refreshStatus]);
 
-  const value = useMemo<AdminLiveDataState>(() => ({
-    drivers,
-    monitoringSnapshot,
-    monitoringDrivers,
-    rideJobs,
-    deliveryJobs,
-    failedDispatches,
-    dashboard,
-    activeRides,
-    loading,
-    refreshing,
-    error,
-    lastUpdated,
-    refresh,
-  }), [activeRides, dashboard, deliveryJobs, drivers, error, failedDispatches, lastUpdated, loading, monitoringDrivers, monitoringSnapshot, refresh, refreshing, rideJobs]);
+  const value = useMemo<AdminLiveDataState>(
+    () => ({
+      drivers,
+      monitoringSnapshot,
+      monitoringDrivers,
+      rideJobs,
+      deliveryJobs,
+      failedDispatches,
+      dashboard,
+      riderDemand,
+      activeRides,
+      loading,
+      refreshing,
+      error,
+      lastUpdated,
+      refresh,
+    }),
+    [
+      activeRides,
+      dashboard,
+      deliveryJobs,
+      drivers,
+      error,
+      failedDispatches,
+      lastUpdated,
+      loading,
+      monitoringDrivers,
+      monitoringSnapshot,
+      refresh,
+      refreshing,
+      rideJobs,
+      riderDemand,
+    ],
+  );
 
-  return <AdminLiveDataContext.Provider value={value}>{children}</AdminLiveDataContext.Provider>;
+  return (
+    <AdminLiveDataContext.Provider value={value}>
+      {children}
+    </AdminLiveDataContext.Provider>
+  );
 }
 
 export function useAdminLiveData(): AdminLiveDataState {
   const value = useContext(AdminLiveDataContext);
-  if (!value) throw new Error("useAdminLiveData must be used inside AdminLiveDataProvider");
+  if (!value)
+    throw new Error(
+      "useAdminLiveData must be used inside AdminLiveDataProvider",
+    );
   return value;
 }

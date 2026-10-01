@@ -18,6 +18,7 @@ import {
   listAdminReturnReconciliation,
   type AdminReturnReconciliationView,
 } from '../services/api/adminApi';
+import { formatCents } from "../hooks/useAdminReferenceData";
 
 function ReconChip({ ok }: { ok: boolean }) {
   return <Chip size="small" label={ok ? 'OK' : 'Mismatch'} color={ok ? 'success' : 'error'} sx={{ borderRadius: 2 }} />;
@@ -120,10 +121,10 @@ export default function ReturnReconciliationPage() {
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{row.orderId}</TableCell>
                   <TableCell sx={{ fontSize: 12 }}>{row.status}</TableCell>
                   <TableCell align="right" sx={{ fontSize: 12 }}>
-                    {(row.eligibleCapturedCents / 100).toFixed(2)} UGX
+                    {formatCents(row.eligibleCapturedCents)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontSize: 12 }}>
-                    {row.refundedCents != null ? `${(row.refundedCents / 100).toFixed(2)} UGX` : '—'}
+                    {row.refundedCents != null ? formatCents(row.refundedCents) : '—'}
                   </TableCell>
                   <TableCell align="right">
                     <ReconChip ok={row.refundWithinEligible} />

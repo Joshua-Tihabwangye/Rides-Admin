@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -30,17 +36,23 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import PeriodSelector from "../components/PeriodSelector";
 import type { PeriodOption } from "../components/PeriodSelector";
 import {
+  ADMIN_SUMMARY_UPDATED_EVENT,
   createAdminSocket,
   listAdminDrivers,
   listAdminRiders,
   listAdminRiskCases,
   listAdminSafetyEmergencies,
-  listAdminSosIncidents,
+  listAllAdminSosIncidents,
   patchAdminDriver,
   patchAdminRider,
   updateAdminSafetyIncident,
 } from "../services/api/adminApi";
-import type { AdminDriverResponse, AdminRiskCaseResponse, AdminRiderResponse, AdminSafetyIncident } from "../services/api/adminApi";
+import type {
+  AdminDriverResponse,
+  AdminRiskCaseResponse,
+  AdminRiderResponse,
+  AdminSafetyIncident,
+} from "../services/api/adminApi";
 import { attachAdminRealtimeSocket } from "../services/adminRealtime";
 
 const EV_GREEN = "#03cd8c";
@@ -81,7 +93,13 @@ type SafetyRow = {
 };
 
 function fullRiderName(rider: AdminRiderResponse) {
-  return rider.fullName || `${rider.firstName ?? ""} ${rider.lastName ?? ""}`.trim() || rider.email || rider.phone || "Rider";
+  return (
+    rider.fullName ||
+    `${rider.firstName ?? ""} ${rider.lastName ?? ""}`.trim() ||
+    rider.email ||
+    rider.phone ||
+    "Rider"
+  );
 }
 
 function formatDate(value?: string | number | null) {
@@ -98,15 +116,44 @@ function titleize(value?: string | null) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function periodRange(period: PeriodOption, customRange: [Dayjs | null, Dayjs | null]) {
+type PeriodRange = { start?: string; end?: string };
+
+function periodRange(
+  period: PeriodOption,
+  customRange: [Dayjs | null, Dayjs | null],
+): PeriodRange {
   const now = dayjs();
-  if (period === "today") return { start: now.startOf("day").toISOString(), end: now.endOf("day").toISOString() };
-  if (period === "7days") return { start: now.subtract(7, "day").startOf("day").toISOString(), end: now.endOf("day").toISOString() };
-  if (period === "thisMonth") return { start: now.startOf("month").toISOString(), end: now.endOf("month").toISOString() };
-  if (period === "thisYear") return { start: now.startOf("year").toISOString(), end: now.endOf("year").toISOString() };
+  if (period === "allTime") return {};
+  if (period === "today")
+    return {
+      start: now.startOf("day").toISOString(),
+      end: now.endOf("day").toISOString(),
+    };
+  if (period === "7days")
+    return {
+      start: now.subtract(7, "day").startOf("day").toISOString(),
+      end: now.endOf("day").toISOString(),
+    };
+  if (period === "thisMonth")
+    return {
+      start: now.startOf("month").toISOString(),
+      end: now.endOf("month").toISOString(),
+    };
+  if (period === "thisYear")
+    return {
+      start: now.startOf("year").toISOString(),
+      end: now.endOf("year").toISOString(),
+    };
   const [start, end] = customRange;
-  if (start && end) return { start: start.startOf("day").toISOString(), end: end.endOf("day").toISOString() };
-  return { start: now.subtract(7, "day").startOf("day").toISOString(), end: now.endOf("day").toISOString() };
+  if (start && end)
+    return {
+      start: start.startOf("day").toISOString(),
+      end: end.endOf("day").toISOString(),
+    };
+  return {
+    start: now.subtract(7, "day").startOf("day").toISOString(),
+    end: now.endOf("day").toISOString(),
+  };
 }
 
 function mapsLink(incident: AdminSafetyIncident) {
@@ -119,33 +166,64 @@ function mapsLink(incident: AdminSafetyIncident) {
 
 function incidentCause(incident: AdminSafetyIncident) {
   if (incident.description) return incident.description;
-  if (incident.sos) return "SOS was activated and emergency contacts/support were notified where available.";
+  if (incident.sos)
+    return "SOS was activated and emergency contacts/support were notified where available.";
   return `${titleize(incident.type)} safety incident reported by ${incident.reporterUserId.slice(0, 8)}.`;
 }
 
 function riskCause(riskCase: AdminRiskCaseResponse) {
-  const flags = Array.isArray(riskCase.evidence?.flags) ? riskCase.evidence.flags.join(", ") : "";
+  const flags = Array.isArray(riskCase.evidence?.flags)
+    ? riskCase.evidence.flags.join(", ")
+    : "";
   if (flags) return flags;
   if (riskCase.notes) return riskCase.notes;
   return `${titleize(riskCase.type)} raised for ${titleize(riskCase.subjectType)} ${riskCase.subjectId.slice(0, 8)}.`;
 }
 
 function isTripAnomaly(riskCase: AdminRiskCaseResponse) {
-  const haystack = [riskCase.type, riskCase.notes, JSON.stringify(riskCase.evidence ?? {})].join(" ").toLowerCase();
-  return haystack.includes("trip") || haystack.includes("ride") || haystack.includes("distance") || haystack.includes("duration");
+  const haystack = [
+    riskCase.type,
+    riskCase.notes,
+    JSON.stringify(riskCase.evidence ?? {}),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return (
+    haystack.includes("trip") ||
+    haystack.includes("ride") ||
+    haystack.includes("distance") ||
+    haystack.includes("duration")
+  );
 }
 
 function incidentToRow(incident: AdminSafetyIncident): SafetyRow {
-  const reporter = incident.view?.reporter?.name || incident.contextSnapshot?.reporter?.name || incident.reporterUserId.slice(0, 8);
-  const reporterPhone = incident.view?.reporter?.phone || incident.contextSnapshot?.reporter?.phone;
-  const driver = incident.view?.driver?.name || incident.contextSnapshot?.ride?.assignedDriver?.name;
-  const rider = incident.view?.rider?.name || incident.contextSnapshot?.ride?.rider?.name;
-  const vehicle = incident.view?.vehicle?.plate || incident.contextSnapshot?.ride?.assignedVehicle?.plate;
-  const pickup = incident.view?.ride?.pickup || incident.contextSnapshot?.ride?.pickup?.address;
-  const destination = incident.view?.ride?.destination || incident.contextSnapshot?.ride?.destination?.address;
-  const contacts = incident.communication?.emergencyContacts?.length ?? incident.notifiedContacts?.length ?? 0;
+  const reporter =
+    incident.view?.reporter?.name ||
+    incident.contextSnapshot?.reporter?.name ||
+    incident.reporterUserId.slice(0, 8);
+  const reporterPhone =
+    incident.view?.reporter?.phone || incident.contextSnapshot?.reporter?.phone;
+  const driver =
+    incident.view?.driver?.name ||
+    incident.contextSnapshot?.ride?.assignedDriver?.name;
+  const rider =
+    incident.view?.rider?.name || incident.contextSnapshot?.ride?.rider?.name;
+  const vehicle =
+    incident.view?.vehicle?.plate ||
+    incident.contextSnapshot?.ride?.assignedVehicle?.plate;
+  const pickup =
+    incident.view?.ride?.pickup ||
+    incident.contextSnapshot?.ride?.pickup?.address;
+  const destination =
+    incident.view?.ride?.destination ||
+    incident.contextSnapshot?.ride?.destination?.address;
+  const contacts =
+    incident.communication?.emergencyContacts?.length ??
+    incident.notifiedContacts?.length ??
+    0;
   const messages = incident.communication?.messages?.length ?? 0;
-  const voiceNotes = incident.communication?.voiceNotes?.length ?? (incident.audioUrl ? 1 : 0);
+  const voiceNotes =
+    incident.communication?.voiceNotes?.length ?? (incident.audioUrl ? 1 : 0);
   const responders = incident.callSession?.recipients?.length ?? 0;
   const mapUrl = mapsLink(incident);
   return {
@@ -155,20 +233,39 @@ function incidentToRow(incident: AdminSafetyIncident): SafetyRow {
     subject: reporter,
     cause: incidentCause(incident),
     status: incident.status,
-    location: mapUrl || incident.view?.placeName || incident.address || "No location captured",
+    location:
+      mapUrl ||
+      incident.view?.placeName ||
+      incident.address ||
+      "No location captured",
     reportedAt: incident.createdAt,
-    resolutionMeans: incident.status === "RESOLVED" ? "Resolved" : "Open the SOS detail, verify contacts, coordinate help, then resolve once the reporter is safe.",
+    resolutionMeans:
+      incident.status === "RESOLVED"
+        ? "Resolved"
+        : "Open the SOS detail, verify contacts, coordinate help, then resolve once the reporter is safe.",
     details: [
       reporterPhone ? `Reporter ${reporterPhone}` : "",
       rider ? `Rider ${rider}` : "",
       driver ? `Driver ${driver}` : "",
       vehicle ? `Vehicle ${vehicle}` : "",
-      pickup || destination ? `Route ${pickup || "-"} -> ${destination || "-"}` : "",
-      contacts ? `${contacts} notified contact${contacts === 1 ? "" : "s"}` : "No notified contacts recorded",
-      incident.callSession?.status ? `Call ${titleize(incident.callSession.status)}` : "No SOS call session recorded",
-      responders ? `${responders} responder attempt${responders === 1 ? "" : "s"}` : "No responder attempts recorded",
-      messages ? `${messages} message${messages === 1 ? "" : "s"}` : "No messages",
-      voiceNotes ? `${voiceNotes} voice note${voiceNotes === 1 ? "" : "s"}` : "No voice notes",
+      pickup || destination
+        ? `Route ${pickup || "-"} -> ${destination || "-"}`
+        : "",
+      contacts
+        ? `${contacts} notified contact${contacts === 1 ? "" : "s"}`
+        : "No notified contacts recorded",
+      incident.callSession?.status
+        ? `Call ${titleize(incident.callSession.status)}`
+        : "No SOS call session recorded",
+      responders
+        ? `${responders} responder attempt${responders === 1 ? "" : "s"}`
+        : "No responder attempts recorded",
+      messages
+        ? `${messages} message${messages === 1 ? "" : "s"}`
+        : "No messages",
+      voiceNotes
+        ? `${voiceNotes} voice note${voiceNotes === 1 ? "" : "s"}`
+        : "No voice notes",
     ].filter(Boolean),
     openPath: `/admin/safety/${incident.id}`,
     source: "incident",
@@ -188,16 +285,27 @@ function riskToRow(riskCase: AdminRiskCaseResponse): SafetyRow {
     severity: riskCase.severity,
     location: "Derived from trip/risk evidence",
     reportedAt: riskCase.createdAt,
-    resolutionMeans: riskCase.status === "resolved" ? "Resolved" : "Review evidence, contact the subject, document the reason, then resolve or keep under review.",
-    details: [riskCase.notes || "Database risk signal", `Subject ${riskCase.subjectId.slice(0, 8)}`],
+    resolutionMeans:
+      riskCase.status === "resolved"
+        ? "Resolved"
+        : "Review evidence, contact the subject, document the reason, then resolve or keep under review.",
+    details: [
+      riskCase.notes || "Database risk signal",
+      `Subject ${riskCase.subjectId.slice(0, 8)}`,
+    ],
     openPath: `/admin/risk/${riskCase.id}`,
     source: "risk",
   };
 }
 
-function inRange(value: string | number, range: { start: string; end: string }) {
+function inRange(value: string | number, range: PeriodRange) {
+  if (!range.start || !range.end) return true;
   const timestamp = new Date(value).getTime();
-  return !Number.isNaN(timestamp) && timestamp >= new Date(range.start).getTime() && timestamp <= new Date(range.end).getTime();
+  return (
+    !Number.isNaN(timestamp) &&
+    timestamp >= new Date(range.start).getTime() &&
+    timestamp <= new Date(range.end).getTime()
+  );
 }
 
 export default function SafetyOverviewDashboardPage() {
@@ -205,79 +313,121 @@ export default function SafetyOverviewDashboardPage() {
   const [incidents, setIncidents] = useState<AdminSafetyIncident[]>([]);
   const [riskCases, setRiskCases] = useState<AdminRiskCaseResponse[]>([]);
   const [reviewAccounts, setReviewAccounts] = useState<ReviewAccount[]>([]);
-  const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
-  const [period, setPeriod] = useState<PeriodOption>("today");
-  const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [period, setPeriod] = useState<PeriodOption>("allTime");
+  const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null]>([
+    null,
+    null,
+  ]);
   const [search, setSearch] = useState("");
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ severity: "success" | "error"; message: string } | null>(null);
+  const [notice, setNotice] = useState<{
+    severity: "success" | "error";
+    message: string;
+  } | null>(null);
+  // A newer filter request must always win. Without this guard, a slow request
+  // for the prior period can finish after the new one and restore stale rows.
+  const loadRequestRef = useRef(0);
 
-  const selectedRange = useMemo(() => periodRange(period, customRange), [period, customRange]);
+  const selectedRange = useMemo(
+    () => periodRange(period, customRange),
+    [period, customRange],
+  );
 
-  const load = useCallback(async (options: { initial?: boolean } = {}) => {
-    const initial = options.initial === true;
-    if (initial) setInitialLoading(true);
-    else setRefreshing(true);
-    setError(null);
-    const optionalErrors: string[] = [];
-    const optional = <T,>(label: string, task: Promise<T>) => task.catch((err) => {
-      optionalErrors.push(`${label}: ${err instanceof Error ? err.message : "unavailable"}`);
-      return undefined;
-    });
-    try {
-      const [incidentPage, sosPage, cases, riders, drivers] = await Promise.all([
-        listAdminSafetyEmergencies({ page: 1, limit: 100, fromDate: selectedRange.start, toDate: selectedRange.end }),
-        listAdminSosIncidents({
-          page: 1,
-          limit: 100,
-          fromDate: selectedRange.start,
-          toDate: selectedRange.end,
-          status: statusFilter,
-          search,
-        }),
-        optional("Risk cases", listAdminRiskCases()),
-        optional("Rider review queue", listAdminRiders()),
-        optional("Driver review queue", listAdminDrivers()),
-      ]);
-      const mergedIncidents = new Map<string, AdminSafetyIncident>();
-      for (const incident of incidentPage?.items ?? []) mergedIncidents.set(incident.id, incident);
-      for (const incident of sosPage?.items ?? []) mergedIncidents.set(incident.id, incident);
-      setIncidents([...mergedIncidents.values()]);
-      if (cases !== undefined) {
-        setRiskCases(cases.filter((riskCase) => inRange(riskCase.createdAt, selectedRange)));
+  const load = useCallback(
+    async (options: { initial?: boolean } = {}) => {
+      const requestId = ++loadRequestRef.current;
+      const isCurrentRequest = () => requestId === loadRequestRef.current;
+      const initial = options.initial === true;
+      if (initial) setInitialLoading(true);
+      else setRefreshing(true);
+      setError(null);
+      const optionalErrors: string[] = [];
+      const optional = <T,>(label: string, task: Promise<T>) =>
+        task.catch((err) => {
+          optionalErrors.push(
+            `${label}: ${err instanceof Error ? err.message : "unavailable"}`,
+          );
+          return undefined;
+        });
+      try {
+        const [incidentPage, sosPage, cases, riders, drivers] =
+          await Promise.all([
+            listAdminSafetyEmergencies({
+              page: 1,
+              limit: 100,
+              sos: false,
+              fromDate: selectedRange.start,
+              toDate: selectedRange.end,
+            }),
+            listAllAdminSosIncidents({
+              fromDate: selectedRange.start,
+              toDate: selectedRange.end,
+              status: statusFilter,
+              search,
+            }),
+            optional("Risk cases", listAdminRiskCases()),
+            optional("Rider review queue", listAdminRiders()),
+            optional("Driver review queue", listAdminDrivers()),
+          ]);
+        if (!isCurrentRequest()) return;
+        const mergedIncidents = new Map<string, AdminSafetyIncident>();
+        for (const incident of incidentPage?.items ?? [])
+          mergedIncidents.set(incident.id, incident);
+        for (const incident of sosPage ?? [])
+          mergedIncidents.set(incident.id, incident);
+        setIncidents([...mergedIncidents.values()]);
+        if (cases !== undefined) {
+          setRiskCases(
+            cases.filter((riskCase) =>
+              inRange(riskCase.createdAt, selectedRange),
+            ),
+          );
+        }
+        const riderReview: ReviewAccount[] = (
+          Array.isArray(riders) ? riders : []
+        )
+          .filter((rider: AdminRiderResponse) => rider.status !== "active")
+          .map((rider: AdminRiderResponse) => ({
+            id: rider.userId,
+            name: fullRiderName(rider),
+            type: "Rider",
+            contact: rider.phone || rider.email || "-",
+            status: rider.status,
+          }));
+        const driverReview: ReviewAccount[] = (
+          Array.isArray(drivers) ? drivers : []
+        )
+          .filter((driver: AdminDriverResponse) => driver.status !== "active")
+          .map((driver: AdminDriverResponse) => ({
+            id: driver.driverId,
+            name: driver.fullName || driver.phone || "Driver",
+            type: "Driver",
+            contact: driver.phone || driver.email || "-",
+            status: driver.status,
+          }));
+        if (riders !== undefined && drivers !== undefined) {
+          setReviewAccounts([...riderReview, ...driverReview]);
+        }
+        if (optionalErrors.length) setError(optionalErrors.join("; "));
+      } catch (err) {
+        if (isCurrentRequest()) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load safety data",
+          );
+        }
+      } finally {
+        if (isCurrentRequest()) {
+          if (initial) setInitialLoading(false);
+          setRefreshing(false);
+        }
       }
-      const riderReview: ReviewAccount[] = (Array.isArray(riders) ? riders : [])
-        .filter((rider: AdminRiderResponse) => rider.status !== "active")
-        .map((rider: AdminRiderResponse) => ({
-          id: rider.userId,
-          name: fullRiderName(rider),
-          type: "Rider",
-          contact: rider.phone || rider.email || "-",
-          status: rider.status,
-        }));
-      const driverReview: ReviewAccount[] = (Array.isArray(drivers) ? drivers : [])
-        .filter((driver: AdminDriverResponse) => driver.status !== "active")
-        .map((driver: AdminDriverResponse) => ({
-          id: driver.driverId,
-          name: driver.fullName || driver.phone || "Driver",
-          type: "Driver",
-          contact: driver.phone || driver.email || "-",
-          status: driver.status,
-        }));
-      if (riders !== undefined && drivers !== undefined) {
-        setReviewAccounts([...riderReview, ...driverReview]);
-      }
-      if (optionalErrors.length) setError(optionalErrors.join("; "));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load safety data");
-    } finally {
-      if (initial) setInitialLoading(false);
-      setRefreshing(false);
-    }
-  }, [search, selectedRange, statusFilter]);
+    },
+    [search, selectedRange, statusFilter],
+  );
 
   useEffect(() => {
     void load({ initial: true });
@@ -287,7 +437,8 @@ export default function SafetyOverviewDashboardPage() {
 
   const refreshTimerRef = useRef<number | null>(null);
   const scheduleRefresh = useCallback(() => {
-    if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
+    if (refreshTimerRef.current !== null)
+      window.clearTimeout(refreshTimerRef.current);
     refreshTimerRef.current = window.setTimeout(() => {
       refreshTimerRef.current = null;
       void load();
@@ -306,75 +457,170 @@ export default function SafetyOverviewDashboardPage() {
     });
     return () => {
       detach();
-      if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
+      if (refreshTimerRef.current !== null)
+        window.clearTimeout(refreshTimerRef.current);
     };
   }, [scheduleRefresh]);
 
-  const rows = useMemo(() => [...incidents.map(incidentToRow), ...riskCases.map(riskToRow)], [incidents, riskCases]);
-  const sosRows = useMemo(() => rows.filter((row) => row.category === "SOS"), [rows]);
-  const activeIncidents = useMemo(() => incidents.filter((incident) => ACTIVE_SAFETY_STATUSES.has(incident.status)), [incidents]);
-  const openRiskCases = useMemo(() => riskCases.filter((riskCase) => (riskCase.status ?? "open") !== "resolved"), [riskCases]);
+  const rows = useMemo(
+    () => [...incidents.map(incidentToRow), ...riskCases.map(riskToRow)],
+    [incidents, riskCases],
+  );
+  const sosRows = useMemo(
+    () => rows.filter((row) => row.category === "SOS"),
+    [rows],
+  );
+  const activeSosRows = useMemo(
+    () => sosRows.filter((row) => ACTIVE_SAFETY_STATUSES.has(row.status)),
+    [sosRows],
+  );
+  const activeIncidents = useMemo(
+    () =>
+      incidents.filter((incident) =>
+        ACTIVE_SAFETY_STATUSES.has(incident.status),
+      ),
+    [incidents],
+  );
+  const openRiskCases = useMemo(
+    () =>
+      riskCases.filter(
+        (riskCase) => (riskCase.status ?? "open") !== "resolved",
+      ),
+    [riskCases],
+  );
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
     return rows.filter((row) => {
-      const matchesCategory = categoryFilter === "ALL" || row.category === categoryFilter;
+      const matchesCategory =
+        categoryFilter === "ALL" || row.category === categoryFilter;
       const matchesStatus =
         statusFilter === "ALL" ||
-        (statusFilter === "ACTIVE" && row.source === "incident" && ACTIVE_SAFETY_STATUSES.has(row.status)) ||
+        (statusFilter === "ACTIVE" &&
+          row.source === "incident" &&
+          ACTIVE_SAFETY_STATUSES.has(row.status)) ||
         row.status?.toUpperCase() === statusFilter ||
-        (statusFilter === "ACTIVE" && row.source === "risk" && row.status !== "resolved");
-      const haystack = [row.id, row.category, row.title, row.subject, row.cause, row.status, row.details.join(" ")].join(" ").toLowerCase();
-      return matchesCategory && matchesStatus && (query.length === 0 || haystack.includes(query));
+        (statusFilter === "ACTIVE" &&
+          row.source === "risk" &&
+          row.status !== "resolved");
+      const haystack = [
+        row.id,
+        row.category,
+        row.title,
+        row.subject,
+        row.cause,
+        row.status,
+        row.details.join(" "),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return (
+        matchesCategory &&
+        matchesStatus &&
+        (query.length === 0 || haystack.includes(query))
+      );
     });
   }, [categoryFilter, rows, search, statusFilter]);
 
   const approveAccount = async (account: ReviewAccount) => {
     setNotice(null);
     try {
-      if (account.type === "Rider") await patchAdminRider(account.id, { status: "active" });
+      if (account.type === "Rider")
+        await patchAdminRider(account.id, { status: "active" });
       else await patchAdminDriver(account.id, { status: "active" });
-      setReviewAccounts((prev) => prev.filter((item) => !(item.id === account.id && item.type === account.type)));
-      setNotice({ severity: "success", message: `${account.name} marked active.` });
+      setReviewAccounts((prev) =>
+        prev.filter(
+          (item) => !(item.id === account.id && item.type === account.type),
+        ),
+      );
+      setNotice({
+        severity: "success",
+        message: `${account.name} marked active.`,
+      });
     } catch (err) {
-      setNotice({ severity: "error", message: err instanceof Error ? err.message : "Failed to update account" });
+      setNotice({
+        severity: "error",
+        message:
+          err instanceof Error ? err.message : "Failed to update account",
+      });
     }
   };
 
-  const updateIncident = async (incident: AdminSafetyIncident, status: string) => {
+  const updateIncident = async (
+    incident: AdminSafetyIncident,
+    status: string,
+  ) => {
     setNotice(null);
     try {
       await updateAdminSafetyIncident(incident.id, { status });
+      window.dispatchEvent(new Event(ADMIN_SUMMARY_UPDATED_EVENT));
       await load();
-      setNotice({ severity: "success", message: `Incident ${incident.id.slice(0, 8)} updated.` });
+      setNotice({
+        severity: "success",
+        message: `Incident ${incident.id.slice(0, 8)} updated.`,
+      });
     } catch (err) {
-      setNotice({ severity: "error", message: err instanceof Error ? err.message : "Failed to update incident" });
+      setNotice({
+        severity: "error",
+        message:
+          err instanceof Error ? err.message : "Failed to update incident",
+      });
     }
   };
 
-  if (initialLoading && incidents.length === 0 && riskCases.length === 0 && reviewAccounts.length === 0) {
+  if (
+    initialLoading &&
+    incidents.length === 0 &&
+    riskCases.length === 0 &&
+    reviewAccounts.length === 0
+  ) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 6 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          p: 6,
+        }}
+      >
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap", mb: 3 }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1680, mx: "auto" }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 2,
+          flexWrap: "wrap",
+          mb: 3,
+        }}
+      >
         <Box>
           <Stack direction="row" spacing={1} alignItems="center">
             <HealthAndSafetyIcon sx={{ color: EV_GREEN }} />
-            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>Safety Overview</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0 }}>
+              Safety Overview
+            </Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            SOS incidents, trip anomalies, and safety risk signals loaded from the database.
+            Live SOS response, safety incidents, trip anomalies, and risk signals.
+            Filters are applied from the backend time window.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ flexWrap: "wrap" }}
+        >
           <PeriodSelector
             value={period}
+            includeAllTime
             onChange={(newPeriod, range) => {
               setPeriod(newPeriod);
               if (range) setCustomRange([range.start, range.end]);
@@ -382,34 +628,142 @@ export default function SafetyOverviewDashboardPage() {
             customStart={customRange[0]}
             customEnd={customRange[1]}
           />
-          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={() => void load()} disabled={refreshing} sx={{ borderRadius: 999, textTransform: "none" }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RefreshIcon />}
+            onClick={() => void load()}
+            disabled={refreshing}
+            sx={{ borderRadius: 999, textTransform: "none" }}
+          >
             {refreshing ? "Refreshing" : "Refresh"}
           </Button>
         </Stack>
       </Box>
 
-      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-      {notice ? <Alert severity={notice.severity} sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice.message}</Alert> : null}
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
+      {notice ? (
+        <Alert
+          severity={notice.severity}
+          sx={{ mb: 2 }}
+          onClose={() => setNotice(null)}
+        >
+          {notice.message}
+        </Alert>
+      ) : null}
 
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(5, 1fr)" }, gap: 2, mb: 3 }}>
-        <MetricCard icon={<ReportProblemIcon />} label="SOS incidents" value={sosRows.length} helper="Emergency activations" color={CATEGORY_COLORS.SOS} onClick={() => setCategoryFilter("SOS")} active={categoryFilter === "SOS"} />
-        <MetricCard icon={<ShieldIcon />} label="Trip anomalies" value={rows.filter((row) => row.category === "TRIP_ANOMALY").length} helper="Distance, duration, route risk" color={CATEGORY_COLORS.TRIP_ANOMALY} onClick={() => setCategoryFilter("TRIP_ANOMALY")} active={categoryFilter === "TRIP_ANOMALY"} />
-        <MetricCard icon={<HealthAndSafetyIcon />} label="Safety incidents" value={activeIncidents.length} helper="Open, acknowledged, responding" color={CATEGORY_COLORS.SAFETY} onClick={() => { setCategoryFilter("SAFETY"); setStatusFilter("ACTIVE"); }} active={categoryFilter === "SAFETY" && statusFilter === "ACTIVE"} />
-        <MetricCard icon={<LocalPoliceIcon />} label="Open risk cases" value={openRiskCases.length} helper="Risk queue requiring action" color={CATEGORY_COLORS.RISK} onClick={() => setCategoryFilter("RISK")} active={categoryFilter === "RISK"} />
-        <MetricCard icon={<TaskAltIcon />} label="Resolved" value={incidents.filter((incident) => incident.status === "RESOLVED").length} helper="Closed safety records" color={CATEGORY_COLORS.RESOLVED} onClick={() => setStatusFilter("RESOLVED")} active={statusFilter === "RESOLVED"} />
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "repeat(5, 1fr)" },
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <MetricCard
+          icon={<ReportProblemIcon />}
+          label="Active SOS"
+          value={activeSosRows.length}
+          helper="Needs a safety response"
+          color={CATEGORY_COLORS.SOS}
+          onClick={() => setCategoryFilter("SOS")}
+          active={categoryFilter === "SOS"}
+        />
+        <MetricCard
+          icon={<ShieldIcon />}
+          label="Trip anomalies"
+          value={rows.filter((row) => row.category === "TRIP_ANOMALY").length}
+          helper="Distance, duration, route risk"
+          color={CATEGORY_COLORS.TRIP_ANOMALY}
+          onClick={() => setCategoryFilter("TRIP_ANOMALY")}
+          active={categoryFilter === "TRIP_ANOMALY"}
+        />
+        <MetricCard
+          icon={<HealthAndSafetyIcon />}
+          label="Safety incidents"
+          value={activeIncidents.length}
+          helper="Open, acknowledged, responding"
+          color={CATEGORY_COLORS.SAFETY}
+          onClick={() => {
+            setCategoryFilter("SAFETY");
+            setStatusFilter("ACTIVE");
+          }}
+          active={categoryFilter === "SAFETY" && statusFilter === "ACTIVE"}
+        />
+        <MetricCard
+          icon={<LocalPoliceIcon />}
+          label="Open risk cases"
+          value={openRiskCases.length}
+          helper="Risk queue requiring action"
+          color={CATEGORY_COLORS.RISK}
+          onClick={() => setCategoryFilter("RISK")}
+          active={categoryFilter === "RISK"}
+        />
+        <MetricCard
+          icon={<TaskAltIcon />}
+          label="Resolved"
+          value={
+            incidents.filter((incident) => incident.status === "RESOLVED")
+              .length
+          }
+          helper="Closed safety records"
+          color={CATEGORY_COLORS.RESOLVED}
+          onClick={() => setStatusFilter("RESOLVED")}
+          active={statusFilter === "RESOLVED"}
+        />
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, mb: 3 }}>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1.4fr 220px 220px" }, gap: 2 }}>
-          <TextField size="small" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search SOS, reporter, driver, cause, route" />
-          <TextField select size="small" label="Category" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as CategoryFilter)} SelectProps={{ native: true }}>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          borderRadius: 3,
+          mb: 3,
+          bgcolor: "background.paper",
+          boxShadow: "0 8px 28px rgba(15,23,42,0.08)",
+        }}
+      >
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "1.4fr 220px 220px" },
+            gap: 2,
+          }}
+        >
+          <TextField
+            size="small"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search SOS, reporter, driver, cause, route"
+          />
+          <TextField
+            select
+            size="small"
+            label="Category"
+            value={categoryFilter}
+            onChange={(event) =>
+              setCategoryFilter(event.target.value as CategoryFilter)
+            }
+            SelectProps={{ native: true }}
+          >
             <option value="ALL">All categories</option>
             <option value="SOS">SOS</option>
             <option value="TRIP_ANOMALY">Trip anomalies</option>
             <option value="SAFETY">Safety incidents</option>
             <option value="RISK">Other risk cases</option>
           </TextField>
-          <TextField select size="small" label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} SelectProps={{ native: true }}>
+          <TextField
+            select
+            size="small"
+            label="Status"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            SelectProps={{ native: true }}
+          >
             <option value="ACTIVE">Active / unresolved</option>
             <option value="ALL">All statuses</option>
             <option value="OPEN">Open</option>
@@ -420,8 +774,14 @@ export default function SafetyOverviewDashboardPage() {
         </Box>
       </Paper>
 
-      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden", mb: 3 }}>
-        <SectionHeader title="SOS Incidents" subtitle={`${sosRows.length} SOS records from the backend`} />
+      <Paper
+        variant="outlined"
+        sx={{ borderRadius: 3, overflow: "hidden", mb: 3, boxShadow: "0 8px 28px rgba(15,23,42,0.08)" }}
+      >
+        <SectionHeader
+          title="SOS Incidents"
+          subtitle={`${sosRows.length} records in the selected period · ${activeSosRows.length} still need a response`}
+        />
         <TableContainer>
           <Table size="small">
             <TableHead>
@@ -438,57 +798,152 @@ export default function SafetyOverviewDashboardPage() {
             </TableHead>
             <TableBody>
               {sosRows.length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 5 }}>No SOS incidents in this period.</TableCell></TableRow>
-              ) : sosRows.map((row) => {
-                const incident = row.incident;
-                const ride = incident?.contextSnapshot?.ride;
-                const driver = incident?.view?.driver?.name || ride?.assignedDriver?.name || "-";
-                const rider = incident?.view?.rider?.name || ride?.rider?.name || "-";
-                const plate = incident?.view?.vehicle?.plate || ride?.assignedVehicle?.plate || "-";
-                const route = [incident?.view?.ride?.pickup || ride?.pickup?.address, incident?.view?.ride?.destination || ride?.destination?.address].filter(Boolean).join(" -> ");
-                const callStatus = incident?.callSession?.status || "No session";
-                const responderCount = incident?.callSession?.recipients?.length ?? 0;
-                const messageCount = incident?.communication?.messages?.length ?? 0;
-                const voiceCount = incident?.communication?.voiceNotes?.length ?? (incident?.audioUrl ? 1 : 0);
-                return (
-                  <TableRow key={row.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 800, fontFamily: "monospace" }}>{row.id.slice(0, 8)}</Typography>
-                      <Chip size="small" color="error" label="SOS" sx={{ mt: 0.5 }} />
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 260 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{row.subject}</Typography>
-                      <Typography variant="caption" color="text.secondary">{ride?.rideId || incident?.serviceId || "No ride linked"}</Typography>
-                      {route ? <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{route}</Typography> : null}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 260 }}>
-                      <Typography variant="caption" sx={{ display: "block" }}>Driver: {driver}</Typography>
-                      <Typography variant="caption" sx={{ display: "block" }}>Rider: {rider}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>Vehicle: {plate}</Typography>
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 220 }}>{renderLocation(row)}</TableCell>
-                    <TableCell>
-                      <Chip size="small" label={titleize(callStatus)} color={callStatus === "CONNECTED" ? "success" : callStatus === "No session" ? "default" : "warning"} variant="outlined" />
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                        {responderCount} responder(s) · {messageCount} msg · {voiceCount} voice
-                      </Typography>
-                    </TableCell>
-                    <TableCell><StatusChip status={row.status} /></TableCell>
-                    <TableCell>{formatDate(row.reportedAt)}</TableCell>
-                    <TableCell align="right">
-                      <Button size="small" startIcon={<VisibilityIcon fontSize="small" />} onClick={() => navigate(row.openPath)} sx={{ textTransform: "none" }}>Details</Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
+                    No SOS incidents in this period.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sosRows.map((row) => {
+                  const incident = row.incident;
+                  const ride = incident?.contextSnapshot?.ride;
+                  const driver =
+                    incident?.view?.driver?.name ||
+                    ride?.assignedDriver?.name ||
+                    "-";
+                  const rider =
+                    incident?.view?.rider?.name || ride?.rider?.name || "-";
+                  const plate =
+                    incident?.view?.vehicle?.plate ||
+                    ride?.assignedVehicle?.plate ||
+                    "-";
+                  const route = [
+                    incident?.view?.ride?.pickup || ride?.pickup?.address,
+                    incident?.view?.ride?.destination ||
+                      ride?.destination?.address,
+                  ]
+                    .filter(Boolean)
+                    .join(" -> ");
+                  const callStatus =
+                    incident?.callSession?.status || "No session";
+                  const responderCount =
+                    incident?.callSession?.recipients?.length ?? 0;
+                  const messageCount =
+                    incident?.communication?.messages?.length ?? 0;
+                  const voiceCount =
+                    incident?.communication?.voiceNotes?.length ??
+                    (incident?.audioUrl ? 1 : 0);
+                  return (
+                    <TableRow key={row.id} hover>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 800, fontFamily: "monospace" }}
+                        >
+                          {row.id.slice(0, 8)}
+                        </Typography>
+                        <Chip
+                          size="small"
+                          color="error"
+                          label="SOS"
+                          sx={{ mt: 0.5 }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 260 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {row.subject}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {ride?.rideId ||
+                            incident?.serviceId ||
+                            "No ride linked"}
+                        </Typography>
+                        {route ? (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: "block" }}
+                          >
+                            {route}
+                          </Typography>
+                        ) : null}
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 260 }}>
+                        <Typography variant="caption" sx={{ display: "block" }}>
+                          Driver: {driver}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "block" }}>
+                          Rider: {rider}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block" }}
+                        >
+                          Vehicle: {plate}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 220 }}>
+                        {renderLocation(row)}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={titleize(callStatus)}
+                          color={
+                            callStatus === "CONNECTED"
+                              ? "success"
+                              : callStatus === "No session"
+                                ? "default"
+                                : "warning"
+                          }
+                          variant="outlined"
+                        />
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", mt: 0.5 }}
+                        >
+                          {responderCount} responder(s) · {messageCount} msg ·{" "}
+                          {voiceCount} voice
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <StatusChip status={row.status} />
+                      </TableCell>
+                      <TableCell>{formatDate(row.reportedAt)}</TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          startIcon={<VisibilityIcon fontSize="small" />}
+                          onClick={() => navigate(row.openPath)}
+                          sx={{ textTransform: "none" }}
+                        >
+                          Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </TableContainer>
       </Paper>
 
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "1.5fr 1fr" }, gap: 3, mb: 3 }}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", xl: "1.5fr 1fr" },
+          gap: 3,
+          mb: 3,
+        }}
+      >
         <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
-          <SectionHeader title="Classified Incident Queue" subtitle={`${filteredRows.length} safety records shown`} />
+          <SectionHeader
+            title="Classified Incident Queue"
+            subtitle={`${filteredRows.length} safety records shown`}
+          />
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -504,33 +959,78 @@ export default function SafetyOverviewDashboardPage() {
               </TableHead>
               <TableBody>
                 {filteredRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 7 }}><Typography variant="subtitle2" sx={{ fontWeight: 700 }}>No safety records match this view</Typography></TableCell></TableRow>
-                ) : filteredRows.map((row) => (
-                  <TableRow key={`${row.source}-${row.id}`} hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 800 }}>{row.title}</Typography>
-                      <Typography variant="caption" color="text.secondary">{row.subject}</Typography>
-                    </TableCell>
-                    <TableCell><CategoryChip category={row.category} /></TableCell>
-                    <TableCell sx={{ maxWidth: 300 }}>{row.cause}</TableCell>
-                    <TableCell sx={{ maxWidth: 320 }}>{row.resolutionMeans}</TableCell>
-                    <TableCell><StatusChip status={row.status} severity={row.severity} /></TableCell>
-                    <TableCell>{formatDate(row.reportedAt)}</TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        {row.incident && row.incident.status !== "RESOLVED" ? <Button size="small" onClick={() => void updateIncident(row.incident!, "RESOLVED")} sx={{ textTransform: "none" }}>Resolve</Button> : null}
-                        <Button size="small" onClick={() => navigate(row.openPath)} sx={{ textTransform: "none" }}>Open</Button>
-                      </Stack>
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 7 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        No safety records match this view
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredRows.map((row) => (
+                    <TableRow key={`${row.source}-${row.id}`} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                          {row.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {row.subject}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <CategoryChip category={row.category} />
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 300 }}>{row.cause}</TableCell>
+                      <TableCell sx={{ maxWidth: 320 }}>
+                        {row.resolutionMeans}
+                      </TableCell>
+                      <TableCell>
+                        <StatusChip
+                          status={row.status}
+                          severity={row.severity}
+                        />
+                      </TableCell>
+                      <TableCell>{formatDate(row.reportedAt)}</TableCell>
+                      <TableCell align="right">
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          justifyContent="flex-end"
+                        >
+                          {row.incident &&
+                          row.incident.status !== "RESOLVED" ? (
+                            <Button
+                              size="small"
+                              onClick={() =>
+                                void updateIncident(row.incident!, "RESOLVED")
+                              }
+                              sx={{ textTransform: "none" }}
+                            >
+                              Resolve
+                            </Button>
+                          ) : null}
+                          <Button
+                            size="small"
+                            onClick={() => navigate(row.openPath)}
+                            sx={{ textTransform: "none" }}
+                          >
+                            Open
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
         </Paper>
 
         <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
-          <SectionHeader title="Accounts Needing Review" subtitle={`${reviewAccounts.length} backend accounts`} />
+          <SectionHeader
+            title="Accounts Needing Review"
+            subtitle={`${reviewAccounts.length} backend accounts`}
+          />
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -543,23 +1043,58 @@ export default function SafetyOverviewDashboardPage() {
               </TableHead>
               <TableBody>
                 {reviewAccounts.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}>No accounts currently need review</TableCell></TableRow>
-                ) : reviewAccounts.slice(0, 12).map((account) => (
-                  <TableRow key={`${account.type}-${account.id}`} hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{account.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{account.contact}</Typography>
-                    </TableCell>
-                    <TableCell>{account.type}</TableCell>
-                    <TableCell><Chip size="small" label={titleize(account.status)} /></TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        <Button size="small" onClick={() => navigate(account.type === "Rider" ? `/admin/riders/${account.id}` : `/admin/drivers/${account.id}`)} sx={{ textTransform: "none" }}>Open</Button>
-                        <Button size="small" variant="outlined" onClick={() => void approveAccount(account)} sx={{ textTransform: "none" }}>Activate</Button>
-                      </Stack>
+                  <TableRow>
+                    <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
+                      No accounts currently need review
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  reviewAccounts.slice(0, 12).map((account) => (
+                    <TableRow key={`${account.type}-${account.id}`} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {account.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {account.contact}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{account.type}</TableCell>
+                      <TableCell>
+                        <Chip size="small" label={titleize(account.status)} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack
+                          direction="row"
+                          spacing={0.5}
+                          justifyContent="flex-end"
+                        >
+                          <Button
+                            size="small"
+                            onClick={() =>
+                              navigate(
+                                account.type === "Rider"
+                                  ? `/admin/riders/${account.id}`
+                                  : `/admin/drivers/${account.id}`,
+                              )
+                            }
+                            sx={{ textTransform: "none" }}
+                          >
+                            Open
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => void approveAccount(account)}
+                            sx={{ textTransform: "none" }}
+                          >
+                            Activate
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -572,21 +1107,64 @@ export default function SafetyOverviewDashboardPage() {
 function renderLocation(row: SafetyRow) {
   if (row.source === "incident" && row.incident) {
     const url = mapsLink(row.incident);
-    if (url) return <Button size="small" href={url} target="_blank" rel="noreferrer" sx={{ textTransform: "none" }}>Open map</Button>;
+    if (url)
+      return (
+        <Button
+          size="small"
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          sx={{ textTransform: "none" }}
+        >
+          Open map
+        </Button>
+      );
   }
   return <Typography variant="body2">{row.location}</Typography>;
 }
 
-function CategoryChip({ category }: { category: Exclude<CategoryFilter, "ALL"> }) {
-  const label = category === "SOS" ? "SOS" : category === "TRIP_ANOMALY" ? "Trip anomaly" : category === "SAFETY" ? "Safety incident" : "Risk case";
+function CategoryChip({
+  category,
+}: {
+  category: Exclude<CategoryFilter, "ALL">;
+}) {
+  const label =
+    category === "SOS"
+      ? "SOS"
+      : category === "TRIP_ANOMALY"
+        ? "Trip anomaly"
+        : category === "SAFETY"
+          ? "Safety incident"
+          : "Risk case";
   const color = CATEGORY_COLORS[category];
-  return <Chip size="small" label={label} sx={{ bgcolor: `${color}18`, color, fontWeight: 700 }} />;
+  return (
+    <Chip
+      size="small"
+      label={label}
+      sx={{ bgcolor: `${color}18`, color, fontWeight: 700 }}
+    />
+  );
 }
 
-function StatusChip({ status, severity }: { status: string; severity?: string }) {
+function StatusChip({
+  status,
+  severity,
+}: {
+  status: string;
+  severity?: string;
+}) {
   const normalized = status?.toLowerCase();
-  const color = normalized === "resolved" ? "success" : normalized === "open" ? "error" : normalized === "responding" || normalized === "under_review" ? "warning" : "default";
-  const label = severity ? `${severity} | ${titleize(status)}` : titleize(status);
+  const color =
+    normalized === "resolved"
+      ? "success"
+      : normalized === "open"
+        ? "error"
+        : normalized === "responding" || normalized === "under_review"
+          ? "warning"
+          : "default";
+  const label = severity
+    ? `${severity} | ${titleize(status)}`
+    : titleize(status);
   return <Chip size="small" color={color} label={label} />;
 }
 
@@ -617,27 +1195,64 @@ function MetricCard({
         cursor: onClick ? "pointer" : "default",
         borderColor: active ? color : "divider",
         bgcolor: active ? `${color}12` : "background.paper",
-        "&:hover": onClick ? { borderColor: color, boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)" } : undefined,
+        "&:hover": onClick
+          ? {
+              borderColor: color,
+              boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+            }
+          : undefined,
       }}
     >
       <Stack direction="row" spacing={1.5} alignItems="center">
-        <Box sx={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 1.5, bgcolor: `${color}18`, color }}>{icon}</Box>
+        <Box
+          sx={{
+            display: "grid",
+            placeItems: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 1.5,
+            bgcolor: `${color}18`,
+            color,
+          }}
+        >
+          {icon}
+        </Box>
         <Box>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, textTransform: "uppercase" }}>{label}</Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1 }}>{value.toLocaleString()}</Typography>
-          <Typography variant="caption" color="text.secondary">{helper}</Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 800, textTransform: "uppercase" }}
+          >
+            {label}
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, lineHeight: 1 }}>
+            {value.toLocaleString()}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {helper}
+          </Typography>
         </Box>
       </Stack>
     </Paper>
   );
 }
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function SectionHeader({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) {
   return (
     <>
       <Box sx={{ px: 2, py: 1.5 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{title}</Typography>
-        <Typography variant="caption" color="text.secondary">{subtitle}</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+          {title}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {subtitle}
+        </Typography>
       </Box>
       <Divider />
     </>

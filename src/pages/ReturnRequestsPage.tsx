@@ -32,6 +32,7 @@ import {
   type AdminReturnRequestView,
 } from '../services/api/adminApi';
 import StatusBadge from '../components/StatusBadge';
+import { formatCents } from "../hooks/useAdminReferenceData";
 
 const REQUEST_STATUSES: Array<{ value: AdminReturnRequestStatus; label: string }> = [
   { value: 'REQUESTED', label: 'Requested' },
@@ -180,7 +181,7 @@ export default function ReturnRequestsPage() {
                   </TableCell>
                   <TableCell align="right" sx={{ fontSize: 12 }}>
                     {request.refundEligibleAmountCents != null
-                      ? `${(request.refundEligibleAmountCents / 100).toFixed(2)} UGX`
+                      ? formatCents(request.refundEligibleAmountCents)
                       : '—'}
                   </TableCell>
                   <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>

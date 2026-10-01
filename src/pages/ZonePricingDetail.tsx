@@ -18,6 +18,7 @@ import CalculateIcon from "@mui/icons-material/Calculate";
 import SaveIcon from "@mui/icons-material/Save";
 import { getAdminPricingZone, patchAdminPricingZone } from "../services/api/adminApi";
 import type { AdminPricingZoneResponse, AdminUpdatePricingZoneInput } from "../services/api/adminApi";
+import { formatMoney, platformCurrency } from "../hooks/useAdminReferenceData";
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -40,10 +41,10 @@ type ToastState = {
 };
 
 const pricingFields: { key: PricingField; label: string }[] = [
-  { key: "baseFare", label: "Base Fare (UGX)" },
-  { key: "perKm", label: "Per KM (UGX)" },
-  { key: "perMin", label: "Per Minute (UGX)" },
-  { key: "minFare", label: "Minimum Fare (UGX)" },
+  { key: "baseFare", label: "Base Fare" },
+  { key: "perKm", label: "Per KM" },
+  { key: "perMin", label: "Per Minute" },
+  { key: "minFare", label: "Minimum Fare" },
   { key: "surgeMultiplier", label: "Surge Multiplier (1.0 = None)" },
 ];
 
@@ -201,7 +202,7 @@ export default function ZonePricingDetail() {
             {pricingFields.map((field) => (
               <Grid key={field.key} item xs={12} sm={4}>
                 <TextField
-                  label={field.label}
+                  label={platformCurrency() ? `${field.label} (${platformCurrency()})` : field.label}
                   type="number"
                   fullWidth
                   size="small"
@@ -235,7 +236,7 @@ export default function ZonePricingDetail() {
               = ({pricing.baseFare} + (5 × {pricing.perKm}) + (15 × {pricing.perMin})) × {pricing.surgeMultiplier}
             </Typography>
             <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', fontWeight: 600, mt: 1 }}>
-              = {exampleFare.toLocaleString()} UGX
+              = {formatMoney(exampleFare)}
             </Typography>
           </Card>
 
@@ -280,7 +281,7 @@ function ChipLikePreview({ fare }: { fare: number }) {
         },
       }}
     >
-      5 km preview: {fare.toLocaleString()} UGX
+      5 km preview: {formatMoney(fare)}
     </Button>
   );
 }

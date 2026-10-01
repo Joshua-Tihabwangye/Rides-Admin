@@ -35,6 +35,7 @@ import {
   type AdminDisputeView,
 } from '../services/api/adminApi';
 import StatusBadge from '../components/StatusBadge';
+import { formatCents, platformCurrency } from "../hooks/useAdminReferenceData";
 
 const DISPUTE_STATUSES: Array<{ value: AdminDisputeStatus; label: string }> = [
   { value: 'OPEN', label: 'Open' },
@@ -273,7 +274,7 @@ export default function DisputesPage() {
                   </TableCell>
                   <TableCell align="right" sx={{ fontSize: 12 }}>
                     {dispute.refundAmountCents != null
-                      ? `${(dispute.refundAmountCents / 100).toFixed(2)} UGX`
+                      ? formatCents(dispute.refundAmountCents)
                       : '—'}
                   </TableCell>
                   <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>
@@ -394,7 +395,7 @@ export default function DisputesPage() {
               ) : null}
               {detail.refundAmountCents != null ? (
                 <Typography variant="body2">
-                  <strong>Refund:</strong> {(detail.refundAmountCents / 100).toFixed(2)} UGX
+                  <strong>Refund:</strong> {formatCents(detail.refundAmountCents)}
                 </Typography>
               ) : null}
               {detail.decisionNote ? (
@@ -455,7 +456,7 @@ export default function DisputesPage() {
                 fullWidth
                 type="number"
                 size="small"
-                label="Refund amount (UGX)"
+                label={`Refund amount (${platformCurrency() || "platform currency"})`}
                 value={amountCents}
                 onChange={(e) => setAmountCents(e.target.value)}
                 helperText="Must not exceed the eligible captured funds for the delivery."

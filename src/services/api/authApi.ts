@@ -1,4 +1,3 @@
-import { getBackendEnabled } from "./config";
 import { request } from "./httpClient";
 
 interface BackendAuthUser {
@@ -12,7 +11,7 @@ interface BackendAuthUser {
 
 interface BackendAuthResponse {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   expiresInSeconds: number;
   user: BackendAuthUser;
 }
@@ -23,6 +22,7 @@ export interface BackendSessionResponse {
     email: string;
     phone?: string | null;
     status: string;
+    approvalPending?: boolean;
     roles: string[];
     firstName?: string | null;
     lastName?: string | null;
@@ -37,6 +37,14 @@ export interface BackendSessionResponse {
   permissions: string[];
   defaultRedirect: string;
 }
+
+export type BackendRegisterResponse =
+  | BackendAuthResponse
+  | {
+      registrationId: string;
+      approvalRequired: true;
+      status: "PENDING_APPROVAL";
+    };
 
 export interface BackendRegisterInput {
   email: string;
@@ -78,12 +86,10 @@ export interface BackendResetPasswordResult {
   reset: boolean;
 }
 
-export function isBackendAuthEnabled(): boolean {
-  return getBackendEnabled();
-}
-
-export async function backendRegister(input: BackendRegisterInput): Promise<BackendAuthResponse> {
-  return request<BackendAuthResponse>("/auth/register", {
+export async function backendRegister(
+  input: BackendRegisterInput,
+): Promise<BackendRegisterResponse> {
+  return request<BackendRegisterResponse>("/auth/register", {
     method: "POST",
     retryOnUnauthorized: false,
     body: {
@@ -97,7 +103,9 @@ export async function backendRegister(input: BackendRegisterInput): Promise<Back
   });
 }
 
-export async function backendLogin(input: BackendLoginInput): Promise<BackendAuthResponse> {
+export async function backendLogin(
+  input: BackendLoginInput,
+): Promise<BackendAuthResponse> {
   return request<BackendAuthResponse>("/auth/login", {
     method: "POST",
     retryOnUnauthorized: false,
@@ -115,7 +123,9 @@ export async function backendFetchSession(): Promise<BackendSessionResponse> {
   });
 }
 
-export async function backendForgotPassword(input: BackendForgotPasswordInput): Promise<{ sent: boolean }> {
+export async function backendForgotPassword(
+  input: BackendForgotPasswordInput,
+): Promise<{ sent: boolean }> {
   return request<{ sent: boolean }>("/auth/forgot-password", {
     method: "POST",
     retryOnUnauthorized: false,
@@ -123,7 +133,9 @@ export async function backendForgotPassword(input: BackendForgotPasswordInput): 
   });
 }
 
-export async function backendVerifyOtp(input: BackendVerifyOtpInput): Promise<BackendVerifyOtpResult> {
+export async function backendVerifyOtp(
+  input: BackendVerifyOtpInput,
+): Promise<BackendVerifyOtpResult> {
   return request<BackendVerifyOtpResult>("/auth/verify-otp", {
     method: "POST",
     retryOnUnauthorized: false,
@@ -131,7 +143,9 @@ export async function backendVerifyOtp(input: BackendVerifyOtpInput): Promise<Ba
   });
 }
 
-export async function backendResetPassword(input: BackendResetPasswordInput): Promise<BackendResetPasswordResult> {
+export async function backendResetPassword(
+  input: BackendResetPasswordInput,
+): Promise<BackendResetPasswordResult> {
   return request<BackendResetPasswordResult>("/auth/reset-password", {
     method: "POST",
     retryOnUnauthorized: false,

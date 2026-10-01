@@ -62,7 +62,7 @@ const statusColor = (status: string) => {
 };
 
 function money(value?: number) {
-  return Number(value ?? 0).toLocaleString("en-UG");
+  return Number(value ?? 0).toLocaleString();
 }
 
 function dateRange(run: AdminReconciliationRun) {

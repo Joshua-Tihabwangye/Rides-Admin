@@ -47,6 +47,7 @@ import {
 	type AdminAnalyticsDriverPoint,
 	type AdminAnalyticsCompanyPoint,
 } from "../services/api/adminApi";
+import { formatMoney } from "../hooks/useAdminReferenceData";
 
 // B3 – Detailed Analytics & Reports
 // Route: /admin/reports
@@ -718,7 +719,7 @@ export default function DetailedAnalyticsPage() {
 										variant="h6"
 										sx={{ fontSize: 16, fontWeight: 700 }}
 									>
-										UGX {kpiSummary.totalRevenue.toLocaleString()}
+										{formatMoney(kpiSummary.totalRevenue)}
 									</Typography>
 									<Typography
 										variant="caption"
@@ -744,7 +745,7 @@ export default function DetailedAnalyticsPage() {
 										variant="h6"
 										sx={{ fontSize: 16, fontWeight: 700 }}
 									>
-										UGX {Math.round(kpiSummary.averageRevenue).toLocaleString()}
+										{formatMoney(Math.round(kpiSummary.averageRevenue))}
 									</Typography>
 									<Typography
 										variant="caption"
@@ -1060,7 +1061,7 @@ export default function DetailedAnalyticsPage() {
 															<TableCell align="right">
 																{selectedReportId ===
 																"TRIPS-VOLUME"
-																	? `UGX ${row.revenue.toLocaleString()}`
+																	? formatMoney(row.revenue)
 																	: row.cancellations}
 															</TableCell>
 															{selectedReportId ===

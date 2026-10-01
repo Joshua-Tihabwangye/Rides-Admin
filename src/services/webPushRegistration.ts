@@ -1,10 +1,7 @@
 import { API_BASE_URL } from "./api/config";
-import { ADMIN_BACKEND_ACCESS_TOKEN_KEY } from "./api/adminApi";
 
 export const VAPID_PUBLIC_KEY =
   "BI1TpVyBR7Zw7Ikf3zrOYGVHi-qhCgxcLDRoYk1oi3LpejIdKqUj66zySYNRZg6naNAtVWdkR78GOmbPYw09rio";
-
-const DEVICE_ID_KEY = "admin_webpush_device_id";
 
 export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -18,16 +15,7 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuf
 }
 
 function getOrCreateDeviceId(): string {
-  try {
-    let id = localStorage.getItem(DEVICE_ID_KEY);
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem(DEVICE_ID_KEY, id);
-    }
-    return id;
-  } catch {
-    return crypto.randomUUID();
-  }
+  return crypto.randomUUID();
 }
 
 export async function registerWebPush(token: string): Promise<void> {

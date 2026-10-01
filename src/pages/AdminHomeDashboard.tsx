@@ -42,6 +42,7 @@ import {
   type AdminFinanceAnalytics,
   type AdminOperationsAnalytics,
 } from "../services/api/adminApi";
+import { formatMoney } from "../hooks/useAdminReferenceData";
 
 const EV_GREEN = "#03cd8c";
 const DELIVERY_PURPLE = "#8b5cf6";
@@ -145,7 +146,7 @@ export default function AdminHomeDashboardPage() {
       },
       {
         label: "Gross bookings",
-        value: `UGX ${Number(grossBookings).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+        value: formatMoney(grossBookings, financeAnalytics?.currency),
         helper: `${financeAnalytics?.earningsCount ?? 0} finance transactions`,
         icon: <PaymentsIcon />,
         color: "#8b5cf6",
@@ -188,8 +189,8 @@ export default function AdminHomeDashboardPage() {
   ], [monitoringSnapshot, operationsAnalytics, overview]);
 
   const financeSnapshot = useMemo(() => [
-    { label: "Gross bookings", value: `UGX ${Number(financeAnalytics?.grossEarnings ?? 0).toLocaleString()}` },
-    { label: "Payout queue", value: `UGX ${Number(financeAnalytics?.payoutsPending ?? 0).toLocaleString()}` },
+    { label: "Gross bookings", value: formatMoney(financeAnalytics?.grossEarnings, financeAnalytics?.currency) },
+    { label: "Payout queue", value: formatMoney(financeAnalytics?.payoutsPending, financeAnalytics?.currency) },
     { label: "Open approvals", value: overview?.queues?.approvals ?? 0 },
   ], [financeAnalytics, overview]);
 

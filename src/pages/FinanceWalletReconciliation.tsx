@@ -22,6 +22,7 @@ import {
   Paper,
 } from '@mui/material';
 import { listAdminWalletReconciliations, createAdminWalletReconciliation, type AdminWalletReconciliation } from '../services/api/adminApi';
+import { useAdminReferenceData } from "../hooks/useAdminReferenceData";
 
 const statusColor = (status: string) => {
   switch (status.toLowerCase()) {
@@ -46,7 +47,11 @@ export default function FinanceWalletReconciliationPage() {
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
   const [type, setType] = useState('PAYMENTS');
-  const [currency, setCurrency] = useState('UGX');
+  const [currency, setCurrency] = useState('');
+  const { referenceData } = useAdminReferenceData();
+  useEffect(() => {
+    if (referenceData) setCurrency((current) => current || referenceData.platform.currency);
+  }, [referenceData]);
   const [submitting, setSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
