@@ -229,7 +229,9 @@ export function AdminLiveDataProvider({
           dashboardData,
           ridesData,
         ] = await Promise.all([
-          getActiveDrivers(undefined, undefined, 50, ACTIVE_DRIVER_LIMIT),
+          // Preserve the driver's chosen ONLINE/BUSY status on the operations
+          // map. Stale GPS is still exposed and blocks matching separately.
+          getActiveDrivers(undefined, undefined, 50, ACTIVE_DRIVER_LIMIT, true),
           getAdminRiderDemand(),
           listAdminMonitoringJobs("ride"),
           listAdminMonitoringJobs("delivery"),

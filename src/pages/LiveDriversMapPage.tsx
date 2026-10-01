@@ -48,6 +48,7 @@ import {
 
 const GOOGLE_MAP_LIBRARIES: Libraries = ["visualization"];
 type MapMode = "DRIVERS" | "RIDER_DEMAND";
+const KAMPALA_CENTER = { lat: 0.3476, lng: 32.5825 };
 
 function vehicleIcon(vehicleType?: string) {
   const category = vehicleDisplayCategory(vehicleType);
@@ -123,11 +124,13 @@ export default function LiveDriversMapPage() {
   } = useAdminLiveData();
   const [selected, setSelected] = useState<LiveDriverMarker | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>("DRIVERS");
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(
-    null,
+  // The map must be usable before an operator grants browser location. A
+  // missing map center leaves Google Maps as an empty grey canvas when there
+  // are no driver markers yet, so start from the platform's operating city.
+  const [center, setCenter] = useState<{ lat: number; lng: number }>(
+    KAMPALA_CENTER,
   );
   const [zoom, setZoom] = useState(12);
-  const [filter, setFilter] = useState<"ALL" | "ONLINE" | "BUSY">("ALL");
   const mapRef = useRef<any>(null);
   const centerRef = useRef(center);
   centerRef.current = center;
@@ -135,6 +138,21 @@ export default function LiveDriversMapPage() {
   const demandPoints = useMemo(
     () => riderDemand?.points ?? [],
     [riderDemand?.points],
+  );
+  // This is a presence monitor. Both ONLINE (available) and BUSY (working)
+  // drivers stay visible with their last known coordinates; OFFLINE drivers
+  // never get a marker.
+  const onlineDrivers = useMemo(
+    () => drivers.filter((driver) => driver.availabilityStatus.toUpperCase() === "ONLINE"),
+    [drivers],
+  );
+  const busyDrivers = useMemo(
+    () => drivers.filter((driver) => driver.availabilityStatus.toUpperCase() === "BUSY"),
+    [drivers],
+  );
+  const visibleDrivers = useMemo(
+    () => [...onlineDrivers, ...busyDrivers],
+    [busyDrivers, onlineDrivers],
   );
 
   useEffect(() => {
@@ -148,25 +166,25 @@ export default function LiveDriversMapPage() {
   }, []);
 
   useEffect(() => {
-    if (centerRef.current) return;
     if (mapMode === "RIDER_DEMAND" && demandPoints.length > 0) {
       const first = demandPoints[0];
       setCenter({ lat: first.latitude, lng: first.longitude });
       return;
     }
-    if (drivers.length > 0) {
-      const first = drivers[0];
+    if (onlineDrivers.length > 0 && centerRef.current === KAMPALA_CENTER) {
+      const first = onlineDrivers[0];
       setCenter({ lat: first.latitude, lng: first.longitude });
     }
-  }, [demandPoints, drivers, mapMode]);
+  }, [demandPoints, onlineDrivers, mapMode]);
 
   useEffect(() => {
     if (!selected) return;
-    const fresh = drivers.find(
+    const fresh = onlineDrivers.find(
       (driver) => driver.driverId === selected.driverId,
     );
     if (fresh && fresh !== selected) setSelected(fresh);
-  }, [drivers, selected]);
+    if (!fresh) setSelected(null);
+  }, [onlineDrivers, selected]);
 
   const refresh = useCallback(
     async (silent = false) => {
@@ -179,13 +197,6 @@ export default function LiveDriversMapPage() {
     return () => abortCtrl.current?.abort();
   }, []);
 
-  const visibleDrivers = useMemo(
-    () =>
-      drivers.filter(
-        (driver) => filter === "ALL" || driver.availabilityStatus === filter,
-      ),
-    [drivers, filter],
-  );
   const driverMarkerEntries = useMemo(
     () =>
       visibleDrivers.map((driver) => ({
@@ -219,15 +230,6 @@ export default function LiveDriversMapPage() {
     );
     mapRef.current.fitBounds(bounds, 56);
   }, [demandPoints, isLoaded, mapMode]);
-
-  const onlineCount = useMemo(
-    () => drivers.filter((d) => d.availabilityStatus === "ONLINE").length,
-    [drivers],
-  );
-  const busyCount = useMemo(
-    () => drivers.filter((d) => d.availabilityStatus === "BUSY").length,
-    [drivers],
-  );
 
   if (!googleMapsApiKey) {
     return (
@@ -279,21 +281,13 @@ export default function LiveDriversMapPage() {
             <>
               <Chip
                 size="small"
-                label={
-                  loading ? "Loading…" : `${drivers.length} active drivers`
-                }
-                color="success"
-                variant="outlined"
+                label={loading ? "Loading…" : `${onlineDrivers.length} online`}
+                sx={{ backgroundColor: "#10b981", color: "#fff", fontWeight: 700 }}
               />
               <Chip
                 size="small"
-                label={`${onlineCount} online`}
-                sx={{ backgroundColor: "#10b981", color: "#fff" }}
-              />
-              <Chip
-                size="small"
-                label={`${busyCount} busy`}
-                sx={{ backgroundColor: "#f59e0b", color: "#fff" }}
+                label={`${busyDrivers.length} busy`}
+                sx={{ backgroundColor: "#f59e0b", color: "#fff", fontWeight: 700 }}
               />
             </>
           ) : (
@@ -348,19 +342,6 @@ export default function LiveDriversMapPage() {
               <PeopleAltIcon fontSize="small" sx={{ mr: 0.75 }} /> Rider demand
             </ToggleButton>
           </ToggleButtonGroup>
-          {mapMode === "DRIVERS"
-            ? (["ALL", "ONLINE", "BUSY"] as const).map((value) => (
-                <Button
-                  key={value}
-                  size="small"
-                  variant={filter === value ? "contained" : "outlined"}
-                  onClick={() => setFilter(value)}
-                  sx={{ textTransform: "none", borderRadius: 2, minWidth: 0 }}
-                >
-                  {value}
-                </Button>
-              ))
-            : null}
           <Button
             size="small"
             variant="outlined"
@@ -427,7 +408,7 @@ export default function LiveDriversMapPage() {
           {isLoaded && (
             <GoogleMap
               mapContainerStyle={{ width: "100%", height: "100%" }}
-              center={center ?? undefined}
+              center={center}
               zoom={zoom}
               onLoad={(map) => {
                 mapRef.current = map;
@@ -680,10 +661,7 @@ export default function LiveDriversMapPage() {
           {mapMode === "DRIVERS" ? (
             <>
               <Typography variant="caption" color="text.secondary">
-                ● Online
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                ● Busy
+                ● Green: online · Orange: busy · last known location
               </Typography>
             </>
           ) : (

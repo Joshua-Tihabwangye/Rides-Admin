@@ -75,6 +75,81 @@ function fmtDurationSeconds(seconds?: number) {
   return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`;
 }
 
+function eventLabel(type: string) {
+  return type
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function eventSummary(data?: Record<string, unknown>) {
+  if (!data) return null;
+  const parts: string[] = [];
+  const value = (key: string) => data[key];
+  const text = (key: string, label: string) => {
+    const current = value(key);
+    if (typeof current === 'string' && current.trim()) parts.push(`${label}: ${current}`);
+  };
+  const number = (key: string, label: string, suffix = '') => {
+    const current = value(key);
+    if (typeof current === 'number' && Number.isFinite(current)) parts.push(`${label}: ${current}${suffix}`);
+  };
+  text('reason', 'Reason');
+  text('status', 'Status');
+  text('serviceType', 'Service');
+  text('distanceSource', 'Distance source');
+  text('durationSource', 'Duration source');
+  number('actualDistanceKm', 'Distance', ' km');
+  number('actualDurationMinutes', 'Duration', ' min');
+  number('waitingMinutes', 'Waiting', ' min');
+  const flags = value('flags');
+  if (Array.isArray(flags) && flags.length) parts.push(`Flags: ${flags.map(String).join(', ')}`);
+  return parts.length ? parts.join(' · ') : null;
+}
+
+function EventTimeline({
+  events,
+  emptyLabel,
+}: {
+  events: AdminRideDetailResponse['events'];
+  emptyLabel: string;
+}) {
+  if (!events.length) return <Alert severity="info">{emptyLabel}</Alert>;
+  return (
+    <Box sx={{ position: 'relative', pl: { xs: 0, sm: 1 } }}>
+      {events.map((event, index) => {
+        const summary = eventSummary(event.data);
+        return (
+          <Box key={event.id} sx={{ display: 'flex', gap: 1.5, position: 'relative', pb: index === events.length - 1 ? 0 : 2 }}>
+            <Box sx={{ width: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              <Box sx={{ mt: 0.75, width: 11, height: 11, borderRadius: '50%', bgcolor: index === events.length - 1 ? 'success.main' : 'primary.main', boxShadow: '0 0 0 4px rgba(25,118,210,0.10)' }} />
+              {index !== events.length - 1 ? <Box sx={{ width: 2, flex: 1, minHeight: 30, bgcolor: 'divider', mt: 0.75 }} /> : null}
+            </Box>
+            <Card variant="outlined" sx={{ flex: 1, borderRadius: 2, boxShadow: 'none' }}>
+              <CardContent sx={{ py: '12px !important', '&:last-child': { pb: '12px !important' } }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="subtitle2" fontWeight={800}>{eventLabel(event.type)}</Typography>
+                  <Typography variant="caption" color="text.secondary">{fmtDateTime(event.createdAt)}</Typography>
+                </Box>
+                {summary ? <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{summary}</Typography> : null}
+                {event.actorUserId ? <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>Recorded by {event.actorUserId.slice(0, 8)}</Typography> : null}
+                {event.data ? (
+                  <Box component="details" sx={{ mt: 1, '& summary': { cursor: 'pointer', color: 'primary.main', fontSize: 12, fontWeight: 700 } }}>
+                    <summary>View event data</summary>
+                    <Box component="pre" sx={{ m: 0, mt: 1, p: 1, overflow: 'auto', borderRadius: 1, bgcolor: 'grey.50', fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {JSON.stringify(event.data, null, 2)}
+                    </Box>
+                  </Box>
+                ) : null}
+              </CardContent>
+            </Card>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 export default function RideDetailPage() {
   const { rideId } = useParams<{ rideId: string }>();
   const navigate = useNavigate();
@@ -142,6 +217,10 @@ export default function RideDetailPage() {
     'Feedback',
     'Safety & Communications',
   ];
+  const eventHistory = [...(ride.events ?? [])].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  const temporaryStopEvents = eventHistory.filter((event) => /stop|pause|halt|wait/i.test(event.type));
 
   return (
     <Box sx={{ p: 3 }}>
@@ -476,44 +555,9 @@ export default function RideDetailPage() {
         )}
 
         <Typography variant="subtitle2" sx={{ mb: 1 }}>Temporary stop timeline</Typography>
-        {ride.events.filter((e) => /stop|pause|halt|wait/i.test(e.type)).length === 0 ? (
-          <Alert severity="info" sx={{ mb: 2 }}>No temporary stop events recorded for this trip.</Alert>
-        ) : (
-          <List sx={{ mb: 2 }}>
-            {ride.events
-              .filter((e) => /stop|pause|halt|wait/i.test(e.type))
-              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-              .map((e) => (
-                <ListItem key={e.id} dense divider>
-                  <ListItemText
-                    primary={<Typography variant="body2" fontWeight={600}>{e.type}</Typography>}
-                    secondary={
-                      <>
-                        {fmtDateTime(e.createdAt)}
-                        {e.actorUserId ? ` • actor ${e.actorUserId.slice(0, 8)}` : ''}
-                        {e.data ? ` • ${JSON.stringify(e.data)}` : ''}
-                      </>
-                    }
-                  />
-                </ListItem>
-              ))}
-          </List>
-        )}
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>Full event history</Typography>
-        <List>
-          {ride.events.length === 0 ? (
-            <ListItem><ListItemText primary="No events recorded" /></ListItem>
-          ) : (
-            ride.events.map((e) => (
-              <ListItem key={e.id} divider>
-                <ListItemText
-                  primary={e.type}
-                  secondary={`${fmtDateTime(e.createdAt)}${e.actorUserId ? ` • actor ${e.actorUserId.slice(0, 8)}` : ''}${e.data ? ` • ${JSON.stringify(e.data)}` : ''}`}
-                />
-              </ListItem>
-            ))
-          )}
-        </List>
+        <EventTimeline events={temporaryStopEvents} emptyLabel="No temporary stop events recorded for this trip." />
+        <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>Full event history</Typography>
+        <EventTimeline events={eventHistory} emptyLabel="No events recorded for this trip." />
       </CustomTabPanel>
 
       <CustomTabPanel value={tab} index={6}>

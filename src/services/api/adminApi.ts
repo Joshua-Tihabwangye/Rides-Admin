@@ -330,6 +330,8 @@ export type ActiveDriverMarker = {
   vehicleType?: string;
   availabilityStatus: string;
   lastLocationAt?: string;
+  locationFresh?: boolean;
+  stale?: boolean;
   distanceKm: number;
   name?: string;
   plate?: string;
@@ -353,6 +355,7 @@ export async function getActiveDrivers(
   longitude?: number | null,
   radiusKm = 50,
   limit = 300,
+  includeStale = false,
 ): Promise<{ drivers: ActiveDriverMarker[] }> {
   const hasOrigin =
     typeof latitude === "number" &&
@@ -367,6 +370,7 @@ export async function getActiveDrivers(
       longitude: hasOrigin ? longitude : undefined,
       radiusKm,
       limit,
+      includeStale: includeStale || undefined,
     },
   });
 }
