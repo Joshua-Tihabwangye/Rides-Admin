@@ -27,6 +27,7 @@ import {
   type AdminReturnShipmentView,
 } from '../services/api/adminApi';
 import StatusBadge from '../components/StatusBadge';
+import { formatCents } from "../hooks/useAdminReferenceData";
 
 const SHIPMENT_STATUSES: Array<{ value: AdminReturnShipmentStatus; label: string }> = [
   { value: 'CREATED', label: 'Created' },
@@ -194,7 +195,7 @@ export default function ReturnShipmentsPage() {
                   </TableCell>
                   <TableCell align="right" sx={{ fontSize: 12 }}>
                     {shipment.refundAmountCents != null
-                      ? `${(shipment.refundAmountCents / 100).toFixed(2)} UGX`
+                      ? formatCents(shipment.refundAmountCents)
                       : '—'}
                   </TableCell>
                   <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>

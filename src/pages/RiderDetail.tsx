@@ -30,6 +30,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import StatusBadge from "../components/StatusBadge";
 import { getAdminRidePayments, getAdminRider, listAdminRiderServices, listAdminRides, patchAdminRider } from "../services/api/adminApi";
 import type { AdminRideListItemResponse, AdminRidePaymentResponse, AdminRiderResponse, AdminRiderServiceResponse } from "../services/api/adminApi";
+import { platformCurrency } from "../hooks/useAdminReferenceData";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -45,16 +46,16 @@ function CustomTabPanel({ children, value, index }: TabPanelProps) {
   );
 }
 
-function formatMoney(value: unknown, currency = "UGX") {
+function formatMoney(value: unknown, currency = platformCurrency()) {
   const numericValue = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   if (!Number.isFinite(numericValue)) return "-";
-  return `${currency} ${numericValue.toLocaleString("en-UG")}`;
+  return `${currency} ${numericValue.toLocaleString()}`;
 }
 
 function formatDate(value: string | number | undefined | null) {
   if (!value) return "-";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("en-UG", { dateStyle: "medium", timeStyle: "short" });
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
 function getErrorMessage(error: unknown, fallback: string) {

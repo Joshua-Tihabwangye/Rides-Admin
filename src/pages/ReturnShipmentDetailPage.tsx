@@ -34,6 +34,7 @@ import {
   type AdminReturnShipmentView,
 } from '../services/api/adminApi';
 import StatusBadge from '../components/StatusBadge';
+import { formatCents, platformCurrency } from "../hooks/useAdminReferenceData";
 
 const CONDITIONS: Array<{ value: AdminReturnInspectionCondition; label: string }> = [
   { value: 'ACCEPTABLE', label: 'Acceptable' },
@@ -266,7 +267,7 @@ export default function ReturnShipmentDetailPage() {
               </Typography>
               <Typography variant="body2" fontWeight={600}>
                 {shipment.refundAmountCents != null
-                  ? `${(shipment.refundAmountCents / 100).toFixed(2)} UGX`
+                  ? formatCents(shipment.refundAmountCents)
                   : 'Not refunded'}
               </Typography>
             </Box>
@@ -472,7 +473,7 @@ export default function ReturnShipmentDetailPage() {
           <TextField
             fullWidth
             size="small"
-            label="Amount (UGX, optional)"
+            label={`Amount (${platformCurrency() || "platform currency"}, optional)`}
             type="number"
             inputProps={{ min: 0, step: '0.01' }}
             value={refundAmount}

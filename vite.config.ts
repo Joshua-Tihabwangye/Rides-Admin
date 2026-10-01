@@ -1,19 +1,7 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import packageJson from "./package.json" with { type: "json" };
 import { execSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
-
-const appVersion = packageJson.version;
-const muiSystemEsm = fileURLToPath(
-  new URL("./node_modules/@mui/system/esm", import.meta.url),
-);
-const muiUtilsEsm = fileURLToPath(
-  new URL("./node_modules/@mui/utils/esm", import.meta.url),
-);
-const muiIconsEsm = fileURLToPath(
-  new URL("./node_modules/@mui/icons-material/esm", import.meta.url),
-);
 
 function gitSha() {
   try {
@@ -23,73 +11,56 @@ function gitSha() {
   }
 }
 
+/**
+ * MUI and Emotion keep runtime module state. Replacing only part of an active
+ * graph can leave an open page with components from two runtimes: DOM renders,
+ * but page-level sx rules are absent. Reload the document for source changes
+ * in development instead of attempting partial HMR updates.
+ */
+function reloadDocumentForAdminSourceChanges(): Plugin {
+  const sourceDirectory = `${process.cwd()}/src/`;
+
+  return {
+    name: "evzone-reload-document-for-admin-source-changes",
+    apply: "serve",
+    handleHotUpdate(context) {
+      if (!context.file.startsWith(sourceDirectory)) return;
+
+      const invalidated = new Set();
+      for (const module of context.modules) {
+        context.server.moduleGraph.invalidateModule(
+          module,
+          invalidated,
+          context.timestamp,
+          true,
+        );
+      }
+      context.server.ws.send({ type: "full-reload" });
+      return [];
+    },
+  };
+}
+
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_VERSION__: JSON.stringify(packageJson.version),
     __GIT_SHA__: JSON.stringify(gitSha()),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
-  plugins: [react()],
+  plugins: [react(), reloadDocumentForAdminSourceChanges()],
+  // Keep one React and Emotion runtime for the whole application. This is the
+  // normal Vite and MUI resolution model used by the Driver app. The former
+  // deep MUI aliases and forced prebundling split the styling runtime from
+  // route modules, leaving sx, Grid, Stack, and component styles unapplied.
   resolve: {
-    alias: [
-      // Material's source build is ESM but its deep imports target CommonJS
-      // System and Utils files. Resolve those subpaths to absolute ESM files
-      // so Vite never serves incompatible named/default exports on cold load.
-      {
-        find: /^@mui\/system\/(.+)$/,
-        replacement: `${muiSystemEsm}/$1`,
-      },
-      {
-        find: /^@mui\/utils\/(.+)$/,
-        replacement: `${muiUtilsEsm}/$1`,
-      },
-      {
-        find: /^@mui\/icons-material\/(.+)$/,
-        replacement: `${muiIconsEsm}/$1`,
-      },
-      {
-        find: /^@mui\/icons-material$/,
-        replacement: `${muiIconsEsm}/index.js`,
-      },
-    ],
-  },
-  optimizeDeps: {
-    // Keep development startup deterministic. With route modules imported
-    // eagerly, discovering another shared MUI/Emotion chunk after the browser
-    // starts can leave the mounted page using outdated optimized modules until
-    // a manual refresh. This restores the known-good forced pre-bundle and
-    // disables the follow-up discovery pass.
-    force: true,
-    noDiscovery: true,
-    include: [
-      "react",
-      "react-dom/client",
-      "react-router-dom",
-      "@emotion/react",
-      "@emotion/styled",
-      "prop-types",
-      "react-is",
-      "@mui/material",
-      "@mui/system",
-      "@mui/utils",
-      "@mui/icons-material",
-      "@mui/x-date-pickers/AdapterDayjs",
-      "@mui/x-date-pickers/DatePicker",
-      "@mui/x-date-pickers/LocalizationProvider",
-      "@react-google-maps/api",
-      "dayjs",
-      "recharts",
-      "socket.io-client",
-    ],
+    dedupe: ["react", "react-dom", "@emotion/react", "@emotion/styled"],
   },
   server: {
     port: 5176,
     strictPort: true,
-    hmr: {
-      protocol: "ws",
-      host: "localhost",
-      port: 5176,
-      clientPort: 5176,
+    watch: {
+      usePolling: true,
+      interval: 200,
     },
   },
 });

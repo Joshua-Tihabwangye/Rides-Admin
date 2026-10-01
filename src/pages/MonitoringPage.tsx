@@ -40,7 +40,7 @@ type MonitorView = "online" | "busy" | "offline" | "stale" | "rides" | "deliveri
 function formatTimestamp(value?: string) {
   if (!value) return "-";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("en-UG", { dateStyle: "medium", timeStyle: "short" });
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
 function formatAge(seconds?: number) {

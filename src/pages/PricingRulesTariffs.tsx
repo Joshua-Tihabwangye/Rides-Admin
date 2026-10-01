@@ -38,6 +38,7 @@ import {
   type PricingRule,
   type SurgeZone,
 } from "../services/api/adminApi";
+import { platformCurrency } from "../hooks/useAdminReferenceData";
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -60,9 +61,9 @@ type LoadStatus = {
   message: string;
 } | null;
 
-function currency(amount: number | undefined, code = "UGX") {
+function currency(amount: number | undefined, code = platformCurrency()) {
   if (typeof amount !== "number" || Number.isNaN(amount)) return "-";
-  return `${code} ${amount.toLocaleString("en-UG")}`;
+  return `${code} ${amount.toLocaleString()}`;
 }
 
 function pricingMeta(zone: AdminPricingZoneResponse): Record<string, unknown> {

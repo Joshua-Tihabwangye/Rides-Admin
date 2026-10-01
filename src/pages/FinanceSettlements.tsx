@@ -22,6 +22,7 @@ import {
   Paper,
 } from '@mui/material';
 import { listAdminSettlements, createAdminSettlement, postAdminSettlement, cancelAdminSettlement, type AdminSettlement } from '../services/api/adminApi';
+import { useAdminReferenceData } from "../hooks/useAdminReferenceData";
 
 const statusColor = (status: string) => {
   switch (status.toLowerCase()) {
@@ -44,7 +45,11 @@ export default function FinanceSettlementsPage() {
   const [open, setOpen] = useState(false);
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
-  const [currency, setCurrency] = useState('UGX');
+  const [currency, setCurrency] = useState('');
+  const { referenceData } = useAdminReferenceData();
+  useEffect(() => {
+    if (referenceData) setCurrency((current) => current || referenceData.platform.currency);
+  }, [referenceData]);
   const [submitting, setSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');

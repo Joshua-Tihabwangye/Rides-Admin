@@ -92,7 +92,7 @@ export type AdminCallRecord = {
 
 export type AdminInitiateCallResult = {
   call: AdminCallRecord;
-  signaling: { stun: { urls: string }[] };
+  signaling: { stun?: { urls: string }[]; iceServers?: RTCIceServer[] };
   callee: { userId: string; firstName?: string; lastName?: string };
 };
 

@@ -32,6 +32,7 @@ import {
   patchAdminContent,
   type AdminContentItem,
 } from "../services/api/adminApi";
+import { countryDisplayName, useAdminReferenceData } from "../hooks/useAdminReferenceData";
 
 const EV_GREEN = "#03cd8c";
 const CONTENT_KIND = "tax-region-configs";
@@ -69,11 +70,11 @@ type Notice = {
 const DEFAULT_DRAFT: TaxConfigDraft = {
   regionCode: "",
   regionName: "",
-  country: "Uganda",
-  currency: "UGX",
-  vatRatePercent: "0",
-  withholdingRatePercent: "0",
-  invoicePrefix: "EVZ",
+  country: "",
+  currency: "",
+  vatRatePercent: "",
+  withholdingRatePercent: "",
+  invoicePrefix: "",
   active: true,
 };
 
@@ -115,6 +116,16 @@ export default function TaxesInvoicingPage() {
   const { regionId } = useParams();
   const [records, setRecords] = useState<Array<AdminContentItem<TaxRegionConfigDocument>>>([]);
   const [draft, setDraft] = useState<TaxConfigDraft>(DEFAULT_DRAFT);
+  const { referenceData } = useAdminReferenceData();
+  // New region drafts start from the backend's platform country and currency.
+  const newDraft = useMemo<TaxConfigDraft>(
+    () => ({
+      ...DEFAULT_DRAFT,
+      country: referenceData ? countryDisplayName(referenceData.platform.countryCode) : "",
+      currency: referenceData?.platform.currency ?? "",
+    }),
+    [referenceData],
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
@@ -144,11 +155,11 @@ export default function TaxesInvoicingPage() {
 
   useEffect(() => {
     if (regionId) {
-      setDraft(selectedRecord ? normalizeConfig(selectedRecord) : { ...DEFAULT_DRAFT, regionCode: regionId });
+      setDraft(selectedRecord ? normalizeConfig(selectedRecord) : { ...newDraft, regionCode: regionId });
     } else {
-      setDraft(DEFAULT_DRAFT);
+      setDraft(newDraft);
     }
-  }, [regionId, selectedRecord]);
+  }, [newDraft, regionId, selectedRecord]);
 
   const activeRegions = records.filter((record) => record.active).length;
   const currencies = Array.from(new Set(records.map((record) => record.currency).filter(Boolean))).length;
@@ -162,6 +173,17 @@ export default function TaxesInvoicingPage() {
   const handleSave = async () => {
     if (!draft.regionCode.trim()) {
       setNotice({ type: "error", message: "Region code is required before saving." });
+      return;
+    }
+    const missing = [
+      ["country", draft.country],
+      ["currency", draft.currency],
+      ["VAT rate", draft.vatRatePercent],
+      ["withholding rate", draft.withholdingRatePercent],
+      ["invoice prefix", draft.invoicePrefix],
+    ].filter(([, value]) => !value.trim()).map(([label]) => label);
+    if (missing.length > 0) {
+      setNotice({ type: "error", message: `Enter the ${missing.join(", ")} before saving.` });
       return;
     }
 

@@ -45,6 +45,7 @@ type CallInvitePayload = {
   serviceId?: string;
   mediaType?: AdminCallMediaType;
   createdAt?: string;
+  iceServers?: RTCIceServer[];
 };
 
 type CallLifecyclePayload = {
@@ -58,12 +59,10 @@ type CallLifecyclePayload = {
   durationSeconds?: number | null;
 };
 
-const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-
 type CallUiState =
   | { kind: "idle" }
   | { kind: "ringing"; callId: string; peerName: string; outgoing: boolean }
-  | { kind: "incoming"; callId: string; callerName: string; mediaType: AdminCallMediaType }
+  | { kind: "incoming"; callId: string; callerName: string; mediaType: AdminCallMediaType; iceServers: RTCIceServer[] }
   | { kind: "active"; callId: string; peerName: string; durationSeconds: number };
 
 type FailedSend =
@@ -204,7 +203,8 @@ export default function AdminTripCommunicationPanel({
     [getSocket, serviceId, serviceType],
   );
 
-  const setupPeerConnection = useCallback((servers: RTCIceServer[] = ICE_SERVERS) => {
+  // ICE servers always come from the backend call payload (STUN/TURN config).
+  const setupPeerConnection = useCallback((servers: RTCIceServer[]) => {
     const pc = new RTCPeerConnection({ iceServers: servers });
     pcRef.current = pc;
     localStreamRef.current?.getTracks().forEach((track) => {
@@ -276,6 +276,12 @@ export default function AdminTripCommunicationPanel({
       }
       callIdRef.current = payload.callId;
       incomingCallerNameRef.current = payload.callerName || "Rider";
+      const iceServers = payload.iceServers ?? [];
+      if (iceServers.length === 0) {
+        setCallError("The server did not send call connection settings. Ask the caller to try again.");
+        endCallUi();
+        return;
+      }
       try {
         await adminRespondToChatCall(payload.callId, "ANSWER");
       } catch {
@@ -291,7 +297,7 @@ export default function AdminTripCommunicationPanel({
         endCallUi();
         return;
       }
-      const pc = setupPeerConnection();
+      const pc = setupPeerConnection(iceServers);
       setCall({
         kind: "ringing",
         callId: payload.callId,
@@ -329,7 +335,12 @@ export default function AdminTripCommunicationPanel({
           mediaType,
         });
         callIdRef.current = result.call.id;
-        const pc = setupPeerConnection();
+        const iceServers = result.signaling?.iceServers ?? [];
+        if (iceServers.length === 0) {
+          void adminEndChatCall(result.call.id).catch(() => undefined);
+          throw new Error("The server did not send call connection settings.");
+        }
+        const pc = setupPeerConnection(iceServers);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         emitSignal("offer", offer);
@@ -530,6 +541,7 @@ export default function AdminTripCommunicationPanel({
         callId: payload.callId,
         callerName: payload.callerName || "Rider",
         mediaType: payload.mediaType ?? "audio",
+        iceServers: payload.iceServers ?? [],
       });
     };
 
@@ -761,6 +773,7 @@ export default function AdminTripCommunicationPanel({
                   callerName: call.callerName,
                   calleeUserId: myUserId,
                   mediaType: call.mediaType,
+                  iceServers: call.iceServers,
                 });
               }}
               className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl transition-all active:scale-95"

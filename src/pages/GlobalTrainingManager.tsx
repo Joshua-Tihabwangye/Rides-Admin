@@ -28,6 +28,7 @@ import {
   patchAdminTrainingModule,
   type AdminTrainingModuleResponse,
 } from "../services/api/adminApi";
+import { languageDisplayName, useAdminReferenceData } from "../hooks/useAdminReferenceData";
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -57,12 +58,12 @@ type SnackbarState = {
   severity: AlertColor;
 };
 
-const emptyTrainingModule = (): TrainingModuleEditor => ({
+const emptyTrainingModule = (language = ""): TrainingModuleEditor => ({
   id: "",
   title: "",
   audience: "Drivers",
   status: "Draft",
-  language: "en",
+  language,
   description: "",
 });
 
@@ -88,7 +89,7 @@ function encodeContent(module: TrainingModuleEditor) {
 
 function decodeContent(content?: string): TrainingModuleContent {
   if (!content) {
-    return { description: "", audience: "Drivers", language: "en" };
+    return { description: "", audience: "Drivers", language: "" };
   }
 
   try {
@@ -96,10 +97,10 @@ function decodeContent(content?: string): TrainingModuleContent {
     return {
       description: typeof parsed.description === "string" ? parsed.description : content,
       audience: typeof parsed.audience === "string" ? parsed.audience : "Drivers",
-      language: typeof parsed.language === "string" ? parsed.language : "en",
+      language: typeof parsed.language === "string" ? parsed.language : "",
     };
   } catch {
-    return { description: content, audience: "Drivers", language: "en" };
+    return { description: content, audience: "Drivers", language: "" };
   }
 }
 
@@ -150,6 +151,11 @@ export default function GlobalTrainingManagerPage() {
   const [modules, setModules] = useState<TrainingModuleEditor[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<TrainingModuleEditor>(() => emptyTrainingModule());
+  const { referenceData } = useAdminReferenceData();
+  const languageOptions = useMemo(() => {
+    const codes = referenceData?.languages ?? [];
+    return editing.language && !codes.includes(editing.language) ? [editing.language, ...codes] : codes;
+  }, [referenceData, editing.language]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -208,7 +214,7 @@ export default function GlobalTrainingManagerPage() {
   };
 
   const handleNewModule = () => {
-    const draft = emptyTrainingModule();
+    const draft = emptyTrainingModule(referenceData?.platform.language);
     setSelectedId(null);
     setEditing(draft);
   };
@@ -329,7 +335,7 @@ export default function GlobalTrainingManagerPage() {
                       <TableCell>{module.title}</TableCell>
                       <TableCell>{module.audience}</TableCell>
                       <TableCell>{module.status}</TableCell>
-                      <TableCell>{module.language}</TableCell>
+                      <TableCell>{module.language ? languageDisplayName(module.language) : "-"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -387,10 +393,13 @@ export default function GlobalTrainingManagerPage() {
                 <Typography variant="caption" className="text-[11px] text-slate-500">
                   Language
                 </Typography>
-                <Select size="small" fullWidth value={editing.language} onChange={handleFieldChange("language")}>
-                  <MenuItem value="en">English</MenuItem>
-                  <MenuItem value="fr">French</MenuItem>
-                  <MenuItem value="sw">Swahili</MenuItem>
+                <Select size="small" fullWidth displayEmpty value={editing.language} onChange={handleFieldChange("language")}>
+                  <MenuItem value=""><em>Select language</em></MenuItem>
+                  {languageOptions.map((code) => (
+                    <MenuItem key={code} value={code}>
+                      {languageDisplayName(code)}
+                    </MenuItem>
+                  ))}
                 </Select>
               </Box>
             </Box>

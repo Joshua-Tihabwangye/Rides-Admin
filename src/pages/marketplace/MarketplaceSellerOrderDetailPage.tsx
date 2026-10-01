@@ -31,8 +31,9 @@ import {
   type SellerOrderDetail,
 } from "../../services/api/marketplaceApi";
 import { useSimulationSession } from "../../components/marketplace/useSimulationSession";
+import { platformCurrency } from "../../hooks/useAdminReferenceData";
 
-function formatUgx(amount: number, currency = "UGX") {
+function formatUgx(amount: number, currency = platformCurrency()) {
   return `${currency} ${Math.round(amount).toLocaleString()}`;
 }
 

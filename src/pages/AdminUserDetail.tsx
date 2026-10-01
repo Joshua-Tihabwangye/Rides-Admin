@@ -18,8 +18,8 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
 import StatusBadge from "../components/StatusBadge";
-import { ADMIN_ROLE_OPTIONS, getAuthRoles } from "../auth/auth";
-import { hasPermissionByRoles } from "../auth/permissions";
+import { ADMIN_ROLE_OPTIONS } from "../auth/auth";
+import { hasAuthPermission } from "../auth/permissions";
 import { getAdminUser, patchAdminUser, type AdminUserResponse } from "../services/api/adminApi";
 
 export default function AdminUserDetail() {
@@ -31,7 +31,7 @@ export default function AdminUserDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const canManageAdminUsers = hasPermissionByRoles(getAuthRoles(), "manage_admin_users");
+  const canManageAdminUsers = hasAuthPermission("manage_admin_users");
 
   useEffect(() => {
     if (!id) return;

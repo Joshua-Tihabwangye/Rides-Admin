@@ -102,6 +102,7 @@ import {
   PolylineF,
   useJsApiLoader,
 } from '@react-google-maps/api';
+import { platformCurrency } from "../hooks/useAdminReferenceData";
 
 function hasAny(permissions: AdminPermission[]) {
   const user = getAuthUser();
@@ -896,7 +897,7 @@ function DeliveryLedgerSection({ orderId }: { orderId: string }) {
     );
   }
 
-  const currency = ledger?.entries?.[0]?.currency ?? 'UGX';
+  const currency = ledger?.entries?.[0]?.currency ?? platformCurrency();
   const openAlerts = alerts.filter((alert) => alert.status === 'OPEN');
 
   return (

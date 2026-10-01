@@ -56,6 +56,7 @@ import type {
   AdminPayout,
   AdminRevenueSummary,
 } from "../services/api/adminApi";
+import { platformCurrency } from "../hooks/useAdminReferenceData";
 
 const PALETTE = [
   "#03cd8c",
@@ -106,9 +107,17 @@ function periodRange(
 }
 
 function currencySymbol(currency?: string) {
-  if (currency === "UGX") return "USh";
-  if (currency === "USD") return "$";
-  return currency || "UGX";
+  const code = currency || platformCurrency();
+  if (!code) return "";
+  try {
+    return (
+      new Intl.NumberFormat(undefined, { style: "currency", currency: code, currencyDisplay: "narrowSymbol" })
+        .formatToParts(0)
+        .find((part) => part.type === "currency")?.value ?? code
+    );
+  } catch {
+    return code;
+  }
 }
 
 function formatMoney(value: number, currency?: string) {
@@ -150,7 +159,7 @@ export default function FinancialOverviewPage() {
     () => periodRange(period, customRange),
     [period, customRange],
   );
-  const currency = analytics?.currency || revenue?.currency || "UGX";
+  const currency = analytics?.currency || revenue?.currency || platformCurrency();
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);

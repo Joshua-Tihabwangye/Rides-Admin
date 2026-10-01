@@ -15,8 +15,7 @@ import {
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SaveIcon from '@mui/icons-material/Save'
-import { getAuthRoles } from '../auth/auth'
-import { hasPermissionByRoles } from '../auth/permissions'
+import { hasAuthPermission } from '../auth/permissions'
 import { createAdminDriver } from '../services/api/adminApi'
 import { normalizeAdminCreateDriverInput } from '../services/api/validators'
 
@@ -36,7 +35,7 @@ export default function DriverCreate() {
 
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const canManagePeople = hasPermissionByRoles(getAuthRoles(), 'manage_people')
+    const canManagePeople = hasAuthPermission('manage_people')
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value })

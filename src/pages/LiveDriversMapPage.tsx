@@ -30,6 +30,7 @@ import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import TwoWheelerIcon from "@mui/icons-material/TwoWheeler";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { requestBrowserCenter } from "../utils/browserLocation";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import { useNavigate } from "react-router-dom";
 import {
@@ -47,22 +48,6 @@ import {
 
 const GOOGLE_MAP_LIBRARIES: Libraries = ["visualization"];
 type MapMode = "DRIVERS" | "RIDER_DEMAND";
-
-// Returns the operator's real browser position to seed the initial viewport,
-// or null when unavailable. The map only centers on real driver data.
-function requestBrowserCenter(): Promise<{ lat: number; lng: number } | null> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(null);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 },
-    );
-  });
-}
 
 function vehicleIcon(vehicleType?: string) {
   const category = vehicleDisplayCategory(vehicleType);
@@ -123,7 +108,8 @@ export default function LiveDriversMapPage() {
     id: "live-drivers-map",
     googleMapsApiKey,
     libraries: GOOGLE_MAP_LIBRARIES,
-    preventGoogleFontsLoading: true,
+    // Do not set preventGoogleFontsLoading: it patches document.head and drops
+    // every empty <style> Emotion inserts afterwards, leaving MUI unstyled.
   });
 
   const {

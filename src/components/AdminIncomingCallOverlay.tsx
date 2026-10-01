@@ -74,8 +74,6 @@ type SosSessionUpdate = {
   recipients?: { id: string; type: string; name: string; status: string }[];
 };
 
-const DEFAULT_ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
-
 function currentAdminUserId(): string | null {
   try {
     const token = readAdminBackendAccessToken();
@@ -181,8 +179,9 @@ export default function AdminIncomingCallOverlay() {
   const setupPeerConnection = useCallback(
     (callId: string, localStream: MediaStream) => {
       const call = callsRef.current.find((c) => c.callId === callId);
-      if (!call) return null;
-      const pc = new RTCPeerConnection({ iceServers: call.iceServers ?? DEFAULT_ICE_SERVERS });
+      // ICE servers come from the backend invite; without them the call cannot connect.
+      if (!call || !call.iceServers?.length) return null;
+      const pc = new RTCPeerConnection({ iceServers: call.iceServers });
       call.refs.pc = pc;
       call.refs.localStream = localStream;
       localStream.getTracks().forEach((track) => {
@@ -298,7 +297,12 @@ export default function AdminIncomingCallOverlay() {
         return;
       }
       const pc = setupPeerConnection(callId, stream);
-      if (!pc) return;
+      if (!pc) {
+        stream.getTracks().forEach((track) => track.stop());
+        void adminEndChatCall(callId).catch(() => undefined);
+        endCallUi(callId);
+        return;
+      }
       setCalls((prev) => prev.map((c) => (c.callId === callId ? { ...c } : c)));
       setCalls((prev) =>
         prev.map((c) =>
@@ -337,7 +341,7 @@ export default function AdminIncomingCallOverlay() {
         emergencyContext: payload.emergencyContext,
         recipientType: payload.recipientType,
         recipientLabel: payload.recipientLabel,
-        iceServers: payload.iceServers?.length ? payload.iceServers : DEFAULT_ICE_SERVERS,
+        iceServers: payload.iceServers ?? [],
         state: {
           kind: "incoming",
           callId: payload.callId,

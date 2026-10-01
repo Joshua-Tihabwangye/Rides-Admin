@@ -70,7 +70,8 @@ export default function RideRouteMap({ stops, route }: { stops: AdminRideStopRes
   const { isLoaded, loadError } = useJsApiLoader({
     id: "ride-route-map",
     googleMapsApiKey,
-    preventGoogleFontsLoading: true,
+    // Do not set preventGoogleFontsLoading: it patches document.head and drops
+    // every empty <style> Emotion inserts afterwards, leaving MUI unstyled.
     version: "weekly",
   });
   const googleMaps = isLoaded ? getGoogleMaps() : null;
@@ -143,14 +144,18 @@ export default function RideRouteMap({ stops, route }: { stops: AdminRideStopRes
     );
   }
 
+  if (!center) {
+    return <CoordinateFallback stops={geoStops} message="This ride has no route coordinates to map." />;
+  }
+
   return (
     <MapErrorBoundary>
       <Box sx={{ borderRadius: 2, overflow: "hidden", border: "1px solid", borderColor: "divider" }}>
         {mapsReady && googleMaps && (
           <GoogleMap
             mapContainerStyle={{ width: "100%", height: 340 }}
-            center={center ?? { lat: 0.3476, lng: 32.5825 }}
-            zoom={center ? 13 : 10}
+            center={center}
+            zoom={13}
             options={{
               fullscreenControl: false,
               mapTypeControl: false,

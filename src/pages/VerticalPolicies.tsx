@@ -81,14 +81,14 @@ const DEFAULT_POLICIES: VerticalPolicies = {
     minDriverRating: "",
   },
   school: {
-    requireBackgroundCheck: true,
+    requireBackgroundCheck: false,
     minTrainingModules: "",
     maxKidsPerVehicle: "",
   },
   ems: {
-    allowNonEvForAmbulance: true,
+    allowNonEvForAmbulance: false,
     responseTimeTargetMin: "",
-    requireMedicalPartnerApproval: true,
+    requireMedicalPartnerApproval: false,
   },
   tours: {
     minDriverRating: "",
@@ -267,7 +267,7 @@ export default function VerticalPoliciesPage() {
 
       {!loading && !policyRecord ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No saved vertical policy record exists yet. Review the defaults below and save to create the authoritative backend record.
+          No vertical policy has been saved yet, so every rule below is unset. Configure each rule and save to create the backend record.
         </Alert>
       ) : null}
 

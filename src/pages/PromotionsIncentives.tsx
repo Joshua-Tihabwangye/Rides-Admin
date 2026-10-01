@@ -32,6 +32,7 @@ import {
   type AdminCreatePromoInput,
   type AdminPromoResponse,
 } from "../services/api/adminApi";
+import { formatMoney, useAdminReferenceData } from "../hooks/useAdminReferenceData";
 
 const EV_GREEN = "#03cd8c";
 type PromoTab = "rider" | "driver";
@@ -46,12 +47,12 @@ const DEFAULT_PROMO: PromoDraft = {
   code: "",
   description: "",
   discountType: "percent",
-  discountValue: 10,
+  discountValue: 0,
 };
 
-function rewardLabel(promo: AdminPromoResponse) {
+function rewardLabel(promo: AdminPromoResponse, currency: string | undefined) {
   if (promo.discountType === "percent") return `${promo.discountValue}% off`;
-  return `UGX ${promo.discountValue.toLocaleString("en-UG")} off`;
+  return `${formatMoney(promo.discountValue, currency)} off`;
 }
 
 function statusChip(status?: AdminPromoResponse["status"]) {
@@ -64,6 +65,7 @@ export default function PromotionsIncentivesPage() {
   const [tab, setTab] = useState<PromoTab>("rider");
   const [promos, setPromos] = useState<AdminPromoResponse[]>([]);
   const [draft, setDraft] = useState<PromoDraft>(DEFAULT_PROMO);
+  const { referenceData } = useAdminReferenceData();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -202,7 +204,7 @@ export default function PromotionsIncentivesPage() {
                           {statusChip(promo.status)}
                         </Stack>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 1, minHeight: 40 }}>{promo.description || "No description"}</Typography>
-                        <Chip size="small" label={rewardLabel(promo)} sx={{ mt: 1 }} />
+                        <Chip size="small" label={rewardLabel(promo, referenceData?.platform.currency)} sx={{ mt: 1 }} />
                       </CardContent>
                     </Card>
                   ))}

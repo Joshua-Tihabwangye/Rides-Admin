@@ -23,7 +23,14 @@ import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import DownloadIcon from "@mui/icons-material/Download";
 import StatusBadge from "../components/StatusBadge";
-import { listAdminUsers, type AdminUserResponse } from "../services/api/adminApi";
+import {
+  approveAdminUser,
+  listAdminUsers,
+  rejectAdminUser,
+  suspendAdminUser,
+  type AdminUserResponse,
+} from "../services/api/adminApi";
+import { getAuthRoles } from "../auth/auth";
 
 export default function AdminUsersManagementPage() {
   const navigate = useNavigate();
@@ -32,6 +39,11 @@ export default function AdminUsersManagementPage() {
   const [users, setUsers] = useState<AdminUserResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const canReviewAdminAccounts = getAuthRoles().includes("super_admin");
+  const pendingApprovalCount = users.filter(
+    (user) => user.approvalStatus === "PENDING",
+  ).length;
 
   const loadUsers = async () => {
     setLoading(true);
@@ -47,14 +59,48 @@ export default function AdminUsersManagementPage() {
 
   useEffect(() => {
     void loadUsers();
+    const refreshTimer = window.setInterval(() => void loadUsers(), 30_000);
+    return () => window.clearInterval(refreshTimer);
   }, []);
+
+  const decide = async (
+    user: AdminUserResponse,
+    decision: "approve" | "reject" | "suspend",
+  ) => {
+    if (!canReviewAdminAccounts) return;
+    const reason =
+      window.prompt(
+        "Optional reason for " + decision + "ing " + user.name + ":",
+      ) ?? undefined;
+    setActionId(user.id);
+    setError(null);
+    try {
+      const updated =
+        decision === "approve"
+          ? await approveAdminUser(user.id, reason)
+          : decision === "reject"
+            ? await rejectAdminUser(user.id, reason)
+            : await suspendAdminUser(user.id, reason);
+      setUsers((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+    } catch (err: any) {
+      setError(err?.message ?? "Unable to update this admin account");
+    } finally {
+      setActionId(null);
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
       const matchesSearch =
         user.name.toLowerCase().includes(search.toLowerCase()) ||
         user.email.toLowerCase().includes(search.toLowerCase());
-      const matchesRole = activeRole === "All" || user.roles.some((role) => role.toLowerCase() === activeRole.toLowerCase());
+      const matchesRole =
+        activeRole === "All" ||
+        user.roles.some(
+          (role) => role.toLowerCase() === activeRole.toLowerCase(),
+        );
       return matchesSearch && matchesRole;
     });
   }, [activeRole, search, users]);
@@ -69,10 +115,12 @@ export default function AdminUsersManagementPage() {
         user.regions,
         user.status,
         user.twoFA ? "Enabled" : "Disabled",
-        user.lastLogin ? new Date(user.lastLogin).toISOString() : "", 
+        user.lastLogin ? new Date(user.lastLogin).toISOString() : "",
       ]),
     ];
-    const blob = new Blob([rows.map((row) => row.join(",")).join("\n")], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([rows.map((row) => row.join(",")).join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -83,7 +131,14 @@ export default function AdminUsersManagementPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 4 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          p: 4,
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -97,11 +152,23 @@ export default function AdminUsersManagementPage() {
     <Box>
       <Box className="pb-4 flex items-center justify-between gap-2 flex-wrap">
         <Box>
-          <Typography variant="h6" className="font-semibold tracking-tight" color="text.primary">
+          <Typography
+            variant="h6"
+            className="font-semibold tracking-tight"
+            color="text.primary"
+          >
             Admin Users Management
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Privileged accounts, roles, regions, and security posture.
+            {canReviewAdminAccounts ? (
+              <Chip
+                size="small"
+                color={pendingApprovalCount ? "warning" : "success"}
+                label={pendingApprovalCount + " pending approval"}
+                sx={{ mt: 1 }}
+              />
+            ) : null}
           </Typography>
         </Box>
         <Box className="flex items-center gap-2">
@@ -116,7 +183,12 @@ export default function AdminUsersManagementPage() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            sx={{ textTransform: "none", borderRadius: 2, bgcolor: "#03cd8c", "&:hover": { bgcolor: "#0fb589" } }}
+            sx={{
+              textTransform: "none",
+              borderRadius: 2,
+              bgcolor: "#03cd8c",
+              "&:hover": { bgcolor: "#0fb589" },
+            }}
             disabled
           >
             Add admin
@@ -124,7 +196,14 @@ export default function AdminUsersManagementPage() {
         </Box>
       </Box>
 
-      <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)", mb: 3 }}>
+      <Card
+        elevation={2}
+        sx={{
+          borderRadius: 2,
+          border: "1px solid rgba(148,163,184,0.3)",
+          mb: 3,
+        }}
+      >
         <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <Box className="flex-1">
             <TextField
@@ -140,14 +219,24 @@ export default function AdminUsersManagementPage() {
                   </InputAdornment>
                 ),
               }}
-              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "background.default", borderRadius: 2 } }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  bgcolor: "background.default",
+                  borderRadius: 2,
+                },
+              }}
             />
           </Box>
           <Box className="flex flex-wrap gap-1 items-center">
             <Typography variant="caption" color="text.secondary">
               Role:
             </Typography>
-            {["All", ...Array.from(new Set(users.flatMap((user) => user.roles))).sort()].map((role) => (
+            {[
+              "All",
+              ...Array.from(
+                new Set(users.flatMap((user) => user.roles)),
+              ).sort(),
+            ].map((role) => (
               <Chip
                 key={role}
                 size="small"
@@ -162,30 +251,54 @@ export default function AdminUsersManagementPage() {
         </CardContent>
       </Card>
 
-      <Card elevation={2} sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}>
+      <Card
+        elevation={2}
+        sx={{ borderRadius: 2, border: "1px solid rgba(148,163,184,0.3)" }}
+      >
         <CardContent className="p-0">
-          <TableContainer component={Paper} elevation={0} sx={{ bgcolor: "transparent" }}>
+          <TableContainer
+            component={Paper}
+            elevation={0}
+            sx={{ bgcolor: "transparent" }}
+          >
             <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>Name</TableCell>
                   <TableCell>Email</TableCell>
+                  <TableCell>Phone</TableCell>
                   <TableCell>Roles</TableCell>
                   <TableCell>Regions</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>2FA</TableCell>
                   <TableCell>Last login</TableCell>
+                  <TableCell>Approval</TableCell>
+                  {canReviewAdminAccounts ? (
+                    <TableCell align="right">Actions</TableCell>
+                  ) : null}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredUsers.map((user) => (
-                  <TableRow key={user.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/admin/admin-users/${user.id}`)}>
+                  <TableRow
+                    key={user.id}
+                    hover
+                    sx={{ cursor: "pointer" }}
+                    onClick={() => navigate(`/admin/admin-users/${user.id}`)}
+                  >
                     <TableCell sx={{ fontWeight: 600 }}>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.phone || "—"}</TableCell>
                     <TableCell>
                       <Box className="flex flex-wrap gap-1">
                         {user.roles.map((role) => (
-                          <Chip key={role} label={role} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
+                          <Chip
+                            key={role}
+                            label={role}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: 10, height: 20 }}
+                          />
                         ))}
                       </Box>
                     </TableCell>
@@ -194,12 +307,71 @@ export default function AdminUsersManagementPage() {
                       <StatusBadge status={user.status.toLowerCase()} />
                     </TableCell>
                     <TableCell>{user.twoFA ? "Enabled" : "Disabled"}</TableCell>
-                    <TableCell>{user.lastLogin ? new Date(user.lastLogin).toLocaleString() : "Never"}</TableCell>
+                    <TableCell>
+                      {user.lastLogin
+                        ? new Date(user.lastLogin).toLocaleString()
+                        : "Never"}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" display="block">
+                        {user.approvalStatus ?? "APPROVED"}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {user.approvalRequestedAt
+                          ? new Date(
+                              user.approvalRequestedAt,
+                            ).toLocaleDateString()
+                          : "—"}
+                      </Typography>
+                    </TableCell>
+                    {canReviewAdminAccounts ? (
+                      <TableCell
+                        align="right"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {user.approvalStatus === "PENDING" ? (
+                          <>
+                            <Button
+                              size="small"
+                              color="success"
+                              disabled={actionId === user.id}
+                              onClick={() => void decide(user, "approve")}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              disabled={actionId === user.id}
+                              onClick={() => void decide(user, "reject")}
+                            >
+                              Reject
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="small"
+                            color="warning"
+                            disabled={
+                              actionId === user.id ||
+                              user.status === "Suspended"
+                            }
+                            onClick={() => void decide(user, "suspend")}
+                          >
+                            Suspend
+                          </Button>
+                        )}
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
                 {filteredUsers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                    <TableCell
+                      colSpan={canReviewAdminAccounts ? 10 : 9}
+                      align="center"
+                      sx={{ py: 4, color: "text.secondary" }}
+                    >
                       No admin users found.
                     </TableCell>
                   </TableRow>

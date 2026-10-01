@@ -75,9 +75,10 @@ import PrintIcon from "@mui/icons-material/Print";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ColorModeContext } from "../theme/evzoneTheme";
 import { useAdminLiveData } from "../components/AdminLiveDataProvider";
+import { useAdminReferenceData } from "../hooks/useAdminReferenceData";
 import { getAuthUser, isAuthed, signOut } from "../auth/auth";
 import { getUserPermissions, type AdminPermission } from "../auth/permissions";
 import {
@@ -531,6 +532,7 @@ export default function AdminShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const { mode, toggle } = React.useContext(ColorModeContext);
+  const { referenceData } = useAdminReferenceData();
   const { dashboard } = useAdminLiveData();
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -624,8 +626,7 @@ export default function AdminShell() {
   }, [user?.email]);
 
   if (!isAuthed() || !user) {
-    navigate("/admin/login", { replace: true });
-    return null;
+    return <Navigate to="/admin/login" replace />;
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -862,20 +863,26 @@ export default function AdminShell() {
             >
               Check docs or contact engineering.
             </Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              fullWidth
-              sx={{
-                fontSize: 10,
-                height: 28,
-                borderColor: "divider",
-                color: "text.primary",
-                bgcolor: "background.paper",
-              }}
-            >
-              Documentation
-            </Button>
+            {referenceData?.documentationUrl ? (
+              <Button
+                size="small"
+                variant="outlined"
+                fullWidth
+                component="a"
+                href={referenceData.documentationUrl}
+                target="_blank"
+                rel="noreferrer"
+                sx={{
+                  fontSize: 10,
+                  height: 28,
+                  borderColor: "divider",
+                  color: "text.primary",
+                  bgcolor: "background.paper",
+                }}
+              >
+                Documentation
+              </Button>
+            ) : null}
           </Box>
         </Box>
       )}

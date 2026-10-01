@@ -39,10 +39,10 @@ type InvoiceTemplateDocument = Record<string, unknown> & {
 type InvoiceTemplateState = Pick<InvoiceTemplateDocument, "header" | "footer" | "showLogo" | "showTaxBreakdown">;
 
 const DEFAULT_TEMPLATE: InvoiceTemplateState = {
-  header: "EVzone Mobility - Official Receipt",
-  footer: "Thank you for choosing EVzone. For support: support@evzone.com",
-  showLogo: true,
-  showTaxBreakdown: true,
+  header: "",
+  footer: "",
+  showLogo: false,
+  showTaxBreakdown: false,
 };
 
 function AdminInvoiceTemplateLayout({ children }: { children: React.ReactNode }) {
@@ -101,6 +101,9 @@ export default function InvoiceTemplatePreviewPage() {
       const activeRows = rows.filter((row) => row.status !== "archived");
       setDrafts(activeRows);
       setTemplate(activeRows[0] ? normalizeTemplate(activeRows[0]) : DEFAULT_TEMPLATE);
+      if (!activeRows[0]) {
+        setNotice("No invoice template has been saved yet. Enter the header and footer, then save.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load invoice templates");
     } finally {
@@ -178,7 +181,7 @@ export default function InvoiceTemplatePreviewPage() {
   return (
     <AdminInvoiceTemplateLayout>
       {error ? <Alert severity="error">{error}</Alert> : null}
-      {notice ? <Alert severity="success">{notice}</Alert> : null}
+      {notice ? <Alert severity={drafts.length ? "success" : "info"}>{notice}</Alert> : null}
 
       <Box className="flex flex-col lg:flex-row gap-4">
         <Card elevation={1} sx={{ flex: 1, borderRadius: 2, border: "1px solid rgba(148,163,184,0.5)" }}>

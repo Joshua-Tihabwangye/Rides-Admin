@@ -21,13 +21,14 @@ import {
   patchAdminPricingZone,
 } from "../services/api/adminApi";
 import type { AdminPricingZoneResponse } from "../services/api/adminApi";
+import { useAdminReferenceData } from "../hooks/useAdminReferenceData";
+import { requestBrowserCenter } from "../utils/browserLocation";
 
 const EV_COLORS = {
   primary: "#03CD8C",
 };
 
 const googleMapsLibraries: "drawing"[] = ["drawing"];
-const defaultCenter = { lat: 0.3476, lng: 32.5825 };
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -68,6 +69,10 @@ export default function ZoneMapView() {
     message: "",
     severity: "success" as "success" | "error",
   });
+
+  const { referenceData } = useAdminReferenceData();
+  const [browserCenter, setBrowserCenter] = useState<google.maps.LatLngLiteral | null>(null);
+  const [browserCenterResolved, setBrowserCenterResolved] = useState(false);
 
   const polygonRef = useRef<google.maps.Polygon | null>(null);
   const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
@@ -200,8 +205,24 @@ export default function ZoneMapView() {
 
   const handleBack = () => navigate(-1);
 
-  const getCenter = (): google.maps.LatLngLiteral => {
-    if (paths.length === 0) return defaultCenter;
+  // A zone without boundaries starts at the configured service-area centre,
+  // then the operator's own position; nothing is assumed.
+  const needsFallbackCenter = !loading && paths.length === 0 && Boolean(referenceData) && !referenceData?.mapCenter;
+  useEffect(() => {
+    if (!needsFallbackCenter || browserCenterResolved) return;
+    let active = true;
+    requestBrowserCenter().then((position) => {
+      if (!active) return;
+      setBrowserCenter(position);
+      setBrowserCenterResolved(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [needsFallbackCenter, browserCenterResolved]);
+
+  const getCenter = (): google.maps.LatLngLiteral | null => {
+    if (paths.length === 0) return referenceData?.mapCenter ?? browserCenter;
     const sum = paths.reduce(
       (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
       { lat: 0, lng: 0 }
@@ -349,10 +370,22 @@ export default function ZoneMapView() {
             </Typography>
           </Box>
         )}
-        {isLoaded && (
+        {isLoaded && !getCenter() && (
+          <Box sx={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", p: 3 }}>
+            {needsFallbackCenter && !browserCenterResolved ? (
+              <CircularProgress />
+            ) : (
+              <Alert severity="info">
+                No map location is available. Configure DEFAULT_MAP_CENTER on the backend, draw another zone first,
+                or allow location access in this browser.
+              </Alert>
+            )}
+          </Box>
+        )}
+        {isLoaded && getCenter() && (
           <GoogleMap
             mapContainerStyle={{ width: "100%", height: "100%" }}
-            center={getCenter()}
+            center={getCenter() ?? undefined}
             zoom={13}
             options={{
               fullscreenControl: false,

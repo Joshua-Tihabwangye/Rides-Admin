@@ -53,7 +53,7 @@ function riderName(rider: AdminRiderResponse) {
 function formatDate(value?: string | number) {
   if (!value) return "-";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("en-UG", { dateStyle: "medium" });
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
 function statusLabel(status: AdminRiderResponse["status"]) {

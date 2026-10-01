@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import { SOCKET_BASE_URL, SOCKET_PATH, getBackendEnabled } from "./config";
+import { SOCKET_BASE_URL, SOCKET_PATH } from "./config";
 import {
   request,
   configureHttpClientAuth,
@@ -11,9 +11,8 @@ import {
   normalizeAdminCreateRiderInput,
 } from "./validators";
 
-export const ADMIN_BACKEND_ACCESS_TOKEN_KEY = "admin_backend_access_token";
 export const ADMIN_SUMMARY_UPDATED_EVENT = "evzone:admin-summary-updated";
-const ADMIN_AUTH_STORAGE_KEY = "evzone_admin_auth";
+let adminBackendAccessToken: string | null = null;
 
 export type AdminRiderResponse = {
   id: string;
@@ -86,7 +85,13 @@ export type AdminUserResponse = {
   email: string;
   roles: string[];
   regions: string;
-  status: "Active" | "Suspended";
+  status: "Active" | "Pending approval" | "Suspended";
+  phone?: string;
+  createdAt?: string;
+  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | string;
+  approvalRequestedAt?: string;
+  approvalReviewedAt?: string | null;
+  approvalReason?: string | null;
   lastLogin: number;
   twoFA: boolean;
   avatarColor?: string;
@@ -94,24 +99,21 @@ export type AdminUserResponse = {
 
 // Auth helpers for admin backend tokens
 export function readAdminBackendAccessToken(): string | null {
-  try {
-    return localStorage.getItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
-  } catch {
-    return null;
-  }
+  return adminBackendAccessToken;
 }
 
 export function writeAdminBackendAccessToken(token: string): void {
-  localStorage.setItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY, token);
+  adminBackendAccessToken = token;
 }
 
-export function clearAdminBackendTokens(): void {
-  try {
-    localStorage.removeItem(ADMIN_BACKEND_ACCESS_TOKEN_KEY);
-    localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
-  } catch {
-    // no-op
-  }
+export function clearAdminBackendTokens(notifyBackend = true): void {
+  adminBackendAccessToken = null;
+  if (!notifyBackend) return;
+  void request("/auth/logout", {
+    method: "POST",
+    body: { clientApp: "ADMIN" },
+    retryOnUnauthorized: false,
+  }).catch(() => undefined);
 }
 
 async function refreshAdminBackendTokens(): Promise<TokenRefreshResult> {
@@ -124,6 +126,13 @@ async function refreshAdminBackendTokens(): Promise<TokenRefreshResult> {
   return {
     accessToken: payload.accessToken,
   };
+}
+
+/** Restore an in-memory access token from the HttpOnly ADMIN refresh cookie. */
+export async function restoreAdminBackendSession(): Promise<void> {
+  if (readAdminBackendAccessToken()) return;
+  const refreshed = await refreshAdminBackendTokens();
+  saveAdminBackendTokens(refreshed.accessToken);
 }
 
 configureHttpClientAuth({
@@ -495,6 +504,25 @@ export type AdminPortalSettingsResponse = {
   };
   limitAssignedOnly: boolean;
 };
+
+export type AdminReferenceData = {
+  platform: {
+    countryCode: string;
+    currency: string;
+    timezone: string;
+    language: string;
+  };
+  countries: string[];
+  languages: string[];
+  currencies: string[];
+  mapCenter: { lat: number; lng: number } | null;
+  support: { email: string | null; phone: string | null };
+  documentationUrl: string | null;
+};
+
+export async function getAdminReferenceData(): Promise<AdminReferenceData> {
+  return request<AdminReferenceData>("/admin/reference-data", { method: "GET" });
+}
 
 export async function getAdminMyProfile(): Promise<AdminSelfProfileResponse> {
   return request<AdminSelfProfileResponse>("/admins/me/profile", {
@@ -1382,7 +1410,9 @@ function normalizeAdminSafetyIncidentPage(
 ): AdminSafetyIncidentPage {
   const objectResponse = Array.isArray(response) ? undefined : response;
   const data =
-    objectResponse && "data" in objectResponse ? objectResponse.data : undefined;
+    objectResponse && "data" in objectResponse
+      ? objectResponse.data
+      : undefined;
   const nested = data && !Array.isArray(data) ? data : undefined;
   const items = Array.isArray(response)
     ? response
@@ -1397,8 +1427,7 @@ function normalizeAdminSafetyIncidentPage(
   const page = Number(meta?.page ?? fallbackPage);
   const limit = Number(meta?.limit ?? fallbackLimit);
   const total = Number(meta?.total ?? items.length);
-  const totalPages =
-    meta && "totalPages" in meta ? meta.totalPages : undefined;
+  const totalPages = meta && "totalPages" in meta ? meta.totalPages : undefined;
   const pageCount = Number(
     meta?.pageCount ??
       totalPages ??
@@ -2526,7 +2555,7 @@ export function saveAdminBackendTokens(accessToken: string): void {
 }
 
 export function isAdminBackendEnabled(): boolean {
-  return getBackendEnabled();
+  return true;
 }
 
 // ── Audit Events ────────────────────────────────────────────────────────────
@@ -2631,11 +2660,7 @@ export async function markAllAdminNotificationsRead(): Promise<{
 // ── Reference Data Sync ─────────────────────────────────────────────────────
 
 export async function syncAdminReferenceData(): Promise<void> {
-  if (
-    typeof window === "undefined" ||
-    !getBackendEnabled() ||
-    !readAdminBackendAccessToken()
-  ) {
+  if (typeof window === "undefined" || !readAdminBackendAccessToken()) {
     return;
   }
 
@@ -2790,6 +2815,36 @@ export async function patchAdminUser(
   });
 }
 
+export async function approveAdminUser(
+  userId: string,
+  reason?: string,
+): Promise<AdminUserResponse> {
+  return request<AdminUserResponse>(
+    "/admin/admin-approvals/" + userId + "/approve",
+    { method: "PATCH", body: { reason } },
+  );
+}
+
+export async function rejectAdminUser(
+  userId: string,
+  reason?: string,
+): Promise<AdminUserResponse> {
+  return request<AdminUserResponse>(
+    "/admin/admin-approvals/" + userId + "/reject",
+    { method: "PATCH", body: { reason } },
+  );
+}
+
+export async function suspendAdminUser(
+  userId: string,
+  reason?: string,
+): Promise<AdminUserResponse> {
+  return request<AdminUserResponse>(
+    "/admin/admin-approvals/" + userId + "/suspend",
+    { method: "PATCH", body: { reason } },
+  );
+}
+
 // ── Admin Agents ───────────────────────────────────────────────────────────
 
 export type AdminAgentProfile = {
@@ -2851,19 +2906,18 @@ export type AdminAgentResponse = AdminUserResponse & {
   };
 };
 
-export type AdminCreateAgentInput = AdminCreatePlatformUserInput &
-  Partial<{
-    organizationId: string;
-    employeeCode: string;
-    portalRole: string;
-    title: string;
-    department: string;
-    timezone: string;
-    language: string;
-    teamId: string;
-    permissions: string[];
-    serviceCapabilities: string[];
-  }>;
+export interface AdminCreateAgentInput extends AdminCreatePlatformUserInput {
+  organizationId?: string;
+  employeeCode?: string;
+  portalRole?: string;
+  title?: string;
+  department?: string;
+  timezone?: string;
+  language?: string;
+  teamId?: string;
+  permissions?: string[];
+  serviceCapabilities?: string[];
+}
 
 export async function listAdminAgents(): Promise<AdminAgentResponse[]> {
   return request<AdminAgentResponse[]>("/admin/agents", { method: "GET" });

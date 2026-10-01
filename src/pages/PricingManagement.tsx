@@ -50,11 +50,12 @@ import {
   patchPricingRule,
   patchSurgeZone,
 } from "../services/api/adminApi";
+import { formatMoney, platformCurrency } from "../hooks/useAdminReferenceData";
 
 const EV_GREEN = "#03cd8c";
 
-function fmtUGX(n: number | string) {
-  return `${Number(n).toLocaleString("en-UG")} UGX`;
+function fmtAmount(n: number | string, currency?: string) {
+  return formatMoney(Number(n), currency);
 }
 
 type PricingRuleNumberField = "baseFare" | "perKm" | "perMinute" | "minimumFare" | "bookingFee";
@@ -153,13 +154,8 @@ function PricingRulesTab() {
   const openCreate = () => {
     setEditRow({
       serviceType: "RIDE",
-      vehicleType: "EV_COMFORT",
-      baseFare: 2500,
-      perKm: 1200,
-      perMinute: 150,
-      minimumFare: 5000,
-      bookingFee: 700,
-      currency: "UGX",
+      vehicleType: "",
+      currency: platformCurrency(),
       active: true,
     });
     setDialogOpen(true);
@@ -249,11 +245,11 @@ function PricingRulesTab() {
               <TableRow key={row.id} hover>
                 <TableCell sx={{ fontWeight: 600 }}>{row.serviceType}</TableCell>
                 <TableCell>{row.vehicleType ?? "—"}</TableCell>
-                <TableCell>{fmtUGX(row.baseFare)}</TableCell>
-                <TableCell>{fmtUGX(row.perKm)}</TableCell>
-                <TableCell>{fmtUGX(row.perMinute)}</TableCell>
-                <TableCell>{fmtUGX(row.minimumFare)}</TableCell>
-                <TableCell>{fmtUGX(row.bookingFee)}</TableCell>
+                <TableCell>{fmtAmount(row.baseFare, row.currency)}</TableCell>
+                <TableCell>{fmtAmount(row.perKm, row.currency)}</TableCell>
+                <TableCell>{fmtAmount(row.perMinute, row.currency)}</TableCell>
+                <TableCell>{fmtAmount(row.minimumFare, row.currency)}</TableCell>
+                <TableCell>{fmtAmount(row.bookingFee, row.currency)}</TableCell>
                 <TableCell>{row.currency}</TableCell>
                 <TableCell><StatusChip active={row.active} /></TableCell>
                 <TableCell align="right">
@@ -287,9 +283,9 @@ function PricingRulesTab() {
             onChange={(e) => setEditRow((p) => ({ ...p, vehicleType: e.target.value }))}
           />
           {PRICING_RULE_NUMBER_FIELDS.map(({ label, key }) => (
-            <TextField key={key} label={`${label} (UGX)`} type="number" size="small" value={editRow?.[key] ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, [key]: +e.target.value }))} />
+            <TextField key={key} label={`${label} (${editRow?.currency || platformCurrency()})`} type="number" size="small" value={editRow?.[key] ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, [key]: +e.target.value }))} />
           ))}
-          <TextField label="Currency" size="small" value={editRow?.currency ?? "UGX"} onChange={(e) => setEditRow((p) => ({ ...p, currency: e.target.value }))} />
+          <TextField label="Currency" size="small" value={editRow?.currency ?? ""} onChange={(e) => setEditRow((p) => ({ ...p, currency: e.target.value }))} />
           <FormControl size="small">
             <InputLabel>Status</InputLabel>
             <Select label="Status" value={(editRow?.active ?? true) ? "active" : "inactive"} onChange={(e) => setEditRow((p) => ({ ...p, active: e.target.value === "active" }))}>
@@ -579,7 +575,7 @@ function PromoCodesTab() {
                 <TableCell sx={{ fontWeight: 600 }}>{row.code}</TableCell>
                 <TableCell>{row.serviceType ?? "All"}</TableCell>
                 <TableCell>{row.discountType}</TableCell>
-                <TableCell>{row.discountType === "PERCENT" ? `${row.value}%` : fmtUGX(row.value)}</TableCell>
+                <TableCell>{row.discountType === "PERCENT" ? `${row.value}%` : fmtAmount(row.value)}</TableCell>
                 <TableCell><StatusChip active={row.active} /></TableCell>
                 <TableCell align="right">
                   <Tooltip title="Edit"><IconButton size="small" onClick={() => { setEditRow({ ...row }); setDialogOpen(true); }}><EditIcon fontSize="small" /></IconButton></Tooltip>

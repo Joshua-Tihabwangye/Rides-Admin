@@ -39,8 +39,9 @@ import {
   type PlaceSuggestion,
 } from "../../services/api/marketplaceApi";
 import { useSimulationSession } from "../../components/marketplace/useSimulationSession";
+import { platformCurrency } from "../../hooks/useAdminReferenceData";
 
-function formatUgx(amount: number, currency = "UGX") {
+function formatUgx(amount: number, currency = platformCurrency()) {
   return `${currency} ${Math.round(amount).toLocaleString()}`;
 }
 
@@ -181,13 +182,8 @@ export default function MarketplaceClientCartPage() {
 
   const checkoutIdempotencyKey = useMemo(() => {
     if (!session || !cart) return "";
-    const storageKey = idempotencyKeyStorageKey(session.id, cart.id);
-    const existing = window.sessionStorage.getItem(storageKey);
-    if (existing) return existing;
-    const generated = crypto.randomUUID();
-    window.sessionStorage.setItem(storageKey, generated);
-    return generated;
-  }, [session, cart]);
+    return crypto.randomUUID();
+  }, [session?.id, cart?.id]);
 
   const checkout = useCallback(async () => {
     if (!session || !cart) return;
@@ -221,7 +217,6 @@ export default function MarketplaceClientCartPage() {
         checkoutIdempotencyKey,
       );
       setConfirmation(result);
-      window.sessionStorage.removeItem(idempotencyKeyStorageKey(session.id, cart.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
     } finally {

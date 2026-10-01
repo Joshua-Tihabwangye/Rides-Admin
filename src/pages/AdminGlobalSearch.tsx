@@ -35,6 +35,7 @@ import {
   listAdminRiders,
   listAdminRides,
   listAdminSafetyEmergencies,
+  listAdminServices,
 } from "../services/api/adminApi";
 import type {
   AdminCompanyResponse,
@@ -42,6 +43,7 @@ import type {
   AdminRideListItemResponse,
   AdminRiderResponse,
   AdminSafetyIncident,
+  AdminServiceResponse,
 } from "../services/api/adminApi";
 
 const EV_COLORS = {
@@ -54,7 +56,7 @@ const EV_COLORS = {
 type TabKey = "all" | "riders" | "drivers" | "companies" | "trips" | "incidents";
 type RegionFilter = "all" | string;
 type StatusFilter = "all" | "active" | "pending" | "suspended" | "completed" | "cancelled" | "open";
-type ServiceFilter = "all" | "rides";
+type ServiceFilter = "all" | string;
 
 type SearchRow = {
   id: string;
@@ -63,6 +65,7 @@ type SearchRow = {
   city: string;
   status: string;
   subtitle?: string;
+  serviceKey?: string;
 };
 
 type RideRow = SearchRow & {
@@ -184,6 +187,16 @@ export default function AdminGlobalSearchPage() {
   const [regionFilter, setRegionFilter] = useState<RegionFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [serviceFilter, setServiceFilter] = useState<ServiceFilter>("all");
+  const [services, setServices] = useState<AdminServiceResponse[]>([]);
+
+  useEffect(() => {
+    if (!backendMode) return;
+    listAdminServices()
+      .then((rows) => setServices(readArray<AdminServiceResponse>(rows)))
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? `Could not load services: ${err.message}` : "Could not load services");
+      });
+  }, [backendMode]);
   const [riders, setRiders] = useState<SearchRow[]>([]);
   const [drivers, setDrivers] = useState<SearchRow[]>([]);
   const [companies, setCompanies] = useState<SearchRow[]>([]);
@@ -266,12 +279,17 @@ export default function AdminGlobalSearchPage() {
   const filteredRiders = filterByStatus(filterByRegion(filterBySearch(riders, ["title", "subtitle", "city", "displayId"])));
   const filteredDrivers = filterByStatus(filterByRegion(filterBySearch(drivers, ["title", "subtitle", "city", "displayId"])));
   const filteredCompanies = filterByStatus(filterByRegion(filterBySearch(companies, ["title", "subtitle", "city", "displayId"])));
-  const filteredTrips =
-    serviceFilter === "all" || serviceFilter === "rides"
-      ? filterByStatus(filterByRegion(filterBySearch(trips, ["title", "rider", "driver", "route", "displayId"])))
-      : [];
-  const filteredIncidents = filterByStatus(
-    filterByRegion(filterBySearch(incidents, ["title", "user", "type", "city", "displayId"])),
+  const filterByService = useCallback(
+    <T extends SearchRow>(items: T[]) =>
+      serviceFilter === "all" ? items : items.filter((item) => item.serviceKey === serviceFilter),
+    [serviceFilter],
+  );
+
+  const filteredTrips = filterByService(
+    filterByStatus(filterByRegion(filterBySearch(trips, ["title", "rider", "driver", "route", "displayId"]))),
+  );
+  const filteredIncidents = filterByService(
+    filterByStatus(filterByRegion(filterBySearch(incidents, ["title", "user", "type", "city", "displayId"]))),
   );
 
   const tabs = useMemo(
@@ -389,7 +407,11 @@ export default function AdminGlobalSearchPage() {
           <FormControl size="small" sx={{ minWidth: 136 }}>
             <Select value={serviceFilter} onChange={(event: SelectChangeEvent) => setServiceFilter(event.target.value as ServiceFilter)}>
               <MenuItem value="all">All Services</MenuItem>
-              <MenuItem value="rides">Rides</MenuItem>
+              {services.map((service) => (
+                <MenuItem key={service.id} value={service.key}>
+                  {service.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </CardContent>
@@ -631,6 +653,7 @@ function mapRide(ride: AdminRideListItemResponse): RideRow {
     id: ride.id,
     displayId: displayId("TRP", ride.id),
     title: route,
+    serviceKey: "ride",
     city: ride.tripType || ride.category || ride.mode || "Rides",
     status: normalizeIncidentStatus(ride.status),
     subtitle: ride.currency && ride.estimatedFare != null ? `${ride.currency} ${ride.estimatedFare.toLocaleString()}` : ride.paymentStatus,
@@ -646,6 +669,7 @@ function mapIncident(incident: AdminSafetyIncident): IncidentRow {
   return {
     id: incident.id,
     displayId: displayId("SOS", incident.id),
+    serviceKey: incident.serviceType?.trim().toLowerCase() || undefined,
     title: incident.sos ? `SOS · ${incident.type}` : incident.type,
     city: incidentLocation(incident),
     status,

@@ -33,6 +33,7 @@ import {
   patchAdminCompany,
 } from '../services/api/adminApi';
 import type { AdminCommissionRule, AdminCompanyResponse } from '../services/api/adminApi';
+import { platformCurrency } from '../hooks/useAdminReferenceData';
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -147,10 +148,9 @@ export default function CompanyDetailPage() {
   const [commissionRules, setCommissionRules] = useState<AdminCommissionRule[]>([]);
   const [commissionDraft, setCommissionDraft] = useState({
     serviceType: "RIDE",
-    platformFeePercent: 15,
-    driverSharePercent: 85,
-    taxPercent: 0,
-    currency: "UGX",
+    platformFeePercent: "",
+    driverSharePercent: "",
+    taxPercent: "",
   });
   const [verticals, setVerticals] = useState<AdminCompanyResponse["verticals"]>({
     ride: false,
@@ -227,6 +227,16 @@ export default function CompanyDetailPage() {
 
   const handleCreateCommissionRule = async () => {
     if (!company) return;
+    const percents = [commissionDraft.platformFeePercent, commissionDraft.driverSharePercent, commissionDraft.taxPercent];
+    if (percents.some((value) => value === "" || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100)) {
+      setCommissionError("Enter platform, provider and tax percentages between 0 and 100.");
+      return;
+    }
+    const currency = platformCurrency();
+    if (!currency) {
+      setCommissionError("Platform currency has not loaded from the backend yet.");
+      return;
+    }
     setCommissionSaving(true);
     setCommissionError(null);
     try {
@@ -241,7 +251,7 @@ export default function CompanyDetailPage() {
         fixedPlatformFee: 0,
         priority: 100,
         active: true,
-        currency: commissionDraft.currency,
+        currency,
         effectiveFrom: new Date().toISOString(),
       });
       await loadCommissionRules();
@@ -433,21 +443,21 @@ export default function CompanyDetailPage() {
                 label="Platform %"
                 type="number"
                 value={commissionDraft.platformFeePercent}
-                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, platformFeePercent: Number(event.target.value) }))}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, platformFeePercent: event.target.value }))}
               />
               <TextField
                 size="small"
                 label="Provider %"
                 type="number"
                 value={commissionDraft.driverSharePercent}
-                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, driverSharePercent: Number(event.target.value) }))}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, driverSharePercent: event.target.value }))}
               />
               <TextField
                 size="small"
                 label="Tax %"
                 type="number"
                 value={commissionDraft.taxPercent}
-                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, taxPercent: Number(event.target.value) }))}
+                onChange={(event) => setCommissionDraft((prev) => ({ ...prev, taxPercent: event.target.value }))}
               />
               <Button
                 variant="outlined"

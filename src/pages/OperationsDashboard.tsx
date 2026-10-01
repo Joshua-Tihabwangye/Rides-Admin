@@ -48,6 +48,7 @@ import type {
   AdminOperationsAnalytics,
   AdminRideListItemResponse,
 } from "../services/api/adminApi";
+import { platformCurrency } from "../hooks/useAdminReferenceData";
 
 const EV_GREEN = "#03cd8c";
 const EV_ORANGE = "#f77f00";
@@ -71,9 +72,9 @@ function customDateRange(range: [Dayjs | null, Dayjs | null]) {
   };
 }
 
-function formatMoney(value?: number, currency = "UGX"): string {
+function formatMoney(value?: number, currency = platformCurrency()): string {
   if (value == null || Number.isNaN(Number(value))) return "-";
-  return `${currency} ${Number(value).toLocaleString("en-UG")}`;
+  return `${currency} ${Number(value).toLocaleString()}`;
 }
 
 function formatAge(value?: string): string {

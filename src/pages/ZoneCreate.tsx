@@ -19,6 +19,7 @@ import type { SelectChangeEvent } from "@mui/material/Select";
 import { useNavigate } from "react-router-dom";
 import { createAdminPricingZone, listAdminServices } from "../services/api/adminApi";
 import type { AdminServiceResponse } from "../services/api/adminApi";
+import { countryDisplayName, useAdminReferenceData } from "../hooks/useAdminReferenceData";
 
 const EV_COLORS = {
   primary: "#03cd8c",
@@ -37,6 +38,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 export default function ZoneCreate() {
   const navigate = useNavigate();
+  const { referenceData, referenceError } = useAdminReferenceData();
   const [formData, setFormData] = useState({
     name:"",
     country:"",
@@ -136,11 +138,12 @@ export default function ZoneCreate() {
               value={formData.country}
               onChange={handleTextChange("country")}
             >
-            <MenuItem value=""><em>Select country</em></MenuItem>
-              <MenuItem value="Uganda">Uganda</MenuItem>
-              <MenuItem value="Kenya">Kenya</MenuItem>
-              <MenuItem value="Rwanda">Rwanda</MenuItem>
-              <MenuItem value="Nigeria">Nigeria</MenuItem>
+            <MenuItem value=""><em>{referenceData ? "Select country" : "Loading countries…"}</em></MenuItem>
+              {(referenceData?.countries ?? []).map((code) => (
+                <MenuItem key={code} value={code}>
+                  {countryDisplayName(code)}
+                </MenuItem>
+              ))}
             </TextField>
             <TextField
               label="City/Region"
@@ -174,6 +177,9 @@ export default function ZoneCreate() {
             </Select>
           </FormControl>
 
+          {referenceError && (
+            <Alert severity="error" sx={{ mt: 1 }}>Could not load countries: {referenceError}</Alert>
+          )}
           {error && (
             <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>
           )}
